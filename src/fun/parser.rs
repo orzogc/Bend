@@ -1,12 +1,13 @@
 use crate::{
   fun::{
-    display::DisplayFn, Adt, Book, CtrField, DefType, Definition, FanKind, MatchRule, Name, Num, Op, Pattern,
-    Rule, Tag, Term, STRINGS,
+    display::DisplayFn, Adt, Book, CtrField, Definition, FanKind, MatchRule, Name, Num, Op, Pattern, Rule,
+    Source, Tag, Term, STRINGS,
   },
   imp::parser::PyParser,
   maybe_grow,
 };
 use highlight_error::highlight_error;
+use indexmap::IndexMap;
 use TSPL::Parser;
 
 // Bend grammar description:
@@ -108,8 +109,10 @@ impl<'a> TermParser<'a> {
           continue;
         } else {
           self.index = rewind_index;
-          let (nam, adt) = self.parse_datatype(builtin)?;
+          let (nam, ctrs) = self.parse_datatype()?;
           let end_idx = *self.index();
+          let source = if builtin { Source::Builtin } else { Source::Normal(ini_idx, end_idx) };
+          let adt = Adt { ctrs, source };
           self.with_ctx(book.add_adt(nam, adt), ini_idx, end_idx)?;
           indent = self.advance_newlines();
           last_rule = None;
@@ -142,7 +145,7 @@ impl<'a> TermParser<'a> {
           if last_rule == name {
             // Continuing with a new rule to the current definition
             def.rules.push(rule);
-            if let DefType::Normal(_, end) = &mut def.def_type {
+            if let Source::Normal(_, end) = &mut def.source {
               *end = end_idx;
             }
           } else {
@@ -157,8 +160,8 @@ impl<'a> TermParser<'a> {
         }
       } else {
         // Adding the first rule of a new definition
-        let def_type = if builtin { DefType::Builtin } else { DefType::Normal(ini_idx, end_idx) };
-        book.defs.insert(name.clone(), Definition::new(name.clone(), vec![rule], def_type));
+        let source = if builtin { Source::Builtin } else { Source::Normal(ini_idx, end_idx) };
+        book.defs.insert(name.clone(), Definition::new(name.clone(), vec![rule], source));
       }
       indent = self.advance_newlines();
       last_rule = Some(name);
@@ -167,7 +170,7 @@ impl<'a> TermParser<'a> {
     Ok(book)
   }
 
-  fn parse_datatype(&mut self, builtin: bool) -> ParseResult<(Name, Adt)> {
+  fn parse_datatype(&mut self) -> ParseResult<(Name, IndexMap<Name, Vec<CtrField>>)> {
     // data name = ctr (| ctr)*
     self.skip_trivia();
     let name = self.labelled(|p| p.parse_top_level_name(), "datatype name")?;
@@ -177,8 +180,7 @@ impl<'a> TermParser<'a> {
       ctrs.push(self.parse_datatype_ctr(&name)?);
     }
     let ctrs = ctrs.into_iter().collect();
-    let adt = Adt { ctrs, builtin };
-    Ok((name, adt))
+    Ok((name, ctrs))
   }
 
   fn parse_datatype_ctr(&mut self, typ_name: &Name) -> ParseResult<(Name, Vec<CtrField>)> {
@@ -802,7 +804,7 @@ impl Indent {
 impl Book {
   fn add_adt(&mut self, nam: Name, adt: Adt) -> ParseResult<()> {
     if let Some(adt) = self.adts.get(&nam) {
-      if adt.builtin {
+      if adt.source.is_builtin() {
         return Err(format!("{} is a built-in datatype and should not be overridden.", nam));
       } else {
         return Err(format!("Repeated datatype '{}'", nam));
@@ -812,7 +814,7 @@ impl Book {
         match self.ctrs.entry(ctr.clone()) {
           indexmap::map::Entry::Vacant(e) => _ = e.insert(nam.clone()),
           indexmap::map::Entry::Occupied(e) => {
-            if self.adts.get(e.get()).is_some_and(|adt| adt.builtin) {
+            if self.adts.get(e.get()).is_some_and(|adt| adt.source.is_builtin()) {
               return Err(format!("{} is a built-in constructor and should not be overridden.", e.key()));
             } else {
               return Err(format!("Repeated constructor '{}'", e.key()));
