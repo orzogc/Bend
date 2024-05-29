@@ -111,7 +111,7 @@ impl<'a> TermParser<'a> {
           self.index = rewind_index;
           let (nam, ctrs) = self.parse_datatype()?;
           let end_idx = *self.index();
-          let source = if builtin { Source::Builtin } else { Source::Normal(ini_idx, end_idx) };
+          let source = if builtin { Source::Builtin } else { Source::Local(ini_idx, end_idx) };
           let adt = Adt { ctrs, source };
           self.with_ctx(book.add_adt(nam, adt), ini_idx, end_idx)?;
           indent = self.advance_newlines();
@@ -145,7 +145,7 @@ impl<'a> TermParser<'a> {
           if last_rule == name {
             // Continuing with a new rule to the current definition
             def.rules.push(rule);
-            if let Source::Normal(_, end) = &mut def.source {
+            if let Source::Local(_, end) = &mut def.source {
               *end = end_idx;
             }
           } else {
@@ -160,7 +160,7 @@ impl<'a> TermParser<'a> {
         }
       } else {
         // Adding the first rule of a new definition
-        let source = if builtin { Source::Builtin } else { Source::Normal(ini_idx, end_idx) };
+        let source = if builtin { Source::Builtin } else { Source::Local(ini_idx, end_idx) };
         book.defs.insert(name.clone(), Definition::new(name.clone(), vec![rule], source));
       }
       indent = self.advance_newlines();
@@ -802,7 +802,7 @@ impl Indent {
 }
 
 impl Book {
-  fn add_adt(&mut self, nam: Name, adt: Adt) -> ParseResult<()> {
+  pub fn add_adt(&mut self, nam: Name, adt: Adt) -> ParseResult<()> {
     if let Some(adt) = self.adts.get(&nam) {
       if adt.source.is_builtin() {
         return Err(format!("{} is a built-in datatype and should not be overridden.", nam));
