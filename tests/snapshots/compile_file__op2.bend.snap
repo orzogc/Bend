@@ -1,6 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/compile_file/op2.bend
----
-@main = a
-  & $(1 $([=0x0000002] $([&0x0000003] $([|0x0000004] $([<0x0000005] $([>0x0000006] $([:/0x0000007] $([*0x0000008] $([:-0x0000009] $([+0x000000A] $([:%0x000000B] a))))))))))) ~ [!0x0000000]

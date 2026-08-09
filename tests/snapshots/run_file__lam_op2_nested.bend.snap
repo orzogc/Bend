@@ -1,9 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/run_file/lam_op2_nested.bend
----
-NumScott:
-λa (+ (* a a) (+ 3 (+ 2 a)))
-
-Scott:
-λa (+ (* a a) (+ 3 (+ 2 a)))

@@ -1,9 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/run_file/sup_app.bend
----
-NumScott:
-{3 3}
-
-Scott:
-{3 3}

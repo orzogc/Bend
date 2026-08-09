@@ -1,9 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/run_file/match.bend
----
-NumScott:
-λ* λa a
-
-Scott:
-λ* λa a

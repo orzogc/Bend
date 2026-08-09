@@ -1,9 +1,0 @@
-# To check that flattening works with Era patterns.
-(Fn1 (*,(a,*)) *) = a
-
-(Fn2 (*,(*,(a,*)))) = a
-
-(Fn3 (0,*) *) = 0
-(Fn3 (a,*) *) = a
-
-main = (Fn2 ((1, 2), (3, (4, (5, 6)))) 0)

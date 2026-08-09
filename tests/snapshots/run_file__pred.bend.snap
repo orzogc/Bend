@@ -1,9 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/run_file/pred.bend
----
-NumScott:
-2
-
-Scott:
-2

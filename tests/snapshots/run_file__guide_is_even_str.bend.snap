@@ -1,9 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/run_file/guide_is_even_str.bend
----
-NumScott:
-"odd"
-
-Scott:
-"odd"

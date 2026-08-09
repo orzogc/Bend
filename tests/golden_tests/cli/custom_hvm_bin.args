@@ -1,3 +1,0 @@
-run
-tests/golden_tests/cli/custom_hvm_bin.bend
---hvm-bin=hvm

@@ -1,5 +1,2 @@
-/target
-*.snap.new
-.out.hvm
-.DS_Store
-.vscode
+.tmp/
+core.bend4

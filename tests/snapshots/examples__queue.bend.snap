@@ -1,5 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: examples/queue.bend
----
-[1, 2, 3]

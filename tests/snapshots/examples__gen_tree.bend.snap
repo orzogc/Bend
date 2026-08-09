@@ -1,5 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: examples/gen_tree.bend
----
-λa (a MyTree/Node/tag 1 λb (b MyTree/Node/tag 3 λc (c MyTree/Node/tag 7 λd (d MyTree/Node/tag 15 MyTree/Leaf MyTree/Leaf) λe (e MyTree/Node/tag 16 MyTree/Leaf MyTree/Leaf)) λf (f MyTree/Node/tag 8 λg (g MyTree/Node/tag 17 MyTree/Leaf MyTree/Leaf) λh (h MyTree/Node/tag 18 MyTree/Leaf MyTree/Leaf))) λi (i MyTree/Node/tag 4 λj (j MyTree/Node/tag 9 λk (k MyTree/Node/tag 19 MyTree/Leaf MyTree/Leaf) λl (l MyTree/Node/tag 20 MyTree/Leaf MyTree/Leaf)) λm (m MyTree/Node/tag 10 λn (n MyTree/Node/tag 21 MyTree/Leaf MyTree/Leaf) λo (o MyTree/Node/tag 22 MyTree/Leaf MyTree/Leaf))))

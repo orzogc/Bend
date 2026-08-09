@@ -1,7 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/compile_file/i24_oper.bend
----
-@main = b
-  & $(-1 $([*] $(a b))) ~ [+0x0000001]
-  & $(+14 a) ~ [-0x7FFFFF4]

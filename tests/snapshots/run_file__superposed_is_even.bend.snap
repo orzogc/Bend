@@ -1,9 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/run_file/superposed_is_even.bend
----
-NumScott:
-{{MyBool/T MyBool/F} {MyBool/T MyBool/F}}
-
-Scott:
-{{MyBool/T MyBool/F} {MyBool/T MyBool/F}}

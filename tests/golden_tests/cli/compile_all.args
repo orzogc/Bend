@@ -1,3 +1,0 @@
-gen-hvm
-tests/golden_tests/cli/compile_all.bend
--Oall

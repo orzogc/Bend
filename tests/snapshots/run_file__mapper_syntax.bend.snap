@@ -1,9 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/run_file/mapper_syntax.bend
----
-NumScott:
-(2, (10, 3))
-
-Scott:
-(2, (10, 3))

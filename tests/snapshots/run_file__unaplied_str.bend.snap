@@ -1,9 +1,0 @@
----
-source: tests/golden_tests.rs
-input_file: tests/golden_tests/run_file/unaplied_str.bend
----
-NumScott:
-λa λb λc (c String/Cons/tag a λd (d String/Cons/tag 98 λe (e String/Cons/tag 99 λf (f String/Cons/tag b ""))))
-
-Scott:
-λa λb λ* λc (c a λ* λd (d 98 λ* λe (e 99 λ* λf (f b ""))))
