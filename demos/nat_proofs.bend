@@ -1,0 +1,342 @@
+# nat_proofs: the arithmetic of the unary naturals in the affine core.
+# A claim is a def whose return type IS the proposition and whose body
+# is the proof. The rules of the game:
+#
+# - a live variable is consumed at most once. A match consumes its
+#   scrutinee, so an induction variable's single use is the match.
+# - a lemma parameter is dead (-) unless the proof truly consumes it.
+#   Dead arguments cost the caller nothing and may mention spent
+#   variables, so lemmas are stated to keep live positions cheap.
+# - a rewrite %e : P; f spends e : {a == b} once. The motive P marks
+#   occurrences of b as _: the goal must be P(b), and f proves P(a).
+#   A rewrite folds the RIGHT endpoint back into the LEFT, so every
+#   equation below is stated with the term it eliminates on the right:
+#   {replica == original}, {unfolding == mul(1n+p, b)}.
+# - a recursive call must shrink the actual pattern variable, never a
+#   copy of it.
+#
+# Duplication is not primitive; copy2 derives it for Nat at spelled
+# O(n) cost, in CPS so that defs built on it (mul) stay unfoldable:
+# copy2_spec proves the copy exact, and one rewrite with it turns a
+# goal about the stuck copy into a goal about the plain value. copies
+# packages the same fact as data; proofs destructure it and spend one
+# equation per rewrite to relink the goal to the replicas.
+
+type Empty:
+
+type Unit:
+  Unit{}
+
+type Nat:
+  Zero{}
+  Succ{pred: Nat}
+
+type Sigma<-A: Type, -B: @-x: A -> Type>:
+  Tuple{fst: A, snd: B(fst)}
+
+def Pair(-A: Type, -B: Type) -> Type:
+  Sigma<A, _ => B>
+
+# contraction as a theorem-with-cost: consume n once, continue with two
+# replicas and the three equations relating them. The equations are
+# what proofs actually spend.
+
+def Copy2(-n: Nat) -> Type:
+  &a: Nat -> &b: Nat -> ({a == n : Nat} & {b == n : Nat} & {b == a : Nat})
+
+def copy2(n: Nat, -P: Type, f: @a: Nat -> @ea: {a == n : Nat} -> @b: Nat -> @eb: {b == n : Nat} -> @eab: {b == a : Nat} -> P) -> P:
+  match n:
+    case 0n:
+      f(0n, {==}, 0n, {==}, {==})
+    case 1n+p:
+      copy2(p, P, a => ea => b => eb => eab =>
+        f(1n+a, %ea : {1n+a == 1n+_ : Nat}; {==}, 1n+b, %eb : {1n+b == 1n+_ : Nat}; {==}, %eab : {1n+b == 1n+_ : Nat}; {==}))
+
+def copy2_spec(n: Nat, -P: Type, -f: @a: Nat -> @ea: {a == n : Nat} -> @b: Nat -> @eb: {b == n : Nat} -> @eab: {b == a : Nat} -> P) -> {f(n, {==}, n, {==}, {==}) == copy2(n, P, f) : P}:
+  match n:
+    case 0n:
+      {==}
+    case 1n+p:
+      %copy2_spec(p, P, a => ea => b => eb => eab =>
+        f(1n+a, %ea : {1n+a == 1n+_ : Nat}; {==}, 1n+b, %eb : {1n+b == 1n+_ : Nat}; {==}, %eab : {1n+b == 1n+_ : Nat}; {==})) : {f(1n+p, {==}, 1n+p, {==}, {==}) == _ : P}
+      {==}
+
+# the same fact in data form, for destructuring inside proofs
+
+def copies(n: Nat) -> Copy2(n):
+  copy2(n, Copy2(n), a => ea => b => eb => eab => (a, b, ea, eb, eab))
+
+def add(a: Nat, b: Nat) -> Nat:
+  match a:
+    case 0n:
+      b
+    case 1n+p:
+      1n+add(p, b)
+
+# mul spends b twice per step, so it copies it
+
+def mul(a: Nat, b: Nat) -> Nat:
+  match a:
+    case 0n:
+      0n
+    case 1n+p:
+      copy2(b, Nat, b1 => e1 => b2 => e2 => e12 => add(b1, mul(p, b2)))
+
+# on an open b the copy is stuck, so mul's second defining equation is
+# not conversion. copy2_spec recovers it as a theorem priced at one
+# use of b.
+
+def mul_unfold(-p: Nat, b: Nat) -> {add(b, mul(p, b)) == mul(1n+p, b) : Nat}:
+  %copy2_spec(b, Nat, b1 => e1 => b2 => e2 => e12 => add(b1, mul(p, b2))) : {add(b, mul(p, b)) == _ : Nat}
+  {==}
+
+# (Nat, add, 0n) is a commutative monoid
+
+def add_zero(a: Nat) -> {add(a, 0n) == a : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      %add_zero(p) : {1n+add(p, 0n) == 1n+_ : Nat}
+      {==}
+
+def add_succ(a: Nat, -b: Nat) -> {1n+add(a, b) == add(a, 1n+b) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      %add_succ(p, b) : {2n+add(p, b) == 1n+_ : Nat}
+      {==}
+
+def add_assoc(a: Nat, -b: Nat, -c: Nat) -> {add(a, add(b, c)) == add(add(a, b), c) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      %add_assoc(p, b, c) : {1n+add(p, add(b, c)) == 1n+_ : Nat}
+      {==}
+
+# the copy pattern in the small: b1 feeds add_succ, b2 feeds the IH,
+# and each equation relinks the goal once
+
+def add_comm(a: Nat, b: Nat) -> {add(b, a) == add(a, b) : Nat}:
+  match a:
+    case 0n:
+      %add_zero(b) : {add(b, 0n) == _ : Nat}
+      {==}
+    case 1n+p:
+      (b1, b2, e1, e2, e12) = copies(b)
+      %e1 : {add(_, 1n+p) == 1n+add(p, b) : Nat}
+      %e2 : {add(b1, 1n+p) == 1n+add(p, _) : Nat}
+      %add_succ(b1, p) : {_ == 1n+add(p, b2) : Nat}
+      %e12 : {1n+add(_, p) == 1n+add(p, b2) : Nat}
+      %add_comm(p, b2) : {1n+add(b2, p) == 1n+_ : Nat}
+      {==}
+
+def add_swap(a: Nat, b: Nat, -c: Nat) -> {add(b, add(a, c)) == add(a, add(b, c)) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      (b1, b2, e1, e2, e12) = copies(b)
+      %e1 : {add(_, 1n+add(p, c)) == 1n+add(p, add(b, c)) : Nat}
+      %e2 : {add(b1, 1n+add(p, c)) == 1n+add(p, add(_, c)) : Nat}
+      %add_succ(b1, add(p, c)) : {_ == 1n+add(p, add(b2, c)) : Nat}
+      %e12 : {1n+add(_, add(p, c)) == 1n+add(p, add(b2, c)) : Nat}
+      %add_swap(p, b2, c) : {1n+add(b2, add(p, c)) == 1n+_ : Nat}
+      {==}
+
+# (Nat, mul, 1n) is a commutative monoid that distributes over add
+
+def mul_zero(a: Nat) -> {mul(a, 0n) == 0n : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      mul_zero(p)
+
+def mul_one(a: Nat) -> {mul(a, 1n) == a : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      %mul_one(p) : {1n+mul(p, 1n) == 1n+_ : Nat}
+      {==}
+
+# mul_succ and mul_comm need their induction variable a twice: once
+# for the IH and once inside a lemma instance. A .go worker pays for
+# that: it consumes a and hands back two certified replicas of a
+# beside the proof, so the level above can spend "a" again. That is
+# paramorphic induction, spelled out. The public theorem calls the
+# worker and drops the replicas.
+
+def Keep(-n: Nat, -P: Type) -> Type:
+  &r1: Nat -> &r2: Nat -> ({r1 == n : Nat} & {r2 == n : Nat} & P)
+
+def mul_succ.go(a: Nat, b: Nat) -> Keep(a, {add(a, mul(a, b)) == mul(a, 1n+b) : Nat}):
+  match a:
+    case 0n:
+      (0n, 0n, {==}, {==}, {==})
+    case 1n+p:
+      (c1, c2, ec1, ec2, sc) = copies(b)
+      (d1, d2, ed1, ed2, sd) = copies(c2)
+      (e1, e2, ee1, ee2, se) = copies(d2)
+      (p1, p2, u, v, ih) = mul_succ.go(p, d1)
+      (q1, q2, eq1, eq2, sq) = copies(p2)
+      %v : Keep(1n+_, {add(1n+p, mul(1n+p, b)) == mul(1n+p, 1n+b) : Nat})
+      (1n+q1, 1n+q2,
+       %eq1 : {1n+q1 == 1n+_ : Nat}; {==},
+       %eq2 : {1n+q2 == 1n+_ : Nat}; {==},
+       %ec1 : {1n+add(p, mul(1n+p, b)) == mul(1n+p, 1n+_) : Nat}
+       %mul_unfold(p, 1n+c1) : {1n+add(p, mul(1n+p, b)) == _ : Nat}
+       %sc : {1n+add(p, mul(1n+p, b)) == 1n+add(_, mul(p, 1n+_)) : Nat}
+       %ec2 : {1n+add(p, mul(1n+p, _)) == 1n+add(c2, mul(p, 1n+c2)) : Nat}
+       %ed1 : {1n+add(p, mul(1n+p, _)) == 1n+add(_, mul(p, 1n+_)) : Nat}
+       %ih : {1n+add(p, mul(1n+p, d1)) == 1n+add(d1, _) : Nat}
+       %sd : {1n+add(p, mul(1n+p, _)) == 1n+add(_, add(p, mul(p, _))) : Nat}
+       %ee1 : {1n+add(p, mul(1n+p, d2)) == 1n+add(_, add(p, mul(p, d2))) : Nat}
+       %u : {1n+add(_, mul(1n+p, d2)) == 1n+add(e1, add(_, mul(p, d2))) : Nat}
+       %add_swap(e1, p1, mul(p, d2)) : {1n+add(p1, mul(1n+p, d2)) == 1n+_ : Nat}
+       %se : {1n+add(p1, mul(1n+p, d2)) == 1n+add(p1, add(_, mul(p, d2))) : Nat}
+       %ee2 : {1n+add(p1, mul(1n+p, _)) == 1n+add(p1, add(e2, mul(p, _))) : Nat}
+       %mul_unfold(p, e2) : {1n+add(p1, _) == 1n+add(p1, add(e2, mul(p, e2))) : Nat}
+       {==})
+
+def mul_succ(a: Nat, b: Nat) -> {add(a, mul(a, b)) == mul(a, 1n+b) : Nat}:
+  (r1, r2, e1, e2, prf) = mul_succ.go(a, b)
+  prf
+
+def mul_comm.go(a: Nat, b: Nat) -> Keep(a, {mul(b, a) == mul(a, b) : Nat}):
+  match a:
+    case 0n:
+      (0n, 0n, {==}, {==}, mul_zero(b))
+    case 1n+p:
+      (c1, c2, ec1, ec2, sc) = copies(b)
+      (d1, d2, ed1, ed2, sd) = copies(c2)
+      (p1, p2, u, v, ih) = mul_comm.go(p, d1)
+      (q1, q2, eq1, eq2, sq) = copies(p2)
+      %v : Keep(1n+_, {mul(b, 1n+p) == mul(1n+p, b) : Nat})
+      (1n+q1, 1n+q2,
+       %eq1 : {1n+q1 == 1n+_ : Nat}; {==},
+       %eq2 : {1n+q2 == 1n+_ : Nat}; {==},
+       %ec1 : {mul(b, 1n+p) == mul(1n+p, _) : Nat}
+       %mul_unfold(p, c1) : {mul(b, 1n+p) == _ : Nat}
+       %sc : {mul(b, 1n+p) == add(_, mul(p, _)) : Nat}
+       %ec2 : {mul(_, 1n+p) == add(c2, mul(p, c2)) : Nat}
+       %ed1 : {mul(_, 1n+p) == add(_, mul(p, _)) : Nat}
+       %ih : {mul(d1, 1n+p) == add(d1, _) : Nat}
+       %sd : {mul(_, 1n+p) == add(_, mul(_, p)) : Nat}
+       %u : {mul(d2, 1n+_) == add(d2, mul(d2, _)) : Nat}
+       %mul_succ(d2, p1) : {_ == add(d2, mul(d2, p1)) : Nat}
+       {==})
+
+def mul_comm(a: Nat, b: Nat) -> {mul(b, a) == mul(a, b) : Nat}:
+  (r1, r2, e1, e2, prf) = mul_comm.go(a, b)
+  prf
+
+# distributivity and associativity spend p only on the IH, so plain
+# induction suffices: no worker, just copies of c (resp. b and c)
+
+def mul_dist(a: Nat, -b: Nat, c: Nat) -> {add(mul(a, c), mul(b, c)) == mul(add(a, b), c) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      (c1, c2, ec1, ec2, sc) = copies(c)
+      (d1, d2, ed1, ed2, sd) = copies(c2)
+      (e1, e2, ee1, ee2, se) = copies(d2)
+      %ec1 : {add(mul(1n+p, c), mul(b, c)) == mul(1n+add(p, b), _) : Nat}
+      %mul_unfold(add(p, b), c1) : {add(mul(1n+p, c), mul(b, c)) == _ : Nat}
+      %sc : {add(mul(1n+p, c), mul(b, c)) == add(_, mul(add(p, b), _)) : Nat}
+      %ec2 : {add(mul(1n+p, _), mul(b, _)) == add(c2, mul(add(p, b), c2)) : Nat}
+      %ed1 : {add(mul(1n+p, _), mul(b, _)) == add(_, mul(add(p, b), _)) : Nat}
+      %mul_dist(p, b, d1) : {add(mul(1n+p, d1), mul(b, d1)) == add(d1, _) : Nat}
+      %sd : {add(mul(1n+p, _), mul(b, _)) == add(_, add(mul(p, _), mul(b, _))) : Nat}
+      %ee1 : {add(mul(1n+p, _), mul(b, d2)) == add(d2, add(mul(p, d2), mul(b, d2))) : Nat}
+      %mul_unfold(p, e1) : {add(_, mul(b, d2)) == add(d2, add(mul(p, d2), mul(b, d2))) : Nat}
+      %se : {add(add(_, mul(p, _)), mul(b, d2)) == add(d2, add(mul(p, d2), mul(b, d2))) : Nat}
+      %add_assoc(e2, mul(p, e2), mul(b, d2)) : {_ == add(d2, add(mul(p, d2), mul(b, d2))) : Nat}
+      %ee2 : {add(e2, add(mul(p, e2), mul(b, _))) == add(_, add(mul(p, _), mul(b, _))) : Nat}
+      {==}
+
+def mul_assoc(a: Nat, b: Nat, c: Nat) -> {mul(a, mul(b, c)) == mul(mul(a, b), c) : Nat}:
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      (b1, b2, e1, e2, s12) = copies(b)
+      (b3, b4, e3, e4, s34) = copies(b2)
+      (b5, b6, e5, e6, s56) = copies(b4)
+      (cA, cB, ca, cb, sAB) = copies(c)
+      (cC, cD, cc, cd, sCD) = copies(cB)
+      %e1 : {mul(1n+p, mul(_, c)) == mul(mul(1n+p, _), c) : Nat}
+      %mul_unfold(p, b1) : {mul(1n+p, mul(b1, c)) == mul(_, c) : Nat}
+      %s12 : {mul(1n+p, mul(_, c)) == mul(add(_, mul(p, _)), c) : Nat}
+      %e3 : {mul(1n+p, mul(b2, c)) == mul(add(_, mul(p, b2)), c) : Nat}
+      %ca : {mul(1n+p, mul(b2, _)) == mul(add(b3, mul(p, b2)), _) : Nat}
+      %mul_dist(b3, mul(p, b2), cA) : {mul(1n+p, mul(b2, cA)) == _ : Nat}
+      %e4 : {mul(1n+p, mul(_, cA)) == add(mul(b3, cA), mul(mul(p, _), cA)) : Nat}
+      %e5 : {mul(1n+p, mul(_, cA)) == add(mul(b3, cA), mul(mul(p, _), cA)) : Nat}
+      %sAB : {mul(1n+p, mul(b5, _)) == add(mul(b3, _), mul(mul(p, b5), _)) : Nat}
+      %cc : {mul(1n+p, mul(b5, cB)) == add(mul(b3, cB), mul(mul(p, b5), _)) : Nat}
+      %cd : {mul(1n+p, mul(b5, _)) == add(mul(b3, _), mul(mul(p, b5), cC)) : Nat}
+      %mul_assoc(p, b5, cC) : {mul(1n+p, mul(b5, cD)) == add(mul(b3, cD), _) : Nat}
+      %s56 : {mul(1n+p, mul(_, cD)) == add(mul(b3, cD), mul(p, mul(_, cC))) : Nat}
+      %sCD : {mul(1n+p, mul(b6, cD)) == add(mul(b3, cD), mul(p, mul(b6, _))) : Nat}
+      %mul_unfold(p, mul(b6, cD)) : {_ == add(mul(b3, cD), mul(p, mul(b6, cD))) : Nat}
+      %s34 : {add(mul(b6, cD), mul(p, mul(b6, cD))) == add(mul(_, cD), mul(p, mul(b6, cD))) : Nat}
+      %e6 : {add(mul(b6, cD), mul(p, mul(b6, cD))) == add(mul(_, cD), mul(p, mul(b6, cD))) : Nat}
+      {==}
+
+# successor never reaches zero, and is injective
+
+def pred(n: Nat) -> Nat:
+  match n:
+    case 0n:
+      0n
+    case 1n+p:
+      p
+
+# a Type computed by match, the engine of succ_neq_zero
+def discr(n: Nat) -> Type:
+  match n:
+    case 0n:
+      Empty
+    case 1n+p:
+      Unit
+
+def succ_neq_zero(-a: Nat, e: {1n+a == 0n : Nat}) -> Empty:
+  %e : discr(_); Unit{}
+
+def succ_inj(-a: Nat, -b: Nat, e: {1n+a == 1n+b : Nat}) -> {a == b : Nat}:
+  %e : {a == pred(_) : Nat}; {==}
+
+# order is arithmetic: a <= b exactly when b is a plus something.
+# le is a computed type: Unit when it holds, Empty when it fails
+
+def le(a: Nat, b: Nat) -> Type:
+  match a:
+    case 0n:
+      Unit
+    case 1n+ap:
+      match b:
+        case 0n:
+          Empty
+        case 1n+bp:
+          le(ap, bp)
+
+def le_diff(a: Nat, b: Nat, e: le(a, b)) -> &c: Nat -> {add(a, c) == b : Nat}:
+  match a:
+    case 0n:
+      (b, {==})
+    case 1n+ap:
+      match b:
+        case 0n:
+          match e:
+        case 1n+bp:
+          (c, prf) = le_diff(ap, bp, e)
+          (c, %prf : {1n+add(ap, c) == 1n+_ : Nat}; {==})
+
+# a claim instantiates like any def: 21 <= 42, so 42 = 21 + something
+def main() -> &c: Nat -> {add(21n, c) == 42n : Nat}:
+  le_diff(21n, 42n, Unit{})
