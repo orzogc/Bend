@@ -1,6 +1,3 @@
-# Base
-# ====
-
 # Types
 # =====
 
@@ -126,70 +123,144 @@ def Copy(-A: Type, -x: A) -> Type:
 # Equal
 # =====
 
-def Equal.cong(-A: Type, -B: Type, -f: A -> B, -a: A, -b: A, e: {a == b : A}) -> {f(a) == f(b) : B}:
+assert Equal.cong:
+  forall -A: Type
+  forall -B: Type
+  forall -f: A -> B
+  forall -a: A
+  forall -b: A
+  forall  e: {a == b : A}
+  {f(a) == f(b) : B}
+
+def Equal.cong(A, B, f, a, b, e):
   %e : {f(a) == f(_) : B}; {==}
 
-def Equal.sym(-A: Type, -a: A, -b: A, e: {a == b : A}) -> {b == a : A}:
+assert Equal.sym:
+  forall -A: Type
+  forall -a: A
+  forall -b: A
+  forall e: {a == b : A}
+  {b == a : A}
+
+def Equal.sym(A, a, b, e):
   %e : {_ == a : A}; {==}
 
-def Equal.trans(-A: Type, -a: A, -b: A, -c: A, ab: {a == b : A}, bc: {b == c : A}) -> {a == c : A}:
+assert Equal.trans:
+  forall -A: Type
+  forall -a: A
+  forall -b: A
+  forall -c: A
+  forall ab: {a == b : A}
+  forall bc: {b == c : A}
+  {a == c : A}
+
+def Equal.trans(A, a, b, c, ab, bc):
   %bc : {a == _ : A}; ab
 
-def Equal.copy(-A: Type, -a: A, -b: A, e: {a == b : A}) -> Copy({a == b : A}, e) & Copy({a == b : A}, e):
+assert Equal.copy:
+  forall -A: Type
+  forall -a: A
+  forall -b: A
+  forall  e: {a == b : A}
+  Copy({a == b : A}, e) & Copy({a == b : A}, e)
+
+def Equal.copy(A, a, b, e):
   %x@e : Copy({a == _ : A}, x) & Copy({a == _ : A}, x);
   (({==}, {==}), ({==}, {==}))
 
 # Empty
 # =====
 
-def Empty.absurd(-A: Type, e: Empty) -> A:
+assert Empty.absurd:
+  forall -A: Type
+  forall  e: Empty
+  A
+
+def Empty.absurd(A, e):
   match e:
 
 # Bool
 # ====
 
-def B0() -> Bool:
+assert B0:
+  Bool
+
+def B0():
   False{}
 
-def B1() -> Bool:
+assert B1:
+  Bool
+
+def B1():
   True{}
 
-def Bool.if(-P: Type, b: Bool, t: P, f: P) -> P:
+assert Bool.if:
+  forall -P: Type
+  forall  b: Bool
+  forall  t: P
+  forall  f: P
+  P
+
+def Bool.if(P, b, t, f):
   match b:
     case False{}:
       f
     case True{}:
       t
 
-def Bool.not(b: Bool) -> Bool:
+assert Bool.not:
+  forall b: Bool
+  Bool
+
+def Bool.not(b):
   match b:
     case False{}:
       True{}
     case True{}:
       False{}
 
-def Bool.and(a: Bool, b: Bool) -> Bool:
+assert Bool.and:
+  forall a: Bool
+  forall b: Bool
+  Bool
+
+def Bool.and(a, b):
   match a:
     case False{}:
       False{}
     case True{}:
       b
 
-def Bool.or(a: Bool, b: Bool) -> Bool:
+assert Bool.or:
+  forall a: Bool
+  forall b: Bool
+  Bool
+
+def Bool.or(a, b):
   match a:
     case False{}:
       b
     case True{}:
       True{}
 
-def Bool.xor(a: Bool, b: Bool) -> Bool:
+assert Bool.xor:
+  forall a: Bool
+  forall b: Bool
+  Bool
+
+def Bool.xor(a, b):
   match a:
     case False{}:
       b
     case True{}:
       Bool.not(b)
 
-def Bool.cmp(a: Bool, b: Bool) -> Cmp:
+assert Bool.cmp:
+  forall a: Bool
+  forall b: Bool
+  Cmp
+
+def Bool.cmp(a, b):
   match a b:
     case False{} False{}:
       EQ{}
@@ -200,7 +271,11 @@ def Bool.cmp(a: Bool, b: Bool) -> Cmp:
     case True{} True{}:
       EQ{}
 
-def Bool.copy(b: Bool) -> Copy(Bool, b) & Copy(Bool, b):
+assert Bool.copy:
+  forall b: Bool
+  Copy(Bool, b) & Copy(Bool, b)
+
+def Bool.copy(b):
   match b:
     case False{}:
       ((False{}, {==}), (False{}, {==}))
@@ -208,7 +283,13 @@ def Bool.copy(b: Bool) -> Copy(Bool, b) & Copy(Bool, b):
       ((True{}, {==}), (True{}, {==}))
 
 # (sum, carry) of a + b + c
-def Bool.full_add(a: Bool, b: Bool, c: Bool) -> Bool & Bool:
+assert Bool.full_add:
+  forall a: Bool
+  forall b: Bool
+  forall c: Bool
+  Bool & Bool
+
+def Bool.full_add(a, b, c):
   match a b c:
     case False{} False{} False{}:
       (B0(), B0())
@@ -230,7 +311,11 @@ def Bool.full_add(a: Bool, b: Bool, c: Bool) -> Bool & Bool:
 # Cmp
 # ===
 
-def Cmp.is_lt(c: Cmp) -> Bool:
+assert Cmp.is_lt:
+  forall c: Cmp
+  Bool
+
+def Cmp.is_lt(c):
   match c:
     case LT{}:
       True{}
@@ -239,7 +324,11 @@ def Cmp.is_lt(c: Cmp) -> Bool:
     case GT{}:
       False{}
 
-def Cmp.is_eq(c: Cmp) -> Bool:
+assert Cmp.is_eq:
+  forall c: Cmp
+  Bool
+
+def Cmp.is_eq(c):
   match c:
     case LT{}:
       False{}
@@ -248,7 +337,11 @@ def Cmp.is_eq(c: Cmp) -> Bool:
     case GT{}:
       False{}
 
-def Cmp.is_gt(c: Cmp) -> Bool:
+assert Cmp.is_gt:
+  forall c: Cmp
+  Bool
+
+def Cmp.is_gt(c):
   match c:
     case LT{}:
       False{}
@@ -257,7 +350,11 @@ def Cmp.is_gt(c: Cmp) -> Bool:
     case GT{}:
       True{}
 
-def Cmp.is_le(c: Cmp) -> Bool:
+assert Cmp.is_le:
+  forall c: Cmp
+  Bool
+
+def Cmp.is_le(c):
   match c:
     case LT{}:
       True{}
@@ -266,7 +363,11 @@ def Cmp.is_le(c: Cmp) -> Bool:
     case GT{}:
       False{}
 
-def Cmp.is_ge(c: Cmp) -> Bool:
+assert Cmp.is_ge:
+  forall c: Cmp
+  Bool
+
+def Cmp.is_ge(c):
   match c:
     case LT{}:
       False{}
@@ -278,14 +379,26 @@ def Cmp.is_ge(c: Cmp) -> Bool:
 # Either
 # ======
 
-def Either.is_inl(-A: Type, -B: Type, e: A | B) -> Bool:
+assert Either.is_inl:
+  forall -A: Type
+  forall -B: Type
+  forall e: A | B
+  Bool
+
+def Either.is_inl(A, B, e):
   match e:
     case Inl{x}:
       True{}
     case Inr{y}:
       False{}
 
-def Either.is_inr(-A: Type, -B: Type, e: A | B) -> Bool:
+assert Either.is_inr:
+  forall -A: Type
+  forall -B: Type
+  forall e: A | B
+  Bool
+
+def Either.is_inr(A, B, e):
   match e:
     case Inl{x}:
       False{}
@@ -295,12 +408,24 @@ def Either.is_inr(-A: Type, -B: Type, e: A | B) -> Bool:
 # Sigma
 # =====
 
-def Sigma.fst(-A: Type, -B: @-x: A -> Type, p: Sigma<A, B>) -> A:
+assert Sigma.fst:
+  forall -A: Type
+  forall -B: @-x: A -> Type
+  forall p: Sigma<A, B>
+  A
+
+def Sigma.fst(A, B, p):
   match p:
     case (x, y):
       x
 
-def Sigma.snd(-A: Type, -B: @-x: A -> Type, p: Sigma<A, B>) -> B(Sigma.fst(A, B, p)):
+assert Sigma.snd:
+  forall -A: Type
+  forall -B: @-x: A -> Type
+  forall p: Sigma<A, B>
+  B(Sigma.fst(A, B, p))
+
+def Sigma.snd(A, B, p):
   match p:
     case (x, y):
       y
@@ -308,17 +433,35 @@ def Sigma.snd(-A: Type, -B: @-x: A -> Type, p: Sigma<A, B>) -> B(Sigma.fst(A, B,
 # Pair
 # ====
 
-def Pair.fst(-A: Type, -B: Type, p: A & B) -> A:
+assert Pair.fst:
+  forall -A: Type
+  forall -B: Type
+  forall p: A & B
+  A
+
+def Pair.fst(A, B, p):
   match p:
     case (x, y):
       x
 
-def Pair.snd(-A: Type, -B: Type, p: A & B) -> B:
+assert Pair.snd:
+  forall -A: Type
+  forall -B: Type
+  forall p: A & B
+  B
+
+def Pair.snd(A, B, p):
   match p:
     case (x, y):
       y
 
-def Pair.swap(-A: Type, -B: Type, p: A & B) -> B & A:
+assert Pair.swap:
+  forall -A: Type
+  forall -B: Type
+  forall p: A & B
+  B & A
+
+def Pair.swap(A, B, p):
   match p:
     case (x, y):
       (y, x)
@@ -326,7 +469,11 @@ def Pair.swap(-A: Type, -B: Type, p: A & B) -> B & A:
 # Nat
 # ===
 
-def Nat.copy(n: Nat) -> Copy(Nat, n) & Copy(Nat, n):
+assert Nat.copy:
+  forall n: Nat
+  Copy(Nat, n) & Copy(Nat, n)
+
+def Nat.copy(n):
   match n:
     case 0n:
       ((0n, {==}), (0n, {==}))
@@ -336,35 +483,57 @@ def Nat.copy(n: Nat) -> Copy(Nat, n) & Copy(Nat, n):
       pb = Equal.cong(Nat, Nat, x => 1n+x, p, b, eb)
       ((1n+a, pa), (1n+b, pb))
 
-def Nat.is_zero(n: Nat) -> Bool:
+assert Nat.is_zero:
+  forall n: Nat
+  Bool
+
+def Nat.is_zero(n):
   match n:
     case 0n:
       True{}
     case 1n+p:
       False{}
 
-def Nat.pred(n: Nat) -> Nat:
+assert Nat.pred:
+  forall n: Nat
+  Nat
+
+def Nat.pred(n):
   match n:
     case 0n:
       0n
     case 1n+p:
       p
 
-def Nat.double(n: Nat) -> Nat:
+assert Nat.double:
+  forall n: Nat
+  Nat
+
+def Nat.double(n):
   match n:
     case 0n:
       0n
     case 1n+p:
       2n+Nat.double(p)
 
-def Nat.add(a: Nat, b: Nat) -> Nat:
+assert Nat.add:
+  forall a: Nat
+  forall b: Nat
+  Nat
+
+def Nat.add(a, b):
   match a:
     case 0n:
       b
     case 1n+p:
       1n+Nat.add(p, b)
 
-def Nat.sub(a: Nat, b: Nat) -> Nat:
+assert Nat.sub:
+  forall a: Nat
+  forall b: Nat
+  Nat
+
+def Nat.sub(a, b):
   match a b:
     case 0n 0n:
       0n
@@ -375,7 +544,12 @@ def Nat.sub(a: Nat, b: Nat) -> Nat:
     case 1n+ap 1n+bp:
       Nat.sub(ap, bp)
 
-def Nat.mul(a: Nat, b: Nat) -> Nat:
+assert Nat.mul:
+  forall a: Nat
+  forall b: Nat
+  Nat
+
+def Nat.mul(a, b):
   match a:
     case 0n:
       0n
@@ -383,7 +557,14 @@ def Nat.mul(a: Nat, b: Nat) -> Nat:
       ((b1, e1), (b2, e2)) = Nat.copy(b)
       Nat.add(b1, Nat.mul(p, b2))
 
-def Nat.divmod.go(n: Nat, m: Nat, d: Nat, r: Nat) -> Nat & Nat:
+assert Nat.divmod.go:
+  forall n: Nat
+  forall m: Nat
+  forall d: Nat
+  forall r: Nat
+  Nat & Nat
+
+def Nat.divmod.go(n, m, d, r):
   match n:
     case 0n:
       (d, r)
@@ -394,24 +575,44 @@ def Nat.divmod.go(n: Nat, m: Nat, d: Nat, r: Nat) -> Nat & Nat:
         case 1n+mp:
           Nat.divmod.go(np, mp, d, 1n+r)
 
-def Nat.divmod(a: Nat, b: Nat) -> Nat & Nat:
+assert Nat.divmod:
+  forall a: Nat
+  forall b: Nat
+  Nat & Nat
+
+def Nat.divmod(a, b):
   match b:
     case 0n:
       (0n, a)
     case 1n+bp:
       Nat.divmod.go(a, bp, 0n, 0n)
 
-def Nat.div(a: Nat, b: Nat) -> Nat:
+assert Nat.div:
+  forall a: Nat
+  forall b: Nat
+  Nat
+
+def Nat.div(a, b):
   match Nat.divmod(a, b):
     case (q, r):
       q
 
-def Nat.mod(a: Nat, b: Nat) -> Nat:
+assert Nat.mod:
+  forall a: Nat
+  forall b: Nat
+  Nat
+
+def Nat.mod(a, b):
   match Nat.divmod(a, b):
     case (q, r):
       r
 
-def Nat.min(a: Nat, b: Nat) -> Nat:
+assert Nat.min:
+  forall a: Nat
+  forall b: Nat
+  Nat
+
+def Nat.min(a, b):
   match a b:
     case 0n y:
       0n
@@ -420,7 +621,12 @@ def Nat.min(a: Nat, b: Nat) -> Nat:
     case 1n+ap 1n+bp:
       1n+Nat.min(ap, bp)
 
-def Nat.max(a: Nat, b: Nat) -> Nat:
+assert Nat.max:
+  forall a: Nat
+  forall b: Nat
+  Nat
+
+def Nat.max(a, b):
   match a b:
     case 0n y:
       y
@@ -429,7 +635,12 @@ def Nat.max(a: Nat, b: Nat) -> Nat:
     case 1n+ap 1n+bp:
       1n+Nat.max(ap, bp)
 
-def Nat.cmp(a: Nat, b: Nat) -> Cmp:
+assert Nat.cmp:
+  forall a: Nat
+  forall b: Nat
+  Cmp
+
+def Nat.cmp(a, b):
   match a b:
     case 0n 0n:
       EQ{}
@@ -440,32 +651,70 @@ def Nat.cmp(a: Nat, b: Nat) -> Cmp:
     case 1n+ap 1n+bp:
       Nat.cmp(ap, bp)
 
-def Nat.is_eq(a: Nat, b: Nat) -> Bool:
+assert Nat.is_eq:
+  forall a: Nat
+  forall b: Nat
+  Bool
+
+def Nat.is_eq(a, b):
   Cmp.is_eq(Nat.cmp(a, b))
 
-def Nat.is_ne(a: Nat, b: Nat) -> Bool:
+assert Nat.is_ne:
+  forall a: Nat
+  forall b: Nat
+  Bool
+
+def Nat.is_ne(a, b):
   Bool.not(Cmp.is_eq(Nat.cmp(a, b)))
 
-def Nat.is_lt(a: Nat, b: Nat) -> Bool:
+assert Nat.is_lt:
+  forall a: Nat
+  forall b: Nat
+  Bool
+
+def Nat.is_lt(a, b):
   Cmp.is_lt(Nat.cmp(a, b))
 
-def Nat.is_le(a: Nat, b: Nat) -> Bool:
+assert Nat.is_le:
+  forall a: Nat
+  forall b: Nat
+  Bool
+
+def Nat.is_le(a, b):
   Cmp.is_le(Nat.cmp(a, b))
 
-def Nat.is_gt(a: Nat, b: Nat) -> Bool:
+assert Nat.is_gt:
+  forall a: Nat
+  forall b: Nat
+  Bool
+
+def Nat.is_gt(a, b):
   Cmp.is_gt(Nat.cmp(a, b))
 
-def Nat.is_ge(a: Nat, b: Nat) -> Bool:
+assert Nat.is_ge:
+  forall a: Nat
+  forall b: Nat
+  Bool
+
+def Nat.is_ge(a, b):
   Cmp.is_ge(Nat.cmp(a, b))
 
-def Nat.pow2(n: Nat) -> Nat:
+assert Nat.pow2:
+  forall n: Nat
+  Nat
+
+def Nat.pow2(n):
   match n:
     case 0n:
       1n
     case 1n+p:
       Nat.double(Nat.pow2(p))
 
-def Nat.bits(m: Nat) -> Bool & Nat:
+assert Nat.bits:
+  forall m: Nat
+  Bool & Nat
+
+def Nat.bits(m):
   match m:
     case 0n:
       (B0(), 0n)
@@ -478,31 +727,59 @@ def Nat.bits(m: Nat) -> Bool & Nat:
 # Maybe
 # =====
 
-def Maybe.pure(-A: Type, x: A) -> Maybe<A>:
+assert Maybe.pure:
+  forall -A: Type
+  forall x: A
+  Maybe<A>
+
+def Maybe.pure(A, x):
   Some{x}
 
-def Maybe.bind(-A: Type, -B: Type, m: Maybe<A>, f: A -> Maybe<B>) -> Maybe<B>:
+assert Maybe.bind:
+  forall -A: Type
+  forall -B: Type
+  forall m: Maybe<A>
+  forall f: A -> Maybe<B>
+  Maybe<B>
+
+def Maybe.bind(A, B, m, f):
   match m:
     case None{}:
       None{}
     case Some{x}:
       f(x)
 
-def Maybe.is_none(-A: Type, m: Maybe<A>) -> Bool:
+assert Maybe.is_none:
+  forall -A: Type
+  forall m: Maybe<A>
+  Bool
+
+def Maybe.is_none(A, m):
   match m:
     case None{}:
       True{}
     case Some{x}:
       False{}
 
-def Maybe.is_some(-A: Type, m: Maybe<A>) -> Bool:
+assert Maybe.is_some:
+  forall -A: Type
+  forall m: Maybe<A>
+  Bool
+
+def Maybe.is_some(A, m):
   match m:
     case None{}:
       False{}
     case Some{x}:
       True{}
 
-def Maybe.default(-A: Type, m: Maybe<A>, d: A) -> A:
+assert Maybe.default:
+  forall -A: Type
+  forall m: Maybe<A>
+  forall d: A
+  A
+
+def Maybe.default(A, m, d):
   match m:
     case None{}:
       d
@@ -512,27 +789,59 @@ def Maybe.default(-A: Type, m: Maybe<A>, d: A) -> A:
 # Result
 # ======
 
-def Result.pure(-E: Type, -A: Type, x: A) -> Result<E, A>:
+assert Result.pure:
+  forall -E: Type
+  forall -A: Type
+  forall x: A
+  Result<E, A>
+
+def Result.pure(E, A, x):
   Done{x}
 
-def Result.fail(-E: Type, -A: Type, e: E) -> Result<E, A>:
+assert Result.fail:
+  forall -E: Type
+  forall -A: Type
+  forall e: E
+  Result<E, A>
+
+def Result.fail(E, A, e):
   Fail{e}
 
-def Result.bind(-E: Type, -A: Type, -B: Type, r: Result<E, A>, f: A -> Result<E, B>) -> Result<E, B>:
+assert Result.bind:
+  forall -E: Type
+  forall -A: Type
+  forall -B: Type
+  forall r: Result<E, A>
+  forall f: A -> Result<E, B>
+  Result<E, B>
+
+def Result.bind(E, A, B, r, f):
   match r:
     case Fail{e}:
       Fail{e}
     case Done{x}:
       f(x)
 
-def Result.is_fail(-E: Type, -A: Type, r: Result<E, A>) -> Bool:
+assert Result.is_fail:
+  forall -E: Type
+  forall -A: Type
+  forall r: Result<E, A>
+  Bool
+
+def Result.is_fail(E, A, r):
   match r:
     case Fail{e}:
       True{}
     case Done{x}:
       False{}
 
-def Result.is_done(-E: Type, -A: Type, r: Result<E, A>) -> Bool:
+assert Result.is_done:
+  forall -E: Type
+  forall -A: Type
+  forall r: Result<E, A>
+  Bool
+
+def Result.is_done(E, A, r):
   match r:
     case Fail{e}:
       False{}
@@ -542,31 +851,59 @@ def Result.is_done(-E: Type, -A: Type, r: Result<E, A>) -> Bool:
 # List
 # ====
 
-def List.length(-A: Type, xs: List<A>) -> Nat:
+assert List.length:
+  forall -A: Type
+  forall xs: List<A>
+  Nat
+
+def List.length(A, xs):
   match xs:
     case Nil{}:
       0n
     case Con{h, t}:
       1n+List.length(A, t)
 
-def List.append(-A: Type, xs: List<A>, ys: List<A>) -> List<A>:
+assert List.append:
+  forall -A: Type
+  forall xs: List<A>
+  forall ys: List<A>
+  List<A>
+
+def List.append(A, xs, ys):
   match xs:
     case Nil{}:
       ys
     case Con{h, t}:
       Con{h, List.append(A, t, ys)}
 
-def List.reverse.go(-A: Type, xs: List<A>, acc: List<A>) -> List<A>:
+assert List.reverse.go:
+  forall -A: Type
+  forall xs: List<A>
+  forall acc: List<A>
+  List<A>
+
+def List.reverse.go(A, xs, acc):
   match xs:
     case Nil{}:
       acc
     case Con{h, t}:
       List.reverse.go(A, t, Con{h, acc})
 
-def List.reverse(-A: Type, xs: List<A>) -> List<A>:
+assert List.reverse:
+  forall -A: Type
+  forall xs: List<A>
+  List<A>
+
+def List.reverse(A, xs):
   List.reverse.go(A, xs, Nil{})
 
-def List.take(-A: Type, n: Nat, xs: List<A>) -> List<A>:
+assert List.take:
+  forall -A: Type
+  forall n: Nat
+  forall xs: List<A>
+  List<A>
+
+def List.take(A, n, xs):
   match n xs:
     case 0n ys:
       Nil{}
@@ -575,7 +912,13 @@ def List.take(-A: Type, n: Nat, xs: List<A>) -> List<A>:
     case 1n+p Con{h, t}:
       Con{h, List.take(A, p, t)}
 
-def List.drop(-A: Type, n: Nat, xs: List<A>) -> List<A>:
+assert List.drop:
+  forall -A: Type
+  forall n: Nat
+  forall xs: List<A>
+  List<A>
+
+def List.drop(A, n, xs):
   match n xs:
     case 0n ys:
       ys
@@ -587,17 +930,33 @@ def List.drop(-A: Type, n: Nat, xs: List<A>) -> List<A>:
 # Word
 # ====
 
-def Word.cast(-m: Nat, -n: Nat, e: {m == n : Nat}, w: Word(m)) -> Word(n):
+assert Word.cast:
+  forall -m: Nat
+  forall -n: Nat
+  forall e: {m == n : Nat}
+  forall w: Word(m)
+  Word(n)
+
+def Word.cast(m, n, e, w):
   %e : Word(_); w
 
-def Word.zero(n: Nat) -> Word(n):
+assert Word.zero:
+  forall n: Nat
+  Word(n)
+
+def Word.zero(n):
   match n:
     case 0n:
       WNil{}
     case 1n+p:
       WCon{B0(), Word.zero(p)}
 
-def Word.copy(n: Nat, w: Word(n)) -> Copy(Word(n), w) & Copy(Word(n), w):
+assert Word.copy:
+  forall n: Nat
+  forall w: Word(n)
+  Copy(Word(n), w) & Copy(Word(n), w)
+
+def Word.copy(n, w):
   match n:
     case 0n:
       match w:
@@ -616,7 +975,12 @@ def Word.copy(n: Nat, w: Word(n)) -> Copy(Word(n), w) & Copy(Word(n), w):
           pb = Equal.cong(Word(p), Word(1n+p), y => WCon{B1(), y}, rest, r2, e2)
           ((WCon{B1(), r1}, pa), (WCon{B1(), r2}, pb))
 
-def Word.not(n: Nat, w: Word(n)) -> Word(n):
+assert Word.not:
+  forall n: Nat
+  forall w: Word(n)
+  Word(n)
+
+def Word.not(n, w):
   match n:
     case 0n:
       WNil{}
@@ -625,7 +989,13 @@ def Word.not(n: Nat, w: Word(n)) -> Word(n):
         case WCon{b, t}:
           WCon{Bool.not(b), Word.not(p, t)}
 
-def Word.and(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+assert Word.and:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Word(n)
+
+def Word.and(n, a, b):
   match n:
     case 0n:
       WNil{}
@@ -634,7 +1004,13 @@ def Word.and(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
         case WCon{ab, at} WCon{bb, bt}:
           WCon{Bool.and(ab, bb), Word.and(p, at, bt)}
 
-def Word.or(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+assert Word.or:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Word(n)
+
+def Word.or(n, a, b):
   match n:
     case 0n:
       WNil{}
@@ -643,7 +1019,13 @@ def Word.or(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
         case WCon{ab, at} WCon{bb, bt}:
           WCon{Bool.or(ab, bb), Word.or(p, at, bt)}
 
-def Word.xor(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+assert Word.xor:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Word(n)
+
+def Word.xor(n, a, b):
   match n:
     case 0n:
       WNil{}
@@ -652,7 +1034,13 @@ def Word.xor(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
         case WCon{ab, at} WCon{bb, bt}:
           WCon{Bool.xor(ab, bb), Word.xor(p, at, bt)}
 
-def Word.shl.put(n: Nat, c: Bool, w: Word(n)) -> Word(n):
+assert Word.shl.put:
+  forall n: Nat
+  forall c: Bool
+  forall w: Word(n)
+  Word(n)
+
+def Word.shl.put(n, c, w):
   match n:
     case 0n:
       WNil{}
@@ -661,7 +1049,12 @@ def Word.shl.put(n: Nat, c: Bool, w: Word(n)) -> Word(n):
         case WCon{b, t}:
           WCon{c, Word.shl.put(p, b, t)}
 
-def Word.shl(n: Nat, w: Word(n)) -> Word(n):
+assert Word.shl:
+  forall n: Nat
+  forall w: Word(n)
+  Word(n)
+
+def Word.shl(n, w):
   match n:
     case 0n:
       WNil{}
@@ -670,7 +1063,12 @@ def Word.shl(n: Nat, w: Word(n)) -> Word(n):
         case WCon{b, t}:
           WCon{B0(), Word.shl.put(p, b, t)}
 
-def Word.shr.pad(n: Nat, w: Word(n)) -> Word(1n+n):
+assert Word.shr.pad:
+  forall n: Nat
+  forall w: Word(n)
+  Word(1n+n)
+
+def Word.shr.pad(n, w):
   match n:
     case 0n:
       WCon{B0(), w}
@@ -679,7 +1077,12 @@ def Word.shr.pad(n: Nat, w: Word(n)) -> Word(1n+n):
         case WCon{b, t}:
           WCon{b, Word.shr.pad(p, t)}
 
-def Word.shr(n: Nat, w: Word(n)) -> Word(n):
+assert Word.shr:
+  forall n: Nat
+  forall w: Word(n)
+  Word(n)
+
+def Word.shr(n, w):
   match n:
     case 0n:
       WNil{}
@@ -688,7 +1091,13 @@ def Word.shr(n: Nat, w: Word(n)) -> Word(n):
         case WCon{b, t}:
           Word.shr.pad(p, t)
 
-def Word.cmp(n: Nat, a: Word(n), b: Word(n)) -> Cmp:
+assert Word.cmp:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Cmp
+
+def Word.cmp(n, a, b):
   match n:
     case 0n:
       EQ{}
@@ -703,25 +1112,66 @@ def Word.cmp(n: Nat, a: Word(n), b: Word(n)) -> Cmp:
             case GT{}:
               GT{}
 
-def Word.is_eq(n: Nat, a: Word(n), b: Word(n)) -> Bool:
+assert Word.is_eq:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Bool
+
+def Word.is_eq(n, a, b):
   Cmp.is_eq(Word.cmp(n, a, b))
 
-def Word.is_ne(n: Nat, a: Word(n), b: Word(n)) -> Bool:
+assert Word.is_ne:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Bool
+
+def Word.is_ne(n, a, b):
   Bool.not(Cmp.is_eq(Word.cmp(n, a, b)))
 
-def Word.is_lt(n: Nat, a: Word(n), b: Word(n)) -> Bool:
+assert Word.is_lt:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Bool
+
+def Word.is_lt(n, a, b):
   Cmp.is_lt(Word.cmp(n, a, b))
 
-def Word.is_le(n: Nat, a: Word(n), b: Word(n)) -> Bool:
+assert Word.is_le:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Bool
+
+def Word.is_le(n, a, b):
   Cmp.is_le(Word.cmp(n, a, b))
 
-def Word.is_gt(n: Nat, a: Word(n), b: Word(n)) -> Bool:
+assert Word.is_gt:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Bool
+
+def Word.is_gt(n, a, b):
   Cmp.is_gt(Word.cmp(n, a, b))
 
-def Word.is_ge(n: Nat, a: Word(n), b: Word(n)) -> Bool:
+assert Word.is_ge:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Bool
+
+def Word.is_ge(n, a, b):
   Cmp.is_ge(Word.cmp(n, a, b))
 
-def Word.inc(n: Nat, w: Word(n)) -> Word(n):
+assert Word.inc:
+  forall n: Nat
+  forall w: Word(n)
+  Word(n)
+
+def Word.inc(n, w):
   match n:
     case 0n:
       WNil{}
@@ -732,7 +1182,15 @@ def Word.inc(n: Nat, w: Word(n)) -> Word(n):
         case WCon{True{}, t}:
           WCon{B0(), Word.inc(p, t)}
 
-def Word.adc(n: Nat, a: Word(n), b: Word(n), f: Bool, c: Bool) -> Word(n):
+assert Word.adc:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  forall f: Bool
+  forall c: Bool
+  Word(n)
+
+def Word.adc(n, a, b, f, c):
   match n:
     case 0n:
       WNil{}
@@ -745,13 +1203,30 @@ def Word.adc(n: Nat, a: Word(n), b: Word(n), f: Bool, c: Bool) -> Word(n):
           (s, k) = Bool.full_add(ab, Bool.not(bb), c)
           WCon{s, Word.adc(p, at, bt, B1(), k)}
 
-def Word.add(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+assert Word.add:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Word(n)
+
+def Word.add(n, a, b):
   Word.adc(n, a, b, B0(), B0())
 
-def Word.sub(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+assert Word.sub:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Word(n)
+
+def Word.sub(n, a, b):
   Word.adc(n, a, b, B1(), B1())
 
-def Word.to_nat(n: Nat, w: Word(n)) -> Nat:
+assert Word.to_nat:
+  forall n: Nat
+  forall w: Word(n)
+  Nat
+
+def Word.to_nat(n, w):
   match n:
     case 0n:
       0n
@@ -762,49 +1237,88 @@ def Word.to_nat(n: Nat, w: Word(n)) -> Nat:
         case WCon{True{}, t}:
           1n+Nat.double(Word.to_nat(p, t))
 
-def Word.mul.split(n: Nat, w: Word(1n+n)) ->
-  &i: Nat -> &j: Nat ->
-  {n == i : Nat} & {n == j : Nat} &
-  Word(n) & Word(1n+n):
-  match n w:
-    case 0n WCon{b, t}:
-      (0n, 0n, {==}, {==}, WNil{}, WCon{b, t})
-    case 1n+p WCon{False{}, t}:
-      (i, j, ei, ej, lo, hi) = Word.mul.split(p, t)
-      ci = Equal.cong(Nat, Nat, x => 1n+x, p, i, ei)
-      cj = Equal.cong(Nat, Nat, x => 1n+x, p, j, ej)
-      (1n+i, 1n+j, ci, cj, WCon{B0(), lo}, WCon{B0(), hi})
-    case 1n+p WCon{True{}, t}:
-      (i, j, ei, ej, lo, hi) = Word.mul.split(p, t)
-      ci = Equal.cong(Nat, Nat, x => 1n+x, p, i, ei)
-      cj = Equal.cong(Nat, Nat, x => 1n+x, p, j, ej)
-      (1n+i, 1n+j, ci, cj, WCon{B1(), lo}, WCon{B1(), hi})
+# one shift-add round: (b, (a0 ? b : 0) + 2q + s + carry c), both words
+# echoed back at a replicated index, so the caller spends no index copy
+assert Word.mul.step:
+  forall i: Nat
+  forall a0: Bool
+  forall s: Bool
+  forall c: Bool
+  forall b: Word(i)
+  forall q: Word(i)
+  exists r: Nat
+  {i == r : Nat} & Word(r) & Word(r)
 
-def Word.mul(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
-  match n a:
+def Word.mul.step(i, a0, s, c, b, q):
+  match i:
+    case 0n:
+      match b q:
+        case WNil{} WNil{}:
+          (0n, {==}, WNil{}, WNil{})
+    case 1n+ip:
+      match b q:
+        case WCon{bb, bt} WCon{qb, qt}:
+          ((bb1, x1), (bb2, x2)) = Bool.copy(bb)
+          ((a01, y1), (a02, y2)) = Bool.copy(a0)
+          (o, k) = Bool.full_add(Bool.and(a01, bb1), s, c)
+          (r, er, be, rt) = Word.mul.step(ip, a02, qb, k, bt, qt)
+          ce = Equal.cong(Nat, Nat, x => 1n+x, ip, r, er)
+          (1n+r, ce, WCon{bb2, be}, WCon{o, rt})
+
+# (b, (a * b) mod 2^i), folding one step per bit of a, echoing b
+assert Word.mul.go:
+  forall m: Nat
+  forall a: Word(m)
+  forall i: Nat
+  forall b: Word(i)
+  exists r: Nat
+  {i == r : Nat} & Word(r) & Word(r)
+
+def Word.mul.go(m, a, i, b):
+  match m a:
     case 0n WNil{}:
-      WNil{}
-    case 1n+p WCon{False{}, at}:
-      (i, j, ei, ej, lo, hi) = Word.mul.split(p, b)
-      f = {%Equal.sym(Nat, p, i, ei) : Word(_) -> Word(_) -> Word(_); x => y => Word.mul(i, x, y) : Word(p) -> Word(p) -> Word(p)}
-      WCon{B0(), f(at, lo)}
-    case 1n+p WCon{True{}, at}:
-      (i, j, ei, ej, lo, hi) = Word.mul.split(p, b)
-      f = {%Equal.sym(Nat, p, i, ei) : Word(_) -> Word(_) -> Word(_); x => y => Word.mul(i, x, y) : Word(p) -> Word(p) -> Word(p)}
-      r = f(at, lo)
-      g = {%Equal.sym(Nat, p, j, ej) : Word(1n+_) -> Word(_) -> Word(1n+_); h => x => Word.add(1n+j, h, WCon{B0(), x}) : Word(1n+p) -> Word(p) -> Word(1n+p)}
-      g(hi, r)
+      ((i1, f1), (i2, f2)) = Nat.copy(i)
+      ((f1a, u1), (f1b, u2)) = Equal.copy(Nat, i, i1, f1)
+      ((f1c, u3), (f1d, u4)) = Equal.copy(Nat, i, i1, f1b)
+      z = Word.cast(i2, i1, Equal.trans(Nat, i2, i, i1, Equal.sym(Nat, i, i2, f2), f1c), Word.zero(i2))
+      (i1, f1a, Word.cast(i, i1, f1d, b), z)
+    case 1n+mp WCon{a0, at}:
+      (r1, g1, w1, q) = Word.mul.go(mp, at, i, b)
+      (r2, g2, w2, p) = Word.mul.step(r1, a0, B0(), B0(), w1, q)
+      (r2, Equal.trans(Nat, i, r1, r2, g1, g2), w2, p)
+
+assert Word.mul:
+  forall n: Nat
+  forall a: Word(n)
+  forall b: Word(n)
+  Word(n)
+
+def Word.mul(n, a, b):
+  ((n1, e1), (n2, e2)) = Nat.copy(n)
+  ((e2a, u1), (e2b, u2)) = Equal.copy(Nat, n, n2, e2)
+  (r, g, w, p) = Word.mul.go(n1, Word.cast(n, n1, e1, a), n2, Word.cast(n, n2, e2a, b))
+  %Equal.sym(Nat, n, r, Equal.trans(Nat, n, n2, r, e2b, g)) : Word(_); p
 
 # U32
 # ===
 
-def U32.zero() -> U32:
+assert U32.zero:
+  U32
+
+def U32.zero():
   U32{Word.zero(32n)}
 
-def U32.one() -> U32:
+assert U32.one:
+  U32
+
+def U32.one():
   U32{Word.inc(32n, Word.zero(32n))}
 
-def U32.copy(u: U32) -> Copy(U32, u) & Copy(U32, u):
+assert U32.copy:
+  forall u: U32
+  Copy(U32, u) & Copy(U32, u)
+
+def U32.copy(u):
   match u:
     case U32{w}:
       ((w1, e1), (w2, e2)) = Word.copy(32n, w)
@@ -812,109 +1326,217 @@ def U32.copy(u: U32) -> Copy(U32, u) & Copy(U32, u):
       p2 = Equal.cong(Word(32n), U32, x => U32{x}, w, w2, e2)
       ((U32{w1}, p1), (U32{w2}, p2))
 
-def U32.inc(a: U32) -> U32:
+assert U32.inc:
+  forall a: U32
+  U32
+
+def U32.inc(a):
   match a:
     case U32{x}:
       U32{Word.inc(32n, x)}
 
-def U32.add(a: U32, b: U32) -> U32:
+assert U32.add:
+  forall a: U32
+  forall b: U32
+  U32
+
+def U32.add(a, b):
   match a b:
     case U32{x} U32{y}:
       U32{Word.add(32n, x, y)}
 
-def U32.sub(a: U32, b: U32) -> U32:
+assert U32.sub:
+  forall a: U32
+  forall b: U32
+  U32
+
+def U32.sub(a, b):
   match a b:
     case U32{x} U32{y}:
       U32{Word.sub(32n, x, y)}
 
-def U32.mul(a: U32, b: U32) -> U32:
+assert U32.mul:
+  forall a: U32
+  forall b: U32
+  U32
+
+def U32.mul(a, b):
   match a b:
     case U32{x} U32{y}:
       U32{Word.mul(32n, x, y)}
 
-def U32.not(a: U32) -> U32:
+assert U32.not:
+  forall a: U32
+  U32
+
+def U32.not(a):
   match a:
     case U32{x}:
       U32{Word.not(32n, x)}
 
-def U32.and(a: U32, b: U32) -> U32:
+assert U32.and:
+  forall a: U32
+  forall b: U32
+  U32
+
+def U32.and(a, b):
   match a b:
     case U32{x} U32{y}:
       U32{Word.and(32n, x, y)}
 
-def U32.or(a: U32, b: U32) -> U32:
+assert U32.or:
+  forall a: U32
+  forall b: U32
+  U32
+
+def U32.or(a, b):
   match a b:
     case U32{x} U32{y}:
       U32{Word.or(32n, x, y)}
 
-def U32.xor(a: U32, b: U32) -> U32:
+assert U32.xor:
+  forall a: U32
+  forall b: U32
+  U32
+
+def U32.xor(a, b):
   match a b:
     case U32{x} U32{y}:
       U32{Word.xor(32n, x, y)}
 
-def U32.shl(a: U32) -> U32:
+assert U32.shl:
+  forall a: U32
+  U32
+
+def U32.shl(a):
   match a:
     case U32{x}:
       U32{Word.shl(32n, x)}
 
-def U32.shr(a: U32) -> U32:
+assert U32.shr:
+  forall a: U32
+  U32
+
+def U32.shr(a):
   match a:
     case U32{x}:
       U32{Word.shr(32n, x)}
 
-def U32.shln(n: Nat, a: U32) -> U32:
+assert U32.shln:
+  forall n: Nat
+  forall a: U32
+  U32
+
+def U32.shln(n, a):
   match n:
     case 0n:
       a
     case 1n+p:
       U32.shln(p, U32.shl(a))
 
-def U32.shrn(n: Nat, a: U32) -> U32:
+assert U32.shrn:
+  forall n: Nat
+  forall a: U32
+  U32
+
+def U32.shrn(n, a):
   match n:
     case 0n:
       a
     case 1n+p:
       U32.shrn(p, U32.shr(a))
 
-def U32.cmp(a: U32, b: U32) -> Cmp:
+assert U32.cmp:
+  forall a: U32
+  forall b: U32
+  Cmp
+
+def U32.cmp(a, b):
   match a b:
     case U32{x} U32{y}:
       Word.cmp(32n, x, y)
 
-def U32.is_eq(a: U32, b: U32) -> Bool:
+assert U32.is_eq:
+  forall a: U32
+  forall b: U32
+  Bool
+
+def U32.is_eq(a, b):
   Cmp.is_eq(U32.cmp(a, b))
 
-def U32.is_ne(a: U32, b: U32) -> Bool:
+assert U32.is_ne:
+  forall a: U32
+  forall b: U32
+  Bool
+
+def U32.is_ne(a, b):
   Bool.not(Cmp.is_eq(U32.cmp(a, b)))
 
-def U32.is_lt(a: U32, b: U32) -> Bool:
+assert U32.is_lt:
+  forall a: U32
+  forall b: U32
+  Bool
+
+def U32.is_lt(a, b):
   Cmp.is_lt(U32.cmp(a, b))
 
-def U32.is_le(a: U32, b: U32) -> Bool:
+assert U32.is_le:
+  forall a: U32
+  forall b: U32
+  Bool
+
+def U32.is_le(a, b):
   Cmp.is_le(U32.cmp(a, b))
 
-def U32.is_gt(a: U32, b: U32) -> Bool:
+assert U32.is_gt:
+  forall a: U32
+  forall b: U32
+  Bool
+
+def U32.is_gt(a, b):
   Cmp.is_gt(U32.cmp(a, b))
 
-def U32.is_ge(a: U32, b: U32) -> Bool:
+assert U32.is_ge:
+  forall a: U32
+  forall b: U32
+  Bool
+
+def U32.is_ge(a, b):
   Cmp.is_ge(U32.cmp(a, b))
 
-def U32.is_zero(a: U32) -> Bool:
+assert U32.is_zero:
+  forall a: U32
+  Bool
+
+def U32.is_zero(a):
   U32.is_eq(a, U32.zero())
 
-def U32.to_nat(a: U32) -> Nat:
+assert U32.to_nat:
+  forall a: U32
+  Nat
+
+def U32.to_nat(a):
   match a:
     case U32{w}:
       Word.to_nat(32n, w)
 
-def U32.from_nat(n: Nat) -> U32:
+assert U32.from_nat:
+  forall n: Nat
+  U32
+
+def U32.from_nat(n):
   match n:
     case 0n:
       U32.zero()
     case 1n+p:
       U32.inc(U32.from_nat(p))
 
-def U32.div(a: U32, b: U32) -> U32:
+assert U32.div:
+  forall a: U32
+  forall b: U32
+  U32
+
+def U32.div(a, b):
   ((b1, e1), (b2, e2)) = U32.copy(b)
   match U32.is_zero(b1):
     case True{}:
@@ -923,7 +1545,12 @@ def U32.div(a: U32, b: U32) -> U32:
       (q, r) = Nat.divmod(U32.to_nat(a), U32.to_nat(b2))
       U32.from_nat(q)
 
-def U32.mod(a: U32, b: U32) -> U32:
+assert U32.mod:
+  forall a: U32
+  forall b: U32
+  U32
+
+def U32.mod(a, b):
   ((b1, e1), (b2, e2)) = U32.copy(b)
   match U32.is_zero(b1):
     case True{}:
@@ -935,21 +1562,29 @@ def U32.mod(a: U32, b: U32) -> U32:
 # String
 # ======
 
-def String.append(a: String, b: String) -> String:
+assert String.append:
+  forall a: String
+  forall b: String
+  String
+
+def String.append(a, b):
   match a:
     case SNil{}:
       b
     case SCon{h, t}:
       SCon{h, String.append(t, b)}
+
 # Array
 # =====
-#
-# A perfect binary tree of cells; the runtime runs it as one flat
-# block. swap is the one array method: it routes by the index's low
-# bit, one bit per level, so no size rides along, and answers the
-# remaining array FIRST.
 
-def Array.swap(-T: Type, a: Array<T>, i: U32, v: T) -> Array<T> & T:
+assert Array.swap:
+  forall -T: Type
+  forall a: Array<T>
+  forall i: U32
+  forall v: T
+  Array<T> & T
+
+def Array.swap(T, a, i, v):
   match a:
     case ALeaf{x}:
       (ALeaf{v}, x)

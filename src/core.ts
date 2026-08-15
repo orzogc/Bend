@@ -53,7 +53,7 @@
 // Arrow   | A "->" B              | @_:A -> B
 // Exists  | "&" Name ":" A "->" B | Sigma<A, x => B>
 // Pair    | A "&" B               | Pair(A, B)
-// Either  | A "|" B               | Either(A, B)
+// Either  | A "|" B               | Either<A, B>
 // Tuple   | "(" A ("," B)+ ")"    | Tuple{A, Tuple{B, ...}}
 // LitZero | "0n"                  | Zero{}
 // LitSucc | NUMBER "n+" Term      | Succ{...Succ{pred}}
@@ -1016,9 +1016,6 @@ export function u32_to_term(n: U32, s?: Span): LTerm {
   return Ctr("U32", [out], s);
 }
 
-// u32_from_term: u32_to_term's inverse: the number of a literal U32{word}
-// term, or null when any bit is computed. Reads through Ann layers, so it
-// serves both show (sugar) and compilation (literal folding).
 export function u32_from_term<X>(tm: TermOf<X>): number | null {
   function strip(x: TermOf<X>): TermOf<X> {
     let t = term_force(x);
@@ -1521,7 +1518,7 @@ export function parse_quant(p: Parse): Quant {
     return None();
   }
   if (parse_at(p, "+")) {
-    parse_fail(p, "an affine binder (-x or x; duplication '+' is not in core v1)");
+    parse_fail(p, "an affine quantity (- or plain; + is not supported)");
   }
   return Lone();
 }
@@ -1645,8 +1642,7 @@ export function parse_term_base_word(p: Parse, k: Name, beg: Loc): LTerm {
       return Typ(parse_span(p, beg));
     }
     case "do": {
-      const t = parse_term_do(p);
-      return t;
+      return parse_term_do(p);
     }
     case "match": {
       parse_fail(p, "a term (a match heads a def body, not a term)");
@@ -1707,12 +1703,12 @@ export function parse_term_suff(p: Parse, tm: LTerm, arr: boolean = true, asg: b
       const B = parse_term(p, true, asg);
       return All(Lone(), "_", parse_open(p, "_"), out, B);
     }
-    const bin = parse_at(p, "&") ? "Pair" : parse_at(p, "|") ? "Either" : null;
-    if (bin !== null) {
+    if (parse_at(p, "&") || parse_at(p, "|")) {
+      const ei = parse_peek(p) === "|";
       parse_bump(p);
       const b = parse_term(p, false, asg);
       const s = out.s === undefined ? undefined : parse_span(p, out.s.beg);
-      out = App(App(Ref(bin, s), out, s), b, s);
+      out = ei ? ADT("Either", [out, b], s) : App(App(Ref("Pair", s), out, s), b, s);
       continue;
     }
     if (asg && parse_at(p, "=") && !parse_at(p, "==")) {
@@ -2265,10 +2261,7 @@ export function parse_adt(p: Parse, book: Book): void {
     parse_eat(p, "{");
     const n1 = p.env.length;
     const fs = parse_tele(p, "}");
-    let target: LTerm = Ref(k);
-    for (const cell of params) {
-      target = App(target, Var(cell[1], cell[2]));
-    }
+    const target: LTerm = ADT(k, params.map((cell) => Var(cell[1], cell[2])));
     const T  = tele_to_term(params.concat(fs), target);
     const hT = term_higher(T, Emp<HTerm>());
     parse_close(p, n1);
@@ -2580,10 +2573,13 @@ export function body_flatten(b: Body, vars: PVar[], d: number): LTerm {
 // term_wnf gives weak head normal form: sound, weak (arguments, fields,
 // arms raw), idempotent, partial exactly on terms with no whnf. a
 // saturated def unfolds raw, a stuck one returns its ref applied, an
-// underapplied one stays. substitutions and demanded match fields bind
-// memoized thunks, so shared work runs once; a var steps into its let
-// value; tree nodes inside a leaf are plain values. a rewrite demands
-// its evidence and steps to its body on {==}, else sticks as a value.
+// underapplied one stays. a family Ref never unfolds: a nullary one
+// steps to its canonical ADT node, a parameterized one is stuck (the
+// one spelling is D<..>, and infer-ref rejects a bare family head).
+// substitutions and demanded match fields bind memoized thunks, so
+// shared work runs once; a var steps into its let value; tree nodes
+// inside a leaf are plain values. a rewrite demands its evidence and
+// steps to its body on {==}, else sticks as a value.
 
 export function term_wnf(book: Book, term: HTerm): HTerm {
   const frs: Frame[] = [];
@@ -2659,36 +2655,23 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
         const tld = book.tlds[tm.k];
         if (tld === undefined) {
           break focus;
-        } else {
-          let run = 0;
-          while (run < tld.n && run < frs.length && frs[frs.length - 1 - run].$ === "APP") {
-            run += 1;
-          }
-          if (run < tld.n) {
-            break focus;
-          } else {
-            switch (tld.$) {
-              case "ADT": {
-                const xs: HTerm[] = [];
-                for (let j = 0; j < tld.n; j++) {
-                  const fr = frs.pop() as Extract<Frame, { $: "APP" }>;
-                  xs.push(fr.x);
-                }
-                tm = ADT(tm.k, xs, tm.s);
-                break focus;
-              }
-              case "Def": {
-                if (tld.v === null) {
-                  break focus;
-                } else {
-                  lhs = tld.n === 0 ? null : { t: tm, n: tld.n, def: tm.k, qs: [] };
-                  tm = tld.v;
-                  continue main;
-                }
-              }
-            }
-          }
         }
+        if (tld.$ === "ADT") {
+          if (tld.n === 0) {
+            tm = ADT(tm.k, [], tm.s);
+          }
+          break focus;
+        }
+        let run = 0;
+        while (run < tld.n && run < frs.length && frs[frs.length - 1 - run].$ === "APP") {
+          run += 1;
+        }
+        if (run < tld.n || tld.v === null) {
+          break focus;
+        }
+        lhs = tld.n === 0 ? null : { t: tm, n: tld.n, def: tm.k, qs: [] };
+        tm = tld.v;
+        continue main;
       }
       default: {
         break focus;
@@ -3005,6 +2988,8 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
     //       (a live self-call enters whole, through infer-app)
     //       k has a body in a live region
     //       (an unfilled assert is a dead claim)
+    //       k is not a parameterized family: D<..> is the one
+    //       spelling, a bare family head is an error
     // -------------------------------------------------------- infer-ref
     // Γ ⊢ k : T ~ {}
     case "Ref": {
@@ -3018,7 +3003,11 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
       if (qt.$ !== "None" && tld.$ === "Def" && tld.v === null && !book.halts) {
         throw Err(ctx, "a filled definition (an unfilled assert is a dead claim: live code cannot use it)", tm, tm.s, def);
       }
-      var tm = Ann(tm, tld.T);
+      if (tld.$ === "ADT" && tld.n > 0) {
+        throw Err(ctx, "a family instance (write " + tm.k + "<..>)", tm, tm.s, def);
+      }
+      const T: HTerm = tld.$ === "ADT" ? Typ(tm.s) : tld.T;
+      var tm = Ann(tm, T);
       var us = uses_nil();
       return { tm, us };
     }
@@ -3032,14 +3021,14 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
     }
     // Γ ⊢ A : Type
     // Γ , x : qA ⊢ B(x) : Type
-    // where q is - or plain (a Many binder is rejected at formation)
-    // -------------------------------------------------------------- infer-all
+    // where q is - or plain; + is a formation error
+    // ----------------------------------------------- infer-all
     // Γ ⊢ @q x:A -> B : Type
     case "All": {
-      const b = tm;
       if (tm.q.$ === "Many") {
-        throw Err(ctx, "an affine binder (core v1 has no duplication; spell -x or x)", tm, tm.s, def);
+        throw Err(ctx, "an affine binder (- or plain; + is not supported)", tm, tm.s, def);
       }
+      const b = tm;
       const B_ctx = ctx_bind(ctx, d, tm.q, tm.k, tm.A);
       const A_chk = term_check(book, lhs, tm.A, None(), Typ(tm.s), ctx, d);
       term_check(book, lhs, tm.B(Var(tm.k, d)), None(), Typ(tm.s), B_ctx, d+1);
@@ -3052,11 +3041,11 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
     // Γ ⊢ a : A ~ au
     // where a is dead if q is -, and consumed exactly once otherwise
     //       (an argument is never scaled: v1 has no multiplication)
+    //       a family head is not a function: infer-ref rejects it,
+    //       so D(x) is an error and D<x> the one spelling
     //       a live lhs-headed spine is whole (lhs.n = 0, one argument
     //       per column) and descends: live columns compare EQ left to
-    //       right until one is LT; an erased (-) column is skipped;
-    //       a GT column may fall back to a live hypothesis
-    //       {a == arg : T} in the context, descending by a
+    //       right until one is LT; an erased (-) column is skipped
     //       the head is the bare Ref, syntactically: an Ann-wrapped
     //       head falls to infer-ref, which rejects
     // --------------------------------------------------------------- infer-app
@@ -3080,14 +3069,6 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
             continue;
           }
           ord = term_compare(arg[j], cols[j]);
-          for (const [_, ann] of pmap_to_array(ctx)) {
-            if (ord === "GT" && ann.q.$ !== "None") {
-              const e = term_wnf(book, ann.T);
-              if (e.$ === "Eql" && term_compare(arg[j], e.b) === "EQ") {
-                ord = term_compare(e.a, cols[j]);
-              }
-            }
-          }
         }
         if (ord !== "LT") {
           throw Err(ctx, "a decreasing self-call (some live argument must shrink)", tm, tm.s, def);
@@ -3111,7 +3092,7 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
     // book[k].T = @q1 p1:K1 -> .. -> Type
     // Γ ⊢ xi : Ki ~ ui
     // where xi is dead if qi is -
-    // ------------------------------------------------------------ infer-adt
+    // ----------------------------------------- infer-adt
     // Γ ⊢ k<x1, .., xn> : Type ~ u1 + .. + un
     case "ADT": {
       const adt = book_adt(book, tm, ctx, def);
@@ -3120,7 +3101,7 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
       }
       const xs: HTerm[] = [];
       let tel: HTerm = adt.T;
-      var us  = uses_nil();
+      var us = uses_nil();
       for (const x of tm.x) {
         const t_all = tele_next(book, tel, ctx, def, tm.s);
         const t_dem = quant_dem(t_all.q, qt);
@@ -3188,6 +3169,9 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
       if (t_wnf.$ !== "All") {
         throw Err(ctx, ty, tm, tm.s, def);
       }
+      if (t_wnf.q.$ === "Many") {
+        throw Err(ctx, "an affine binder (- or plain; + is not supported)", t_wnf, tm.s, def);
+      }
       const x: HTerm = Var(tm.k, d);
       const f_lhs = (a: HTerm) => lhs !== null && lhs.n > 0 ? { t: term_apply(lhs.t, a), n: lhs.n - 1, def: lhs.def, qs: lhs.qs } : lhs;
       const f_ctx = ctx_bind(ctx, d, t_wnf.q, tm.k, t_wnf.A);
@@ -3204,16 +3188,16 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
     }
     // Γ ⊢ v : A ~ vu
     // Γ , x : qA ⊢ f(x) : T ~ fu
-    // where q is - or plain (a Many binder is rejected at formation)
+    // where q is - or plain; + is a formation error
     //       v is dead if q is -
     //       fu[x] <= q
-    // --------------------------------------------------------------- check-let
+    // ----------------------------------------------- check-let
     // Γ ⊢ q x = v; f : T ~ vu + fu - x
     case "Let": {
-      const b = tm;
       if (tm.q.$ === "Many") {
-        throw Err(ctx, "an affine binder (core v1 has no duplication; spell -x or x)", tm, tm.s, def);
+        throw Err(ctx, "an affine binder (- or plain; + is not supported)", tm, tm.s, def);
       }
+      const b = tm;
       const v_dem = quant_dem(tm.q, qt);
       const v_inf = term_infer(book, lhs, tm.v, v_dem, ctx, d);
       const v_ann = v_inf.tm as HAnn;
@@ -3226,7 +3210,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
         throw Err(ctx, quant_show(tm.q) + tm.k, obs, tm.s, def);
       }
       var tm = Let(b.k, b.i, v_inf.tm, (y: HTerm) => Laz(() => term_check(book, lhs, b.f(y), qt, ty, f_ctx, d+1).tm), b.s, b.q);
-      var tm = Ann(tm, ty);
+      var tm = Ann(tm, (f_chk.tm as HAnn).T);
       var us = uses_add(v_inf.us, uses_del(f_chk.us, d));
       return { tm, us };
     }
@@ -3257,6 +3241,9 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
       var us = uses_nil();
       for (const x of tm.x) {
         const f_all = tele_next(book, tel, ctx, def, tm.s);
+        if (f_all.q.$ === "Many") {
+          throw Err(ctx, "an affine field (- or plain; + is not supported)", f_all, tm.s, def);
+        }
         const f_dem = quant_dem(f_all.q, qt);
         const x_chk = term_check(book, lhs, x, f_dem, f_all.A, ctx, d);
         xs.push(x_chk.tm);
@@ -3282,6 +3269,9 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
         throw Err(ctx, ty, tm, tm.s, def);
       }
       const t_all = t_wnf;
+      if (t_all.q.$ === "Many") {
+        throw Err(ctx, "an affine binder (- or plain; + is not supported)", t_all, tm.s, def);
+      }
       if (qt.$ !== "None" && t_all.q.$ === "None") {
         throw Err(ctx, "a live scrutinee (a - scrutinee matches only in a dead region)", undefined, tm.s, def);
       }
@@ -3327,6 +3317,9 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
       if (t_wnf.$ !== "All") {
         throw Err(ctx, ty, tm, tm.s, def);
       }
+      if (t_wnf.q.$ === "Many") {
+        throw Err(ctx, "an affine binder (- or plain; + is not supported)", t_wnf, tm.s, def);
+      }
       if (qt.$ !== "None" && t_wnf.q.$ === "None") {
         throw Err(ctx, "a live scrutinee (a - scrutinee matches only in a dead region)", undefined, tm.s, def);
       }
@@ -3362,7 +3355,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
     // Γ ⊢ f : P(a, {==}) ~ fu
     // where P is dead; this is the J axiom: elimination
     //       specializes both the equation and its second endpoint
-    // ----------------------------------------------------------- check-rwt
+    // ------------------------------------------------------------ check-rwt
     // Γ ⊢ %e@E : P; f : T ~ eu + fu
     case "Rwt": {
       const e_inf = term_infer(book, lhs, tm.e, qt, ctx, d);
@@ -3420,7 +3413,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
       return t;
     }
     // Γ ⊢ x : A ~ u    A == T
-    // ------------------------ check-any
+    // --------------------------- check-any
     // Γ ⊢ x : T ~ u
     default: {
       break;
@@ -3461,7 +3454,14 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
     let ctx = ctx_nil();
     for (let d = 0; d < adt.n + ctr.n; d++) {
       const t_all = tele_next(book, tel, ctx, ctr.k);
-      term_check(book, null, t_all.A, None(), Typ(), ctx, d);
+      if (t_all.q.$ === "Many") {
+        throw Err(ctx, "an affine binder (- or plain; + is not supported)", undefined, undefined, ctr.k);
+      }
+      const A_chk = term_check(book, null, t_all.A, None(), Typ(), ctx, d);
+      const A_srt = term_wnf(book, (A_chk.tm as HAnn).T);
+      if (A_srt.$ !== "Typ") {
+        throw Err(ctx, Typ<HBody>(), t_all.A, undefined, ctr.k);
+      }
       ctx = ctx_bind(ctx, d, t_all.q, t_all.k, t_all.A);
       tel = t_all.B(Var(t_all.k, d));
     }
