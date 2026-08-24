@@ -3,23 +3,32 @@
 //
 // Usage: bend-core <file.bend>             check; print main's normal form
 //        bend-core <file.bend> --to <out>  compile the same book: .c → tocl,
-//                                          anything else → tojs
+//                                          .js → tojs
 
 import * as core from "./core.ts";
 import * as tojs from "./tojs.ts";
 import * as tocl from "./tocl.ts";
 import * as fs from "fs";
 
-const path = process.argv[2];
-if (path === undefined) {
-  console.error("Usage: bend-core <file.bend> [--to out.js]");
+const USAGE = "usage: bend <file.bend> [--to <out.c|out.js>]";
+
+function fail(msg: string): never {
+  console.error("bend: " + msg + "\n" + USAGE);
   process.exit(1);
 }
-const to = process.argv[3] === "--to" ? process.argv[4] : undefined;
-if (process.argv[3] === "--to" && to === undefined) {
-  console.error("Usage: bend-core <file.bend> [--to out.js]");
-  process.exit(1);
+
+const [path, flag, to] = process.argv.slice(2);
+if (path === undefined || path === "--help") {
+  console.log(USAGE);
+  process.exit(path === undefined ? 1 : 0);
 }
+if (path.startsWith("--")) { fail("unknown option " + path); }
+if (flag !== undefined && flag !== "--to") { fail("unknown option " + flag); }
+if (flag === "--to" && to === undefined) { fail("--to needs an output file"); }
+if (to !== undefined && !to.endsWith(".c") && !to.endsWith(".js")) {
+  fail("--to expects a .c or a .js file, not " + to);
+}
+if (process.argv.length > 5) { fail("too many arguments"); }
 
 const book = core.book_nil();
 try {

@@ -1,26 +1,19 @@
+#[halts]
 import Base
-# Bitonic: tree bitonic sort-and-verify, ported from Bend3's
-# par_tree_bitonic_sort.bend. key hashes each leaf index into a
-# pseudo-random u32 (xorshift of a Knuth-mixed index), bsort builds the
-# 2^D-leaf tree and bitonically sorts it in one fused pass, scan folds
-# the sorted tree into a Stat record -- min, max, a sortedness flag
-# (every join checks left.hi <= right.lo) and an order-sensitive mix --
-# and stat_out mixes the four fields into the checksum. Direction rides
-# as a Bool (Bend3 used a 0/1 u32).
+# Bitonic: tree bitonic sort-and-verify, ported 1-to-1 from Bend3's
+# par_tree_bitonic_sort.bend. key hashes each leaf index into a pseudo-random u32 (xorshift
+# of a Knuth-mixed index), bsort builds the 2^D-leaf tree and
+# bitonically sorts it in one fused pass, scan folds the sorted tree
+# into a Stat record -- min, max, a sortedness flag (every join checks
+# left.hi <= right.lo) and an order-sensitive mix -- and stat_out mixes
+# the four fields into the checksum. Direction rides as a Bool (Bend3
+# used a 0/1 u32). Bend3's flow/down mode column is folded by depth:
+# flow(d, s, t) merges a tree of depth 1+d, warping the root and
+# recursing on the halves with d-1. Depth is a Nat (no U32 match in
+# Bend4).
 #
-# Bend3's flow/down call cycle is folded here by depth instead of by a
-# mode column: flow(f, s, t) merges a tree of depth 1+d driven by a
-# depth-d Fuel tree, warping the root and recursing on the halves with
-# the fuel children. the depth rides as a Fuel tree, not a Nat: a
-# strict descent argument must be a direct pattern subterm, and a Nat
-# predecessor exists once while a fuel node has one child per call.
-# bsort carries the fuel TWICE (f and g, always the same depth)
-# because its node case needs the level three ways (two children + one
-# merge): f's children drive the descent, g is the token farm the
-# other positions draw from (fdup duplicates a fuel structurally).
-#
-# Sizes: small depth = 8 (expect 971629740), big depth = 23
-# (expect 3787129428, verified against Bend3).
+# Sizes: small depth = 8 (expect 971629740), big depth = 23 (expect
+# 3787129428); both verified against Bend3 C runs on the cluster.
 
 type Tree:
   Leaf{v: U32}
@@ -29,126 +22,75 @@ type Tree:
 type Stat:
   St{lo: U32, hi: U32, ok: U32, mx: U32}
 
-type Fuel:
-  FLeaf{}
-  FNode{l: Fuel, r: Fuel}
-
-# u32 constant from base-2^10 digits: a*2^20 + b*2^10 + c
-def u32d(a: Nat, b: Nat, c: Nat) -> U32:
-  U32.add(U32.shln(20n, U32.from_nat(a)), U32.add(U32.shln(10n, U32.from_nat(b)), U32.from_nat(c)))
-
-# 2654435761 = 0x9E3779B1 (Knuth multiplicative hash)
-def knuth() -> U32:
-  u32d(2531n, 478n, 433n)
-
-# 340573321 = 0x144CBC89
-def cmix() -> U32:
-  u32d(324n, 815n, 137n)
-
-# 2246822519 = 0x85EBCA77
-def cok() -> U32:
-  u32d(2142n, 754n, 631n)
-
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-def prng(x: U32) -> U32:
-  ((x1, ex1), (x2, ex2)) = U32.copy(x)
-  ((b1, eb1), (b2, eb2)) = U32.copy(U32.xor(x1, U32.shln(13n, x2)))
-  ((d1, ed1), (d2, ed2)) = U32.copy(U32.xor(b1, U32.shrn(17n, b2)))
-  U32.xor(d1, U32.shln(5n, d2))
+def prng(+x: U32) -> U32:
+  +b = U32.xor(x, U32.shln(13n, x))
+  +d = U32.xor(b, U32.shrn(17n, b))
+  U32.xor(d, U32.shln(5n, d))
 
 # leaf key: hash of the leaf index
 def key(i: U32) -> U32:
-  prng(U32.mul(U32.inc(i), knuth()))
+  prng(U32.mul(U32.inc(i), 2654435761))
 
 # compare-and-swap of two leaves; s flips the order (Bend3's
 # swap(s ^ (x > y), x, y))
-def warp_leaf(x: U32, y: U32, s: Bool) -> Tree:
-  ((x1, ex1), (x2, ex2)) = U32.copy(x)
-  ((y1, ey1), (y2, ey2)) = U32.copy(y)
-  match Bool.xor(s, U32.is_gt(x1, y1)):
+def warp_leaf(+x: U32, +y: U32, s: Bool) -> Tree:
+  match Bool.xor(s, U32.is_gt(x, y)):
     case False{}:
-      Node{Leaf{x2}, Leaf{y2}}
+      Node{Leaf{x}, Leaf{y}}
     case True{}:
-      Node{Leaf{y2}, Leaf{x2}}
+      Node{Leaf{y}, Leaf{x}}
 
 def warp_zip(wa: Tree, wb: Tree) -> Tree:
   match wa wb:
     case Node{a0, a1} Node{b0, b1}:
       Node{Node{a0, b0}, Node{a1, b1}}
     case Node{a0, a1} Leaf{bv}:
-      Leaf{U32.zero()}
+      Leaf{0}
     case Leaf{av} Node{b0, b1}:
-      Leaf{U32.zero()}
+      Leaf{0}
     case Leaf{av} Leaf{bv}:
-      Leaf{U32.zero()}
+      Leaf{0}
 
-def warp(a: Tree, b: Tree, s: Bool) -> Tree:
+def warp(a: Tree, b: Tree, +s: Bool) -> Tree:
   match a b:
     case Leaf{av} Leaf{bv}:
       warp_leaf(av, bv, s)
     case Leaf{av} Node{ba, bb}:
-      Leaf{U32.zero()}
+      Leaf{0}
     case Node{aa, ab} Leaf{bv}:
-      Leaf{U32.zero()}
+      Leaf{0}
     case Node{aa, ab} Node{ba, bb}:
-      ((s1, es1), (s2, es2)) = Bool.copy(s)
-      warp_zip(warp(aa, ba, s1), warp(ab, bb, s2))
+      Both{wa, wb} = {Both{warp(aa, ba, s), warp(ab, bb, s)} : Par<Tree, Tree>}
+      warp_zip(wa, wb)
 
-# structural duplicate of a fuel tree: the affine stand-in for copying
-# a depth budget (a Nat copy is not a pattern subterm; a fuel child is)
-def fdup(f: Fuel) -> Fuel & Fuel:
-  match f:
-    case FLeaf{}:
-      (FLeaf{}, FLeaf{})
-    case FNode{a, b}:
-      (a1, a2) = fdup(a)
-      (b1, b2) = fdup(b)
-      (FNode{a1, b1}, FNode{a2, b2})
-
-# complete fuel tree of depth d: one node per call of the recursion it
-# will drive, built by a single descending call per level
-def fuel(d: Nat) -> Fuel:
-  match d:
-    case 0n:
-      FLeaf{}
-    case 1n+p:
-      (a, b) = fdup(fuel(p))
-      FNode{a, b}
-
-# bitonic merge of a tree of depth 1+d, driven by a depth-d fuel tree:
-# warp the root pair, then merge both halves one level shallower on
-# the fuel children (Bend3's flow/down cycle, folded)
-def flow(f: Fuel, s: Bool, t: Tree) -> Tree:
-  match f t:
-    case FLeaf{} Leaf{v}:
+# bitonic merge of a tree of depth 1+d: warp the root pair, then merge
+# both halves one level shallower (Bend3's flow/down cycle, folded)
+def flow(+d: Nat, +s: Bool, t: Tree) -> Tree:
+  match d t:
+    case 0n Leaf{v}:
       Leaf{v}
-    case FLeaf{} Node{a, b}:
+    case 0n Node{a, b}:
       warp(a, b, s)
-    case FNode{fa, fb} Leaf{v}:
+    case 1n+p Leaf{v}:
       Leaf{v}
-    case FNode{fa, fb} Node{a, b}:
-      ((s0, es0), (s12, es12)) = Bool.copy(s)
-      ((s1, es1), (s2, es2)) = Bool.copy(s12)
-      match warp(a, b, s0):
+    case 1n+p Node{a, b}:
+      match warp(a, b, s):
         case Leaf{v}:
           Leaf{v}
         case Node{wa, wb}:
-          Node{flow(fa, s1, wa), flow(fb, s2, wb)}
+          Both{fa, fb} = {Both{flow(p, s, wa), flow(p, s, wb)} : Par<Tree, Tree>}
+          Node{fa, fb}
 
 # fused build-and-sort: 2^d leaves keyed by index, halves sorted in
-# opposite directions, then merged by flow. g mirrors f (see header).
-def bsort(f: Fuel, g: Fuel, s: Bool, x: U32) -> Tree:
-  match f:
-    case FLeaf{}:
+# opposite directions, then merged by flow
+def bsort(+d: Nat, s: Bool, +x: U32) -> Tree:
+  match d:
+    case 0n:
       Leaf{key(x)}
-    case FNode{fa, fb}:
-      match g:
-        case FLeaf{}:
-          Leaf{U32.zero()}
-        case FNode{ga, gb}:
-          (ga1, ga2) = fdup(ga)
-          ((x1, ex1), (x2, ex2)) = U32.copy(x)
-          flow(ga2, s, Node{bsort(fa, ga1, False{}, U32.inc(U32.shl(x1))), bsort(fb, gb, True{}, U32.shl(x2))})
+    case 1n+p:
+      Both{sa, sb} = {Both{bsort(p, False{}, U32.inc(U32.shl(x))), bsort(p, True{}, U32.shl(x))} : Par<Tree, Tree>}
+      flow(p, s, Node{sa, sb})
 
 # verification join: bounds ride outward, ok demands left.hi <=
 # right.lo, the mix is order-sensitive
@@ -157,40 +99,37 @@ def stat_join(a: Stat, b: Stat) -> Stat:
     case St{alo, ahi, aok, amx} St{blo, bhi, bok, bmx}:
       match U32.is_le(ahi, blo):
         case False{}:
-          St{alo, bhi, U32.zero(), U32.add(U32.mul(amx, knuth()), bmx)}
+          St{alo, bhi, 0, U32.add(U32.mul(amx, 2654435761), bmx)}
         case True{}:
-          St{alo, bhi, U32.and(aok, bok), U32.add(U32.mul(amx, knuth()), bmx)}
+          St{alo, bhi, U32.and(aok, bok), U32.add(U32.mul(amx, 2654435761), bmx)}
 
 # rank-summary scan over the sorted tree
 def scan(t: Tree) -> Stat:
   match t:
     case Leaf{v}:
-      ((v1, e1), (v2, e2)) = U32.copy(v)
-      ((v3, e3), (v4, e4)) = U32.copy(v2)
-      St{v1, v3, U32.one(), v4}
+      +w = v
+      St{w, w, 1, w}
     case Node{a, b}:
-      stat_join(scan(a), scan(b))
+      Both{l, r} = {Both{scan(a), scan(b)} : Par<Stat, Stat>}
+      stat_join(l, r)
 
 def stat_out(s: Stat) -> U32:
   match s:
     case St{lo, hi, ok, mx}:
-      U32.add(U32.xor(U32.mul(mx, knuth()), U32.add(hi, U32.mul(lo, cmix()))), U32.mul(ok, cok()))
-
-def bench(d: Nat) -> U32:
-  (f1, f2) = fdup(fuel(d))
-  stat_out(scan(bsort(f1, f2, False{}, U32.zero())))
+      U32.add(U32.xor(U32.mul(mx, 2654435761), U32.add(hi, U32.mul(lo, 340573321))), U32.mul(ok, 2246822519))
 
 def size.small() -> Nat:
   8n
 
 def expect.small() -> U32:
-  u32d(926n, 633n, 172n)
+  971629740
 
 def size.big() -> Nat:
   23n
 
 def expect.big() -> U32:
-  u32d(3611n, 704n, 596n)
+  3787129428
 
-def main() -> Bool:
-  U32.is_eq(bench(size.small()), expect.small())
+def main() -> U32:
+  t = bsort!(23n, False{}, 0)
+  stat_out(scan!(t))

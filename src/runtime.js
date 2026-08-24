@@ -12,7 +12,6 @@
 //   U32          number (unsigned, via >>> 0)
 //   Char         string (one codepoint)
 //   String       string
-//   Array(n,T)   JS array of 2^n elements
 //   Word(n)      structural ctor objects (the honest spec view)
 //   other ADTs   {$: "Ctor", $0: f0, $1: f1, ...} (erased fields absent)
 //   closures     curried JS functions
@@ -336,33 +335,72 @@ function string_append(a, b) {
 
 // Array
 // =====
-//
-// Values are affine (one owner), so in-place mutation is sound.
 
-function array_node(xs, ys) {
-  for (let i = 0; i < ys.length; i++) {
-    xs.push(ys[i]);
+function array_swap(a, i, v) {
+  if (a.$ === "ALeaf") {
+    return {$: "Tuple", $0: {$: "ALeaf", $0: v}, $1: a.$0};
   }
-  return xs;
+  const r = (i & 1) === 0 ? array_swap(a.$0, i >>> 1, v) : array_swap(a.$1, i >>> 1, v);
+  const b = (i & 1) === 0 ? {$: "ANode", $0: r.$0, $1: a.$1} : {$: "ANode", $0: a.$0, $1: r.$0};
+  return {$: "Tuple", $0: b, $1: r.$1};
 }
 
-function array_left(a) {
-  return a.slice(0, a.length >> 1);
+// F32
+// ===
+//
+// IEEE-754 binary32 (the F32 axioms of Base): every op rounds through
+// Math.fround; F32 -> U32 truncates, out-of-range inputs answer 0.
+
+function u32_to_f32(a) {
+  return Math.fround(a);
 }
 
-function array_right(a) {
-  return a.slice(a.length >> 1);
+function f32_to_u32(a) {
+  return a >= 1 && a < 4294967296 ? Math.floor(a) : 0;
 }
 
-function array_clamp(a, i) {
-  return i < a.length ? i : a.length - 1;
+function f32_add(a, b) {
+  return Math.fround(a + b);
 }
 
-function array_swap(b, i, v) {
-  const j = array_clamp(b, i);
-  const old = b[j];
-  b[j] = v;
-  return {$: "Tuple", $0: b, $1: old};
+function f32_sub(a, b) {
+  return Math.fround(a - b);
+}
+
+function f32_mul(a, b) {
+  return Math.fround(a * b);
+}
+
+function f32_div(a, b) {
+  return Math.fround(a / b);
+}
+
+function f32_sqrt(a) {
+  return Math.fround(Math.sqrt(a));
+}
+
+function f32_is_eq(a, b) {
+  return a === b;
+}
+
+function f32_is_ne(a, b) {
+  return a !== b;
+}
+
+function f32_is_lt(a, b) {
+  return a < b;
+}
+
+function f32_is_le(a, b) {
+  return a <= b;
+}
+
+function f32_is_gt(a, b) {
+  return a > b;
+}
+
+function f32_is_ge(a, b) {
+  return a >= b;
 }
 
 // Show

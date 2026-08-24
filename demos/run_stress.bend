@@ -7,11 +7,13 @@
 # Self-contained: the file declares every type it touches and asserts
 # the native ops it needs. Each assert is named after its runtime.js
 # intrinsic (U32.add is u32_add, ...), so the JS backend wires the
-# compiled program straight to the real natives. The evaluator has no
-# natives, so churn's per-char branch on Rt.eqz stays stuck and main's
-# normal form is the tree of every native-decision path: ~2x per seed
-# char, terabytes at 30 chars. Checking passes; run it through the JS
-# backend, which decides each branch for real.
+# compiled program straight to the real natives. Sharing is spelled with
+# cloned (+) binders; the C runtime backs each with its RC redirector.
+# The evaluator has no natives, so churn's per-char branch on Rt.eqz
+# stays stuck and main's normal form is the tree of every
+# native-decision path: ~2x per seed char, terabytes at 30 chars.
+# Checking passes; run it through a real backend, which decides each
+# branch.
 #
 # One algorithm, three defs. `spawn` builds a depth-20 tree of array
 # transformers by fork/join: each of the 1,048,576 leaves is a heap
@@ -84,19 +86,8 @@ type Array<T: Type>:
   ALeaf{value: T}
   ANode{xs: Array<T>, ys: Array<T>}
 
-def Copy(-A: Type, -x: A) -> Type:
-  &y: A -> {x == y : A}
-
 # The native surface: bodiless asserts, one per runtime.js intrinsic
 # ------------------------------------------------------------------
-
-assert Nat.copy:
-  forall n: Nat
-  Copy(Nat, n) & Copy(Nat, n)
-
-assert U32.copy:
-  forall u: U32
-  Copy(U32, u) & Copy(U32, u)
 
 assert U32.add:
   forall a: U32
@@ -131,44 +122,32 @@ assert Array.swap:
 # Rt: the mocked C runtime's surface, adapted over the natives
 # ------------------------------------------------------------
 
-def Rt.copy(x: U32) -> U32 & U32:
-  ((a, e1), (b, e2)) = U32.copy(x)
-  (a, b)
-
-def Rt.split(n: Nat) -> Nat & Nat:
-  ((a, e1), (b, e2)) = Nat.copy(n)
-  (a, b)
-
 def Rt.add(a: U32, b: U32) -> U32:
   U32.add(a, b)
 
 def Rt.mul(a: U32, b: U32) -> U32:
   U32.mul(a, b)
 
-def Rt.divmod(a: U32, b: U32) -> U32 & U32:
-  ((a1, e1), (a2, e2)) = U32.copy(a)
-  ((b1, f1), (b2, f2)) = U32.copy(b)
-  (U32.div(a1, b1), U32.mod(a2, b2))
+def Rt.divmod(+a: U32, +b: U32) -> U32 & U32:
+  (U32.div(a, b), U32.mod(a, b))
 
 def Rt.eqz(a: U32) -> Bool:
   U32.is_zero(a)
 
-def Rt.alloc(n: Nat, x: U32) -> Array<U32>:
+def Rt.alloc(+n: Nat, +x: U32) -> Array<U32>:
   match n:
     case 0n:
       ALeaf{x}
     case 1n+p:
-      ((p1, e1), (p2, e2)) = Nat.copy(p)
-      ((x1, f1), (x2, f2)) = U32.copy(x)
-      ANode{Rt.alloc(p1, x1), Rt.alloc(p2, x2)}
+      ANode{Rt.alloc(p, x), Rt.alloc(p, x)}
 
-def Rt.read(b: Array<U32>, i: U32) -> Array<U32> & U32:
-  (i1, ir) = Rt.copy(i)
-  (i2, i3) = Rt.copy(ir)
-  (b2, v) = Array.swap(b, i1, i3)
-  (v1, v2) = Rt.copy(v)
-  (b3, z) = Array.swap(b2, i2, v1)
-  (b3, v2)
+# read slot i without net effect: swap i in (reading the old value),
+# then swap the old value back; the value crosses the seam twice
+def Rt.read(b: Array<U32>, +i: U32) -> Array<U32> & U32:
+  (b2, v) = Array.swap(b, i, i)
+  +w = {v : U32}
+  (b3, z) = Array.swap(b2, i, w)
+  (b3, w)
 
 def Rt.write(b: Array<U32>, i: U32, v: U32) -> Array<U32>:
   (b2, old) = Array.swap(b, i, v)
@@ -178,29 +157,22 @@ def Rt.swap(b: Array<U32>, i: U32, v: U32) -> Array<U32> & U32:
   Array.swap(b, i, v)
 
 # Parallel closure tree: 2^d leaf transformers, 2^d - 1 compositions.
-# A leaf captures {i1, i2, s3, q} and, only when applied, reads slot
+# A leaf captures {i, s, q} and, only when applied, reads slot
 # s mod 48, mixes the read value with its captures, and writes it back:
 # an array read-modify-write through a closure environment. A node
 # captures its two child closures and composes them; its two forks are
-# independent and their values join by add. Left seed s+48, right s*s,
+# independent and their values join by add. Left seed s+m, right s*s,
 # so every path gets a distinct polynomial of the root seed.
-def spawn(d: Nat, m: U32, s: U32) -> U32 & (Array<U32> -> Array<U32>):
+def spawn(+d: Nat, +m: U32, +s: U32) -> U32 & (Array<U32> -> Array<U32>):
   match d:
     case 0n:
-      (s1, st) = Rt.copy(s)
-      (s2, s3) = Rt.copy(st)
-      (q, i)   = Rt.divmod(s2, m)
-      (i1, i2) = Rt.copy(i)
-      (s1, b => \{Tuple: b2 => old =>
-        Rt.write(b2, i2, Rt.add(Rt.mul(old, s3), q))}(Rt.read(b, i1)))
+      (q, i) = Rt.divmod(s, m)
+      +j = {i : U32}
+      (s, b => \{Tuple: b2 => old =>
+        Rt.write(b2, j, Rt.add(Rt.mul(old, s), q))}(Rt.read(b, j)))
     case 1n+p:
-      (pa, pb) = Rt.split(p)
-      (ma, mt) = Rt.copy(m)
-      (mb, mc) = Rt.copy(mt)
-      (sa, st) = Rt.copy(s)
-      (sb, sc) = Rt.copy(st)
-      (va, fa) = spawn(pa, ma, Rt.add(sa, mc))
-      (vb, fb) = spawn(pb, mb, Rt.mul(sb, sc))
+      (va, fa) = spawn(p, m, Rt.add(s, m))
+      (vb, fb) = spawn(p, m, Rt.mul(s, s))
       (Rt.add(va, vb), b => fb(fa(b)))
 
 # String-driven drain: per character, one native swap at slot acc mod
@@ -208,24 +180,21 @@ def spawn(d: Nat, m: U32, s: U32) -> U32 & (Array<U32> -> Array<U32>):
 # (t is 10, z doubles as the '0' offset), one Bool branch on that
 # digit steering the next mix, tail call. h drops in the branch that
 # skips it (affine); at SNil acc and the whole live array drop.
-def churn(s: String, t: U32, z: U32, b: Array<U32>, acc: U32, out: String) -> String:
+def churn(s: String, +t: U32, +z: U32, b: Array<U32>, acc: U32, out: String) -> String:
   match s:
     case SNil{}:
       out
     case SCon{Chr{c}, cs}:
-      (t1, t2)  = Rt.copy(t)
-      (z1, zt)  = Rt.copy(z)
-      (z2, z3)  = Rt.copy(zt)
-      (q, i)    = Rt.divmod(acc, z1)
+      (q, i)    = Rt.divmod(acc, z)
       (b2, old) = Rt.swap(b, i, q)
-      (o1, o2)  = Rt.copy(old)
-      (h, r)    = Rt.divmod(o1, t1)
-      (r1, r2)  = Rt.copy(r)
-      match Rt.eqz(r2):
+      +o = {old : U32}
+      (h, r)    = Rt.divmod(o, t)
+      +u = {r : U32}
+      match Rt.eqz(u):
         case True{}:
-          churn(cs, t2, z3, b2, Rt.add(o2, c), SCon{Chr{Rt.add(z2, r1)}, out})
+          churn(cs, t, z, b2, Rt.add(o, c), SCon{Chr{Rt.add(z, u)}, out})
         case False{}:
-          churn(cs, t2, z3, b2, Rt.add(Rt.mul(o2, c), h), SCon{Chr{Rt.add(z2, r1)}, out})
+          churn(cs, t, z, b2, Rt.add(Rt.mul(o, c), h), SCon{Chr{Rt.add(z, u)}, out})
 
 # The match extracts numeric constants: a char literal is the only U32
 # literal in source, and Chr must be matched to reach the code. '\n' is
@@ -236,8 +205,7 @@ def churn(s: String, t: U32, z: U32, b: Array<U32>, acc: U32, out: String) -> St
 def main() -> String:
   match {'\n' : Char} {'0' : Char}:
     case Chr{t} Chr{z}:
-      (ta, tb) = Rt.copy(t)
-      (za, zt) = Rt.copy(z)
-      (zb, zc) = Rt.copy(zt)
-      (v, f)   = spawn(20n, za, ta)
-      churn("Bend stresses its own runtime!", tb, zb, f(Rt.alloc(6n, zc)), v, "")
+      +a = {t : U32}
+      +c = {z : U32}
+      (v, f) = spawn(20n, c, a)
+      churn("Bend stresses its own runtime!", a, c, f(Rt.alloc(6n, c)), v, "")

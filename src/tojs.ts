@@ -122,20 +122,6 @@ export const NATIVES: Record<core.Name, Native> = {
       SCon: (s) => s + " !== \"\"",
     },
   },
-  Array: {
-    intr: {
-      ALeaf: ([v]) => "[" + v + "]",
-      ANode: ([l, r]) => "array_node(" + l + ", " + r + ")",
-    },
-    elim: {
-      ALeaf: (s) => [s + "[0]"],
-      ANode: (s) => ["array_left(" + s + ")", "array_right(" + s + ")"],
-    },
-    cond: {
-      ALeaf: (s) => s + ".length === 1",
-      ANode: (s) => s + ".length !== 1",
-    },
-  },
 };
 
 const IDENT  = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
@@ -187,11 +173,8 @@ export function term_is_tail_call(tm: core.HTerm, k: core.Name, n: number, d: nu
       if (cur.$ === "Ref") {
         return cur.k === k && args === n;
       }
-      if (cur.$ === "Mat" || cur.$ === "Lam" || cur.$ === "Let" || cur.$ === "Rwt") {
-        const f = term_is_tail_call(cur, k, n, d);
-        return f;
-      }
-      return false;
+      const f = term_is_tail_call(cur, k, n, d);
+      return f;
     }
     default: {
       return false;
@@ -199,37 +182,22 @@ export function term_is_tail_call(tm: core.HTerm, k: core.Name, n: number, d: nu
   }
 }
 
-// term_get_tele: the [name, quant] pairs of a type's All spine.
-export function term_get_tele(book: core.Book, tm: core.HTerm): Array<[core.Name, core.Quant]> {
-  const out: Array<[core.Name, core.Quant]> = [];
-  let t = core.term_wnf(book, tm);
-  while (t.$ === "All") {
-    out.push([t.k, t.q]);
-    t = core.term_wnf(book, t.B(core.Var(t.k, out.length - 1)));
-  }
-  return out;
-}
-
 // Def
 // ===
 
-// def_get_params: the def's parameter [name, quant] pairs.
-export function def_get_params(book: core.Book, def: core.Def): Array<[core.Name, core.Quant]> {
-  const tele = term_get_tele(book, def.T);
-  if (tele.length < def.n) {
-    throw new Error("tojs: a def type shorter than its parameters");
-  }
-  return tele.slice(0, def.n);
+// ctr_qs: a ctor's field quantifiers, read off its telescope tail.
+export function ctr_qs(book: core.Book, ctr: core.Ctr): core.Quant[] {
+  const doms = core.tele_unbind(book, ctr.T).doms;
+  return doms.slice(doms.length - ctr.n).map(([q]) => q);
 }
 
-// Ctr
-// ===
-
-// ctr_get_quants: the constructor's field quantities (its telescope's
-// last ctr.n entries).
-export function ctr_get_quants(book: core.Book, ctr: core.Ctr): core.Quant[] {
-  const tele = term_get_tele(book, ctr.T);
-  return tele.slice(tele.length - ctr.n).map(([_, q]) => q);
+// def_get_params: the def's parameter (quant, name, domain) triples.
+export function def_get_params(book: core.Book, def: core.Def): Array<[core.Quant, core.Name, core.HTerm]> {
+  const doms = core.tele_unbind(book, def.T).doms;
+  if (doms.length < def.n) {
+    throw new Error("tojs: a def type shorter than its parameters");
+  }
+  return doms.slice(0, def.n);
 }
 
 // Compile
@@ -290,11 +258,15 @@ export function compile_term(fl: File, tm: core.HTerm, ty: core.HTerm | null, ta
         throw new Error("tojs: unknown constructor: " + k);
       }
       let fields: string[];
+      const live = ctr_qs(fl.book, ctr).filter((u) => u.$ !== "None").length;
       if (native !== undefined) {
-        fields = native.elim[k](s);
+        const el = native.elim[k];
+        if (el === undefined || el(s).length !== live) {
+          throw new Error("tojs: " + k + " does not match the native format of its type");
+        }
+        fields = el(s);
       } else {
         fields = [];
-        const live = ctr_get_quants(fl.book, ctr).filter((u) => u.$ !== "None").length;
         for (let j = 0; j < live; j++) {
           fields.push(s + ".$" + j);
         }
@@ -354,7 +326,11 @@ export function compile_term(fl: File, tm: core.HTerm, ty: core.HTerm | null, ta
     for (let i = 0; i < arms.length; i++) {
       let cond: string;
       if (native !== undefined) {
-        cond = native.cond[arms[i][0]](s);
+        const cn = native.cond[arms[i][0]];
+        if (cn === undefined) {
+          throw new Error("tojs: " + arms[i][0] + " does not match the native format of its type");
+        }
+        cond = cn(s);
       } else {
         cond = s + ".$ === \"" + arms[i][0] + "\"";
       }
@@ -395,7 +371,7 @@ export function compile_term(fl: File, tm: core.HTerm, ty: core.HTerm | null, ta
       if (tld.$ === "ADT") {
         return compile_term_put("null");
       }
-      const live  = def_get_params(fl.book, tld).filter(([_, u]) => u.$ !== "None").length;
+      const live  = def_get_params(fl.book, tld).filter(([u]) => u.$ !== "None").length;
       const exprs = q.map((a) => compile_term(fl, a, null, tab, null, [], d));
       const lp    = fl.loop;
       if (tgt === "return" && lp !== null && lp.name === x.k && exprs.length === live) {
@@ -454,7 +430,7 @@ export function compile_term(fl: File, tm: core.HTerm, ty: core.HTerm | null, ta
       if (ctr === undefined) {
         throw new Error("tojs: unknown constructor: " + x.k);
       }
-      const qs = ctr_get_quants(fl.book, ctr);
+      const qs = ctr_qs(fl.book, ctr);
       const exprs: string[] = [];
       for (let j = 0; j < x.x.length; j++) {
         if (qs[j].$ !== "None") {
@@ -463,7 +439,12 @@ export function compile_term(fl: File, tm: core.HTerm, ty: core.HTerm | null, ta
       }
       const native = NATIVES[adt.k];
       if (native !== undefined) {
-        return compile_term_put(native.intr[x.k](exprs));
+        const it = native.intr[x.k];
+        const el = native.elim[x.k];
+        if (it === undefined || el === undefined || el("s").length !== exprs.length) {
+          throw new Error("tojs: " + x.k + " does not match the native format of its type");
+        }
+        return compile_term_put(it(exprs));
       }
       if (exprs.length === 0) {
         return compile_term_put("$$" + x.k.replace(/\./g, "$"));
@@ -547,7 +528,7 @@ export function compile_term(fl: File, tm: core.HTerm, ty: core.HTerm | null, ta
 export function compile_def(fl: File, def: core.Def, k: core.Name): void {
   fl.fresh = new Map();
   const params: string[] = [];
-  for (const [n, q] of def_get_params(fl.book, def)) {
+  for (const [q, n] of def_get_params(fl.book, def)) {
     if (q.$ !== "None") {
       params.push(file_fresh(fl, n));
     }
@@ -569,7 +550,7 @@ export function compile_def(fl: File, def: core.Def, k: core.Name): void {
   }
   const args: core.HTerm[] = params.map((p) => core.Var(p, 0));
   if (term_is_tail_call(def.v, k, def.n)) {
-    const carry = params.map((p) => file_fresh(fl, "$c"));
+    const carry = params.map(() => file_fresh(fl, "$c"));
     file_push(fl, 0, "function " + sat + "(" + carry.join(", ") + ") {");
     fl.loop = { name: k, args: carry };
     file_push(fl, 1, "while (true) {");
@@ -601,7 +582,7 @@ export function compile_book(book: core.Book): string {
       const tld = book.tlds[k];
       if (tld.$ === "ADT" && NATIVES[k] === undefined) {
         for (const ctr of tld.c) {
-          if (ctr_get_quants(book, ctr).every((u) => u.$ === "None")) {
+          if (ctr_qs(book, ctr).every((u) => u.$ === "None")) {
             file_push(fl, 0, "const $$" + ctr.k.replace(/\./g, "$") + " = {$: \"" + ctr.k + "\"};");
           }
         }
@@ -614,7 +595,7 @@ export function compile_book(book: core.Book): string {
   let out = RUNTIME + "// Program\n// =======\n\n" + fl.lines.join("\n");
   const main = book.tlds["main"];
   if (main !== undefined) {
-    if (main.$ !== "Def" || main.v === null || def_get_params(book, main).some(([, u]) => u.$ !== "None")) {
+    if (main.$ !== "Def" || main.v === null || def_get_params(book, main).some(([q]) => q.$ !== "None")) {
       throw new Error("tojs: main must be a filled def with no live parameters (the runner calls it with none)");
     }
     out += "\nconsole.log(value_show(" + compile_name_sat("main") + "()));";
