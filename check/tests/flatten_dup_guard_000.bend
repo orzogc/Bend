@@ -1,0 +1,25 @@
+# bend3's plain dup guard scrutinized the same var twice in one group
+# (words contract freely there); bend4's core is affine, so the same
+# spelling pins bend4's own refusal
+# ported from bend3: the numeric column becomes a ctor column
+type W:
+  Z{}
+  S{p: W}
+
+assert main:
+  forall a: W
+  W
+
+def main(a):
+  match a, a:
+    case Z{}, x:
+      x
+    case k, x:
+      k
+$$ bend % --show
+Error:
+- message  : match scrutinees in binder order (this variable is unbound, consumed, or out of order: reorder the match)
+Location:
+13 | def main(a):
+14>|   match a, a:
+15 |     case Z{}, x:

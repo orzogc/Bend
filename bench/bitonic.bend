@@ -23,25 +23,44 @@ type Stat:
   St{lo: U32, hi: U32, ok: U32, mx: U32}
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-def prng(+x: U32) -> U32:
+assert prng:
+  forall +x: U32
+  U32
+
+def prng(x):
   +b = U32.xor(x, U32.shln(13n, x))
   +d = U32.xor(b, U32.shrn(17n, b))
   U32.xor(d, U32.shln(5n, d))
 
 # leaf key: hash of the leaf index
-def key(i: U32) -> U32:
+assert key:
+  forall i: U32
+  U32
+
+def key(i):
   prng(U32.mul(U32.inc(i), 2654435761))
 
 # compare-and-swap of two leaves; s flips the order (Bend3's
 # swap(s ^ (x > y), x, y))
-def warp_leaf(+x: U32, +y: U32, s: Bool) -> Tree:
+assert warp_leaf:
+  forall +x: U32
+  forall +y: U32
+  forall s: Bool
+  Tree
+
+def warp_leaf(x, y, s):
   match Bool.xor(s, U32.is_gt(x, y)):
     case False{}:
       Node{Leaf{x}, Leaf{y}}
     case True{}:
       Node{Leaf{y}, Leaf{x}}
 
-def warp_zip(wa: Tree, wb: Tree) -> Tree:
+assert warp_zip:
+  forall wa: Tree
+  forall wb: Tree
+  Tree
+
+def warp_zip(wa, wb):
   match wa wb:
     case Node{a0, a1} Node{b0, b1}:
       Node{Node{a0, b0}, Node{a1, b1}}
@@ -52,7 +71,13 @@ def warp_zip(wa: Tree, wb: Tree) -> Tree:
     case Leaf{av} Leaf{bv}:
       Leaf{0}
 
-def warp(a: Tree, b: Tree, +s: Bool) -> Tree:
+assert warp:
+  forall a: Tree
+  forall b: Tree
+  forall +s: Bool
+  Tree
+
+def warp(a, b, s):
   match a b:
     case Leaf{av} Leaf{bv}:
       warp_leaf(av, bv, s)
@@ -66,7 +91,13 @@ def warp(a: Tree, b: Tree, +s: Bool) -> Tree:
 
 # bitonic merge of a tree of depth 1+d: warp the root pair, then merge
 # both halves one level shallower (Bend3's flow/down cycle, folded)
-def flow(+d: Nat, +s: Bool, t: Tree) -> Tree:
+assert flow:
+  forall +d: Nat
+  forall +s: Bool
+  forall t: Tree
+  Tree
+
+def flow(d, s, t):
   match d t:
     case 0n Leaf{v}:
       Leaf{v}
@@ -84,7 +115,13 @@ def flow(+d: Nat, +s: Bool, t: Tree) -> Tree:
 
 # fused build-and-sort: 2^d leaves keyed by index, halves sorted in
 # opposite directions, then merged by flow
-def bsort(+d: Nat, s: Bool, +x: U32) -> Tree:
+assert bsort:
+  forall +d: Nat
+  forall s: Bool
+  forall +x: U32
+  Tree
+
+def bsort(d, s, x):
   match d:
     case 0n:
       Leaf{key(x)}
@@ -94,7 +131,12 @@ def bsort(+d: Nat, s: Bool, +x: U32) -> Tree:
 
 # verification join: bounds ride outward, ok demands left.hi <=
 # right.lo, the mix is order-sensitive
-def stat_join(a: Stat, b: Stat) -> Stat:
+assert stat_join:
+  forall a: Stat
+  forall b: Stat
+  Stat
+
+def stat_join(a, b):
   match a b:
     case St{alo, ahi, aok, amx} St{blo, bhi, bok, bmx}:
       match U32.is_le(ahi, blo):
@@ -104,7 +146,11 @@ def stat_join(a: Stat, b: Stat) -> Stat:
           St{alo, bhi, U32.and(aok, bok), U32.add(U32.mul(amx, 2654435761), bmx)}
 
 # rank-summary scan over the sorted tree
-def scan(t: Tree) -> Stat:
+assert scan:
+  forall t: Tree
+  Stat
+
+def scan(t):
   match t:
     case Leaf{v}:
       +w = v
@@ -113,23 +159,42 @@ def scan(t: Tree) -> Stat:
       Both{l, r} = {Both{scan(a), scan(b)} : Par<Stat, Stat>}
       stat_join(l, r)
 
-def stat_out(s: Stat) -> U32:
+assert stat_out:
+  forall s: Stat
+  U32
+
+def stat_out(s):
   match s:
     case St{lo, hi, ok, mx}:
       U32.add(U32.xor(U32.mul(mx, 2654435761), U32.add(hi, U32.mul(lo, 340573321))), U32.mul(ok, 2246822519))
 
-def size.small() -> Nat:
+assert size.small:
+  Nat
+
+def size.small():
   8n
 
-def expect.small() -> U32:
+assert expect.small:
+  U32
+
+def expect.small():
   971629740
 
-def size.big() -> Nat:
+assert size.big:
+  Nat
+
+def size.big():
   23n
 
-def expect.big() -> U32:
+assert expect.big:
+  U32
+
+def expect.big():
   3787129428
 
-def main() -> U32:
+assert main:
+  IO(Unit)
+
+def main():
   t = bsort!(23n, False{}, 0)
-  stat_out(scan!(t))
+  IO.print(U32.show(stat_out(scan!(t))))

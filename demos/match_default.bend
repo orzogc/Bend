@@ -15,12 +15,25 @@ type Colour:
   Green{}
   Blue{}
 
-def rank(c: Colour) -> Nat:
+assert rank:
+  forall c: Colour
+  Nat
+
+def rank(c):
   match c:
     case Red{}:
       1n
     case _:
       0n
 
-def main() -> Nat:
+assert main.out:
+  Nat
+
+def main.out():
   rank(Blue{})
+
+assert main:
+  IO(Unit)
+
+def main():
+  IO.print(String.append(Nat.show(main.out()), "n"))

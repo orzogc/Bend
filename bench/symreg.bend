@@ -32,29 +32,54 @@ type Expr:
 type Sel:
   Sel{fit: U32, seed: U32, sum: U32}
 
-def b2u(b: Bool) -> U32:
+assert b2u:
+  forall b: Bool
+  U32
+
+def b2u(b):
   match b:
     case False{}:
       0
     case True{}:
       1
 
-def prng(+x: U32) -> U32:
+assert prng:
+  forall +x: U32
+  U32
+
+def prng(x):
   +b = U32.xor(x, U32.shln(13n, x))
   +d = U32.xor(b, U32.shrn(17n, b))
   U32.xor(d, U32.shln(5n, d))
 
-def sel(t: U32, x: U32, y: U32) -> U32:
+assert sel:
+  forall t: U32
+  forall x: U32
+  forall y: U32
+  U32
+
+def sel(t, x, y):
   match U32.is_zero(t):
     case True{}:
       x
     case False{}:
       y
 
-def adiff(+a: U32, +b: U32) -> U32:
+assert adiff:
+  forall +a: U32
+  forall +b: U32
+  U32
+
+def adiff(a, b):
   sel(b2u(U32.is_lt(a, b)), U32.sub(a, b), U32.sub(b, a))
 
-def node(o: Nat, a: Expr, b: Expr) -> Expr:
+assert node:
+  forall o: Nat
+  forall a: Expr
+  forall b: Expr
+  Expr
+
+def node(o, a, b):
   match o:
     case 0n:
       Add{a, b}
@@ -66,7 +91,12 @@ def node(o: Nat, a: Expr, b: Expr) -> Expr:
       Xor{a, b}
 
 # materialize a candidate AST straight off the hash stream
-def gen(+d: Nat, +h: U32) -> Expr:
+assert gen:
+  forall +d: Nat
+  forall +h: U32
+  Expr
+
+def gen(d, h):
   match d:
     case 0n:
       match U32.is_zero(U32.and(U32.shrn(8n, h), 1)):
@@ -80,7 +110,12 @@ def gen(+d: Nat, +h: U32) -> Expr:
       node(U32.to_nat(U32.mod(h, 4)), a, b)
 
 # pattern-matching interpreter reading the shared tree
-def eval(e: Expr, +x: U32) -> U32:
+assert eval:
+  forall e: Expr
+  forall +x: U32
+  U32
+
+def eval(e, x):
   match e:
     case Var{}:
       x
@@ -96,7 +131,11 @@ def eval(e: Expr, +x: U32) -> U32:
       U32.xor(eval(a, x), eval(b, x))
 
 # parsimony: AST node count off the shared tree
-def esize(e: Expr) -> U32:
+assert esize:
+  forall e: Expr
+  U32
+
+def esize(e):
   match e:
     case Var{}:
       1
@@ -112,7 +151,13 @@ def esize(e: Expr) -> U32:
       U32.add(1, U32.add(esize(a), esize(b)))
 
 # dataset fold: error sum over x = 0..j-1, then the parsimony penalty
-def floop(+j: Nat, +e: Expr, acc: U32) -> U32:
+assert floop:
+  forall +j: Nat
+  forall +e: Expr
+  forall acc: U32
+  U32
+
+def floop(j, e, acc):
   match j:
     case 0n:
       U32.add(acc, U32.mul(esize(e), 8))
@@ -122,13 +167,23 @@ def floop(+j: Nat, +e: Expr, acc: U32) -> U32:
       t = U32.add(U32.mul(xx, xx), U32.add(U32.mul(3, xx), 7))
       floop(p, e, U32.add(acc, adiff(v, t)))
 
-def cand(+s: U32, pts: Nat) -> Sel:
+assert cand:
+  forall +s: U32
+  forall pts: Nat
+  Sel
+
+def cand(s, pts):
   t = gen(5n, prng(s))
   +f = floop(pts, t, 0)
   Sel{f, s, U32.xor(f, U32.mul(s, 2654435761))}
 
 # tournament: keep the lower-fitness candidate, sum the checksums
-def pick(a: Sel, b: Sel) -> Sel:
+assert pick:
+  forall a: Sel
+  forall b: Sel
+  Sel
+
+def pick(a, b):
   match a b:
     case Sel{f1, s1, c1} Sel{f2, s2, c2}:
       +g1 = f1
@@ -136,7 +191,13 @@ def pick(a: Sel, b: Sel) -> Sel:
       +w = b2u(U32.is_lt(g1, g2))
       Sel{sel(w, g2, g1), sel(w, s2, s1), U32.add(c1, c2)}
 
-def batch(+d: Nat, +s: U32, +pts: Nat) -> Sel:
+assert batch:
+  forall +d: Nat
+  forall +s: U32
+  forall +pts: Nat
+  Sel
+
+def batch(d, s, pts):
   match d:
     case 0n:
       cand(prng(s), pts)
@@ -145,7 +206,14 @@ def batch(+d: Nat, +s: U32, +pts: Nat) -> Sel:
       pick(a, b)
 
 # hill-climb the tournament winner: mutate the seed, keep improvements
-def climb(+r: Nat, +bs: U32, +bf: U32, +pts: Nat) -> U32:
+assert climb:
+  forall +r: Nat
+  forall +bs: U32
+  forall +bf: U32
+  forall +pts: Nat
+  U32
+
+def climb(r, bs, bf, pts):
   match r:
     case 0n:
       U32.xor(bf, U32.mul(bs, 2654435761))
@@ -156,17 +224,33 @@ def climb(+r: Nat, +bs: U32, +bf: U32, +pts: Nat) -> U32:
           +w = b2u(U32.is_lt(ff, bf))
           climb(p, sel(w, bs, s2), sel(w, bf, ff), pts)
 
-def run(d: Nat, s0: U32, r: Nat, +p: Nat) -> U32:
+assert run:
+  forall d: Nat
+  forall s0: U32
+  forall r: Nat
+  forall +p: Nat
+  U32
+
+def run(d, s0, r, p):
   match batch(d, s0, p):
     case Sel{f, s, c}:
       U32.add(climb(r, s, f, p), c)
 
-def size() -> Nat:
+assert size:
+  Nat
+
+def size():
   18n
 
-def pts() -> Nat:
+assert pts:
+  Nat
+
+def pts():
   110n
 
 # small: run!(6n, 42, 32n, 16n) expect 2490246820; big expect 2383953211
-def main() -> U32:
-  run!(size(), 42, 32n, pts())
+assert main:
+  IO(Unit)
+
+def main():
+  IO.print(U32.show(run!(size(), 42, 32n, pts())))

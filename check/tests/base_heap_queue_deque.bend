@@ -1,0 +1,18 @@
+# bend3's Heap/Queue/Deque container modules are absent from bend4's
+# base (Map and Set are its containers): the head call is an undefined
+# name
+import Base
+
+assert main:
+  U32
+
+def main():
+  Deque.push_front(1, Deque.new())
+$$ bend %
+Error:
+- expected : a defined name
+- observed : Deque.push_front
+Location: main
+ 9 | def main():
+10>|   Deque.push_front(1, Deque.new())
+11 |

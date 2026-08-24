@@ -37,10 +37,19 @@ type Hit:
   Hit{t: F32, i: U32}
 
 # float literal n/d (Bend4 has no float literal syntax)
-def fl(n: U32, d: U32) -> F32:
+assert fl:
+  forall n: U32
+  forall d: U32
+  F32
+
+def fl(n, d):
   F32.div(U32.to_f32(n), U32.to_f32(d))
 
-def sphere(i: Nat) -> Sph:
+assert sphere:
+  forall i: Nat
+  Sph
+
+def sphere(i):
   match i:
     case 0n:
       Sph{U32.to_f32(0), F32.sub(U32.to_f32(0), U32.to_f32(10001)), U32.to_f32(5), U32.to_f32(10000), fl(3, 10)}
@@ -62,7 +71,20 @@ def sphere(i: Nat) -> Sph:
       Sph{F32.sub(U32.to_f32(0), fl(35, 10)), fl(2, 10), U32.to_f32(8), U32.to_f32(1), fl(6, 10)}
 
 # ray-sphere: t of the near root, or 1e9 for a miss (disc < 0 or t < eps)
-def isect5(cx: F32, cy: F32, cz: F32, r: F32, ox: F32, oy: F32, oz: F32, dx: F32, dy: F32, dz: F32) -> F32:
+assert isect5:
+  forall cx: F32
+  forall cy: F32
+  forall cz: F32
+  forall r: F32
+  forall ox: F32
+  forall oy: F32
+  forall oz: F32
+  forall dx: F32
+  forall dy: F32
+  forall dz: F32
+  F32
+
+def isect5(cx, cy, cz, r, ox, oy, oz, dx, dy, dz):
   +px = F32.sub(ox, cx)
   +py = F32.sub(oy, cy)
   +pz = F32.sub(oz, cz)
@@ -70,7 +92,11 @@ def isect5(cx: F32, cy: F32, cz: F32, r: F32, ox: F32, oy: F32, oz: F32, dx: F32
   +b = F32.add(F32.add(F32.mul(px, dx), F32.mul(py, dy)), F32.mul(pz, dz))
   isect.go(b, F32.sub(F32.mul(b, b), F32.sub(F32.add(F32.add(F32.mul(px, px), F32.mul(py, py)), F32.mul(pz, pz)), F32.mul(rr, rr))))
 
-def sx(i: Nat) -> F32:
+assert sx:
+  forall i: Nat
+  F32
+
+def sx(i):
   match i:
     case 0n: U32.to_f32(0)
     case 1n: U32.to_f32(0)
@@ -82,7 +108,11 @@ def sx(i: Nat) -> F32:
     case 7n: fl(35, 10)
     case 8n+k: F32.sub(U32.to_f32(0), fl(35, 10))
 
-def sy(i: Nat) -> F32:
+assert sy:
+  forall i: Nat
+  F32
+
+def sy(i):
   match i:
     case 0n: F32.sub(U32.to_f32(0), U32.to_f32(10001))
     case 1n: U32.to_f32(0)
@@ -94,7 +124,11 @@ def sy(i: Nat) -> F32:
     case 7n: fl(2, 10)
     case 8n+k: fl(2, 10)
 
-def sz(i: Nat) -> F32:
+assert sz:
+  forall i: Nat
+  F32
+
+def sz(i):
   match i:
     case 0n: U32.to_f32(5)
     case 1n: U32.to_f32(5)
@@ -106,7 +140,11 @@ def sz(i: Nat) -> F32:
     case 7n: U32.to_f32(8)
     case 8n+k: U32.to_f32(8)
 
-def sr(i: Nat) -> F32:
+assert sr:
+  forall i: Nat
+  F32
+
+def sr(i):
   match i:
     case 0n: U32.to_f32(10000)
     case 1n: U32.to_f32(1)
@@ -118,14 +156,23 @@ def sr(i: Nat) -> F32:
     case 7n: U32.to_f32(1)
     case 8n+k: U32.to_f32(1)
 
-def isect.go(b: F32, +disc: F32) -> F32:
+assert isect.go:
+  forall b: F32
+  forall +disc: F32
+  F32
+
+def isect.go(b, disc):
   match F32.is_lt(disc, U32.to_f32(0)):
     case False{}:
       isect.t(F32.sub(F32.sub(U32.to_f32(0), b), F32.sqrt(disc)))
     case True{}:
       U32.to_f32(1000000000)
 
-def isect.t(+t: F32) -> F32:
+assert isect.t:
+  forall +t: F32
+  F32
+
+def isect.t(t):
   match F32.is_lt(t, fl(1, 1000)):
     case False{}:
       t
@@ -134,7 +181,19 @@ def isect.t(+t: F32) -> F32:
 
 # nearest hit: recursive min-fold over the spheres, testing 8 down to
 # 0 with strict <
-def nearest(+i: Nat, +ox: F32, +oy: F32, +oz: F32, +dx: F32, +dy: F32, +dz: F32, +bt: F32, bi: U32) -> Hit:
+assert nearest:
+  forall +i: Nat
+  forall +ox: F32
+  forall +oy: F32
+  forall +oz: F32
+  forall +dx: F32
+  forall +dy: F32
+  forall +dz: F32
+  forall +bt: F32
+  forall bi: U32
+  Hit
+
+def nearest(i, ox, oy, oz, dx, dy, dz, bt, bi):
   match i:
     case 0n:
       Hit{bt, bi}
@@ -147,7 +206,11 @@ def nearest(+i: Nat, +ox: F32, +oy: F32, +oz: F32, +dx: F32, +dy: F32, +dz: F32,
         case True{}:
           nearest(kk, ox, oy, oz, dx, dy, dz, t, U32.from_nat(kk))
 
-def fmax0(+x: F32) -> F32:
+assert fmax0:
+  forall +x: F32
+  F32
+
+def fmax0(x):
   match F32.is_lt(x, U32.to_f32(0)):
     case False{}:
       x
@@ -155,33 +218,73 @@ def fmax0(+x: F32) -> F32:
       U32.to_f32(0)
 
 # diffuse term, zeroed when the shadow ray hits something before the light
-def shade(st: F32, ll: F32, df: F32) -> F32:
+assert shade:
+  forall st: F32
+  forall ll: F32
+  forall df: F32
+  F32
+
+def shade(st, ll, df):
   match F32.is_lt(st, ll):
     case False{}:
       df
     case True{}:
       U32.to_f32(0)
 
-def clamp01.hi(+x: F32) -> F32:
+assert clamp01.hi:
+  forall +x: F32
+  F32
+
+def clamp01.hi(x):
   match F32.is_lt(U32.to_f32(1), x):
     case False{}:
       x
     case True{}:
       U32.to_f32(1)
 
-def clamp01(+x: F32) -> F32:
+assert clamp01:
+  forall +x: F32
+  F32
+
+def clamp01(x):
   match F32.is_lt(x, U32.to_f32(0)):
     case False{}:
       clamp01.hi(x)
     case True{}:
       U32.to_f32(0)
 
-def trace(dep: Nat, +ox: F32, +oy: F32, +oz: F32, +dx: F32, +dy: F32, +dz: F32, acc: F32, w: F32) -> F32:
+assert trace:
+  forall dep: Nat
+  forall +ox: F32
+  forall +oy: F32
+  forall +oz: F32
+  forall +dx: F32
+  forall +dy: F32
+  forall +dz: F32
+  forall acc: F32
+  forall w: F32
+  F32
+
+def trace(dep, ox, oy, oz, dx, dy, dz, acc, w):
   match nearest(9n, ox, oy, oz, dx, dy, dz, U32.to_f32(1000000000), 9):
     case Hit{t, id}:
       trace.hit(id, t, dep, ox, oy, oz, dx, dy, dz, acc, w)
 
-def trace.hit(+id: U32, t: F32, dep: Nat, ox: F32, oy: F32, oz: F32, dx: F32, dy: F32, dz: F32, acc: F32, w: F32) -> F32:
+assert trace.hit:
+  forall +id: U32
+  forall t: F32
+  forall dep: Nat
+  forall ox: F32
+  forall oy: F32
+  forall oz: F32
+  forall dx: F32
+  forall dy: F32
+  forall dz: F32
+  forall acc: F32
+  forall w: F32
+  F32
+
+def trace.hit(id, t, dep, ox, oy, oz, dx, dy, dz, acc, w):
   match U32.is_eq(id, 9):
     case False{}:
       match sphere(U32.to_nat(id)):
@@ -190,7 +293,25 @@ def trace.hit(+id: U32, t: F32, dep: Nat, ox: F32, oy: F32, oz: F32, dx: F32, dy
     case True{}:
       acc
 
-def trace.sph(cx: F32, cy: F32, cz: F32, +r: F32, kr: F32, +t: F32, dep: Nat, ox: F32, oy: F32, oz: F32, +dx: F32, +dy: F32, +dz: F32, acc: F32, w: F32) -> F32:
+assert trace.sph:
+  forall cx: F32
+  forall cy: F32
+  forall cz: F32
+  forall +r: F32
+  forall kr: F32
+  forall +t: F32
+  forall dep: Nat
+  forall ox: F32
+  forall oy: F32
+  forall oz: F32
+  forall +dx: F32
+  forall +dy: F32
+  forall +dz: F32
+  forall acc: F32
+  forall w: F32
+  F32
+
+def trace.sph(cx, cy, cz, r, kr, t, dep, ox, oy, oz, dx, dy, dz, acc, w):
   +hx = F32.add(ox, F32.mul(t, dx))
   +hy = F32.add(oy, F32.mul(t, dy))
   +hz = F32.add(oz, F32.mul(t, dz))
@@ -210,26 +331,92 @@ def trace.sph(cx: F32, cy: F32, cz: F32, +r: F32, kr: F32, +t: F32, dep: Nat, ox
   +soz = F32.add(hz, F32.mul(fl(1, 1000), nz))
   trace.lum(nearest(9n, sox, soy, soz, lx, ly, lz, U32.to_f32(1000000000), 9), ll, df, dep, kr, sox, soy, soz, dx, dy, dz, nx, ny, nz, acc, w)
 
-def trace.lum(h1: Hit, ll: F32, df: F32, dep: Nat, kr: F32, sox: F32, soy: F32, soz: F32, dx: F32, dy: F32, dz: F32, nx: F32, ny: F32, nz: F32, acc: F32, w: F32) -> F32:
+assert trace.lum:
+  forall h1: Hit
+  forall ll: F32
+  forall df: F32
+  forall dep: Nat
+  forall kr: F32
+  forall sox: F32
+  forall soy: F32
+  forall soz: F32
+  forall dx: F32
+  forall dy: F32
+  forall dz: F32
+  forall nx: F32
+  forall ny: F32
+  forall nz: F32
+  forall acc: F32
+  forall w: F32
+  F32
+
+def trace.lum(h1, ll, df, dep, kr, sox, soy, soz, dx, dy, dz, nx, ny, nz, acc, w):
   match h1:
     case Hit{st, si}:
       trace.dep(dep, F32.add(fl(1, 10), F32.mul(fl(85, 100), shade(st, ll, df))), kr, sox, soy, soz, dx, dy, dz, nx, ny, nz, acc, w)
 
-def trace.dep(dep: Nat, lum: F32, kr: F32, sox: F32, soy: F32, soz: F32, +dx: F32, +dy: F32, +dz: F32, +nx: F32, +ny: F32, +nz: F32, acc: F32, w: F32) -> F32:
+assert trace.dep:
+  forall dep: Nat
+  forall lum: F32
+  forall kr: F32
+  forall sox: F32
+  forall soy: F32
+  forall soz: F32
+  forall +dx: F32
+  forall +dy: F32
+  forall +dz: F32
+  forall +nx: F32
+  forall +ny: F32
+  forall +nz: F32
+  forall acc: F32
+  forall w: F32
+  F32
+
+def trace.dep(dep, lum, kr, sox, soy, soz, dx, dy, dz, nx, ny, nz, acc, w):
   match dep:
     case 0n:
       F32.add(acc, F32.mul(w, lum))
     case 1n+k:
       trace.rfl(k, F32.mul(U32.to_f32(2), F32.add(F32.add(F32.mul(dx, nx), F32.mul(dy, ny)), F32.mul(dz, nz))), lum, kr, sox, soy, soz, dx, dy, dz, nx, ny, nz, acc, w)
 
-def trace.rfl(k: Nat, +k2: F32, lum: F32, +kr: F32, sox: F32, soy: F32, soz: F32, dx: F32, dy: F32, dz: F32, nx: F32, ny: F32, nz: F32, acc: F32, +w: F32) -> F32:
+assert trace.rfl:
+  forall k: Nat
+  forall +k2: F32
+  forall lum: F32
+  forall +kr: F32
+  forall sox: F32
+  forall soy: F32
+  forall soz: F32
+  forall dx: F32
+  forall dy: F32
+  forall dz: F32
+  forall nx: F32
+  forall ny: F32
+  forall nz: F32
+  forall acc: F32
+  forall +w: F32
+  F32
+
+def trace.rfl(k, k2, lum, kr, sox, soy, soz, dx, dy, dz, nx, ny, nz, acc, w):
   trace(k, sox, soy, soz, F32.sub(dx, F32.mul(k2, nx)), F32.sub(dy, F32.mul(k2, ny)), F32.sub(dz, F32.mul(k2, nz)), F32.add(acc, F32.mul(F32.mul(w, lum), F32.sub(U32.to_f32(1), kr))), F32.mul(w, kr))
 
-def subray(+fx: F32, +fy: F32) -> F32:
+assert subray:
+  forall +fx: F32
+  forall +fy: F32
+  F32
+
+def subray(fx, fy):
   +dl = F32.sqrt(F32.add(F32.add(F32.mul(fx, fx), F32.mul(fy, fy)), U32.to_f32(1)))
   trace(4n, U32.to_f32(0), U32.to_f32(0), U32.to_f32(0), F32.div(fx, dl), F32.div(fy, dl), F32.div(U32.to_f32(1), dl), U32.to_f32(0), U32.to_f32(1))
 
-def pixel(x: U32, y: U32, +hw: F32, +hh: F32) -> U32:
+assert pixel:
+  forall x: U32
+  forall y: U32
+  forall +hw: F32
+  forall +hh: F32
+  U32
+
+def pixel(x, y, hw, hh):
   +xf = U32.to_f32(x)
   +yf = U32.to_f32(y)
   l1 = subray(F32.div(F32.sub(F32.add(xf, fl(1, 4)), hw), hw), F32.div(F32.sub(hh, F32.add(yf, fl(1, 4))), hw))
@@ -238,14 +425,31 @@ def pixel(x: U32, y: U32, +hw: F32, +hh: F32) -> U32:
   l4 = subray(F32.div(F32.sub(F32.add(xf, fl(3, 4)), hw), hw), F32.div(F32.sub(hh, F32.add(yf, fl(3, 4))), hw))
   F32.to_u32(F32.mul(U32.to_f32(255), clamp01(F32.mul(F32.add(F32.add(l1, l2), F32.add(l3, l4)), fl(1, 4)))))
 
-def colf.px(+xx: U32, y: U32, w: U32, hw: F32, hh: F32) -> U32:
+assert colf.px:
+  forall +xx: U32
+  forall y: U32
+  forall w: U32
+  forall hw: F32
+  forall hh: F32
+  U32
+
+def colf.px(xx, y, w, hw, hh):
   match U32.is_lt(xx, w):
     case False{}:
       0
     case True{}:
       pixel(xx, y, hw, hh)
 
-def colf(+d: Nat, +x: U32, +y: U32, +w: U32, +hw: F32, +hh: F32) -> U32:
+assert colf:
+  forall +d: Nat
+  forall +x: U32
+  forall +y: U32
+  forall +w: U32
+  forall +hw: F32
+  forall +hh: F32
+  U32
+
+def colf(d, x, y, w, hw, hh):
   match d:
     case 0n:
       colf.px(U32.and(U32.mul(x, 2654435761), 16383), y, w, hw, hh)
@@ -253,7 +457,16 @@ def colf(+d: Nat, +x: U32, +y: U32, +w: U32, +hw: F32, +hh: F32) -> U32:
       Both{a, b} = {Both{colf(p, x, y, w, hw, hh), colf(p, U32.add(x, U32.shln(p, 1)), y, w, hw, hh)} : Par<U32, U32>}
       U32.add(a, b)
 
-def rowf(+d: Nat, +y: U32, +m: U32, +w: U32, +hw: F32, +hh: F32) -> U32:
+assert rowf:
+  forall +d: Nat
+  forall +y: U32
+  forall +m: U32
+  forall +w: U32
+  forall +hw: F32
+  forall +hh: F32
+  U32
+
+def rowf(d, y, m, w, hw, hh):
   match d:
     case 0n:
       colf(14n, 0, U32.and(U32.mul(y, 1588635697), m), w, hw, hh)
@@ -261,17 +474,26 @@ def rowf(+d: Nat, +y: U32, +m: U32, +w: U32, +hw: F32, +hh: F32) -> U32:
       Both{a, b} = {Both{rowf(p, y, m, w, hw, hh), rowf(p, U32.add(y, U32.shln(p, 1)), m, w, hw, hh)} : Par<U32, U32>}
       U32.add(a, b)
 
-def rows() -> Nat:
+assert rows:
+  Nat
+
+def rows():
   12n
 
-def width() -> U32:
+assert width:
+  U32
+
+def width():
   6000
 
 # small: rows 6n width 80 expect 402971; big expect 1924309504
-def main() -> U32:
+assert main:
+  IO(Unit)
+
+def main():
   +rr = rows()
   +w = width()
   hw = U32.to_f32(U32.div(w, 2))
   hh = U32.to_f32(U32.div(U32.shln(rr, 1), 2))
   hm = U32.sub(U32.shln(rr, 1), 1)
-  rowf!(rr, 0, hm, w, hw, hh)
+  IO.print(U32.show(rowf!(rr, 0, hm, w, hw, hh)))

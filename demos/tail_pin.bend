@@ -13,16 +13,34 @@
 
 import Base
 
-def big(n: Nat) -> Nat:
+assert big:
+  forall n: Nat
+  Nat
+
+def big(n):
   match n:
     case 0n:
       0n
     case 1n+p:
       Succ{big(p)}
 
-def side(a: Nat, b: Nat) -> Nat:
+assert side:
+  forall a: Nat
+  forall b: Nat
+  Nat
+
+def side(a, b):
   x = big(a)
   big(b)
 
-def main() -> Nat:
+assert main.out:
+  Nat
+
+def main.out():
   side(5n, 3n)
+
+assert main:
+  IO(Unit)
+
+def main():
+  IO.print(String.append(Nat.show(main.out()), "n"))

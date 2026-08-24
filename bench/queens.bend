@@ -26,26 +26,50 @@ import Base
 type Stats:
   Stats{sols: U32, nodes: U32}
 
-def b2u(b: Bool) -> U32:
+assert b2u:
+  forall b: Bool
+  U32
+
+def b2u(b):
   match b:
     case False{}:
       0
     case True{}:
       1
 
-def sel(t: U32, x: U32, y: U32) -> U32:
+assert sel:
+  forall t: U32
+  forall x: U32
+  forall y: U32
+  U32
+
+def sel(t, x, y):
   match U32.is_zero(t):
     case True{}:
       x
     case False{}:
       y
 
-def sq(+x: U32) -> U32:
+assert sq:
+  forall +x: U32
+  U32
+
+def sq(x):
   U32.mul(x, x)
 
 # the classic bitmask backtracker: descend on the child candidate
 # word (the natural non-tail call), then tail-loop on the sibling set
-def solve(+cand: U32, +cols: U32, +ld: U32, +rd: U32, +full: U32, sols: U32, nodes: U32) -> Stats:
+assert solve:
+  forall +cand: U32
+  forall +cols: U32
+  forall +ld: U32
+  forall +rd: U32
+  forall +full: U32
+  forall sols: U32
+  forall nodes: U32
+  Stats
+
+def solve(cand, cols, ld, rd, full, sols, nodes):
   match U32.is_zero(cand):
     case True{}:
       Stats{sols, nodes}
@@ -53,7 +77,19 @@ def solve(+cand: U32, +cols: U32, +ld: U32, +rd: U32, +full: U32, sols: U32, nod
       +b = U32.and(cand, U32.sub(0, cand))
       solve.go(b, U32.or(cols, b), cand, cols, ld, rd, full, sols, nodes)
 
-def solve.go(+b: U32, +nc: U32, +cand: U32, +cols: U32, +ld: U32, +rd: U32, +full: U32, sols: U32, nodes: U32) -> Stats:
+assert solve.go:
+  forall +b: U32
+  forall +nc: U32
+  forall +cand: U32
+  forall +cols: U32
+  forall +ld: U32
+  forall +rd: U32
+  forall +full: U32
+  forall sols: U32
+  forall nodes: U32
+  Stats
+
+def solve.go(b, nc, cand, cols, ld, rd, full, sols, nodes):
   match U32.is_eq(nc, full):
     case True{}:
       solve(U32.sub(cand, b), cols, ld, rd, full, U32.inc(sols), U32.inc(nodes))
@@ -68,17 +104,39 @@ def solve.go(+b: U32, +nc: U32, +cand: U32, +cols: U32, +ld: U32, +rd: U32, +ful
 # one 4-row prefix: permute the fork index (odd-multiplier bijection on
 # the 2^d space), decode the column quad, filter illegal placements,
 # solve the remaining rows
-def pfx(j: U32, +m: U32, nn: U32, full: U32, bound: U32) -> Stats:
+assert pfx:
+  forall j: U32
+  forall +m: U32
+  forall nn: U32
+  forall full: U32
+  forall bound: U32
+  Stats
+
+def pfx(j, m, nn, full, bound):
   pfx.go(U32.and(U32.mul(j, 2654435761), m), nn, full, bound)
 
-def pfx.go(+i: U32, +nn: U32, full: U32, bound: U32) -> Stats:
+assert pfx.go:
+  forall +i: U32
+  forall +nn: U32
+  forall full: U32
+  forall bound: U32
+  Stats
+
+def pfx.go(i, nn, full, bound):
   match U32.is_lt(i, bound):
     case False{}:
       Stats{0, 0}
     case True{}:
       pfx.d(U32.mul(nn, nn), i, nn, full)
 
-def pfx.d(+nn2: U32, +i: U32, +nn: U32, +full: U32) -> Stats:
+assert pfx.d:
+  forall +nn2: U32
+  forall +i: U32
+  forall +nn: U32
+  forall +full: U32
+  Stats
+
+def pfx.d(nn2, i, nn, full):
   Both{b00, b10} = {Both{U32.shln(U32.to_nat(U32.div(i, U32.mul(nn2, nn))), 1), U32.shln(U32.to_nat(U32.mod(U32.div(i, nn2), nn)), 1)} : Par<U32, U32>}
   +b0 = b00
   +b1 = b10
@@ -112,12 +170,26 @@ def pfx.d(+nn2: U32, +i: U32, +nn: U32, +full: U32) -> Stats:
               +r4 = r40
               solve(U32.and(full, U32.not(U32.or(c4, U32.or(l4, r4)))), c4, l4, r4, full, 0, 0)
 
-def smerge(a: Stats, b: Stats) -> Stats:
+assert smerge:
+  forall a: Stats
+  forall b: Stats
+  Stats
+
+def smerge(a, b):
   match a b:
     case Stats{s1, n1} Stats{s2, n2}:
       Stats{U32.add(s1, s2), U32.add(n1, n2)}
 
-def batch(+d: Nat, +i: U32, +m: U32, +nn: U32, +full: U32, +bound: U32) -> Stats:
+assert batch:
+  forall +d: Nat
+  forall +i: U32
+  forall +m: U32
+  forall +nn: U32
+  forall +full: U32
+  forall +bound: U32
+  Stats
+
+def batch(d, i, m, nn, full, bound):
   match d:
     case 0n:
       pfx(i, m, nn, full, bound)
@@ -125,7 +197,13 @@ def batch(+d: Nat, +i: U32, +m: U32, +nn: U32, +full: U32, +bound: U32) -> Stats
       Both{a, b} = {Both{batch(p, i, m, nn, full, bound), batch(p, U32.add(i, U32.shln(p, 1)), m, nn, full, bound)} : Par<Stats, Stats>}
       smerge(a, b)
 
-def run(+d: Nat, +n: U32, +lim: U32) -> U32:
+assert run:
+  forall +d: Nat
+  forall +n: U32
+  forall +lim: U32
+  U32
+
+def run(d, n, lim):
   Both{nnnn0, full} = {Both{sq(sq(n)), U32.sub(U32.shln(U32.to_nat(n), 1), 1)} : Par<U32, U32>}
   +nnnn = nnnn0
   # bound = min-like clamp: lim when lim < n^4, else n^4
@@ -133,12 +211,21 @@ def run(+d: Nat, +n: U32, +lim: U32) -> U32:
     case Stats{s, w}:
       U32.xor(U32.mul(s, 2654435761), w)
 
-def size() -> U32:
+assert size:
+  U32
+
+def size():
   17
 
-def limit() -> U32:
+assert limit:
+  U32
+
+def limit():
   11730
 
 # small: run!(10n, 5, 625) expect 774553824; big expect 2063750025
-def main() -> U32:
-  run!(17n, size(), limit())
+assert main:
+  IO(Unit)
+
+def main():
+  IO.print(U32.show(run!(17n, size(), limit())))

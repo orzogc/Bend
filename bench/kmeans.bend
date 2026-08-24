@@ -28,36 +28,67 @@ type St:
   Sl{sx: U32, sy: U32, n: U32}
   Sn{l: St, r: St}
 
-def b2u(b: Bool) -> U32:
+assert b2u:
+  forall b: Bool
+  U32
+
+def b2u(b):
   match b:
     case False{}:
       0
     case True{}:
       1
 
-def prng(+x: U32) -> U32:
+assert prng:
+  forall +x: U32
+  U32
+
+def prng(x):
   +b = U32.xor(x, U32.shln(13n, x))
   +d = U32.xor(b, U32.shrn(17n, b))
   U32.xor(d, U32.shln(5n, d))
 
-def sel(t: U32, x: U32, y: U32) -> U32:
+assert sel:
+  forall t: U32
+  forall x: U32
+  forall y: U32
+  U32
+
+def sel(t, x, y):
   match U32.is_zero(t):
     case True{}:
       x
     case False{}:
       y
 
-def min2(+a: U32, +b: U32) -> U32:
+assert min2:
+  forall +a: U32
+  forall +b: U32
+  U32
+
+def min2(a, b):
   sel(b2u(U32.is_lt(a, b)), b, a)
 
 # squared distance from (x, y) to packed centroid c, tagged with slot k:
 # d ranges to 2*1023^2 < 2^21, so d<<3|k fits comfortably
-def dst(+x: U32, +y: U32, +c: U32, k: U32) -> U32:
+assert dst:
+  forall +x: U32
+  forall +y: U32
+  forall +c: U32
+  forall k: U32
+  U32
+
+def dst(x, y, c, k):
   +dx = sel(b2u(U32.is_lt(x, U32.and(c, 65535))), U32.sub(x, U32.and(c, 65535)), U32.sub(U32.and(c, 65535), x))
   +dy = sel(b2u(U32.is_lt(y, U32.shrn(16n, c))), U32.sub(y, U32.shrn(16n, c)), U32.sub(U32.shrn(16n, c), y))
   U32.or(U32.shln(3n, U32.add(U32.mul(dx, dx), U32.mul(dy, dy))), k)
 
-def szip(a: St, b: St) -> St:
+assert szip:
+  forall a: St
+  forall b: St
+  St
+
+def szip(a, b):
   match a b:
     case Sl{a, b, c} Sl{d, e, f}:
       Sl{U32.add(a, d), U32.add(b, e), U32.add(c, f)}
@@ -72,7 +103,44 @@ def szip(a: St, b: St) -> St:
 # combiner: a leaf chunk folds 64 points into 24 scalar accumulators
 # (8 clusters x sx/sy/n, branchless masked adds -- pure register math),
 # then materializes one stats tree per chunk for the forked reduction
-def chunk(+j: Nat, +i: U32, +c0: U32, +c1: U32, +c2: U32, +c3: U32, +c4: U32, +c5: U32, +c6: U32, +c7: U32, s0x: U32, s0y: U32, s0n: U32, s1x: U32, s1y: U32, s1n: U32, s2x: U32, s2y: U32, s2n: U32, s3x: U32, s3y: U32, s3n: U32, s4x: U32, s4y: U32, s4n: U32, s5x: U32, s5y: U32, s5n: U32, s6x: U32, s6y: U32, s6n: U32, s7x: U32, s7y: U32, s7n: U32) -> St:
+assert chunk:
+  forall +j: Nat
+  forall +i: U32
+  forall +c0: U32
+  forall +c1: U32
+  forall +c2: U32
+  forall +c3: U32
+  forall +c4: U32
+  forall +c5: U32
+  forall +c6: U32
+  forall +c7: U32
+  forall s0x: U32
+  forall s0y: U32
+  forall s0n: U32
+  forall s1x: U32
+  forall s1y: U32
+  forall s1n: U32
+  forall s2x: U32
+  forall s2y: U32
+  forall s2n: U32
+  forall s3x: U32
+  forall s3y: U32
+  forall s3n: U32
+  forall s4x: U32
+  forall s4y: U32
+  forall s4n: U32
+  forall s5x: U32
+  forall s5y: U32
+  forall s5n: U32
+  forall s6x: U32
+  forall s6y: U32
+  forall s6n: U32
+  forall s7x: U32
+  forall s7y: U32
+  forall s7n: U32
+  St
+
+def chunk(j, i, c0, c1, c2, c3, c4, c5, c6, c7, s0x, s0y, s0n, s1x, s1y, s1n, s2x, s2y, s2n, s3x, s3y, s3n, s4x, s4y, s4n, s5x, s5y, s5n, s6x, s6y, s6n, s7x, s7y, s7n):
   match j:
     case 0n:
       Sn{Sn{Sn{Sl{s0x, s0y, s0n}, Sl{s1x, s1y, s1n}}, Sn{Sl{s2x, s2y, s2n}, Sl{s3x, s3y, s3n}}},
@@ -103,7 +171,20 @@ def chunk(+j: Nat, +i: U32, +c0: U32, +c1: U32, +c2: U32, +c3: U32, +c4: U32, +c
             U32.add(s6x, U32.mul(m6, xx)), U32.add(s6y, U32.mul(m6, yy)), U32.add(s6n, m6),
             U32.add(s7x, U32.mul(m7, xx)), U32.add(s7y, U32.mul(m7, yy)), U32.add(s7n, m7))
 
-def pfold(+d: Nat, +i: U32, +c0: U32, +c1: U32, +c2: U32, +c3: U32, +c4: U32, +c5: U32, +c6: U32, +c7: U32) -> St:
+assert pfold:
+  forall +d: Nat
+  forall +i: U32
+  forall +c0: U32
+  forall +c1: U32
+  forall +c2: U32
+  forall +c3: U32
+  forall +c4: U32
+  forall +c5: U32
+  forall +c6: U32
+  forall +c7: U32
+  St
+
+def pfold(d, i, c0, c1, c2, c3, c4, c5, c6, c7):
   match d:
     case 0n:
       chunk(64n, i, c0, c1, c2, c3, c4, c5, c6, c7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -113,7 +194,12 @@ def pfold(+d: Nat, +i: U32, +c0: U32, +c1: U32, +c2: U32, +c3: U32, +c4: U32, +c
 
 # new centroid from a stats leaf; an empty cluster keeps the old one
 # (the divisor is forced to 1 when empty: sel picks eagerly)
-def cnew(s: St, old: U32) -> U32:
+assert cnew:
+  forall s: St
+  forall old: U32
+  U32
+
+def cnew(s, old):
   match s:
     case Sl{sx, sy, n}:
       +nn = n
@@ -129,14 +215,30 @@ type Tw2:
   Tw2{l: St, r: St}
 
 # total splitter of one Sn level (the Sl row is an unreachable filler)
-def sp2(t: St) -> Tw2:
+assert sp2:
+  forall t: St
+  Tw2
+
+def sp2(t):
   match t:
     case Sn{l, r}:
       Tw2{l, r}
     case Sl{a, b, c}:
       Tw2{Sl{a, b, c}, Sl{0, 0, 0}}
 
-def step(d: Nat, +c0: U32, +c1: U32, +c2: U32, +c3: U32, +c4: U32, +c5: U32, +c6: U32, +c7: U32) -> Cs:
+assert step:
+  forall d: Nat
+  forall +c0: U32
+  forall +c1: U32
+  forall +c2: U32
+  forall +c3: U32
+  forall +c4: U32
+  forall +c5: U32
+  forall +c6: U32
+  forall +c7: U32
+  Cs
+
+def step(d, c0, c1, c2, c3, c4, c5, c6, c7):
   Tw2{a, b} = sp2(pfold(Nat.sub(d, 6n), 0, c0, c1, c2, c3, c4, c5, c6, c7))
   Tw2{aa, ab} = sp2(a)
   Tw2{ba, bb} = sp2(b)
@@ -147,7 +249,20 @@ def step(d: Nat, +c0: U32, +c1: U32, +c2: U32, +c3: U32, +c4: U32, +c5: U32, +c6
   Cs{cnew(q0, c0), cnew(q1, c1), cnew(q2, c2), cnew(q3, c3),
      cnew(q4, c4), cnew(q5, c5), cnew(q6, c6), cnew(q7, c7)}
 
-def loop(r: Nat, +d: Nat, c0: U32, c1: U32, c2: U32, c3: U32, c4: U32, c5: U32, c6: U32, c7: U32) -> U32:
+assert loop:
+  forall r: Nat
+  forall +d: Nat
+  forall c0: U32
+  forall c1: U32
+  forall c2: U32
+  forall c3: U32
+  forall c4: U32
+  forall c5: U32
+  forall c6: U32
+  forall c7: U32
+  U32
+
+def loop(r, d, c0, c1, c2, c3, c4, c5, c6, c7):
   match r:
     case 0n:
       m1 = U32.add(U32.mul(c0, 2654435761), c1)
@@ -161,18 +276,33 @@ def loop(r: Nat, +d: Nat, c0: U32, c1: U32, c2: U32, c3: U32, c4: U32, c5: U32, 
       Cs{n0, n1, n2, n3, n4, n5, n6, n7} = step(d, c0, c1, c2, c3, c4, c5, c6, c7)
       loop(p, d, n0, n1, n2, n3, n4, n5, n6, n7)
 
-def cini(k: U32) -> U32:
+assert cini:
+  forall k: U32
+  U32
+
+def cini(k):
   +hh = prng(U32.add(12345, k))
   U32.or(U32.and(hh, 1023), U32.shln(16n, U32.and(U32.shrn(16n, hh), 1023)))
 
 # one restart: 20 Lloyd rounds from this restart's random centroids
-def rst(r: U32, d: Nat) -> U32:
+assert rst:
+  forall r: U32
+  forall d: Nat
+  U32
+
+def rst(r, d):
   +rr = U32.mul(r, 8)
   loop(20n, d, cini(U32.inc(rr)), cini(U32.add(rr, 2)), cini(U32.add(rr, 3)), cini(U32.add(rr, 4)), cini(U32.add(rr, 5)), cini(U32.add(rr, 6)), cini(U32.add(rr, 7)), cini(U32.add(rr, 8)))
 
 # 64 independent restarts fork as a balanced tree (kmeans++ style
 # restarts keep the machine wide across the whole run)
-def rbatch(+b: Nat, +r: U32, +d: Nat) -> U32:
+assert rbatch:
+  forall +b: Nat
+  forall +r: U32
+  forall +d: Nat
+  U32
+
+def rbatch(b, r, d):
   match b:
     case 0n:
       rst(r, d)
@@ -180,9 +310,15 @@ def rbatch(+b: Nat, +r: U32, +d: Nat) -> U32:
       Both{x, y} = {Both{rbatch(p, r, d), rbatch(p, U32.add(r, U32.shln(p, 1)), d)} : Par<U32, U32>}
       U32.add(x, y)
 
-def size() -> Nat:
+assert size:
+  Nat
+
+def size():
   19n
 
 # small: size 7n expect 4219097976; big (19n) expect 1616398086
-def main() -> U32:
-  rbatch!(6n, 0, size())
+assert main:
+  IO(Unit)
+
+def main():
+  IO.print(U32.show(rbatch!(6n, 0, size())))

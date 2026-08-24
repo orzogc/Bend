@@ -16,7 +16,12 @@ type Tr:
   L{v: U32}
   N{a: Tr, b: Tr}
 
-def build(+d: Nat, +x: U32) -> Tr:
+assert build:
+  forall +d: Nat
+  forall +x: U32
+  Tr
+
+def build(d, x):
   match d:
     case 0n:
       L{x}
@@ -24,7 +29,11 @@ def build(+d: Nat, +x: U32) -> Tr:
       Both{a, b} = {Both{build(p, U32.mul(x, 2)), build(p, U32.add(U32.mul(x, 2), 1))} : Par<Tr, Tr>}
       N{a, b}
 
-def sum(t: Tr) -> U32:
+assert sum:
+  forall t: Tr
+  U32
+
+def sum(t):
   match t:
     case L{v}:
       v
@@ -32,7 +41,11 @@ def sum(t: Tr) -> U32:
       Both{x, y} = {Both{sum(a), sum(b)} : Par<U32, U32>}
       U32.add(x, y)
 
-def depth(t: Tr) -> U32:
+assert depth:
+  forall t: Tr
+  U32
+
+def depth(t):
   match t:
     case L{v}:
       0
@@ -43,36 +56,72 @@ def depth(t: Tr) -> U32:
         case False{}:
           1
 
-def tri(+t: Tr) -> U32:
+assert tri:
+  forall +t: Tr
+  U32
+
+def tri(t):
   U32.add(sum(t), U32.add(sum(t), depth(t)))
 
-def dropper(+t: Tr) -> U32:
+assert dropper:
+  forall +t: Tr
+  U32
+
+def dropper(t):
   x = sum(t)
   y = t
   x
 
-def helper(+u: Tr) -> U32:
+assert helper:
+  forall +u: Tr
+  U32
+
+def helper(u):
   U32.add(sum(u), sum(u))
 
-def nest(+t: Tr) -> U32:
+assert nest:
+  forall +t: Tr
+  U32
+
+def nest(t):
   U32.add(helper(t), helper(t))
 
-def mk() -> Array<U32>:
+assert mk:
+  Array<U32>
+
+def mk():
   ANode{ANode{ALeaf{1}, ALeaf{2}}, ANode{ALeaf{3}, ALeaf{4}}}
 
-def rd(a: Array<U32>) -> U32:
+assert rd:
+  forall a: Array<U32>
+  U32
+
+def rd(a):
   match a:
     case ALeaf{x}:
       x
     case ANode{xs, ys}:
       U32.add(rd(xs), rd(ys))
 
-def cow(+a: Array<U32>) -> U32:
+assert cow:
+  forall +a: Array<U32>
+  U32
+
+def cow(a):
   (b, old) = Array.swap(U32, a, 0, 100)
   U32.add(rd(b), U32.add(rd(a), old))
 
-def main() -> U32:
+assert main.out:
+  U32
+
+def main.out():
   p = tri(build(6n, 1))
   q = dropper(build(5n, 3))
   r = nest(build(4n, 7))
   U32.add(U32.add(p, U32.add(q, r)), cow(mk()))
+
+assert main:
+  IO(Unit)
+
+def main():
+  IO.print(U32.show(main.out()))

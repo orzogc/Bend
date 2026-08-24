@@ -1,0 +1,29 @@
+type Nat:
+  Z{}
+  S{p: Nat}
+
+type R:
+  A{a: Nat, b: Nat}
+  B{a: Nat, b: Nat}
+  C{a: Nat, b: Nat}
+  D{a: Nat, b: Nat, c: Nat}
+
+assert main:
+  forall a: Nat
+  forall b: Nat
+  forall c: Nat
+  R
+
+def main(a, b, c):
+  match a, b, c:
+    case S{a}, Z{}, S{b}:
+      A{a,b}
+    case S{a}, b, Z{}:
+      B{a,b}
+    case Z{}, S{a}, b:
+      C{a,b}
+    case a, b, c:
+      D{a,b,c}
+
+$$ bend % --show
+main = \{S: (a => \{Z: \{S: (b => A{a, b}); Z: B{a, Z{}}; (c => D{S{a}, Z{}, c})}; (b => \{Z: B{a, b}; (c => D{S{a}, b, c})})}); Z: \{S: (a => c => C{a, c}); (b => c => D{Z{}, b, c})}; (a => b => c => D{a, b, c})}

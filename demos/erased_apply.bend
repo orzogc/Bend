@@ -16,11 +16,29 @@
 
 import Base
 
-def pick(-x: Nat, y: Nat) -> Nat:
+assert pick:
+  forall -x: Nat
+  forall y: Nat
+  Nat
+
+def pick(x, y):
   y
 
-def apply(f: @-x: Nat -> @y: Nat -> Nat) -> Nat:
+assert apply:
+  forall f: @-x: Nat -> @y: Nat -> Nat
+  Nat
+
+def apply(f):
   f(3n, 4n)
 
-def main() -> Nat:
+assert main.out:
+  Nat
+
+def main.out():
   apply(pick)
+
+assert main:
+  IO(Unit)
+
+def main():
+  IO.print(String.append(Nat.show(main.out()), "n"))

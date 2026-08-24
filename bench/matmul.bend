@@ -27,14 +27,23 @@ type Vec:
   Vl{v: U32}
   Vn{l: Vec, r: Vec}
 
-def b2u(b: Bool) -> U32:
+assert b2u:
+  forall b: Bool
+  U32
+
+def b2u(b):
   match b:
     case False{}:
       0
     case True{}:
       1
 
-def gen(+d: Nat, +s: U32) -> Mat:
+assert gen:
+  forall +d: Nat
+  forall +s: U32
+  Mat
+
+def gen(d, s):
   match d:
     case 0n:
       Lf{U32.mod(s, 100)}
@@ -42,7 +51,12 @@ def gen(+d: Nat, +s: U32) -> Mat:
       Both{a, Both{b, Both{c, e}}} = {Both{gen(p, U32.inc(U32.mul(s, 1664525))), Both{gen(p, U32.add(U32.mul(s, 214013), 3)), Both{gen(p, U32.add(U32.mul(s, 16843009), 5)), gen(p, U32.add(U32.mul(s, 48271), 7))}}} : Par<Mat, Par<Mat, Par<Mat, Mat>>>}
       Qd{a, b, c, e}
 
-def vgen(+d: Nat, +s: U32) -> Vec:
+assert vgen:
+  forall +d: Nat
+  forall +s: U32
+  Vec
+
+def vgen(d, s):
   match d:
     case 0n:
       Vl{U32.inc(U32.mod(U32.mul(s, 2654435761), 100))}
@@ -50,7 +64,12 @@ def vgen(+d: Nat, +s: U32) -> Vec:
       Both{l, r} = {Both{vgen(p, U32.inc(U32.mul(s, 1664525))), vgen(p, U32.add(U32.mul(s, 214013), 3))} : Par<Vec, Vec>}
       Vn{l, r}
 
-def add(a: Mat, b: Mat) -> Mat:
+assert add:
+  forall a: Mat
+  forall b: Mat
+  Mat
+
+def add(a, b):
   match a b:
     case Lf{x} Lf{y}:
       Lf{U32.add(x, y)}
@@ -64,13 +83,29 @@ def add(a: Mat, b: Mat) -> Mat:
 
 # join of one mul burst: C_ij = P_ij + Q_ij, all four quadrant sums
 # in one balanced fork
-def add4(p0: Mat, q0: Mat, p1: Mat, q1: Mat, p2: Mat, q2: Mat, p3: Mat, q3: Mat) -> Mat:
+assert add4:
+  forall p0: Mat
+  forall q0: Mat
+  forall p1: Mat
+  forall q1: Mat
+  forall p2: Mat
+  forall q2: Mat
+  forall p3: Mat
+  forall q3: Mat
+  Mat
+
+def add4(p0, q0, p1, q1, p2, q2, p3, q3):
   Both{c0, Both{c1, Both{c2, c3}}} = {Both{add(p0, q0), Both{add(p1, q1), Both{add(p2, q2), add(p3, q3)}}} : Par<Mat, Par<Mat, Par<Mat, Mat>>>}
   Qd{c0, c1, c2, c3}
 
 # each node spawns its whole 8-product burst as ONE 8-way fork,
 # then joins through add4's single add burst
-def mul(+a: Mat, +b: Mat) -> Mat:
+assert mul:
+  forall +a: Mat
+  forall +b: Mat
+  Mat
+
+def mul(a, b):
   match a b:
     case Lf{x} Lf{y}:
       Lf{U32.mul(x, y)}
@@ -82,7 +117,12 @@ def mul(+a: Mat, +b: Mat) -> Mat:
       Both{p0, Both{q0, Both{p1, Both{q1, Both{p2, Both{q2, Both{p3, q3}}}}}}} = {Both{mul(a0, b0), Both{mul(a1, b2), Both{mul(a0, b1), Both{mul(a1, b3), Both{mul(a2, b0), Both{mul(a3, b2), Both{mul(a2, b1), mul(a3, b3)}}}}}}} : Par<Mat, Par<Mat, Par<Mat, Par<Mat, Par<Mat, Par<Mat, Par<Mat, Mat>>>>>>>}
       add4(p0, q0, p1, q1, p2, q2, p3, q3)
 
-def vadd(x: Vec, y: Vec) -> Vec:
+assert vadd:
+  forall x: Vec
+  forall y: Vec
+  Vec
+
+def vadd(x, y):
   match x y:
     case Vl{a} Vl{b}:
       Vl{U32.add(a, b)}
@@ -95,12 +135,24 @@ def vadd(x: Vec, y: Vec) -> Vec:
       Vn{l, r}
 
 # join of one mvm burst: both half-sums in one fork
-def vadd2(t0: Vec, t1: Vec, t2: Vec, t3: Vec) -> Vec:
+assert vadd2:
+  forall t0: Vec
+  forall t1: Vec
+  forall t2: Vec
+  forall t3: Vec
+  Vec
+
+def vadd2(t0, t1, t2, t3):
   Both{top, bot} = {Both{vadd(t0, t1), vadd(t2, t3)} : Par<Vec, Vec>}
   Vn{top, bot}
 
 # [[a,b],[c,d]] * (l,h) = (a*l + b*h, c*l + d*h)
-def mvm(m: Mat, +v: Vec) -> Vec:
+assert mvm:
+  forall m: Mat
+  forall +v: Vec
+  Vec
+
+def mvm(m, v):
   match m v:
     case Lf{x} Vl{y}:
       Vl{U32.mul(x, y)}
@@ -112,7 +164,11 @@ def mvm(m: Mat, +v: Vec) -> Vec:
       Both{t0, Both{t1, Both{t2, t3}}} = {Both{mvm(a, l), Both{mvm(b, h), Both{mvm(c, l), mvm(d, h)}}} : Par<Vec, Par<Vec, Par<Vec, Vec>>>}
       vadd2(t0, t1, t2, t3)
 
-def cksum(m: Mat) -> U32:
+assert cksum:
+  forall m: Mat
+  U32
+
+def cksum(m):
   match m:
     case Lf{x}:
       x
@@ -121,7 +177,12 @@ def cksum(m: Mat) -> U32:
       U32.add(U32.add(U32.add(p, q), r), s)
 
 # or-fold of elementwise xor: 0 iff the vectors are identical
-def vdif(x: Vec, y: Vec) -> U32:
+assert vdif:
+  forall x: Vec
+  forall y: Vec
+  U32
+
+def vdif(x, y):
   match x y:
     case Vl{a} Vl{b}:
       U32.xor(a, b)
@@ -134,7 +195,12 @@ def vdif(x: Vec, y: Vec) -> U32:
       U32.or(l, r)
 
 # one round: generate A, B, r; C = A*B; Freivalds-verify C*r == A*(B*r)
-def round(+d: Nat, +s: U32) -> U32:
+assert round:
+  forall +d: Nat
+  forall +s: U32
+  U32
+
+def round(d, s):
   Both{a00, b00} = {Both{gen(d, U32.inc(s)), gen(d, U32.add(s, 2))} : Par<Mat, Mat>}
   +a = a00
   +b = b00
@@ -145,7 +211,13 @@ def round(+d: Nat, +s: U32) -> U32:
   t2 = mvm(a, mvm(b, r))
   U32.add(U32.xor(k, U32.mul(s, 2654435761)), b2u(U32.is_zero(vdif(t1, t2))))
 
-def batch.leaf(+pp: U32, n: U32, d: Nat) -> U32:
+assert batch.leaf:
+  forall +pp: U32
+  forall n: U32
+  forall d: Nat
+  U32
+
+def batch.leaf(pp, n, d):
   match U32.is_lt(pp, n):
     case False{}:
       0
@@ -156,7 +228,15 @@ def batch.leaf(+pp: U32, n: U32, d: Nat) -> U32:
 # p < nchain, p = the leaf's odd-multiplier permuted index (seed =
 # hashed p, so the live chain set -- and the checksum -- is the same
 # for any spread)
-def batch(+bg: Nat, +i: U32, +n: U32, +m: U32, +d: Nat) -> U32:
+assert batch:
+  forall +bg: Nat
+  forall +i: U32
+  forall +n: U32
+  forall +m: U32
+  forall +d: Nat
+  U32
+
+def batch(bg, i, n, m, d):
   match bg:
     case 0n:
       batch.leaf(U32.and(U32.mul(i, 2654435761), m), n, d)
@@ -164,16 +244,28 @@ def batch(+bg: Nat, +i: U32, +n: U32, +m: U32, +d: Nat) -> U32:
       Both{x, y} = {Both{batch(p, i, n, m, d), batch(p, U32.add(i, U32.shln(p, 1)), n, m, d)} : Par<U32, U32>}
       U32.add(x, y)
 
-def size() -> Nat:
+assert size:
+  Nat
+
+def size():
   7n
 
-def blog() -> Nat:
+assert blog:
+  Nat
+
+def blog():
   9n
 
-def nchain() -> U32:
+assert nchain:
+  U32
+
+def nchain():
   384
 
 # small: size 3n blog 2n nchain 3 expect 4292995302; big expect 3797651056
-def main() -> U32:
+assert main:
+  IO(Unit)
+
+def main():
   mm = U32.sub(U32.shln(blog(), 1), 1)
-  batch!(blog(), 0, nchain(), mm, size())
+  IO.print(U32.show(batch!(blog(), 0, nchain(), mm, size())))

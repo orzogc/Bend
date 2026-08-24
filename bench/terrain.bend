@@ -35,25 +35,43 @@ import Base
 # against a Bend3 C run on the cluster), big (16n, 5n) expect
 # 2572468224 (the Bend3 header's number, re-verified on the cluster).
 
-def b2u(b: Bool) -> U32:
+assert b2u:
+  forall b: Bool
+  U32
+
+def b2u(b):
   match b:
     case False{}:
       0
     case True{}:
       1
 
-def prng(+x: U32) -> U32:
+assert prng:
+  forall +x: U32
+  U32
+
+def prng(x):
   +b = U32.xor(x, U32.shln(13n, x))
   +d = U32.xor(b, U32.shrn(17n, b))
   U32.xor(d, U32.shln(5n, d))
 
 # lattice corner hash -> 0..255
-def hsh(gx: U32, gz: U32) -> U32:
+assert hsh:
+  forall gx: U32
+  forall gz: U32
+  U32
+
+def hsh(gx, gz):
   U32.and(prng(U32.xor(U32.mul(gx, 2654435761), U32.mul(gz, 340573321))), 255)
 
 # value noise at 8.8 fixed-point (x, z): bilinear lerp of 4 corner
 # hashes
-def ground(+x: U32, +z: U32) -> U32:
+assert ground:
+  forall +x: U32
+  forall +z: U32
+  U32
+
+def ground(x, z):
   +gx = U32.and(U32.shrn(8n, x), 63)
   +gz = U32.and(U32.shrn(8n, z), 63)
   +fx = U32.and(x, 255)
@@ -70,7 +88,14 @@ def ground(+x: U32, +z: U32) -> U32:
 
 # noise-fill one tile: one write per cell, sampled at 64 sub-lattice
 # units per cell from the tile's world offset
-def fill(+j: Nat, +ox: U32, +oz: U32, h: Array<U32>) -> Array<U32>:
+assert fill:
+  forall +j: Nat
+  forall +ox: U32
+  forall +oz: U32
+  forall h: Array<U32>
+  Array<U32>
+
+def fill(j, ox, oz, h):
   match j:
     case 0n:
       h
@@ -84,7 +109,13 @@ def fill(+j: Nat, +ox: U32, +oz: U32, h: Array<U32>) -> Array<U32>:
 # edge; the pass-salted bit keeps the field from ever converging
 # one Gauss-Seidel sweep over the tile, ascending scan order; the
 # whole cell update rides this one self-tail segment
-def erode(+j: Nat, +p: U32, h: Array<U32>) -> Array<U32>:
+assert erode:
+  forall +j: Nat
+  forall +p: U32
+  forall h: Array<U32>
+  Array<U32>
+
+def erode(j, p, h):
   match j:
     case 0n:
       h
@@ -102,7 +133,12 @@ def erode(+j: Nat, +p: U32, h: Array<U32>) -> Array<U32>:
       (h6, old) = Array.swap(U32, h5, i, nv)
       erode(q, p, h6)
 
-def smooth(+p: Nat, h: Array<U32>) -> Array<U32>:
+assert smooth:
+  forall +p: Nat
+  forall h: Array<U32>
+  Array<U32>
+
+def smooth(p, h):
   match p:
     case 0n:
       h
@@ -111,7 +147,13 @@ def smooth(+p: Nat, h: Array<U32>) -> Array<U32>:
       smooth(q, h2)
 
 # histogram fold: mix every bucket count, position-weighted
-def gfold(+j: Nat, g: Array<U32>, acc: U32) -> U32:
+assert gfold:
+  forall +j: Nat
+  forall g: Array<U32>
+  forall acc: U32
+  U32
+
+def gfold(j, g, acc):
   match j:
     case 0n:
       acc
@@ -122,7 +164,14 @@ def gfold(+j: Nat, g: Array<U32>, acc: U32) -> U32:
 
 # per cell: read the height, bump its histogram bucket, mix the height
 # into the running position-weighted checksum
-def hist(+j: Nat, h: Array<U32>, g: Array<U32>, acc: U32) -> U32:
+assert hist:
+  forall +j: Nat
+  forall h: Array<U32>
+  forall g: Array<U32>
+  forall acc: U32
+  U32
+
+def hist(j, h, g, acc):
   match j:
     case 0n:
       gfold(64n, g, acc)
@@ -136,14 +185,25 @@ def hist(+j: Nat, h: Array<U32>, g: Array<U32>, acc: U32) -> U32:
       hist(q, h2, g3, U32.add(U32.mul(acc, 2654435761), U32.mul(v, U32.inc(i))))
 
 # one tile: fill, EPASS relaxation sweeps, histogram + fold
-def tile(+t: U32, e: Nat) -> U32:
+assert tile:
+  forall +t: U32
+  forall e: Nat
+  U32
+
+def tile(t, e):
   a = Array.new(12n, 0)
   h0 = fill(4096n, U32.shln(6n, U32.and(t, 255)), U32.shln(6n, U32.shrn(8n, t)), a)
   h1 = smooth(e, h0)
   b = Array.new(6n, 0)
   hist(4096n, h1, b, U32.inc(t))
 
-def batch(+d: Nat, +t: U32, +e: Nat) -> U32:
+assert batch:
+  forall +d: Nat
+  forall +t: U32
+  forall +e: Nat
+  U32
+
+def batch(d, t, e):
   match d:
     case 0n:
       tile(t, e)
@@ -151,13 +211,22 @@ def batch(+d: Nat, +t: U32, +e: Nat) -> U32:
       Both{a, b} = {Both{batch(q, t, e), batch(q, U32.add(t, U32.shln(q, 1)), e)} : Par<U32, U32>}
       U32.add(a, b)
 
-def size() -> Nat:
+assert size:
+  Nat
+
+def size():
   16n
 
-def epass() -> Nat:
+assert epass:
+  Nat
+
+def epass():
   5n
 
 # small: batch!(4n, 0, epass()) expect 4236200168; big batch!(size(), 0,
 # epass()) expect 2572468224
-def main() -> U32:
-  batch!(size(), 0, epass())
+assert main:
+  IO(Unit)
+
+def main():
+  IO.print(U32.show(batch!(size(), 0, epass())))

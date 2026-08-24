@@ -17,18 +17,39 @@ import Base
 type Duo:
   Dd{a: Nat, b: Nat}
 
-def swap(p: Duo) -> Duo:
+assert swap:
+  forall p: Duo
+  Duo
+
+def swap(p):
   match p:
     case Dd{a, b}:
       Dd{b, a}
 
-def sum(p: Duo) -> Nat:
+assert sum:
+  forall p: Duo
+  Nat
+
+def sum(p):
   match p:
     case Dd{a, b}:
       Nat.add(a, b)
 
-def go(+p: Duo) -> Nat:
+assert go:
+  forall +p: Duo
+  Nat
+
+def go(p):
   Nat.add(sum(swap(p)), sum(p))
 
-def main() -> Nat:
+assert main.out:
+  Nat
+
+def main.out():
   go(Dd{2n, 3n})
+
+assert main:
+  IO(Unit)
+
+def main():
+  IO.print(String.append(Nat.show(main.out()), "n"))
