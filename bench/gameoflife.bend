@@ -39,15 +39,28 @@ def gol.wrap_dec(mask: U32, x: U32) -> U32:
 def gol.wrap_inc(mask: U32, x: U32) -> U32:
   U32.and(U32.inc(x), mask)
 
-# fresh grid: 2^s cells of x
+# structural duplicate of a grid: the affine stand-in for a doubled
+# recursion budget (a Nat copy is not a pattern subterm; an array
+# child is, so this descends where a copied depth cannot)
+def gol.dup(a: Array<U32>) -> Array<U32> & Array<U32>:
+  match a:
+    case ALeaf{x}:
+      ((x1, e1), (x2, e2)) = U32.copy(x)
+      (ALeaf{x1}, ALeaf{x2})
+    case ANode{xs, ys}:
+      (xa, xb) = gol.dup(xs)
+      (ya, yb) = gol.dup(ys)
+      (ANode{xa, ya}, ANode{xb, yb})
+
+# fresh grid: 2^s cells of x, grown by repeated doubling so the depth
+# is consumed by a single descending call per level
 def gol.fill(s: Nat, x: U32) -> Array<U32>:
   match s:
     case 0n:
       ALeaf{x}
     case 1n+p:
-      ((p1, e1), (p2, e2)) = Nat.copy(p)
-      ((x1, f1), (x2, f2)) = U32.copy(x)
-      ANode{gol.fill(p1, x1), gol.fill(p2, x2)}
+      (a, b) = gol.dup(gol.fill(p, x))
+      ANode{a, b}
 
 # write cell i, dropping the swapped-out value
 def gol.put(a: Array<U32>, i: U32, v: U32) -> Array<U32>:

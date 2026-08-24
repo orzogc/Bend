@@ -1093,6 +1093,9 @@ function root_emit(fl: File): void {
   }
   let tip = core.term_wnf(fl.book, main.T);
   for (let i = 0; i < main.n && tip.$ === "All"; i++) {
+    if (tip.q.$ !== "None") {
+      throw new Error("tocl: main must take no live parameters (the harness calls it with none)");
+    }
     tip = core.term_wnf(fl.book, tip.B(hvar("~", i)));
   }
   const adt = core.term_wnf(fl.book, tip);

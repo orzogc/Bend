@@ -37,7 +37,7 @@ try {
   }
 } catch (e) {
   if (e !== null && typeof e === "object" && (e as core.Err).$ === "Err") {
-    console.log(core.err_show(book, e as core.Err));
+    console.log(core.err_show(e as core.Err));
   } else {
     console.log(String(e));
   }

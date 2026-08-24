@@ -18,7 +18,7 @@ type Cmp:
   EQ{}
   GT{}
 
-type Either<A: Type, B: Type>:
+type Either<-A: Type, -B: Type>:
   Inl{value: A}
   Inr{value: B}
 
@@ -32,19 +32,19 @@ type Nat:
   Zero{}
   Succ{pred: Nat}
 
-type Maybe<A: Type>:
+type Maybe<-A: Type>:
   None{}
   Some{value: A}
 
-type Result<E: Type, A: Type>:
+type Result<-E: Type, -A: Type>:
   Fail{error: E}
   Done{value: A}
 
-type List<A: Type>:
+type List<-A: Type>:
   Nil{}
   Con{head: A, tail: List<A>}
 
-type Array<T: Type>:
+type Array<-T: Type>:
   ALeaf{value: T}
   ANode{xs: Array<T>, ys: Array<T>}
 
@@ -78,7 +78,7 @@ type String:
 # Effects
 # -------
 
-type Fiber<A: Type>:
+type Fiber<-A: Type>:
   Fiber{slot: U32, gen: U32}
 
 type File:
@@ -90,13 +90,13 @@ type Socket:
 type Listener:
   Listener{slot: U32, gen: U32}
 
-type Sender<A: Type>:
+type Sender<-A: Type>:
   Sender{slot: U32, gen: U32}
 
-type Receiver<A: Type>:
+type Receiver<-A: Type>:
   Receiver{slot: U32, gen: U32}
 
-type IO.OP<R: Type>:
+type IO.OP<-R: Type>:
   Emit{value: R}
   Halt{code: U32, message: String}
   Fork{-A: Type, body: IO.OP<A>, cont: Fiber<A> -> IO.OP<R>}

@@ -568,13 +568,18 @@ export function compile_def(fl: File, def: core.Def, k: core.Name): void {
     throw new Error("tojs: unelaborated def " + k + ": run book_valid first");
   }
   const args: core.HTerm[] = params.map((p) => core.Var(p, 0));
-  file_push(fl, 0, "function " + sat + "(" + params.join(", ") + ") {");
   if (term_is_tail_call(def.v, k, def.n)) {
-    fl.loop = { name: k, args: params };
+    const carry = params.map((p) => file_fresh(fl, "$c"));
+    file_push(fl, 0, "function " + sat + "(" + carry.join(", ") + ") {");
+    fl.loop = { name: k, args: carry };
     file_push(fl, 1, "while (true) {");
+    if (params.length > 0) {
+      file_push(fl, 2, "const " + params.map((p, i) => p + " = " + carry[i]).join(", ") + ";");
+    }
     compile_term(fl, def.e, null, 2, "return", args, 0);
     file_push(fl, 1, "}");
   } else {
+    file_push(fl, 0, "function " + sat + "(" + params.join(", ") + ") {");
     fl.loop = null;
     compile_term(fl, def.e, null, 1, "return", args, 0);
   }
@@ -607,7 +612,11 @@ export function compile_book(book: core.Book): string {
     }
   }
   let out = RUNTIME + "// Program\n// =======\n\n" + fl.lines.join("\n");
-  if (book.tlds["main"] !== undefined) {
+  const main = book.tlds["main"];
+  if (main !== undefined) {
+    if (main.$ !== "Def" || main.v === null || def_get_params(book, main).some(([, u]) => u.$ !== "None")) {
+      throw new Error("tojs: main must be a filled def with no live parameters (the runner calls it with none)");
+    }
     out += "\nconsole.log(value_show(" + compile_name_sat("main") + "()));";
   }
   return out;

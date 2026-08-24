@@ -926,7 +926,7 @@ INLINE Loc term_loc(Term t) {
 
 INLINE bool term_triv(Term t) {
   u64 tag = term_tag(t);
-  return t >= TERM_WORK || tag == TAG_WORD || (tag == TAG_CTOR && term_loc(t) == 0);
+  return t >= TERM_WORK || tag == TAG_WORD || (tag == TAG_CTOR && term_loc(t) == 0) || (tag == TAG_CLOS && fid_arity((u32)term_aux(t)) <= 1);
 }
 
 static void term_drop(Corpus H, Term t) {
@@ -943,6 +943,8 @@ static void term_drop(Corpus H, Term t) {
         u32 n;
         if (tag == TAG_CTOR) {
           n = cid_arity(aux);
+        } else if (tag == TAG_CLOS) {
+          n = fid_arity(aux) - 1;
         } else {
           n = fid_arity(aux);
         }
