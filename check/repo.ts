@@ -63,7 +63,7 @@ const CAPS: [string, number][] = [
   ["bend2/bend.ts", 40000],
   ["bend2/comp.ts", 40000],
   ["bend2/base.bend", 16000],
-  ["ALL12K.md", 12000],
+  ["AGENTS.md", 9500],
 ];
 
 const MARK_COMP = "// Comp\n// ====\n";
@@ -81,7 +81,6 @@ const FENCE_SHUT = "\n`.slice(1);";
 const ROOTS: string[] = [
   ".gitignore",
   "AGENTS.md",
-  "ALL12K.md",
   "README.md",
   "package.json",
 ];
