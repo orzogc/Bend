@@ -1,0 +1,7 @@
+{
+  "name": "bend",
+  "private": true,
+  "devDependencies": {
+    "@types/bun": "^1.2.0"
+  }
+}

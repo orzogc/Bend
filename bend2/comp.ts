@@ -1,6 +1,8 @@
+import { readFileSync, realpathSync, writeFileSync } from "node:fs";
+
 import { All, Ann, App, Ctr, Efq, Emp, Lam, Let, Lone, Mat,
-  Ref, Var, book_load, book_nil, book_valid, err_show, fs,
-  pmap_get, pmap_set, pmap_union, readFileSync, realpathSync,
+  Ref, Var, book_load, book_nil, book_valid, err_show,
+  pmap_get, pmap_set, pmap_union,
   tele_unbind as tele_walk,
   term_apply, term_force, term_higher, term_lower, term_show, term_snf,
   term_strip, term_unapply, term_uncop, u32_from_term,
@@ -8,11 +10,6 @@ import { All, Ann, App, Ctr, Efq, Emp, Lam, Let, Lone, Mat,
 
 import type { Book, Def, Err, HTerm, Name, PMap, Quant, TLD,
 } from "./bend.ts";
-
-declare const process: {
-  argv: string[];
-  exit(code?: number): never;
-};
 
 // Comp
 // ====
@@ -5445,7 +5442,7 @@ function cli(): void {
     book_valid(book);
     if (to !== undefined) {
       const emit = to.endsWith(".c") ? compile_book : js_book;
-      fs.writeFileSync(to, emit(book));
+      writeFileSync(to, emit(book));
     } else if (book.tlds["main"] !== undefined) {
       if (io_type(book) !== null) {
         process.exit(io_run(book));
