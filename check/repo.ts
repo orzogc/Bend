@@ -79,10 +79,8 @@ const FENCE_OPEN = "String.raw`\n";
 const FENCE_SHUT = "\n`.slice(1);";
 
 const ROOTS: string[] = [
-  ".gitignore",
   "AGENTS.md",
   "README.md",
-  "package.json",
 ];
 
 const CHECKS: string[] = [
