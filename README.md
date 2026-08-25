@@ -205,7 +205,7 @@ To learn more, read:
 # needs Bun 1.3+ (https://bun.com) and macOS on Apple Silicon
 git clone https://github.com/HigherOrderCO/bend4
 cd bend4
-ln -sf "$PWD/bend2/bend" ~/.bun/bin/bend
+bun .devs/scripts/install.ts   # puts `bend` on the PATH (~/.bun/bin)
 ```
 
 ### 2. Save a Hello World:
