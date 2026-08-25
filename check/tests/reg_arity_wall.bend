@@ -31,7 +31,7 @@ def main():
 $$ bend %
 1
 $$ bend % --seq
-Error: tocl: an arity over 255 (report this case)
+Error: an arity over 255
 exit 1
 $$ bend % --js
 1

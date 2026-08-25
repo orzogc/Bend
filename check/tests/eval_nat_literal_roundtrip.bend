@@ -25,5 +25,5 @@ def main():
 $$ bend %
 Tuple{4n, Tuple{0n, Tuple{Con{3n, Con{2n, Nil{}}}, n => 1n+n}}}
 $$ bend % --js
-Error: tojs: main must answer IO<T>: the event loop runs IO mains only
+Error: main must answer IO<T>
 exit 1

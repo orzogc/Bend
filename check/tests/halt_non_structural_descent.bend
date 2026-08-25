@@ -1,6 +1,5 @@
 # Nat.div(n, 2n) is not a structural subterm of n: the loop terminates
-# at runtime, but the descent judgment refuses it (bend4's opt-out is
-# the file-level #[halts] pragma, not bend3's --no-halt flag, so the
+# at runtime, but the descent judgment refuses it (bend4 has no opt-out, so the
 # runnable half of the bend3 test has no place in this file).
 # ported from bend3: U32 halving becomes Nat.div
 import Base
@@ -37,6 +36,6 @@ Error:
 Context:
 - n : Nat<> - Zero{}
 Location: fold
-26 |     case n:
-27>|       1n+ fold(Nat.div(n, 2n))
-28 |
+25 |     case n:
+26>|       1n+ fold(Nat.div(n, 2n))
+27 |

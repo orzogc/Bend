@@ -13,5 +13,5 @@ assert main:
 def main(): 0n
 $$ bend %
 Error:
-- message  : a copiable type (a + binder needs a + T ~ C type, or #[halts])
+- message  : a copiable type (a + binder needs a + T ~ C type)
 Location: MkB

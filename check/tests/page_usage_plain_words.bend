@@ -1,4 +1,3 @@
-#[halts]
 # usage errors speak human: binder names print bare and the quantity
 # prints as words (consumed more than once), never an internal key --
 # church-two needs f twice, but a lambda binder is affine
@@ -23,6 +22,6 @@ Error:
 - expected : f
 - observed : f (consumed more than once)
 Location: c2
-18 | def c2():
-19>|   TLam{f => TLam{x => TApp{f, TApp{f, x}}}}
-20 |
+17 | def c2():
+18>|   TLam{f => TLam{x => TApp{f, TApp{f, x}}}}
+19 |

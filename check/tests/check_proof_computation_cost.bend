@@ -87,5 +87,5 @@ def main():
 $$ bend %
 Z6{}
 $$ bend % --js
-Error: tojs: main must answer IO<T>: the event loop runs IO mains only
+Error: main must answer IO<T>
 exit 1

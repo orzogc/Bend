@@ -1,6 +1,5 @@
 # float literals are definitionally transparent: two spellings of the
-# same build meet by refl in a dead (type-level) position, no #[halts]
-# needed -- the F32 ops stay stuck axioms and equality is syntactic
+# same build meet by refl in a dead (type-level) position -- the F32 ops stay stuck axioms and equality is syntactic
 import Base
 
 assert prf:

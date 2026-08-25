@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1498" height="665" viewBox="0 0 1498 665">
+<style>
+  text { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; fill: #818b98; }
+  .title { font-size: 18.7px; font-weight: 600; }
+  .value { font-size: 15.6px; }
+  .name  { font-size: 14.4px; }
+  .note  { font-size: 23.7px; opacity: 0.9; }
+  .fine  { font-size: 15.6px; opacity: 0.8; }
+</style>
+<text x="145" y="27.5" text-anchor="middle" class="title">gameoflife</text>
+<line x1="16" y1="242.37666666666667" x2="274" y2="242.37666666666667" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 16 242.4 L 16 97.4 Q 16 92.4 21 92.4 L 65 92.4 Q 70 92.4 70 97.4 L 70 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="43" y="83.7" text-anchor="middle" class="value">17.6s</text>
+<text x="43" y="267.3" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 84 242.39999999999998 L 84 135.7 Q 84 130.7 89 130.7 L 133 130.7 Q 138 130.7 138 135.7 L 138 242.39999999999998 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="111" y="122.0" text-anchor="middle" class="value">13.1s</text>
+<text x="111" y="267.3" text-anchor="middle" class="name">Lean</text>
+<path d="M 152 242.4 L 152 186 Q 152 181 157 181 L 201 181 Q 206 181 206 186 L 206 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="179" y="172.3" text-anchor="middle" class="value">7.22s</text>
+<text x="179" y="267.3" text-anchor="middle" class="name">C</text>
+<path d="M 220 242.39999999999998 L 220 211.6 Q 220 206.6 225 206.6 L 269 206.6 Q 274 206.6 274 211.6 L 274 242.39999999999998 Z" fill="#1a4f8a"/>
+<text x="247" y="197.9" text-anchor="middle" class="value" style="fill: #1a4f8a">4.21s</text>
+<text x="247" y="267.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="447" y="27.5" text-anchor="middle" class="title">merkle</text>
+<line x1="318" y1="242.37666666666667" x2="576" y2="242.37666666666667" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 318 242.4 L 318 97.4 Q 318 92.4 323 92.4 L 367 92.4 Q 372 92.4 372 97.4 L 372 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="345" y="83.7" text-anchor="middle" class="value">6.96s</text>
+<text x="345" y="267.3" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 386 242.4 L 386 127.4 Q 386 122.4 391 122.4 L 435 122.4 Q 440 122.4 440 127.4 L 440 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="413" y="113.7" text-anchor="middle" class="value">5.57s</text>
+<text x="413" y="267.3" text-anchor="middle" class="name">Lean</text>
+<path d="M 454 242.39999999999998 L 454 148.7 Q 454 143.7 459 143.7 L 503 143.7 Q 508 143.7 508 148.7 L 508 242.39999999999998 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="481" y="135.0" text-anchor="middle" class="value">4.58s</text>
+<text x="481" y="267.3" text-anchor="middle" class="name">C</text>
+<path d="M 522 242.39999999999998 L 522 147.2 Q 522 142.2 527 142.2 L 571 142.2 Q 576 142.2 576 147.2 L 576 242.39999999999998 Z" fill="#1a4f8a"/>
+<text x="549" y="133.5" text-anchor="middle" class="value" style="fill: #1a4f8a">4.65s</text>
+<text x="549" y="267.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="749" y="27.5" text-anchor="middle" class="title">raytrace</text>
+<line x1="620" y1="242.37666666666667" x2="878" y2="242.37666666666667" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 620 242.39999999999998 L 620 148.6 Q 620 143.6 625 143.6 L 669 143.6 Q 674 143.6 674 148.6 L 674 242.39999999999998 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="647" y="134.9" text-anchor="middle" class="value">21.9s</text>
+<text x="647" y="267.3" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 688 242.4 L 688 97.4 Q 688 92.4 693 92.4 L 737 92.4 Q 742 92.4 742 97.4 L 742 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="715" y="83.7" text-anchor="middle" class="value">33.3s</text>
+<text x="715" y="267.3" text-anchor="middle" class="name">Lean</text>
+<path d="M 756 242.39999999999998 L 756 227.7 Q 756 222.7 761 222.7 L 805 222.7 Q 810 222.7 810 227.7 L 810 242.39999999999998 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="783" y="214.0" text-anchor="middle" class="value">4.37s</text>
+<text x="783" y="267.3" text-anchor="middle" class="name">C</text>
+<path d="M 824 242.4 L 824 225.1 Q 824 220.1 829 220.1 L 873 220.1 Q 878 220.1 878 225.1 L 878 242.4 Z" fill="#1a4f8a"/>
+<text x="851" y="211.4" text-anchor="middle" class="value" style="fill: #1a4f8a">4.96s</text>
+<text x="851" y="267.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="1051" y="27.5" text-anchor="middle" class="title">terrain</text>
+<line x1="922" y1="242.37666666666667" x2="1180" y2="242.37666666666667" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 922 242.4 L 922 142 Q 922 137 927 137 L 971 137 Q 976 137 976 142 L 976 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="949" y="128.3" text-anchor="middle" class="value">5.49s</text>
+<text x="949" y="267.3" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 990 242.4 L 990 97.4 Q 990 92.4 995 92.4 L 1039 92.4 Q 1044 92.4 1044 97.4 L 1044 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1017" y="83.7" text-anchor="middle" class="value">7.81s</text>
+<text x="1017" y="267.3" text-anchor="middle" class="name">Lean</text>
+<path d="M 1058 242.39999999999998 L 1058 179.6 Q 1058 174.6 1063 174.6 L 1107 174.6 Q 1112 174.6 1112 179.6 L 1112 242.39999999999998 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1085" y="165.9" text-anchor="middle" class="value">3.53s</text>
+<text x="1085" y="267.3" text-anchor="middle" class="name">C</text>
+<path d="M 1126 242.4 L 1126 178.4 Q 1126 173.4 1131 173.4 L 1175 173.4 Q 1180 173.4 1180 178.4 L 1180 242.4 Z" fill="#1a4f8a"/>
+<text x="1153" y="164.7" text-anchor="middle" class="value" style="fill: #1a4f8a">3.59s</text>
+<text x="1153" y="267.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="1353" y="27.5" text-anchor="middle" class="title">bitonic</text>
+<line x1="1224" y1="242.37666666666667" x2="1482" y2="242.37666666666667" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 1224 242.4 L 1224 97.4 Q 1224 92.4 1229 92.4 L 1273 92.4 Q 1278 92.4 1278 97.4 L 1278 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1251" y="83.7" text-anchor="middle" class="value">43.3s</text>
+<text x="1251" y="267.3" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 1292 242.4 L 1292 150.8 Q 1292 145.8 1297 145.8 L 1341 145.8 Q 1346 145.8 1346 150.8 L 1346 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1319" y="137.1" text-anchor="middle" class="value">27.9s</text>
+<text x="1319" y="267.3" text-anchor="middle" class="name">Lean</text>
+<path d="M 1360 242.4 L 1360 213.4 Q 1360 208.4 1365 208.4 L 1409 208.4 Q 1414 208.4 1414 213.4 L 1414 242.4 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1387" y="199.7" text-anchor="middle" class="value">9.83s</text>
+<text x="1387" y="267.3" text-anchor="middle" class="name">C</text>
+<path d="M 1428 242.4 L 1428 229.6 Q 1428 224.6 1433 224.6 L 1477 224.6 Q 1482 224.6 1482 229.6 L 1482 242.4 Z" fill="#1a4f8a"/>
+<text x="1455" y="215.9" text-anchor="middle" class="value" style="fill: #1a4f8a">5.14s</text>
+<text x="1455" y="267.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="145" y="317.3" text-anchor="middle" class="title">radix</text>
+<line x1="16" y1="532.19" x2="274" y2="532.19" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 16 532.2 L 16 424.1 Q 16 419.1 21 419.1 L 65 419.1 Q 70 419.1 70 424.1 L 70 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="43" y="410.4" text-anchor="middle" class="value">6.38s</text>
+<text x="43" y="557.2" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 84 532.1999999999999 L 84 413.4 Q 84 408.4 89 408.4 L 133 408.4 Q 138 408.4 138 413.4 L 138 532.1999999999999 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="111" y="399.7" text-anchor="middle" class="value">6.98s</text>
+<text x="111" y="557.2" text-anchor="middle" class="name">Lean</text>
+<path d="M 152 532.2 L 152 387.2 Q 152 382.2 157 382.2 L 201 382.2 Q 206 382.2 206 387.2 L 206 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="179" y="373.5" text-anchor="middle" class="value">8.46s</text>
+<text x="179" y="557.2" text-anchor="middle" class="name">C</text>
+<path d="M 220 532.1999999999999 L 220 470.4 Q 220 465.4 225 465.4 L 269 465.4 Q 274 465.4 274 470.4 L 274 532.1999999999999 Z" fill="#1a4f8a"/>
+<text x="247" y="456.7" text-anchor="middle" class="value" style="fill: #1a4f8a">3.77s</text>
+<text x="247" y="557.2" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="447" y="317.3" text-anchor="middle" class="title">kmeans</text>
+<line x1="318" y1="532.19" x2="576" y2="532.19" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 318 532.2 L 318 387.2 Q 318 382.2 323 382.2 L 367 382.2 Q 372 382.2 372 387.2 L 372 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="345" y="373.5" text-anchor="middle" class="value">17.4s</text>
+<text x="345" y="557.2" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 386 532.2 L 386 489 Q 386 484 391 484 L 435 484 Q 440 484 440 489 L 440 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="413" y="475.3" text-anchor="middle" class="value">5.59s</text>
+<text x="413" y="557.2" text-anchor="middle" class="name">Lean</text>
+<path d="M 454 532.1999999999999 L 454 510.4 Q 454 505.4 459 505.4 L 503 505.4 Q 508 505.4 508 510.4 L 508 532.1999999999999 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="481" y="496.7" text-anchor="middle" class="value">3.11s</text>
+<text x="481" y="557.2" text-anchor="middle" class="name">C</text>
+<path d="M 522 532.2 L 522 494 Q 522 489 527 489 L 571 489 Q 576 489 576 494 L 576 532.2 Z" fill="#1a4f8a"/>
+<text x="549" y="480.3" text-anchor="middle" class="value" style="fill: #1a4f8a">5.00s</text>
+<text x="549" y="557.2" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="749" y="317.3" text-anchor="middle" class="title">matmul</text>
+<line x1="620" y1="532.19" x2="878" y2="532.19" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 620 532.2 L 620 387.2 Q 620 382.2 625 382.2 L 669 382.2 Q 674 382.2 674 387.2 L 674 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="647" y="373.5" text-anchor="middle" class="value">10.8s</text>
+<text x="647" y="557.2" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 688 532.1999999999999 L 688 422.9 Q 688 417.9 693 417.9 L 737 417.9 Q 742 417.9 742 422.9 L 742 532.1999999999999 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="715" y="409.2" text-anchor="middle" class="value">8.24s</text>
+<text x="715" y="557.2" text-anchor="middle" class="name">Lean</text>
+<path d="M 756 532.2 L 756 489.7 Q 756 484.7 761 484.7 L 805 484.7 Q 810 484.7 810 489.7 L 810 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="783" y="476.0" text-anchor="middle" class="value">3.42s</text>
+<text x="783" y="557.2" text-anchor="middle" class="name">C</text>
+<path d="M 824 532.2 L 824 508.8 Q 824 503.8 829 503.8 L 873 503.8 Q 878 503.8 878 508.8 L 878 532.2 Z" fill="#1a4f8a"/>
+<text x="851" y="495.1" text-anchor="middle" class="value" style="fill: #1a4f8a">2.05s</text>
+<text x="851" y="557.2" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="1051" y="317.3" text-anchor="middle" class="title">symreg</text>
+<line x1="922" y1="532.19" x2="1180" y2="532.19" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 922 532.2 L 922 387.2 Q 922 382.2 927 382.2 L 971 382.2 Q 976 382.2 976 387.2 L 976 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="949" y="373.5" text-anchor="middle" class="value">5.48s</text>
+<text x="949" y="557.2" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 990 532.2 L 990 473.1 Q 990 468.1 995 468.1 L 1039 468.1 Q 1044 468.1 1044 473.1 L 1044 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1017" y="459.4" text-anchor="middle" class="value">2.34s</text>
+<text x="1017" y="557.2" text-anchor="middle" class="name">Lean</text>
+<path d="M 1058 532.2 L 1058 471.8 Q 1058 466.8 1063 466.8 L 1107 466.8 Q 1112 466.8 1112 471.8 L 1112 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1085" y="458.1" text-anchor="middle" class="value">2.39s</text>
+<text x="1085" y="557.2" text-anchor="middle" class="name">C</text>
+<path d="M 1126 532.2 L 1126 460.8 Q 1126 455.8 1131 455.8 L 1175 455.8 Q 1180 455.8 1180 460.8 L 1180 532.2 Z" fill="#1a4f8a"/>
+<text x="1153" y="447.1" text-anchor="middle" class="value" style="fill: #1a4f8a">2.79s</text>
+<text x="1153" y="557.2" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="1353" y="317.3" text-anchor="middle" class="title">queens</text>
+<line x1="1224" y1="532.19" x2="1482" y2="532.19" stroke="#818b98" stroke-opacity="0.3"/>
+<path d="M 1224 532.2 L 1224 409 Q 1224 404 1229 404 L 1273 404 Q 1278 404 1278 409 L 1278 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1251" y="395.3" text-anchor="middle" class="value">6.82s</text>
+<text x="1251" y="557.2" text-anchor="middle" class="name">TypeScript</text>
+<path d="M 1292 532.2 L 1292 387.2 Q 1292 382.2 1297 382.2 L 1341 382.2 Q 1346 382.2 1346 387.2 L 1346 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1319" y="373.5" text-anchor="middle" class="value">7.98s</text>
+<text x="1319" y="557.2" text-anchor="middle" class="name">Lean</text>
+<path d="M 1360 532.2 L 1360 469.3 Q 1360 464.3 1365 464.3 L 1409 464.3 Q 1414 464.3 1414 469.3 L 1414 532.2 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1387" y="455.6" text-anchor="middle" class="value">3.61s</text>
+<text x="1387" y="557.2" text-anchor="middle" class="name">C</text>
+<path d="M 1428 532.2 L 1428 463.3 Q 1428 458.3 1433 458.3 L 1477 458.3 Q 1482 458.3 1482 463.3 L 1482 532.2 Z" fill="#1a4f8a"/>
+<text x="1455" y="449.6" text-anchor="middle" class="value" style="fill: #1a4f8a">3.93s</text>
+<text x="1455" y="557.2" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
+<text x="749" y="617.6" text-anchor="middle" class="note">one core, lower is better · <tspan font-weight="bold">Apple M4</tspan></text>
+<text x="749" y="650.0" text-anchor="middle" class="fine">C / TypeScript / Lean: frozen 2026-07 twin records, same machine and workload · Bend: Bend4, 2026-08</text>
+</svg>

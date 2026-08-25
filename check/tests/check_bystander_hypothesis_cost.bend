@@ -51,5 +51,5 @@ def main():
 $$ bend %
 Z9{}
 $$ bend % --js
-Error: tojs: main must answer IO<T>: the event loop runs IO mains only
+Error: main must answer IO<T>
 exit 1

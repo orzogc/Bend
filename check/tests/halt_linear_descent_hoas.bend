@@ -1,9 +1,9 @@
-#[halts]
 # the textbook HOAS evaluator: beta is closure application, wnf feeds
 # bod(arg), snf rebuilds under a fresh binder. bend3's linear-descent
 # ledger certified this; bend4's descent law cannot (bod(arg) shrinks
-# no column), so the file opts out via #[halts] and pins the runtime:
-# closures as ctor fields, capture, and the rebuilt-binder path.
+# no column), so a Nat fuel rides ahead of every self-call (the
+# queens shape) and the runtime pins survive: closures as ctor
+# fields, capture, and the rebuilt-binder path.
 # ported from bend3: bare ctors, the U32 answer reads back via
 # U32.to_nat
 import Base
@@ -14,38 +14,48 @@ type Trm:
   Nm{val: U32}
 
 assert wnf:
+  forall +f: +Nat
   forall t: Trm
   Trm
 
-def wnf(t):
-  match t:
-    case Ap{fun, arg}:
-      match wnf(fun):
-        case Lm{bod}:
-          wnf(bod(arg))
-        case f:
-          Ap{f, arg}
-    case t:
+def wnf(f, t):
+  match f:
+    case 0n:
       t
+    case 1n+g:
+      match t:
+        case Ap{fun, arg}:
+          match wnf(g, fun):
+            case Lm{bod}:
+              wnf(g, bod(arg))
+            case h:
+              Ap{h, arg}
+        case t:
+          t
 
 assert snf:
+  forall +f: +Nat
   forall t: Trm
   Trm
 
-def snf(t):
-  match wnf(t):
-    case Lm{bod}:
-      Lm{x => snf(bod(x))}
-    case Ap{fun, arg}:
-      Ap{snf(fun), snf(arg)}
-    case t:
+def snf(f, t):
+  match f:
+    case 0n:
       t
+    case 1n+g:
+      match wnf(g, t):
+        case Lm{bod}:
+          Lm{x => snf(g, bod(x))}
+        case Ap{fun, arg}:
+          Ap{snf(g, fun), snf(g, arg)}
+        case t:
+          t
 
 assert main.out:
   Nat
 
 def main.out():
-  match snf(Ap{Lm{x => Ap{Lm{y => y}, x}}, Nm{42}}):
+  match snf(9n, Ap{Lm{x => Ap{Lm{y => y}, x}}, Nm{42}}):
     case Nm{val}:
       U32.to_nat(val)
     case t:

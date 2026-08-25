@@ -1,14 +1,37 @@
 #!/usr/bin/env bun
 
-import * as child from "node:child_process";
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
-import * as zlib from "node:zlib";
-import * as gen from "../bench/check/_gen_.ts";
+declare const process: {
+  argv: string[];
+  execPath: string;
+  exit(code?: number): never;
+  kill(pid: number, signal?: string | number): void;
+  on(event: string, listener: () => void): void;
+  pid: number;
+  stderr: { write(data: string): boolean };
+  stdout: {
+    write(data: string): boolean;
+    columns?: number;
+    isTTY?: boolean;
+    rows?: number;
+  };
+};
+
+declare const Buffer: {
+  from(data: string | Uint8Array): Uint8Array & { toString(): string };
+};
+
+import * as gen from "../bench/checker/_gen_.ts";
 
 // Types
 // =====
+
+type Buffer = Uint8Array;
+
+type Bytes = {
+  on(event: "data", listener: (d: Buffer) => void): void;
+  on(event: "error", listener: () => void): void;
+  end(data?: string | Buffer): void;
+};
 
 export type Exec = { stdout: string; stderr: string };
 
@@ -47,19 +70,66 @@ export type Io = { ops: number; note: string };
 // Constants
 // =========
 
+const child = import.meta.require("child_process") as {
+  spawn(cmd: string, args: string[], opts?: {
+    cwd?: string;
+    env?: Record<string, string | undefined>;
+    stdio?: (string | null)[] | string;
+  }): {
+    pid?: number;
+    stdin: Bytes;
+    stdout: Bytes;
+    stderr: Bytes;
+    kill(signal?: string): boolean;
+    on(event: "error", listener: (e: Error) => void): void;
+    on(event: "exit" | "close",
+      listener: (code: number | null) => void): void;
+  };
+};
+
+const fs = import.meta.require("fs") as {
+  mkdirSync(file: string, opts?: { recursive?: boolean }): void;
+  mkdtempSync(prefix: string): string;
+  readFileSync(file: string, encoding: "utf8"): string;
+  readdirSync(file: string): string[];
+  renameSync(from: string, to: string): void;
+  rmSync(file: string, opts?: { recursive?: boolean;
+    force?: boolean }): void;
+  writeFileSync(file: string, data: string): void;
+};
+
+const os = import.meta.require("os") as { tmpdir(): string };
+
+const path = import.meta.require("path") as {
+  basename(file: string, ext?: string): string;
+  join(...parts: string[]): string;
+  resolve(...parts: string[]): string;
+};
+
+const zlib = import.meta.require("zlib") as {
+  gzipSync(data: string | Uint8Array, opts?: { level?: number }): Buffer;
+};
+
 const HERE = process.argv.includes("--here");
 
 const ROOT = path.join(import.meta.dirname, "..");
 
-const MAIN = path.join(ROOT, "src", "bend.ts");
+const MAIN = path.join(ROOT, "bend2", "comp.ts");
 
-const BENCH = path.join(ROOT, "bench");
+const BENCH = path.join(ROOT, "bench", "runtime");
 
 const PIN = path.join(BENCH, "_pin_apple_m4_.txt");
 
-const CHECK_PIN = path.join(BENCH, "check", "_pin_apple_m4_.txt");
+const CHECK_PIN = path.join(ROOT, "bench", "checker",
+  "_pin_apple_m4_.txt");
 
 const CHECK_RUNS = 3;
+
+const COMP_PIN = path.join(BENCH, "_pin_comp_apple_m4_.txt");
+
+const COMP_RUNS = 5;
+
+const DEMOS = path.join(ROOT, "demos");
 
 const MODES = ["SEQ-CPU", "PAR-CPU", "PAR-GPU"];
 
@@ -119,12 +189,12 @@ const IO_OPS = 1_000_000;
 
 const IO_BAR = 1_000_000;
 
-const IO_SRC = "#[halts]\nimport Base\n\nassert go:\n  forall +n: +U32\n"
-  + "  IO(Unit)\n\ndef go(n):\n  match U32.is_eq(n, 0):\n"
-  + "    case True{}:\n      IO.pure(Unit, Unit{})\n    case False{}:\n"
-  + "      IO.bind(Unit, Unit, IO.write(\"x\"), u => go(U32.sub(n, 1)))\n"
-  + "\nassert main:\n  IO(Unit)\n\ndef main():\n  go(" + String(IO_OPS)
-  + ")\n";
+const IO_SRC = "import Base\n\nassert go:\n  forall n: Nat\n"
+  + "  IO(Unit)\n\ndef go(n):\n  match n:\n"
+  + "    case 0n:\n      IO.pure(Unit, Unit{})\n    case 1n+p:\n"
+  + "      IO.bind(Unit, Unit, IO.write(\"x\"), u => go(p))\n"
+  + "\nassert main:\n  IO(Unit)\n\ndef main():\n  go(U32.to_nat("
+  + String(IO_OPS) + "))\n";
 
 const VIEW: string[] = [];
 
@@ -482,12 +552,13 @@ export function pin_gate(cells: Cell[], pin: Map<string, Pin>): string[] {
   const bases = new Set(cells.map((c) => c.base));
   for (const name of pin.keys()) {
     if (!bases.has(name)) {
-      fails.push(name + ": pin row without bench/" + name +
+      fails.push(name + ": pin row without bench/runtime/" + name +
         ".bend -- a pinned bench may not vanish");
     }
   }
   if (bases.size === 0) {
-    fails.push("bench/ holds no benchmark -- the grid measured nothing");
+    fails.push("bench/runtime/ holds no benchmark -- the grid measured"
+      + " nothing");
   }
   for (const cell of cells) {
     const row = pin.get(cell.base);
@@ -685,7 +756,7 @@ export function grid_view(cells: Cell[], foot: string): void {
 }
 
 export async function grid_run(): Promise<{ cells: Cell[]; io: Io;
-  chks: Chk[] }> {
+  chks: Chk[]; cmps: Chk[] }> {
   const first = HERE ? 0 : node_lock(SLOTS);
   const work = "bench/run-" + Date.now().toString(36) + "-" +
     String(process.pid);
@@ -746,30 +817,33 @@ export async function grid_run(): Promise<{ cells: Cell[]; io: Io;
       await node_pool(nodes, jobs);
     }
   })();
-  const local = (async (): Promise<{ io: Io; chks: Chk[] }> => {
+  const local = (async (): Promise<{ io: Io; chks: Chk[];
+    cmps: Chk[] }> => {
     if (HERE) {
       await grid;
     }
     const io = await io_cell();
     const chks = await check_run();
-    return { io, chks };
+    const cmps = await comp_run();
+    return { io, chks, cmps };
   })();
-  const [, { io, chks }] = await Promise.all([grid, local]);
+  const [, { io, chks, cmps }] = await Promise.all([grid, local]);
   pin_stamp(cells, pin_read());
   view_log("io " + String(io.ops) + " ops/s"
     + (io.note === "" ? "" : " -- " + io.note));
   grid_view(cells, foot());
   node_free();
-  return { cells, io, chks };
+  return { cells, io, chks, cmps };
 }
 
 export async function grid_gate(): Promise<string[]> {
-  const { cells, io, chks } = await grid_run();
+  const { cells, io, chks, cmps } = await grid_run();
   const fails: string[] = [];
   if (io.note !== "") {
     fails.push(io.note);
   }
-  return [...fails, ...pin_gate(cells, pin_read()), ...check_gate(chks)];
+  return [...fails, ...pin_gate(cells, pin_read()), ...check_gate(chks),
+    ...comp_gate(cmps)];
 }
 
 // Check
@@ -793,7 +867,7 @@ export function check_read(): Chk[] {
 export async function check_take(cell: Chk, dir: string): Promise<void> {
   const m = /^([a-z]+)_(\d+)$/.exec(cell.name);
   if (m === null || !gen.BENCHES.includes(m[1] as gen.Bench)) {
-    cell.note = "a pin row without a generator in bench/check/_gen_.ts";
+    cell.note = "a pin row without a generator in bench/checker/_gen_.ts";
     return;
   }
   const file = path.join(dir, cell.name + ".bend");
@@ -834,7 +908,7 @@ export async function check_run(): Promise<Chk[]> {
 export function check_gate(cells: Chk[]): string[] {
   const fails: string[] = [];
   if (cells.length === 0) {
-    fails.push("bench/check holds no pinned checker bench" +
+    fails.push("bench/checker holds no pinned checker bench" +
       " -- check time measured nothing");
   }
   for (const cell of cells) {
@@ -852,6 +926,114 @@ export function check_gate(cells: Chk[]): string[] {
       Math.abs(cell.got - cell.want) > GRACE) {
       view_log("drift check " + cell.name + ": " + cell.got.toFixed(2) +
         "s vs pinned " + cell.want.toFixed(2) + "s (" +
+        (drift > 0 ? "+" : "") + drift.toFixed(0) +
+        "%) -- ~10% is noise, accumulation is not");
+    }
+  }
+  return fails;
+}
+
+// Comp
+// ====
+
+export function comp_files(): Map<string, string> {
+  const files = new Map<string, string>();
+  for (const base of grid_bases()) {
+    files.set(base, path.join(BENCH, base + ".bend"));
+  }
+  const demos = fs.readdirSync(DEMOS).filter((f) => f.endsWith(".bend"));
+  for (const demo of demos.sort()) {
+    files.set(path.basename(demo, ".bend"), path.join(DEMOS, demo));
+  }
+  return files;
+}
+
+export function comp_read(): Chk[] {
+  const cells: Chk[] = [];
+  let rows: string[] = [];
+  try {
+    rows = fs.readFileSync(COMP_PIN, "utf8").split("\n");
+  } catch {}
+  for (const line of rows) {
+    const row = /^# \| (\S+)\s*\|(.*)\|$/.exec(line);
+    const want = row === null
+      ? null
+      : /([\d.]+)s/.exec(row[2].split("|")[1] ?? "");
+    if (row !== null && want !== null) {
+      cells.push({ name: row[1], want: Number(want[1]), got: null,
+        note: "" });
+    }
+  }
+  return cells;
+}
+
+export async function comp_take(cell: Chk, files: Map<string, string>,
+  dir: string): Promise<void> {
+  const file = files.get(cell.name);
+  if (file === undefined) {
+    cell.note = "a pin row without a .bend in bench/runtime/ or demos/" +
+      " -- a pinned program may not vanish";
+    return;
+  }
+  const out = path.join(dir, cell.name + ".c");
+  const secs: number[] = [];
+  for (let i = 0; i <= COMP_RUNS; i++) {
+    const at = performance.now();
+    try {
+      await exec_call(process.execPath, [MAIN, file, "--to", out]);
+    } catch (e) {
+      cell.note = "comp: " + exec_note(e);
+      return;
+    }
+    secs.push((performance.now() - at) / 1000);
+  }
+  const timed = secs.slice(1).sort((a, b) => a - b);
+  cell.got = timed[Math.floor(COMP_RUNS / 2)];
+}
+
+export async function comp_run(): Promise<Chk[]> {
+  const cells = comp_read();
+  const files = comp_files();
+  const dir = fs.mkdtempSync("/tmp/bend-comp-");
+  for (const cell of cells) {
+    await comp_take(cell, files, dir);
+    const seen = cell.got === null
+      ? cell.note
+      : cell.got.toFixed(3) + "s, pinned " + cell.want.toFixed(3) + "s";
+    view_log("comp " + cell.name + ": " + seen);
+  }
+  fs.rmSync(dir, { recursive: true, force: true });
+  return cells;
+}
+
+export function comp_gate(cells: Chk[]): string[] {
+  const fails: string[] = [];
+  if (cells.length === 0) {
+    fails.push("bench/runtime/_pin_comp_apple_m4_.txt holds no pinned" +
+      " program -- compile time measured nothing");
+  }
+  const names = new Set(cells.map((c) => c.name));
+  for (const name of comp_files().keys()) {
+    if (!names.has(name)) {
+      fails.push("comp " + name + ": no pin row -- a new program needs a" +
+        " comp pin, and only Taelin writes one");
+    }
+  }
+  for (const cell of cells) {
+    if (cell.got === null) {
+      fails.push("comp " + cell.name + ": " + cell.note);
+      continue;
+    }
+    const drift = (cell.got - cell.want) / cell.want * 100;
+    if (cell.got > cell.want + GRACE) {
+      fails.push("comp " + cell.name + ": " + cell.got.toFixed(3) +
+        "s vs pinned " + cell.want.toFixed(3) + "s (+" + drift.toFixed(0) +
+        "% over the budget, past the " + GRACE.toFixed(2) +
+        "s quantum) -- fix the regression");
+    } else if (Math.abs(drift) >= DRIFT_NOTE &&
+      Math.abs(cell.got - cell.want) > GRACE) {
+      view_log("drift comp " + cell.name + ": " + cell.got.toFixed(3) +
+        "s vs pinned " + cell.want.toFixed(3) + "s (" +
         (drift > 0 ? "+" : "") + drift.toFixed(0) +
         "%) -- ~10% is noise, accumulation is not");
     }

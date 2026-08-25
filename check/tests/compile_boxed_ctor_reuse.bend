@@ -1,6 +1,6 @@
 # 2-u32-field ctor (boxed) built by a closure; the word feeds two uses
 # ported from bend3: the contraction becomes a +param helper aliased at
-# the matching @+ type (a U32.copy spelling refuses in tocl: structural
+# the matching @+ type (a U32.copy spelling refuses in the compiler: structural
 # view of a machine word)
 import Base
 

@@ -1,4 +1,4 @@
-# SPEC PART 3 COP, the refusal half: outside #[halts] a Many (+)
+# SPEC PART 3 COP, the refusal half: a Many (+)
 # binder whose type is not a Cop is a formation error
 import Base
 
@@ -16,5 +16,5 @@ def main():
   twice(3n)
 $$ bend %
 Error:
-- expected : a copiable type (a + binder needs a + T ~ C type, or #[halts])
+- expected : a copiable type (a + binder needs a + T ~ C type)
 - observed : @+x:Nat -> Nat

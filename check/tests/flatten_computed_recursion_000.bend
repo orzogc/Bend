@@ -1,9 +1,13 @@
-#[halts]
-# recursion through a computed match: the decision factors into helper
-# defs (bend4's idiom: a match heads a def body; a computed match is
-# the applied match-lambda), and the kept scrutinee wears +
-# ported from bend3: literal arm values become ctors, mutual recursion
-# rides #[halts]
+# recursion through a computed match: the decision factors into a
+# helper def (bend4's idiom: a match heads a def body; a computed
+# match is the applied match-lambda), and the kept scrutinee wears +
+# (a local Nt.copy witness licenses it)
+# ported from bend3: literal arm values become ctors; bend3's mutual
+# deep<->main pair folds into ONE def -- the deep step spelled as a
+# nested match-lambda arm -- whose recursion rides a Nat fuel matched
+# ahead of the computed match (the queens shape)
+import Base
+
 type Nt:
   Zn{}
   Sn{p: Nt}
@@ -15,6 +19,20 @@ type Bl:
 type W:
   Z{}
   S{p: W}
+
+assert Nt.copy:
+  forall t: Nt
+  Copy(Nt, t) & Copy(Nt, t)
+
+def Nt.copy(t):
+  match t:
+    case Zn{}:
+      ((Zn{}, {==}), (Zn{}, {==}))
+    case Sn{p}:
+      ((px, pe), (py, pf)) = Nt.copy(p)
+      s1 = Equal.cong(Nt, Nt, z => Sn{z}, p, px, pe)
+      s2 = Equal.cong(Nt, Nt, z => Sn{z}, p, py, pf)
+      ((Sn{px}, s1), (Sn{py}, s2))
 
 assert big:
   forall a: Nt
@@ -29,26 +47,18 @@ def big(a):
     case Sn{Sn{p}}:
       T{}
 
-assert deep:
-  forall m: Nt
-  W
-
-def deep(m):
-  match m:
-    case Sn{Sn{p}}:
-      S{S{main(p)}}
-    case Sn{Zn{}}:
-      S{Z{}}
-    case Zn{}:
-      S{Z{}}
-
 assert main:
-  forall +n: Nt
+  forall f: Nat
+  forall +n: +Nt
   W
 
-def main(n):
-  \{T: deep(n); F: Z{}}(big(n))
+def main(f, n):
+  match f:
+    case 0n:
+      Z{}
+    case 1n+g:
+      \{T: \{Sn: \{Sn: (p => S{S{main(g, p)}}); Zn: S{Z{}}}; Zn: S{Z{}}}(n); F: Z{}}(big(n))
 $$ bend % --show
+Nt.copy = \{Zn: Tuple{Tuple{Zn{}, {==}}, Tuple{Zn{}, {==}}}; Sn: (p => \{Tuple: \{Tuple: (px => pe => \{Tuple: (py => pf => s1 = Equal.cong(Nt, Nt, z => Sn{z}, p, px, pe); s2 = Equal.cong(Nt, Nt, z => Sn{z}, p, py, pf); Tuple{Tuple{Sn{px}, s1}, Tuple{Sn{py}, s2}})})}}(Nt.copy(p)))}
 big = \{Zn: F{}; Sn: \{Zn: F{}; Sn: (p => T{})}}
-deep = \{Sn: \{Sn: (p => S{S{main(p)}}); Zn: S{Z{}}}; Zn: S{Z{}}}
-main = n => \{T: deep(n); F: Z{}}(big(n))
+main = \{Zero: (n => Z{}); Succ: (g => n => \{T: \{Sn: \{Sn: (p => S{S{main(g, p)}}); Zn: S{Z{}}}; Zn: S{Z{}}}(n); F: Z{}}(big(n)))}

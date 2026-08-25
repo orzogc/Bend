@@ -4,7 +4,7 @@
 # accumulator, making the insert lemma's IH fit exactly. Proved:
 # sortedness + length preservation.
 # ported from bend3: bend3's elaborator specialized a computed-match
-# goal in place and its mutual dec/insert pair rode #[halts]; bend4
+# goal in place and its dec/insert pair was mutual; bend4
 # passes the recursive result INTO dec, so the pair untangles, and each
 # proof replays insert's dispatch through a framed match whose motive
 # keeps dec folded over the cell -- the arms then specialize and the IH

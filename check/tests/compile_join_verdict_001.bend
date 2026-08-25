@@ -1,4 +1,3 @@
-#[halts]
 # compile_join_verdict_000's agreement law from the other walk order
 # (the widest aux visited first, the 15-param failure band); bend4's
 # tocl has no verdict machinery, so the threaded-f32-state loop itself
@@ -9,8 +8,8 @@ import Base
 
 assert g9:
   forall n: Nat
-  forall +x1: F32
-  forall +x2: F32
+  forall +x1: +F32
+  forall +x2: +F32
   forall x3: F32
   forall x4: F32
   forall x5: F32

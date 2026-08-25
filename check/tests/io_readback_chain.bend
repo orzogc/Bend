@@ -18,11 +18,11 @@ def main():
 $$ bend %
 ChCons{1n, 2n}
 $$ bend % --seq
-Error: tocl: main must answer IO<T>: the event loop runs IO mains only (report this case)
+Error: main must answer IO<T>
 exit 1
 $$ bend % --par
-Error: tocl: main must answer IO<T>: the event loop runs IO mains only (report this case)
+Error: main must answer IO<T>
 exit 1
 $$ bend % --js
-Error: tojs: main must answer IO<T>: the event loop runs IO mains only
+Error: main must answer IO<T>
 exit 1

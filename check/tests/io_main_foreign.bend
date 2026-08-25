@@ -18,10 +18,10 @@ def main():
   import "./io_main_foreign.c"
   import "./io_main_foreign.js"
 $$ bend %
-Error: main must be a filled def: a foreign import cannot anchor the event loop
+Error: main must be a filled def: a foreign main cannot anchor IO
 $$ bend % --seq
-Error: main must be a filled def: a foreign import cannot anchor the event loop
+Error: main must be a filled def: a foreign main cannot anchor IO
 exit 1
 $$ bend % --js
-Error: tojs: main must be a filled def with no live parameters (the runner calls it with none)
+Error: main must be a filled def with no live parameters
 exit 1

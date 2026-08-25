@@ -23,5 +23,5 @@ def main():
 $$ bend %
 3
 $$ bend % --seq
-Error: tocl: an under-applied def value: U32 (report this case)
+Error: an under-applied def value: U32
 exit 1

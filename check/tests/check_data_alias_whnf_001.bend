@@ -1,7 +1,7 @@
 # red-team pin carried from bend3: a ctor field whose type is a FULL
 # application of a Def type alias must check -- the checker whnfs the
 # field type, so alias(U32) reduces to U32 and a MkW2 builds and
-# matches. No sharing here, so no #[halts]: the port is strict.
+# matches. No sharing here: the port is strict.
 # ported from bend3: match heads a def body only, so the match moved
 # into get; ctor names are bare and globally unique (W.K -> MkW2)
 import Base

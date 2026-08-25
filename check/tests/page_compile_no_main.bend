@@ -7,5 +7,5 @@ def f():
   1
 
 $$ bend % --seq
-Error: tocl: main must answer IO<T>: the event loop runs IO mains only (report this case)
+Error: main must answer IO<T>
 exit 1

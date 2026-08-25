@@ -59,8 +59,8 @@ def main():
 $$ bend %
 Tuple{4096n, Tuple{3n, Tuple{Tuple{7n, Some{9n}}, Tuple{Con{Tuple{"a\n", 'x'}, Con{Tuple{SNil{}, 'y'}, Nil{}}}, Con{x => 1n+x, Nil{}}}}}}
 $$ bend % --seq
-Error: tocl: main must answer IO<T>: the event loop runs IO mains only (report this case)
+Error: main must answer IO<T>
 exit 1
 $$ bend % --js
-Error: tojs: main must answer IO<T>: the event loop runs IO mains only
+Error: main must answer IO<T>
 exit 1

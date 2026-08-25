@@ -1,24 +1,41 @@
-#[halts]
-# closure ladder, complete: IH plus the shift lemma close the arm
-# ported from bend3: the ~ comp param becomes a live +closure under
-# #[halts]; the theorem is stated flipped (bend4's rewrite folds right
-# into left, so the eliminated call sits on the RIGHT)
+# accumulator ladder, complete: IH plus the shift lemma close the arm
+# ported from bend3: the ~ comp param specializes into the ladder's
+# own successor step (a recursive combinator cannot bind a closure: a
+# function type owns no Copiable witness); the shared accumulator
+# wears + through a local MN.copy witness; the theorem is stated
+# flipped (bend4's rewrite folds right into left, so the eliminated
+# call sits on the RIGHT)
+import Base
+
 type MN:
   Z{}
   S{p: MN}
 
+assert MN.copy:
+  forall t: MN
+  Copy(MN, t) & Copy(MN, t)
+
+def MN.copy(t):
+  match t:
+    case Z{}:
+      ((Z{}, {==}), (Z{}, {==}))
+    case S{p}:
+      ((px, pe), (py, pf)) = MN.copy(p)
+      s1 = Equal.cong(MN, MN, z => S{z}, p, px, pe)
+      s2 = Equal.cong(MN, MN, z => S{z}, p, py, pf)
+      ((S{px}, s1), (S{py}, s2))
+
 assert each:
-  forall +n: MN
-  forall +g: MN -> MN
+  forall n: MN
   forall x: MN
   MN
 
-def each(n, g, x):
+def each(n, x):
   match n:
     case Z{}:
-      g(x)
+      S{x}
     case S{p}:
-      each(p, g, g(x))
+      each(p, S{x})
 
 assert plus1:
   forall n: MN
@@ -46,9 +63,9 @@ def pshift(p, x):
       {==}
 
 assert spec_thm:
-  forall +n: MN
-  forall +x: MN
-  {plus1(n, x) == each(n, y => S{y}, x) : MN}
+  forall +n: +MN
+  forall +x: +MN
+  {plus1(n, x) == each(n, x) : MN}
 
 def spec_thm(n, x):
   match n:
@@ -60,7 +77,7 @@ def spec_thm(n, x):
       {==}
 
 assert main:
-  @n: MN -> @x: MN -> {plus1(n, x) == each(n, y => S{y}, x) : MN}
+  @n: MN -> @x: MN -> {plus1(n, x) == each(n, x) : MN}
 
 def main():
   n => x => spec_thm(n, x)

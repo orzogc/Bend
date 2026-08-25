@@ -31,7 +31,7 @@ def main():
 $$ bend %
 2
 $$ bend % --seq
-Error: tocl: an open Array element type (report this case)
+Error: an open Array element type
 exit 1
 $$ bend % --js
 2

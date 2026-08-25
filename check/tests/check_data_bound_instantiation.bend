@@ -1,7 +1,7 @@
 # refusal pin: bend3 checked a Data-bound instantiation against the
 # sort table at the CALL SITE (dup(Box) rejected because Box holds a
 # closure). bend4 has no Data class at all -- the kind is not a name,
-# and sharing is the + binder quantity under #[halts] -- so the
+# and sharing is the + binder quantity -- so the
 # faithful translation dies on the Data spelling itself.
 # ported from bend3: ctor names bare and unique, Pair -> Pr2/MkPr2
 import Base

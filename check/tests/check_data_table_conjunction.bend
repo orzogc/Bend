@@ -1,7 +1,7 @@
 # audit carried: bend3's Pair table was [0, 1] -- Data iff both
 # arguments are -- so Pair(U32, U32) shared. bend4 has no table and no
 # param bounds: the two-param datatype forms over Type and a single
-# spend builds and matches strict, no #[halts] needed.
+# spend builds and matches strict.
 # ported from bend3: type Pair(A: Data, B: Data) -> type Pr7<A: Type,
 # B: Type>; the let-then-match main routes through get
 import Base

@@ -1,22 +1,44 @@
 #!/usr/bin/env bun
 
-import * as child from "node:child_process";
-import * as fs from "node:fs";
-import * as os from "node:os";
-import * as path from "node:path";
-import * as workers from "node:worker_threads";
+declare const process: {
+  env: Record<string, string | undefined>;
+  execPath: string;
+  exit(code?: number): never;
+  kill(pid: number, signal?: string | number): void;
+  on(event: string, listener: () => void): void;
+  pid: number;
+  stderr: { write(data: string): boolean };
+  stdout: { write(data: string): boolean };
+};
+
+declare const Buffer: {
+  from(data: string | Uint8Array): { toString(): string };
+};
+
+declare const require: (id: string) => {
+  writeSync: (fd: number, b: Uint8Array, at?: number,
+    len?: number) => number;
+};
+
 import * as perf from "./perf.ts";
 import * as repo from "./repo.ts";
-import * as core from "../src/bend.ts";
-import * as tocl from "../src/bend.ts";
+import * as core from "../bend2/bend.ts";
+import * as tocl from "../bend2/comp.ts";
 
-process.env.NO_COLOR = "1";
-try {
-  os.setPriority(0, 19);
-} catch {}
+declare const setTimeout: (fn: () => void, ms: number) =>
+  { unref(): void };
 
 // Types
 // =====
+
+export type Kid = {
+  on(event: "message", listener: (value: never) => void): void;
+  on(event: "error", listener: (e: Error) => void): void;
+  on(event: "exit", listener: (code: number) => void): void;
+  postMessage(value: unknown): void;
+  removeAllListeners(event: string): void;
+  terminate(): Promise<number>;
+};
 
 export type Deal = { kind: string; tmp: string; deadline: number };
 
@@ -84,16 +106,77 @@ export type Pool = {
 // Constants
 // =========
 
+const child = import.meta.require("child_process") as {
+  execFile(cmd: string, args: string[], opts: {
+    cwd?: string;
+    env?: Record<string, string | undefined>;
+    encoding?: "utf8";
+    timeout?: number;
+    maxBuffer?: number;
+  }, done: (e: (Error & { code?: number | string }) | null,
+    out: string, err: string) => void): void;
+  execFileSync(cmd: string, args?: string[], opts?: {
+    cwd?: string;
+    encoding?: "utf8";
+    input?: string;
+    maxBuffer?: number;
+  }): string;
+  spawnSync(cmd: string, args: string[], opts?: {
+    cwd?: string;
+    encoding?: "utf8";
+    maxBuffer?: number;
+  }): { status: number | null; stdout: string; stderr: string };
+};
+
+const fs = import.meta.require("fs") as {
+  copyFileSync(from: string, to: string): void;
+  existsSync(file: string): boolean;
+  mkdirSync(file: string, opts?: { recursive?: boolean }): void;
+  mkdtempSync(prefix: string): string;
+  readFileSync(file: string, encoding: "utf8"): string;
+  readdirSync(file: string): string[];
+  realpathSync(file: string): string;
+  rmSync(file: string, opts?: { recursive?: boolean;
+    force?: boolean }): void;
+  statSync(file: string): { size: number; mtimeMs: number;
+    isDirectory(): boolean };
+  writeFileSync(file: string, data: string): void;
+};
+
+const os = import.meta.require("os") as {
+  availableParallelism(): number;
+  setPriority(pid: number, priority: number): void;
+  tmpdir(): string;
+};
+
+const path = import.meta.require("path") as {
+  sep: string;
+  basename(file: string, ext?: string): string;
+  dirname(file: string): string;
+  join(...parts: string[]): string;
+  relative(from: string, to: string): string;
+};
+
+const workers = import.meta.require("worker_threads") as {
+  isMainThread: boolean;
+  workerData: unknown;
+  parentPort: {
+    on(event: "message", listener: (value: never) => void): void;
+    postMessage(value: unknown): void;
+  } | null;
+  Worker: new (file: string, opts?: { eval?: boolean;
+    workerData?: unknown }) => Kid;
+};
+
 export const ROOT = path.join(import.meta.dirname, "..");
 
 export const TESTS = path.join("check", "tests");
 
 export const GOLDS = path.join(TESTS, "demos");
 
-export const MAIN = path.join(ROOT, "src", "bend.ts");
+export const MAIN = path.join(ROOT, "bend2", "comp.ts");
 
-export const DEMOS = ["hello", "match_default", "nat_proofs", "spare_reuse",
-  "tail_pin", "share_stress", "erased_apply", "run_stress", "http_server"];
+export const DEMOS = ["http_server", "nat_proofs", "runtime_stress"];
 
 export const CC = ["-std=c11", "-O0", "-w"];
 
@@ -252,7 +335,7 @@ export function exec_run(cmd: string, args: string[], cwd?: string,
 }
 
 // Perf
-// ----
+// ====
 
 export function perf_live(): boolean {
   try {
@@ -433,7 +516,7 @@ export function err_text(e: unknown): string {
 
 export function base_seed(): core.Book {
   if (BASE_BOOK === null) {
-    BASE_PATH = fs.realpathSync(path.join(ROOT, "src", "base.bend"));
+    BASE_PATH = fs.realpathSync(path.join(ROOT, "bend2", "base.bend"));
     const b = core.book_nil();
     core.book_load(b, BASE_PATH, "", new Map());
     core.book_valid(b);
@@ -488,18 +571,17 @@ export function book_of(file: string): Checked {
     for (let i = base.order.length; i < book.order.length; i++) {
       const k = book.order[i];
       const tld = book.tlds[k];
-      const scope = book.halts ? book : pre;
       if (tld.$ === "ADT") {
         pre.tlds[k] = tld;
         for (const c of tld.c) {
           pre.ctrs[c.k] = c;
         }
-        core.adt_valid(scope, k, tld);
+        core.adt_valid(pre, k, tld);
       } else {
         const dec: core.Def = { $: "Def", n: tld.n, T: tld.T, v: null };
         const fin = book.order.lastIndexOf(k) === i;
         pre.tlds[k] = dec;
-        core.def_valid(scope, k, fin ? tld : dec);
+        core.def_valid(pre, k, fin ? tld : dec);
         pre.tlds[k] = fin ? tld : dec;
       }
     }
@@ -642,8 +724,7 @@ export function member_body(src: string, book: core.Book,
       }
     }
   }
-  let out = src.replace(/^#\[halts\]\s*$/m, "")
-    .replace(/^import Base\s*$/m, "");
+  let out = src.replace(/^import Base\s*$/m, "");
   own.sort((a, b) => b.length - a.length);
   for (const k of own) {
     const esc = k.replace(/\./g, "\\.");
@@ -931,7 +1012,7 @@ export function shard_patch(csrc: string, fids: string[]): string {
 
 export function shard_src(members: Defer[], tag: number,
   kind: "c" | "js"): string {
-  let src = "#[halts]\nimport Base\n\n" +
+  let src = "import Base\n\n" +
     members.map((m) => m.body).join("\n") + "\n";
   if (kind === "js") {
     return src;
@@ -1184,8 +1265,6 @@ export function load_run(tmp: string): Test {
   };
   const stub = (name: string, head: string[]): string[] => [...head, "",
     "assert " + name + ":", "  Nat", "", "def " + name + "():", "  0n"];
-  put("leaf.bend", ["#[halts]", "assert wall_loop:", "  forall x: Nat",
-    "  Nat", "", "def wall_loop(x):", "  wall_loop(x)"]);
   const a = put("a.bend", stub("a_one", ["import ./b.bend as B"]));
   put("b.bend", stub("b_one", ["import ./a.bend as A"]));
   const twice = put("twice.bend",
@@ -1198,10 +1277,6 @@ export function load_run(tmp: string): Test {
   const diamond = put("diamond.bend",
     stub("d_one", ["import Base", "import ./x.bend as X",
       "import ./mid.bend as M"]));
-  const closed = put("closed.bend",
-    stub("main", ["import Base", "import ./leaf.bend as L"]));
-  const opened = put("opened.bend",
-    stub("main", ["#[halts]", "import Base", "import ./leaf.bend as L"]));
   const wall = (cmd: string, file: string, msg: string): void => {
     const got = book_of(file);
     if (got.err === undefined) {
@@ -1219,14 +1294,6 @@ export function load_run(tmp: string): Test {
     "one namespace per file");
   wall("bend clash.bend (one namespace from two importers)", clash,
     "one namespace per file");
-  wall("bend closed.bend (an imported #[halts], none at the entry)", closed,
-    "a #[halts] opt-in at the root");
-  const ok = book_of(opened);
-  if (ok.err !== undefined) {
-    test_fail(t, "bend opened.bend (the entry declares #[halts])",
-      "the halts import accepted (the entry's opt-in covers the book)",
-      ok.err.split("\n").slice(0, 2).join(" ").slice(0, 120));
-  }
   const two = book_of(diamond);
   if (two.err !== undefined) {
     test_fail(t, "bend diamond.bend (one file, one namespace, two importers)",
@@ -1272,9 +1339,29 @@ export function lint_run(): Test {
     ["a sectioned def",
       ["// Boot", "// ====", "", "function boot_run(): void {", "}"], true,
       []],
-    ["a subsection def",
+    ["a subsection def, dodging its section",
       ["// Boot", "// ====", "", "// Warm", "// ----", "",
-        "function warm_up(): void {", "}"], true, []],
+        "function warm_up(): void {", "}"], true, ["layout"]],
+    ["a suffix-fit def",
+      ["// Show", "// ====", "", "function term_show(): void {", "}"], true,
+      []],
+    ["a top-level statement", ["go();"], true, ["layout"]],
+    ["a statement in the Main section",
+      ["// Main", "// ====", "", "go();"], true, []],
+    ["a const arrow posing as a constant",
+      ["// Constants", "// =========", "", "const go = (x: b): b => x;"],
+      true, ["layout"]],
+    ["a name used before its declaration",
+      ["// Constants", "// =========", "", "function a_func(): number {",
+        "  return CAP;", "}", "const CAP = 1;"], true, ["layout"]],
+    ["a backslash continuation",
+      ["const cap = 1 \\", "  + 2;"], false, ["continuation"]],
+    ["a def without a return type",
+      ["// Boot", "// ====", "", "function boot_go(x: number) {", "}"],
+      true, ["types"]],
+    ["a section with two homes",
+      ["// Boot", "// ====", "", "// Tidy", "// ====", "", "// Boot",
+        "// ===="], true, ["layout"]],
     ["a _func def", ["function tidy_func(): void {", "}"], true, []],
     ["a Types type", ["// Types", "// =====", "", "type Row = number"], true,
       []],
@@ -1284,13 +1371,13 @@ export function lint_run(): Test {
       ["static void stray_run(void) {", "}"], true, ["layout"], "//",
       true],
     ["a C prototype outside its section",
-      ["static void stray_drop(Env e);"], true, ["layout"], "//", true],
+      ["static void stray_drop(Env e);"], true, [], "//", true],
     ["a C sectioned def",
       ["// Boot", "// ====", "", "static void boot_run(void) {", "}"],
       true, [], "//", true],
-    ["a C subsection def",
+    ["a C subsection def, dodging its section",
       ["// Boot", "// ====", "", "// Warm", "// ----", "",
-        "INLINE u32 warm_up(u32 x) {", "}"], true, [], "//", true],
+        "INLINE u32 warm_up(u32 x) {", "}"], true, ["layout"], "//", true],
     ["a C attributed def",
       ["// Boot", "// ====", "",
         "static void __attribute__((constructor)) boot_use(void) {", "}"],
@@ -1393,7 +1480,7 @@ export function emit_run(): Test {
       " recursive ops of the native-represented Nat and String)",
       "extra: " + extra.join(" ") + " missing: " + missing.join(" "));
   }
-  for (const prog of ["bench/kmeans.bend", "demos/http_server.bend"]) {
+  for (const prog of ["bench/runtime/kmeans.bend", "demos/http_server.bend"]) {
     const book = book_of(path.join(ROOT, prog));
     for (const kind of ["c", "js"] as const) {
       const got = book_emit(book, kind);
@@ -1530,8 +1617,8 @@ export function stack_witness(): string {
     "a" + String(i)).join(", ");
   const fresh = "W{" +
     Array.from({ length: F }, () => "False{}").join(", ") + "}";
-  let src = "#[halts]\nimport Base\n\ntype Wide:\n  W{" + fields + "}\n\n";
-  for (let i = 1; i <= N; i += 1) {
+  let src = "import Base\n\ntype Wide:\n  W{" + fields + "}\n\n";
+  for (let i = N; i >= 1; i -= 1) {
     const call = 2 * i + 1 <= N
       ? "Both{g" + String(2 * i) + "(" + fresh + "), g" +
         String(2 * i + 1) + "(" + fresh + ")}"
@@ -1773,11 +1860,11 @@ export async function job_run(job: Job, tmp: string): Promise<Ret> {
 // Pool
 // ====
 
-export function pool_open(ws: workers.Worker[],
+export function pool_open(ws: Kid[],
   on: (job: Job, r: Ret) => void): Pool {
   const queue: Job[] = [];
-  const jobs = new Map<workers.Worker, Job>();
-  const idle: workers.Worker[] = [];
+  const jobs = new Map<Kid, Job>();
+  const idle: Kid[] = [];
   let live = ws.length;
   let open = true;
   let fin!: () => void;
@@ -1786,7 +1873,7 @@ export function pool_open(ws: workers.Worker[],
   });
   const feed = (): void => {
     while (idle.length > 0 && queue.length > 0) {
-      const w = idle.shift() as workers.Worker;
+      const w = idle.shift() as Kid;
       const j = queue.shift() as Job;
       jobs.set(w, j);
       w.postMessage(j);
@@ -2055,6 +2142,11 @@ export async function tests_run(): Promise<{ tests: Test[];
 
 // Main
 // ====
+
+process.env.NO_COLOR = "1";
+try {
+  os.setPriority(0, 19);
+} catch {}
 
 if (!workers.isMainThread && DEAL !== null) {
   workers.parentPort?.on("message", (job: Job) => {

@@ -1,4 +1,3 @@
-#[halts]
 # F32 + - * / are exact IEEE f32 on every executor: 0.1+0.2 EQUALS 0.3 in
 # f32 (both round to 0x3E99999A), precision loss at 2^24, exact casts
 # ported from bend3: f32 literals are rebuilt exactly via F32.div of
@@ -27,8 +26,8 @@ def fl(n, d):
   F32.div(U32.to_f32(n), U32.to_f32(d))
 
 assert feq:
-  forall +a: F32
-  forall +b: F32
+  forall +a: +F32
+  forall +b: +F32
   Bool
 
 def feq(a, b):

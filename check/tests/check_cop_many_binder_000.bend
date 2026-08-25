@@ -1,4 +1,4 @@
-# SPEC PART 3 COP: a Many (+) binder is legal outside #[halts] iff its
+# SPEC PART 3 COP: a Many (+) binder is legal iff its
 # type is a Cop (+ T ~ C, C : Copiable(T)); +Nat resolves Nat.copy
 # structurally; a claim may bind a dotted witness parameter (T.copy);
 # a Cop is convertible-equal to its T, so values flow both ways

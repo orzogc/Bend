@@ -1,15 +1,47 @@
 #!/usr/bin/env bun
 
-import * as child from "node:child_process";
-import * as path from "node:path";
+declare const process: {
+  argv: string[];
+  execPath: string;
+  exit(code?: number): never;
+  kill(pid: number, signal?: string): void;
+  once(event: string, listener: () => void): void;
+};
 
 // Types
 // =====
+
+export type Text = {
+  on(event: "data", listener: (s: string) => void): void;
+};
+
+export type Pipe = { setEncoding(encoding: "utf8"): Text };
+
+export type Kid = {
+  pid?: number;
+  stdout: Pipe;
+  stderr: Pipe;
+  on(event: "error", listener: (e: Error) => void): void;
+  on(event: "close", listener: (code: number | null) => void): void;
+  kill(signal?: string): boolean;
+};
 
 export type Gate = { name: string; ok: boolean; secs: number; out: string };
 
 // Constants
 // =========
+
+const child = import.meta.require("child_process") as {
+  spawn(cmd: string, args: string[], opts?: {
+    cwd?: string;
+    stdio?: (string | null)[] | string;
+    detached?: boolean;
+  }): Kid;
+};
+
+const path = import.meta.require("path") as {
+  join(...parts: string[]): string;
+};
 
 const HERE = process.argv.includes("--here");
 
@@ -19,7 +51,7 @@ const BUDGET = HERE ? 120 : 90;
 // ====
 
 export function gate_spawn(name: string,
-  kids: child.ChildProcess[]): Promise<Gate> {
+  kids: Kid[]): Promise<Gate> {
   return new Promise((resolve) => {
     const at = performance.now();
     const flag = HERE && name === "perf" ? ["--here"] : [];
@@ -48,7 +80,7 @@ export function gate_spawn(name: string,
   });
 }
 
-export function gate_kill(kids: child.ChildProcess[]): void {
+export function gate_kill(kids: Kid[]): void {
   for (const kid of kids) {
     try {
       process.kill(-(kid.pid as number), "SIGKILL");
@@ -75,7 +107,7 @@ export async function gate_run(): Promise<boolean> {
     ? [["perf"], ["repo", "test"]]
     : [["perf", "repo", "test"]];
   const names = waves.flat();
-  const kids: child.ChildProcess[] = [];
+  const kids: Kid[] = [];
   const gates: Gate[] = [];
   let bomb: ReturnType<typeof setTimeout> | undefined = undefined;
   const runs = (async (): Promise<Gate[]> => {

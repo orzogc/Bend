@@ -22,7 +22,7 @@ def main():
 $$ bend %
 14
 $$ bend % --seq
-Error: tocl: a structural view of a machine word (report this case)
+Error: a structural view of a machine word
 exit 1
 $$ bend % --js
 14

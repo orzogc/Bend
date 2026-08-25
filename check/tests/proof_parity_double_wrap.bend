@@ -3,7 +3,7 @@
 # machine shift (U32.shl IS 2x mod 2^32), and par2(dbl(x)) = 0 for ALL
 # x -- past 2^31 included -- because a left shift lands a zero low bit:
 # base's U32.shl_even, whose truth is 2^32 being even, a fact no
-# induction below MAX reaches. The strict proof needs no #[halts]:
+# induction below MAX reaches. The proof is strict:
 # par2's decision is factored into par2.go (a computed match never
 # specializes), so one cong over the even verdict closes the goal.
 # ported from bend3: main keeps the golden 420

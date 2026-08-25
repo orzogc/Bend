@@ -1,6 +1,6 @@
 # the Cop condition binds Let formation: a + let binder licenses
-# contraction, so its inferred type must be a Cop (+ T ~ C) outside
-# #[halts]. gutted, +x = a duplicates an affine value freely and this
+# contraction, so its inferred type must be a Cop (+ T ~ C).
+# gutted, +x = a duplicates an affine value freely and this
 # program answers Tuple{1n, 1n}.
 import Base
 
@@ -18,7 +18,7 @@ assert main:
 def main(): dupl(1n)
 $$ bend %
 Error:
-- expected : a copiable type (a + binder needs a + T ~ C type, or #[halts])
+- expected : a copiable type (a + binder needs a + T ~ C type)
 - observed : Tuple{a, a}
 Context:
 - a : Nat

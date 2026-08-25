@@ -1,8 +1,15 @@
 #!/usr/bin/env bun
 
-import * as child from "node:child_process";
-import * as fs from "node:fs";
-import * as path from "node:path";
+declare global {
+  interface ImportMeta {
+    dirname: string;
+    filename: string;
+    main: boolean;
+    require(id: string): unknown;
+  }
+}
+
+declare const process: { exit(code?: number): never };
 
 // Types
 // =====
@@ -16,22 +23,48 @@ export type Mask =
 
 export type Frame = { kind: string; quote: string; depth: number };
 
-export type Part = { name: string; src: string; line: number };
+export type Part = { name: string; file: string; src: string; line: number };
+
+export type Idiom = {
+  form: boolean;
+  note: boolean;
+  vars: boolean;
+  chck: boolean;
+  js: boolean;
+  defs: Record<string, string[]>;
+  types: string[];
+};
 
 // Constants
 // =========
 
+const child = import.meta.require("child_process") as {
+  execFileSync(cmd: string, args?: string[], opts?: {
+    cwd?: string;
+    encoding?: "utf8";
+    input?: string;
+  }): string;
+};
+
+const fs = import.meta.require("fs") as {
+  readFileSync(file: string, encoding: "utf8"): string;
+  readdirSync(file: string): string[];
+};
+
+const path = import.meta.require("path") as {
+  join(...parts: string[]): string;
+};
+
 const ROOT = path.join(import.meta.dirname, "..");
 
-const BEND = "src/bend.ts";
+const COMP = "bend2/comp.ts";
 
 const CAPS: [string, number][] = [
-  ["src/bend.ts", 87689],
-  ["src/base.bend", 16000],
-  ["BEND_IN_12K.txt", 12000],
+  ["bend2/bend.ts", 40000],
+  ["bend2/comp.ts", 40000],
+  ["bend2/base.bend", 16000],
+  ["ALL12K.md", 12000],
 ];
-
-const CORE_CAP = 40000;
 
 const MARK_COMP = "// Comp\n// ====\n";
 
@@ -45,6 +78,14 @@ const FENCE_OPEN = "String.raw`\n";
 
 const FENCE_SHUT = "\n`.slice(1);";
 
+const ROOTS: string[] = [
+  ".gitignore",
+  "AGENTS.md",
+  "ALL12K.md",
+  "README.md",
+  "package.json",
+];
+
 const CHECKS: string[] = [
   "check/_ALL_.ts",
   "check/perf.ts",
@@ -52,19 +93,41 @@ const CHECKS: string[] = [
   "check/test.ts",
 ];
 
-const EFFS: string[] = fs.readdirSync(path.join(ROOT, "src", "effs"))
-  .sort().map((f) => "src/effs/" + f);
+const EFFS: string[] = fs.readdirSync(path.join(ROOT, "bend2", "effs"))
+  .sort().map((f) => "bend2/effs/" + f);
 
-const STYLED: string[] = ["src/base.bend", ...EFFS, ...CHECKS];
+const STYLED: string[] = ["bend2/base.bend", ...EFFS, ...CHECKS];
 
-const BENDED: [string, boolean, boolean][] = [
-  ["comp", true, false],
-  ["runc", false, true],
-  ["runj", true, false],
-  ["main", true, false],
+const CORE = "bend2/bend.ts";
+
+const PLAIN: Idiom = { form: false, note: false, vars: false, chck: false,
+  js: false, defs: {}, types: [] };
+
+const HOSTED: Idiom = { ...PLAIN, js: true };
+
+const LOOSE: Idiom = { ...PLAIN, form: true, note: true, vars: true,
+  chck: true,
+  defs: {
+    Constructors: ["*"],
+    Flatten: ["term_cell", "body_sub", "rows_pick_ctr", "rows_drop_ctr",
+      "rows_bind_var", "rows_find_ctr", "patt_binds", "patt_term"],
+  },
+  types: ["HAnn", "Infer", "Check"] };
+
+const KNOTS: Idiom = { ...PLAIN,
+  defs: { Term: ["rfc_wrap", "rfc_seal", "rfc_sole", "rfc_view", "rfc_out",
+    "rfc_bump", "rfc_open", "blk_cls", "blk_span", "blk_free", "span_fade",
+    "ctr_take"] } };
+
+const BENDED: [string, boolean, boolean, boolean, Idiom][] = [
+  ["core", true, false, true, LOOSE],
+  ["comp", true, false, false, PLAIN],
+  ["runc", true, true, false, KNOTS],
+  ["runj", true, false, false, HOSTED],
+  ["main", true, false, false, PLAIN],
 ];
 
-const LAYOUT: string[] = ["src/base.bend", ...EFFS, ...CHECKS];
+const LAYOUT: string[] = ["bend2/base.bend", ...EFFS, ...CHECKS];
 
 const PARTS: string[] = ["Types", "Claims", "Proofs"];
 
@@ -96,31 +159,37 @@ export function ttok_read(file: string): number {
 // ====
 
 export function bend_parts(): Part[] {
-  const src = fs.readFileSync(path.join(ROOT, BEND), "utf8");
-  const line = (at: number): number => src.slice(0, at).split("\n").length;
-  const cut = (mark: string, from: number): number => {
+  const comp_src = fs.readFileSync(path.join(ROOT, COMP), "utf8");
+  const line = (src: string, at: number): number =>
+    src.slice(0, at).split("\n").length;
+  const cut = (src: string, file: string, mark: string,
+    from: number): number => {
     const found = src.indexOf(mark, from);
     if (found < 0) {
-      throw new Error(BEND + " lost its " + mark.split("\n")[0] + " mark");
+      throw new Error(file + " lost its " + mark.split("\n")[0] + " mark");
     }
     return found;
   };
-  const comp = cut(MARK_COMP, 0);
-  const runc = cut(MARK_RUNC, comp);
-  const runj = cut(MARK_RUNJ, runc);
-  const main = cut(MARK_MAIN, runj);
-  const fence = (beg: number): [string, number] => {
-    const open = cut(FENCE_OPEN, beg) + FENCE_OPEN.length;
-    const shut = cut(FENCE_SHUT, open);
-    return [src.slice(open, shut + 1), line(open)];
+  const core_src = fs.readFileSync(path.join(ROOT, CORE), "utf8");
+  const comp = cut(comp_src, COMP, MARK_COMP, 0);
+  const runc = cut(comp_src, COMP, MARK_RUNC, comp);
+  const runj = cut(comp_src, COMP, MARK_RUNJ, runc);
+  const fence = (beg: number): [string, number, number] => {
+    const open = cut(comp_src, COMP, FENCE_OPEN, beg) + FENCE_OPEN.length;
+    const shut = cut(comp_src, COMP, FENCE_SHUT, open);
+    return [comp_src.slice(open, shut + 1), line(comp_src, open), shut];
   };
   const [ctext, cline] = fence(runc);
-  const [jtext, jline] = fence(runj);
+  const [jtext, jline, jshut] = fence(runj);
+  const main = cut(comp_src, COMP, MARK_MAIN, jshut);
   return [
-    { name: "comp", src: src.slice(comp, runc), line: line(comp) },
-    { name: "runc", src: ctext, line: cline },
-    { name: "runj", src: jtext, line: jline },
-    { name: "main", src: src.slice(main), line: line(main) },
+    { name: "core", file: CORE, src: core_src, line: 1 },
+    { name: "comp", file: COMP, src: comp_src.slice(comp, runc),
+      line: line(comp_src, comp) },
+    { name: "runc", file: COMP, src: ctext, line: cline },
+    { name: "runj", file: COMP, src: jtext, line: jline },
+    { name: "main", file: COMP, src: comp_src.slice(main),
+      line: line(comp_src, main) },
   ];
 }
 
@@ -139,19 +208,25 @@ export function caps_gate(): string[] {
         " cap");
     }
   }
-  const bend = fs.readFileSync(path.join(ROOT, BEND), "utf8");
-  const at = bend.indexOf(MARK_COMP);
-  if (at < 0) {
-    fails.push(BEND + " lost its " + MARK_COMP.split("\n")[0] + " mark");
-    return fails;
+  return fails;
+}
+
+// Roots
+// =====
+
+export function roots_gate(): string[] {
+  const fails: string[] = [];
+  const got = child.execFileSync("git", ["ls-files"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  for (const file of got.trim().split("\n")) {
+    if (!file.includes("/") && !ROOTS.includes(file)) {
+      fails.push(file + ": not a legal root file");
+    }
   }
-  const n = ttok_text(bend.slice(0, at));
-  if (n <= CORE_CAP) {
-    console.log("PASS " + BEND + " core " + String(n) + " <= " +
-      String(CORE_CAP) + " ttok");
-  } else {
-    fails.push(BEND + " core: " + String(n) + " ttok over the " +
-      String(CORE_CAP) + " cap");
+  if (fails.length === 0) {
+    console.log("PASS root files");
   }
   return fails;
 }
@@ -253,38 +328,68 @@ export function mask_read(src: string, lead: string = "//"): Mask {
 // ====
 
 function rule_notes(m: Mask, flag: FlagFn, lead: string,
-  head: boolean): void {
+  head: boolean, idiom: Idiom): void {
   const word = new RegExp("^\\s*" + lead + " ?[A-Za-z0-9_.]+$");
   const bars = new RegExp("^\\s*" + lead + " ?[=-]{2,}$");
+  const secs = new RegExp("^" + lead + " ?=+$");
   const adth = new RegExp("^\\s*" + lead + " ?[A-Za-z0-9_.]+ ::=$");
   const adtr = new RegExp("^\\s*" + lead + " ?\\s*\\| .+$");
   const use = new RegExp("^//! use .+$");
+  const bug = new RegExp("^\\s*" + lead + " BUG: .+$");
+  const bare = new RegExp("^" + lead + " [A-Za-z0-9_. &]+$");
   let skip = 0;
   while (head && skip < m.raw.length && m.raw[skip].startsWith(lead)) {
     skip += 1;
   }
+  let sec = "";
+  let adj = false;
+  let hz = false;
   for (let i = skip; i < m.note.length; i += 1) {
     const line = m.raw[i];
+    const prev = m.raw[i - 1] ?? "";
+    const next = m.raw[i + 1] ?? "";
+    if (bars.test(line) && word.test(prev)) {
+      if (secs.test(line)) {
+        sec = (prev.match(/[A-Za-z0-9_.]+/) as string[])[0];
+      }
+      adj = true;
+      continue;
+    }
     let here = m.note[i];
     if (here === "" && line.trim().startsWith(lead)) {
       here = line.trim();
     }
     if (here === "" || use.test(line)) {
+      if (m.code[i].trim() !== "" || line.trim() === "") {
+        adj = false;
+        hz = false;
+      }
       continue;
     }
-    const prev = m.raw[i - 1] ?? "";
-    const next = m.raw[i + 1] ?? "";
-    const head = word.test(line) && bars.test(next);
-    const tail = bars.test(line) && word.test(prev);
+    if (bug.test(line) || (hz && m.code[i].trim() === "")) {
+      hz = true;
+      continue;
+    }
+    hz = false;
+    const mark = word.test(line) && bars.test(next);
     const adt = (adth.test(line) && adtr.test(next)) ||
       (adtr.test(line) && (adth.test(prev) || adtr.test(prev)));
-    if (!head && !tail && !adt) {
-      flag(i, "comment", here.trim());
+    if (mark || adt) {
+      continue;
     }
+    if (idiom.note) {
+      const trail = m.code[i].trim() !== "";
+      const body = /^\s/.test(line);
+      const label = sec === "Types" && bare.test(line);
+      if (trail || body || label || adj) {
+        continue;
+      }
+    }
+    flag(i, "comment", here.trim());
   }
 }
 
-function rule_layout(m: Mask, flag: FlagFn): void {
+function rule_layout(m: Mask, flag: FlagFn, cee: boolean): void {
   let last = 0;
   for (let i = 0; i < m.raw.length; i += 1) {
     const line = m.raw[i];
@@ -297,6 +402,9 @@ function rule_layout(m: Mask, flag: FlagFn): void {
     }
     if (m.open[i] || line.trim() === "") {
       continue;
+    }
+    if (!cee && /\\$/.test(line) && m.note[i] === "") {
+      flag(i, "continuation", "a backslash continuation");
     }
     const step = line.length - line.trimStart().length;
     if (step % 2 !== 0) {
@@ -354,15 +462,45 @@ function rule_exprs(m: Mask, flag: FlagFn): void {
   }
 }
 
-function rule_files(m: Mask, flag: FlagFn, cee: boolean): void {
+function rule_sig(m: Mask, at: number): string {
+  let sig = m.code[at];
+  for (let j = at + 1; j < m.raw.length && !/\{\s*$/.test(sig)
+    && j - at < 8; j += 1) {
+    sig += " " + m.code[j].trim();
+  }
+  return sig;
+}
+
+function rule_typed(sig: string): boolean {
+  const open = sig.indexOf("(");
+  let depth = 0;
+  for (let i = open; i < sig.length; i += 1) {
+    if (sig[i] === "(") {
+      depth += 1;
+    }
+    if (sig[i] === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        return /^\s*:/.test(sig.slice(i + 1));
+      }
+    }
+  }
+  return false;
+}
+
+function rule_files(m: Mask, flag: FlagFn, cee: boolean,
+  idiom: Idiom): void {
   const word = new RegExp("^// ?([A-Za-z0-9_.]+)$");
   const bars = new RegExp("^// ?(=+|-+)$");
   const decl =
     /^(?:export )?(?:async )?(function|type|const|let|var)\s+([A-Za-z0-9_$]+)/;
+  const skip = /^(?:export |import |declare |function |type |const |let |var )/;
   const attr = /__attribute__\(\(\w+\)\)\s*/;
   const cdef = /^[A-Za-z_][\w<>,*\s]*?[\s*]([A-Za-z_]\w*)\s*\(/;
+  const stmt = /^[A-Za-z_$[(`]/;
+  const homes = new Set<string>();
+  const vars: [number, string][] = [];
   let sec = "";
-  let sub = "";
   for (let i = 0; i < m.raw.length; i += 1) {
     if (m.open[i]) {
       continue;
@@ -371,10 +509,11 @@ function rule_files(m: Mask, flag: FlagFn, cee: boolean): void {
     const line = bars.exec(m.raw[i + 1] ?? "");
     if (mark !== null && line !== null) {
       if (line[1].startsWith("=")) {
+        if (homes.has(mark[1])) {
+          flag(i, "layout", "section " + mark[1] + " has two homes");
+        }
+        homes.add(mark[1]);
         sec = mark[1];
-        sub = "";
-      } else {
-        sub = mark[1];
       }
       continue;
     }
@@ -384,30 +523,60 @@ function rule_files(m: Mask, flag: FlagFn, cee: boolean): void {
     }
     const d = (cee ? cdef : decl).exec(cd);
     if (d === null) {
+      if (!cee && sec !== "Main" && stmt.test(cd) && !skip.test(cd)
+        && !cd.startsWith("if (import.meta.main)")) {
+        flag(i, "layout", "a top-level statement");
+      }
       continue;
     }
     const kind = cee ? "function" : d[1];
     const name = cee ? d[1] : d[2];
     if (kind === "type") {
-      if (sec !== "Types") {
+      if (sec !== "Types" && !idiom.types.includes(name)) {
         flag(i, "layout", "type " + name + " outside the Types section");
       }
       continue;
     }
-    if (kind !== "function") {
-      if (sec !== "Constants") {
+    const arrow = kind !== "function" && kind !== "class"
+      && /=\s*(?:async )?\(/.test(cd);
+    if (kind !== "function" && !arrow) {
+      if (sec !== "Constants" && !idiom.vars) {
         flag(i, "layout", kind + " " + name +
           " outside the Constants section");
       }
+      vars.push([i, name]);
       continue;
     }
-    const fits = (w: string): boolean =>
-      w !== "" &&
-      (name === w.toLowerCase() || name.startsWith(w.toLowerCase() + "_"));
-    if (!name.endsWith("_func") && !fits(sub) && !fits(sec)) {
-      const at = sub === "" ? sec : sub;
-      const want = at === "" ? "a section above it" : at.toLowerCase() + "_*";
+    if (cee && /;\s*$/.test(cd)) {
+      continue;
+    }
+    if (!cee && !idiom.js && kind === "function"
+      && !rule_typed(rule_sig(m, i))) {
+      flag(i, "types", "def " + name + " without a return type");
+    }
+    const fits = (w: string): boolean => {
+      const low = w.toLowerCase();
+      return w !== "" && (name === low || name.startsWith(low + "_")
+        || name.endsWith("_" + low));
+    };
+    const mine = idiom.defs[sec] ?? [];
+    let ok = name.endsWith("_func") || fits(sec)
+      || mine.includes("*") || mine.includes(name);
+    if (idiom.chck && sec === "Check") {
+      ok = /_(infer|check)($|_)/.test(name);
+    }
+    if (!ok) {
+      const want = sec === "" ? "a section above it" : sec.toLowerCase() + "_*";
       flag(i, "layout", "def " + name + " out of place (wants " + want + ")");
+    }
+  }
+  for (const [at, name] of vars) {
+    const used = new RegExp("(?<![.\\w$])" + name + "\\b");
+    for (let i = 0; i < at; i += 1) {
+      if (!m.open[i] && used.test(m.code[i])) {
+        flag(i, "layout", name + " used before its declaration");
+        break;
+      }
     }
   }
 }
@@ -561,16 +730,19 @@ function rule_parts(m: Mask, flag: FlagFn): void {
 // =====
 
 export function style_lint(src: string, layout: boolean,
-  lead: string = "//", head: boolean = false, cee: boolean = false): Flag[] {
+  lead: string = "//", head: boolean = false, cee: boolean = false,
+  idiom: Idiom = PLAIN): Flag[] {
   const mask = mask_read(src, lead);
   const flags: Flag[] = [];
   const flag = (line: number, rule: string, text: string): void => {
     flags.push({ line: line + 1, rule, text });
   };
-  rule_notes(mask, flag, lead, head);
-  rule_layout(mask, flag);
-  if (lead === "//") {
-    rule_exprs(mask, flag);
+  rule_notes(mask, flag, lead, head, idiom);
+  if (!idiom.form) {
+    rule_layout(mask, flag, cee);
+    if (lead === "//") {
+      rule_exprs(mask, flag);
+    }
   }
   if (cee) {
     rule_align(mask, flag);
@@ -580,7 +752,7 @@ export function style_lint(src: string, layout: boolean,
     rule_parts(mask, flag);
   }
   if (layout && lead === "//") {
-    rule_files(mask, flag, cee);
+    rule_files(mask, flag, cee, idiom);
   }
   return flags;
 }
@@ -608,8 +780,8 @@ export function style_gate(): string[] {
     const src = fs.readFileSync(path.join(ROOT, file), "utf8");
     const lead = file.endsWith(".bend") ? "#" : "//";
     const flags = style_lint(src, LAYOUT.includes(file), lead,
-      false, file.endsWith(".c"));
-    if (file.startsWith("src/effs/") && file.endsWith(".js")) {
+      false, file.endsWith(".c"), file.endsWith(".js") ? HOSTED : PLAIN);
+    if (file.startsWith("bend2/effs/") && file.endsWith(".js")) {
       const rows = src.split("\n");
       for (let i = 0; i < rows.length; i += 1) {
         if (/process\.std(out|err)\.write\(/.test(rows[i])) {
@@ -620,10 +792,11 @@ export function style_gate(): string[] {
     style_report(file, file, 1, flags, fails);
   }
   for (const part of bend_parts()) {
-    const [, layout, cee] = BENDED.find((b) => b[0] === part.name) as
-      [string, boolean, boolean];
-    const flags = style_lint(part.src, layout, "//", false, cee);
-    style_report(BEND + " " + part.name, BEND, part.line, flags, fails);
+    const [, layout, cee, head, idiom] = BENDED.find((b) =>
+      b[0] === part.name) as [string, boolean, boolean, boolean, Idiom];
+    const flags = style_lint(part.src, layout, "//", head, cee, idiom);
+    style_report(part.file + " " + part.name, part.file, part.line,
+      flags, fails);
   }
   return fails;
 }
@@ -633,8 +806,9 @@ export function style_gate(): string[] {
 
 export function gate_run(): string[] {
   const caps = caps_gate();
+  const roots = roots_gate();
   const style = style_gate();
-  return [...caps, ...style];
+  return [...caps, ...roots, ...style];
 }
 
 // Main

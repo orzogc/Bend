@@ -1,4 +1,3 @@
-#[halts]
 # F32 specials: nan compares false, inf arithmetic, -0.0 == 0.0 (IEEE),
 # f32_to_u32 sends nan/negative/overflow to 0
 # ported from bend3: nan/inf are rebuilt as 0/0 and 1/0; -F32.inf is
@@ -29,10 +28,10 @@ assert main.out:
   U32
 
 def main.out():
-  +z = fl(0, 1)
-  +one = fl(1, 1)
-  +nan = F32.div(z, z)
-  +inf = F32.div(one, z)
+  +z = {fl(0, 1) : +F32}
+  +one = {fl(1, 1) : +F32}
+  +nan = {F32.div(z, z) : +F32}
+  +inf = {F32.div(one, z) : +F32}
   b0 = bu(U32.is_eq(bu(F32.is_eq(nan, nan)), 0))
   b1 = bu(U32.is_eq(bu(F32.is_ne(nan, nan)), 1))
   b2 = bu(U32.is_eq(bu(F32.is_lt(nan, one)), 0))

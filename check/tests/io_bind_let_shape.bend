@@ -1,7 +1,7 @@
 # a monadic loop through continuation lambdas: a bind whose
 # continuation ends in the self-recursive call, threading context
 # through the closure -- and the descent judgment sees the self-call
-# through the bind's lambda (no #[halts] anywhere: the recursion
+# through the bind's lambda (the recursion
 # descends, and the shared fd takes +U32, a Cop).
 # ported from bend3: IO becomes base Result, the counter becomes Nat
 # fuel; the bend3 arm's inner match and let cannot ride a do block
