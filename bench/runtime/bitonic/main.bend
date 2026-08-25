@@ -85,7 +85,7 @@ def warp(a, b, s):
     case Node{aa, ab} Leaf{bv}:
       Leaf{0}
     case Node{aa, ab} Node{ba, bb}:
-      Both{wa, wb} = {Both{warp(aa, ba, s), warp(ab, bb, s)} : Par<Tree, Tree>}
+      wa wb = warp(aa, ba, s) warp(ab, bb, s)
       warp_zip(wa, wb)
 
 # bitonic merge of a tree of depth 1+d: warp the root pair, then merge
@@ -109,7 +109,7 @@ def flow(d, s, t):
         case Leaf{v}:
           Leaf{v}
         case Node{wa, wb}:
-          Both{fa, fb} = {Both{flow(p, s, wa), flow(p, s, wb)} : Par<Tree, Tree>}
+          fa fb = flow(p, s, wa) flow(p, s, wb)
           Node{fa, fb}
 
 # fused build-and-sort: 2^d leaves keyed by index, halves sorted in
@@ -125,7 +125,7 @@ def bsort(d, s, x):
     case 0n:
       Leaf{key(x)}
     case 1n+p:
-      Both{sa, sb} = {Both{bsort(p, False{}, U32.inc(U32.shl(x))), bsort(p, True{}, U32.shl(x))} : Par<Tree, Tree>}
+      sa sb = bsort(p, False{}, U32.inc(U32.shl(x))) bsort(p, True{}, U32.shl(x))
       flow(p, s, Node{sa, sb})
 
 # verification join: bounds ride outward, ok demands left.hi <=
@@ -155,7 +155,7 @@ def scan(t):
       +w = {v : +U32}
       St{w, w, 1, w}
     case Node{a, b}:
-      Both{l, r} = {Both{scan(a), scan(b)} : Par<Stat, Stat>}
+      l r = scan(a) scan(b)
       stat_join(l, r)
 
 assert stat_out:

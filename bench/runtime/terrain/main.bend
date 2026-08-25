@@ -207,7 +207,7 @@ def batch(d, t, e):
     case 0n:
       tile(t, e)
     case 1n+q:
-      Both{a, b} = {Both{batch(q, t, e), batch(q, U32.add(t, U32.shln(q, 1)), e)} : Par<U32, U32>}
+      a b = batch(q, t, e) batch(q, U32.add(t, U32.shln(q, 1)), e)
       U32.add(a, b)
 
 assert size:

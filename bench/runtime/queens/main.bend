@@ -91,7 +91,7 @@ def solve(f, cand, cols, ld, rd, full, sols, nodes):
             case True{}:
               solve(g, U32.sub(cand, b), cols, ld, rd, full, U32.inc(sols), U32.inc(nodes))
             case False{}:
-              Both{nl0, nr0} = {Both{U32.shl(U32.or(ld, b)), U32.shr(U32.or(rd, b))} : Par<U32, U32>}
+              nl0 nr0 = U32.shl(U32.or(ld, b)) U32.shr(U32.or(rd, b))
               +nl = {nl0 : +U32}
               +nr = {nr0 : +U32}
               match solve(g, U32.and(full, U32.not(U32.or(nc, U32.or(nl, nr)))), nc, nl, nr, full, sols, U32.inc(nodes)):
@@ -109,34 +109,34 @@ assert pfx.d:
   Stats
 
 def pfx.d(nn2, i, nn, full):
-  Both{b00, b10} = {Both{U32.shln(U32.to_nat(U32.div(i, U32.mul(nn2, nn))), 1), U32.shln(U32.to_nat(U32.mod(U32.div(i, nn2), nn)), 1)} : Par<U32, U32>}
+  b00 b10 = U32.shln(U32.to_nat(U32.div(i, U32.mul(nn2, nn))), 1) U32.shln(U32.to_nat(U32.mod(U32.div(i, nn2), nn)), 1)
   +b0 = {b00 : +U32}
   +b1 = {b10 : +U32}
   match U32.is_eq(U32.and(b1, U32.or(b0, U32.or(U32.shl(b0), U32.shr(b0)))), 0):
     case False{}:
       Stats{0, 0}
     case True{}:
-      Both{b20, c20} = {Both{U32.shln(U32.to_nat(U32.mod(U32.div(i, nn), nn)), 1), U32.or(b0, b1)} : Par<U32, U32>}
+      b20 c20 = U32.shln(U32.to_nat(U32.mod(U32.div(i, nn), nn)), 1) U32.or(b0, b1)
       +b2 = {b20 : +U32}
       +c2 = {c20 : +U32}
-      Both{l20, r20} = {Both{U32.shl(U32.or(U32.shl(b0), b1)), U32.shr(U32.or(U32.shr(b0), b1))} : Par<U32, U32>}
+      l20 r20 = U32.shl(U32.or(U32.shl(b0), b1)) U32.shr(U32.or(U32.shr(b0), b1))
       +l2 = {l20 : +U32}
       +r2 = {r20 : +U32}
       match U32.is_eq(U32.and(b2, U32.or(c2, U32.or(l2, r2))), 0):
         case False{}:
           Stats{0, 0}
         case True{}:
-          Both{b30, c30} = {Both{U32.shln(U32.to_nat(U32.mod(i, nn)), 1), U32.or(c2, b2)} : Par<U32, U32>}
+          b30 c30 = U32.shln(U32.to_nat(U32.mod(i, nn)), 1) U32.or(c2, b2)
           +b3 = {b30 : +U32}
           +c3 = {c30 : +U32}
-          Both{l30, r30} = {Both{U32.shl(U32.or(l2, b2)), U32.shr(U32.or(r2, b2))} : Par<U32, U32>}
+          l30 r30 = U32.shl(U32.or(l2, b2)) U32.shr(U32.or(r2, b2))
           +l3 = {l30 : +U32}
           +r3 = {r30 : +U32}
           match U32.is_eq(U32.and(b3, U32.or(c3, U32.or(l3, r3))), 0):
             case False{}:
               Stats{0, 0}
             case True{}:
-              Both{c40, Both{l40, r40}} = {Both{U32.or(c3, b3), Both{U32.shl(U32.or(l3, b3)), U32.shr(U32.or(r3, b3))}} : Par<U32, Par<U32, U32>>}
+              c40 l40 r40 = U32.or(c3, b3) U32.shl(U32.or(l3, b3)) U32.shr(U32.or(r3, b3))
               +c4 = {c40 : +U32}
               +l4 = {l40 : +U32}
               +r4 = {r40 : +U32}
@@ -191,7 +191,7 @@ def batch(d, i, m, nn, full, bound):
     case 0n:
       pfx(i, m, nn, full, bound)
     case 1n+p:
-      Both{a, b} = {Both{batch(p, i, m, nn, full, bound), batch(p, U32.add(i, U32.shln(p, 1)), m, nn, full, bound)} : Par<Stats, Stats>}
+      a b = batch(p, i, m, nn, full, bound) batch(p, U32.add(i, U32.shln(p, 1)), m, nn, full, bound)
       smerge(a, b)
 
 assert run:
@@ -201,7 +201,7 @@ assert run:
   U32
 
 def run(d, n, lim):
-  Both{nnnn0, full} = {Both{sq(sq(n)), U32.sub(U32.shln(U32.to_nat(n), 1), 1)} : Par<U32, U32>}
+  nnnn0 full = sq(sq(n)) U32.sub(U32.shln(U32.to_nat(n), 1), 1)
   +nnnn = {nnnn0 : +U32}
   # bound = min-like clamp: lim when lim < n^4, else n^4
   match batch(d, 0, U32.sub(U32.shln(d, 1), 1), n, full, sel(b2u(U32.is_lt(lim, nnnn)), nnnn, lim)):

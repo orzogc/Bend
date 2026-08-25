@@ -103,7 +103,7 @@ def gen(d, s):
     case 0n:
       Lf{U32.mod(s, 100)}
     case 1n+p:
-      Both{a, Both{b, Both{c, e}}} = {Both{gen(p, U32.inc(U32.mul(s, 1664525))), Both{gen(p, U32.add(U32.mul(s, 214013), 3)), Both{gen(p, U32.add(U32.mul(s, 16843009), 5)), gen(p, U32.add(U32.mul(s, 48271), 7))}}} : Par<Mat, Par<Mat, Par<Mat, Mat>>>}
+      a b c e = gen(p, U32.inc(U32.mul(s, 1664525))) gen(p, U32.add(U32.mul(s, 214013), 3)) gen(p, U32.add(U32.mul(s, 16843009), 5)) gen(p, U32.add(U32.mul(s, 48271), 7))
       Qd{a, b, c, e}
 
 assert vgen:
@@ -116,7 +116,7 @@ def vgen(d, s):
     case 0n:
       Vl{U32.inc(U32.mod(U32.mul(s, 2654435761), 100))}
     case 1n+p:
-      Both{l, r} = {Both{vgen(p, U32.inc(U32.mul(s, 1664525))), vgen(p, U32.add(U32.mul(s, 214013), 3))} : Par<Vec, Vec>}
+      l r = vgen(p, U32.inc(U32.mul(s, 1664525))) vgen(p, U32.add(U32.mul(s, 214013), 3))
       Vn{l, r}
 
 assert add:
@@ -133,7 +133,7 @@ def add(a, b):
     case Qd{a0, a1, a2, a3} Lf{y}:
       Lf{0}
     case Qd{a0, a1, a2, a3} Qd{b0, b1, b2, b3}:
-      Both{r0, Both{r1, Both{r2, r3}}} = {Both{add(a0, b0), Both{add(a1, b1), Both{add(a2, b2), add(a3, b3)}}} : Par<Mat, Par<Mat, Par<Mat, Mat>>>}
+      r0 r1 r2 r3 = add(a0, b0) add(a1, b1) add(a2, b2) add(a3, b3)
       Qd{r0, r1, r2, r3}
 
 # join of one mul burst: C_ij = P_ij + Q_ij, all four quadrant sums
@@ -150,7 +150,7 @@ assert add4:
   Mat
 
 def add4(p0, q0, p1, q1, p2, q2, p3, q3):
-  Both{c0, Both{c1, Both{c2, c3}}} = {Both{add(p0, q0), Both{add(p1, q1), Both{add(p2, q2), add(p3, q3)}}} : Par<Mat, Par<Mat, Par<Mat, Mat>>>}
+  c0 c1 c2 c3 = add(p0, q0) add(p1, q1) add(p2, q2) add(p3, q3)
   Qd{c0, c1, c2, c3}
 
 # each node spawns its whole 8-product burst as ONE 8-way fork,
@@ -169,7 +169,7 @@ def mul(a, b):
     case Qd{a0, a1, a2, a3} Lf{y}:
       Lf{0}
     case Qd{a0, a1, a2, a3} Qd{b0, b1, b2, b3}:
-      Both{p0, Both{q0, Both{p1, Both{q1, Both{p2, Both{q2, Both{p3, q3}}}}}}} = {Both{mul(a0, b0), Both{mul(a1, b2), Both{mul(a0, b1), Both{mul(a1, b3), Both{mul(a2, b0), Both{mul(a3, b2), Both{mul(a2, b1), mul(a3, b3)}}}}}}} : Par<Mat, Par<Mat, Par<Mat, Par<Mat, Par<Mat, Par<Mat, Par<Mat, Mat>>>>>>>}
+      p0 q0 p1 q1 p2 q2 p3 q3 = mul(a0, b0) mul(a1, b2) mul(a0, b1) mul(a1, b3) mul(a2, b0) mul(a3, b2) mul(a2, b1) mul(a3, b3)
       add4(p0, q0, p1, q1, p2, q2, p3, q3)
 
 assert vadd:
@@ -186,7 +186,7 @@ def vadd(x, y):
     case Vn{a, b} Vl{c}:
       Vl{0}
     case Vn{a, b} Vn{c, d}:
-      Both{l, r} = {Both{vadd(a, c), vadd(b, d)} : Par<Vec, Vec>}
+      l r = vadd(a, c) vadd(b, d)
       Vn{l, r}
 
 # join of one mvm burst: both half-sums in one fork
@@ -198,7 +198,7 @@ assert vadd2:
   Vec
 
 def vadd2(t0, t1, t2, t3):
-  Both{top, bot} = {Both{vadd(t0, t1), vadd(t2, t3)} : Par<Vec, Vec>}
+  top bot = vadd(t0, t1) vadd(t2, t3)
   Vn{top, bot}
 
 # [[a,b],[c,d]] * (l,h) = (a*l + b*h, c*l + d*h)
@@ -216,7 +216,7 @@ def mvm(m, v):
     case Qd{a, b, c, d} Vl{y}:
       Vl{0}
     case Qd{a, b, c, d} Vn{l, h}:
-      Both{t0, Both{t1, Both{t2, t3}}} = {Both{mvm(a, l), Both{mvm(b, h), Both{mvm(c, l), mvm(d, h)}}} : Par<Vec, Par<Vec, Par<Vec, Vec>>>}
+      t0 t1 t2 t3 = mvm(a, l) mvm(b, h) mvm(c, l) mvm(d, h)
       vadd2(t0, t1, t2, t3)
 
 assert cksum:
@@ -228,7 +228,7 @@ def cksum(m):
     case Lf{x}:
       x
     case Qd{a, b, c, d}:
-      Both{p, Both{q, Both{r, s}}} = {Both{cksum(a), Both{cksum(b), Both{cksum(c), cksum(d)}}} : Par<U32, Par<U32, Par<U32, U32>>>}
+      p q r s = cksum(a) cksum(b) cksum(c) cksum(d)
       U32.add(U32.add(U32.add(p, q), r), s)
 
 # or-fold of elementwise xor: 0 iff the vectors are identical
@@ -246,7 +246,7 @@ def vdif(x, y):
     case Vn{a, b} Vl{c}:
       1
     case Vn{a, b} Vn{c, d}:
-      Both{l, r} = {Both{vdif(a, c), vdif(b, d)} : Par<U32, U32>}
+      l r = vdif(a, c) vdif(b, d)
       U32.or(l, r)
 
 # one round: generate A, B, r; C = A*B; Freivalds-verify C*r == A*(B*r)
@@ -256,7 +256,7 @@ assert round:
   U32
 
 def round(d, s):
-  Both{a00, b00} = {Both{gen(d, U32.inc(s)), gen(d, U32.add(s, 2))} : Par<Mat, Mat>}
+  a00 b00 = gen(d, U32.inc(s)) gen(d, U32.add(s, 2))
   +a = {a00 : +Mat}
   +b = {b00 : +Mat}
   +r = {vgen(d, U32.add(s, 3)) : +Vec}
@@ -296,7 +296,7 @@ def batch(bg, i, n, m, d):
     case 0n:
       batch.leaf(U32.and(U32.mul(i, 2654435761), m), n, d)
     case 1n+p:
-      Both{x, y} = {Both{batch(p, i, n, m, d), batch(p, U32.add(i, U32.shln(p, 1)), n, m, d)} : Par<U32, U32>}
+      x y = batch(p, i, n, m, d) batch(p, U32.add(i, U32.shln(p, 1)), n, m, d)
       U32.add(x, y)
 
 assert size:

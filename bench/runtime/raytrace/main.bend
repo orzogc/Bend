@@ -378,7 +378,7 @@ def colf(d, x, y, w, hw, hh):
     case 0n:
       colf.px(U32.and(U32.mul(x, 2654435761), 16383), y, w, hw, hh)
     case 1n+p:
-      Both{a, b} = {Both{colf(p, x, y, w, hw, hh), colf(p, U32.add(x, U32.shln(p, 1)), y, w, hw, hh)} : Par<U32, U32>}
+      a b = colf(p, x, y, w, hw, hh) colf(p, U32.add(x, U32.shln(p, 1)), y, w, hw, hh)
       U32.add(a, b)
 
 assert rowf:
@@ -395,7 +395,7 @@ def rowf(d, y, m, w, hw, hh):
     case 0n:
       colf(14n, 0, U32.and(U32.mul(y, 1588635697), m), w, hw, hh)
     case 1n+p:
-      Both{a, b} = {Both{rowf(p, y, m, w, hw, hh), rowf(p, U32.add(y, U32.shln(p, 1)), m, w, hw, hh)} : Par<U32, U32>}
+      a b = rowf(p, y, m, w, hw, hh) rowf(p, U32.add(y, U32.shln(p, 1)), m, w, hw, hh)
       U32.add(a, b)
 
 assert rows:

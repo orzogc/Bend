@@ -241,12 +241,11 @@ read. Three runtime consequences organize everything that follows:
 
 == The Fork <sec:hint>
 
-The fork #co[let] spells one binding per member,
+The fork #co[let] spells its members in one binding,
 
 #block(breakable: false)[
 ```
-&a: U32 = sum(l)
-&b: U32 = sum(r)
+a b = sum(l) sum(r)
 a + b
 ```
 ]
@@ -256,10 +255,9 @@ into roughly equal halves. That promise is the _equal-halves
 contract_, and the whole task grid is built on trusting it
 (@sec:tasks): sibling computations are assumed to split at the
 same arity all the way down, so a saturated grid holds equal
-hands. The sugar builds a pair (#co[Both], at the fork type
-`Par<A, B>`) and eliminates it at once; the compiler turns the
-chain into one fork whose members become tasks and whose
-continuation becomes their join.
+hands. The parser builds one Let binding n names to n values;
+the compiler turns it into one fork whose members become tasks
+and whose continuation becomes their join.
 Nothing else in the language creates parallelism, and the runtime
 trusts the promise absolutely (@sec:intro): balance is the
 program's job, never the scheduler's. When the assumption fails,

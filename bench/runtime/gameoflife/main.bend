@@ -173,7 +173,7 @@ def chunk(j, i, g, pa, sa, oa, mx):
     case 0n:
       Census{pa, sa, oa, mx}
     case 1n+p:
-      Both{bd0, mxk0} = {Both{sim(U32.add(i, U32.from_nat(p)), g), U32.mul(mx, 2654435761)} : Par<U32, U32>}
+      bd0 mxk0 = sim(U32.add(i, U32.from_nat(p)), g) U32.mul(mx, 2654435761)
       +bd = {bd0 : +U32}
       +mxk = {mxk0 : +U32}
       match classify(bd):
@@ -205,7 +205,7 @@ def batch(d, i, g):
     case 0n:
       chunk(64n, i, g, 0, 0, 0, 0)
     case 1n+p:
-      Both{a, b} = {Both{batch(p, i, g), batch(p, U32.add(i, U32.shln(p, 64)), g)} : Par<Census, Census>}
+      a b = batch(p, i, g) batch(p, U32.add(i, U32.shln(p, 64)), g)
       czip(a, b)
 
 # final checksum: mix the census fields

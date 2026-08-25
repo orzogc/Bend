@@ -231,7 +231,7 @@ def build(d, x):
     case 0n:
       L{x}
     case 1n+p:
-      Both{a, b} = {Both{build(p, U32.mul(x, 2)), build(p, U32.add(U32.mul(x, 2), 1))} : Par<Tr, Tr>}
+      a b = build(p, U32.mul(x, 2)) build(p, U32.add(U32.mul(x, 2), 1))
       N{a, b}
 
 assert sum:
@@ -243,7 +243,7 @@ def sum(t):
     case L{v}:
       v
     case N{a, b}:
-      Both{x, y} = {Both{sum(a), sum(b)} : Par<U32, U32>}
+      x y = sum(a) sum(b)
       U32.add(x, y)
 
 assert depth:

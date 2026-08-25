@@ -96,7 +96,7 @@ def szip(a, b):
     case Sn{l, r} Sl{a, b, c}:
       Sn{l, r}
     case Sn{a, b} Sn{c, d}:
-      Both{l, r} = {Both{szip(a, c), szip(b, d)} : Par<St, St>}
+      l r = szip(a, c) szip(b, d)
       Sn{l, r}
 
 # combiner: a leaf chunk folds 64 points into 24 scalar accumulators
@@ -188,7 +188,7 @@ def pfold(d, i, c0, c1, c2, c3, c4, c5, c6, c7):
     case 0n:
       chunk(64n, i, c0, c1, c2, c3, c4, c5, c6, c7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     case 1n+p:
-      Both{a, b} = {Both{pfold(p, i, c0, c1, c2, c3, c4, c5, c6, c7), pfold(p, U32.add(i, U32.shln(p, 64)), c0, c1, c2, c3, c4, c5, c6, c7)} : Par<St, St>}
+      a b = pfold(p, i, c0, c1, c2, c3, c4, c5, c6, c7) pfold(p, U32.add(i, U32.shln(p, 64)), c0, c1, c2, c3, c4, c5, c6, c7)
       szip(a, b)
 
 # new centroid from a stats leaf; an empty cluster keeps the old one
@@ -306,7 +306,7 @@ def rbatch(b, r, d):
     case 0n:
       rst(r, d)
     case 1n+p:
-      Both{x, y} = {Both{rbatch(p, r, d), rbatch(p, U32.add(r, U32.shln(p, 1)), d)} : Par<U32, U32>}
+      x y = rbatch(p, r, d) rbatch(p, U32.add(r, U32.shln(p, 1)), d)
       U32.add(x, y)
 
 assert size:

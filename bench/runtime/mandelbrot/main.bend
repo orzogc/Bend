@@ -155,7 +155,7 @@ def hfold(d, i, tn):
     case 0n:
       hchunk(64n, i, tn, 0, 0, 0, 0, 0, 0, 0, 0)
     case 1n+p:
-      Both{a, b} = {Both{hfold(p, i, tn), hfold(p, U32.add(i, U32.shln(p, 64)), tn)} : Par<Hs, Hs>}
+      a b = hfold(p, i, tn) hfold(p, U32.add(i, U32.shln(p, 64)), tn)
       hzip(a, b)
 
 # histogram equalization: LUT k = cdf(k) scaled to 0..255
@@ -218,7 +218,7 @@ def rcol(d, i, tn, k0, k1, k2, k3, k4, k5, k6, k7):
     case 0n:
       rpix(i, tn, k0, k1, k2, k3, k4, k5, k6, k7)
     case 1n+p:
-      Both{a, b} = {Both{rcol(p, i, tn, k0, k1, k2, k3, k4, k5, k6, k7), rcol(p, U32.add(i, U32.shln(p, 1)), tn, k0, k1, k2, k3, k4, k5, k6, k7)} : Par<U32, U32>}
+      a b = rcol(p, i, tn, k0, k1, k2, k3, k4, k5, k6, k7) rcol(p, U32.add(i, U32.shln(p, 1)), tn, k0, k1, k2, k3, k4, k5, k6, k7)
       U32.add(a, b)
 
 assert rend:

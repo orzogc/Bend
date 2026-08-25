@@ -155,7 +155,7 @@ def sum(d, i):
     case 0n:
       i
     case 1n+p:
-      Both{a, b} = {Both{sum(p, i * 2), sum(p, i * 2 + 1)} : Par<U32, U32>}
+      a b = sum(p, i * 2) sum(p, i * 2 + 1)
       a + b
 
 # Runs sum on the GPU, via `!`.

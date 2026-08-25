@@ -90,8 +90,6 @@ type Of<K> = Extract<HTerm, { $: K }>;
 
 type Probe = Of<"Var">;
 
-type HBinder = Of<"Lam" | "Let">;
-
 type HAll = Of<"All">;
 
 type HAdt = Of<"ADT">;
@@ -99,8 +97,6 @@ type HAdt = Of<"ADT">;
 type HLet = Of<"Let">;
 
 type HLam = Of<"Lam">;
-
-type Forked = { h: HLam; c: Of<"Ctr"> };
 
 type UMap = PMap<number>;
 
@@ -243,7 +239,9 @@ const DUMMY = probe("~");
 
 const USE0 = Emp<number>();
 
-const OPENS: Map<HBinder, { p: Probe; b: HTerm }> = new Map();
+const OPENS: Map<HLam, { p: Probe; b: HTerm }> = new Map();
+
+const LOPENS: Map<HLet, { ps: Probe[]; b: HTerm }> = new Map();
 
 const USES: Map<HTerm, UMap> = new Map();
 
@@ -256,8 +254,6 @@ const REFS: Map<Name, Set<Name>> = new Map();
 const FRESH: Set<Name> = new Set();
 
 const FACTS: Map<HTerm, number> = new Map();
-
-const HOLES: HTerm[] = [];
 
 const EMPTY: Subs = new Map();
 
@@ -413,7 +409,7 @@ function memo<K, V>(m: Map<K, V>, k: K, f: () => V): V {
 }
 
 function memo_gc(): void {
-  [OPENS, USES, FACTS].forEach((m) => m.clear());
+  [OPENS, LOPENS, USES, FACTS].forEach((m) => m.clear());
 }
 
 // Probe
@@ -430,11 +426,26 @@ function probe_of(t: HTerm): Probe {
 // Term
 // ====
 
-function term_open(t: HBinder): { p: Probe; b: HTerm } {
+function term_open(t: HLam): { p: Probe; b: HTerm } {
   return memo(OPENS, t, () => {
     const p = probe(t.k);
     return { p, b: t.f(p) };
   });
+}
+
+function term_lets(t: HLet): { ps: Probe[]; b: HTerm } {
+  return memo(LOPENS, t, () => {
+    const ps = t.k.map(probe);
+    return { ps, b: t.f(ps) };
+  });
+}
+
+function term_split(t: HLet, j = 0, xs: HTerm[] = []): HTerm {
+  if (j === t.k.length) {
+    return t.f(xs);
+  }
+  return Let([t.k[j]], [t.i[j]], [t.v[j]],
+    (x: HTerm[]) => term_split(t, j + 1, [...xs, x[0]]), t.s, [t.q[j]]);
 }
 
 function term_spine(cf: Comp, tm: HTerm): Spine {
@@ -467,8 +478,8 @@ function term_kids(cf: Comp, tm: HTerm): HTerm[] {
   switch (t.$) {
     case "Ann": return [t.x];
     case "Lam": return [term_open(t).b];
-    case "Let": return quant_live(t.q)
-      ? [t.v, term_open(t).b] : [term_open(t).b];
+    case "Let": return [...t.v.filter((_, j) => quant_live(t.q[j])),
+      term_lets(t).b];
     case "App": {
       const m = term_spine(cf, t);
       return [m.h, ...m.args];
@@ -596,13 +607,13 @@ function call_fact(cb: Carb, tm: HTerm): number {
   });
 }
 
-function call_ok(cb: Carb, t: HTerm, n: number): Call | null {
+function call_ok(cb: Carb, t: HTerm, ps: Probe[]): Call | null {
   const ck = call_kind(cb, t);
-  if (ck === null || ck.args.length < n) {
+  if (ck === null || ck.args.length < ps.length) {
     return null;
   }
-  const h = ck.args.length - n;
-  if (!ck.args.slice(h).every((a, j) => term_strip(a) === fork_hole(j))) {
+  const h = ck.args.length - ps.length;
+  if (!ck.args.slice(h).every((a, j) => term_strip(a) === ps[j])) {
     return null;
   }
   return ck.args.slice(0, h).every((a) => !call_has(cb, a)) ? ck : null;
@@ -657,67 +668,6 @@ function ty_w32(book: Book, A: HTerm | null): boolean {
 function ty_f32(book: Book, A: HTerm | null): boolean {
   const t = ty_wnf(book, A);
   return t?.$ === "Ref" && t.k === "F32";
-}
-
-// Fork
-// ====
-
-function fork_hole(j: number): HTerm {
-  return (HOLES[j] ??= probe("*"));
-}
-
-function fork_chain(t: HTerm, n: number,
-  c: Comp | null): { ls: HLet[]; rest: HTerm } {
-  const ls: HLet[] = [];
-  let rest = t;
-  while (ls.length < n) {
-    const l = term_strip(rest);
-    if (l.$ !== "Let" || (c && call_kind(c, l.v) === null)) {
-      break;
-    }
-    ls.push(l);
-    rest = l.f(fork_hole(ls.length - 1));
-  }
-  return { ls, rest };
-}
-
-function fork_of(t: HTerm): Forked | null {
-  const s = term_strip(t);
-  if (s.$ !== "App") {
-    return null;
-  }
-  const f = term_strip(s.f);
-  const c = term_strip(s.x);
-  if (f.$ !== "Mat" || f.k !== "Both"
-    || c.$ !== "Ctr" || c.k !== "Both" || c.x.length !== 2) {
-    return null;
-  }
-  const h = term_strip(f.h);
-  return h.$ === "Lam" ? { h, c } : null;
-}
-
-function fork_span(t: HTerm): number {
-  const o = fork_of(t);
-  if (o === null) {
-    return 0;
-  }
-  const b = o.h.f(DUMMY);
-  const d = fork_span(App(b, o.c.x[1]));
-  if (d !== 0) {
-    return 1 + d;
-  }
-  return term_strip(b).$ === "Lam" ? 2 : 0;
-}
-
-function fork_grow(t: HTerm, j: number): HTerm {
-  const { h, c } = fork_of(t) as Forked;
-  return Let(h.k, h.i, c.x[0], (a) => {
-    if (j > 2) {
-      return fork_grow(App(h.f(a), c.x[1]), j - 1);
-    }
-    const g = term_strip(h.f(a)) as HLam;
-    return Let(g.k, g.i, c.x[1], g.f, g.s);
-  }, h.s);
 }
 
 // Ctr
@@ -953,7 +903,7 @@ function mint_ret(cb: Carb, t: HTerm): HTerm {
     return s.T;
   }
   if (s.$ === "Let") {
-    return mint_ret(cb, s.f(DUMMY));
+    return mint_ret(cb, s.f(s.v.map(() => DUMMY)));
   }
   const m = term_spine(cb, s);
   const tld = m.t.$ === "Ref" ? cb.book.tlds[m.t.k] : undefined;
@@ -992,13 +942,13 @@ function carbonize(cb: Carb, def: Name, tld: Def, mint_all = false): HTerm {
   function bound(caps: Capture[], l: HLet, v: Open,
     rest: (caps: Capture[], body: HTerm) => Open,
     cuts = false): Open {
-    const bd = { p: term_open(l).p, q: l.q, A: ty_ann(v(EMPTY)) };
+    const bd = { p: term_lets(l).ps[0], q: l.q[0], A: ty_ann(v(EMPTY)) };
     const c2 = [...caps, bd];
-    const go = () => rest(c2, term_open(l).b);
+    const go = () => rest(c2, term_lets(l).b);
     const body = cuts ? mint(cb, def, "k", c2, true, 1, go) : go();
-    return (env) => Let(l.k, l.i, v(env), (x) => cuts
-      ? App(body(env), x)
-      : body(new Map(env).set(bd.p, x)), l.s, l.q);
+    return (env) => Let(l.k, l.i, [v(env)], (x) => cuts
+      ? App(body(env), x[0])
+      : body(new Map(env).set(bd.p, x[0])), l.s, l.q);
   }
   function apps(caps: Capture[], t: HTerm, hf: boolean,
     k: Kont): Open {
@@ -1080,18 +1030,20 @@ function carbonize(cb: Carb, def: Name, tld: Def, mint_all = false): HTerm {
   function leaf(caps: Capture[], t: HTerm): Open {
     const s = term_strip(t);
     if (s.$ === "Let") {
-      if (!quant_live(s.q)) {
+      if (s.k.length >= 2) {
+        if (s.v.every((v) => call_is(cb, v))) {
+          return fork(caps, s);
+        }
+        return leaf(caps, term_split(s));
+      }
+      if (!quant_live(s.q[0])) {
         return leaf(caps, s.f(s.v));
       }
-      if (call_is(cb, s.v) && inl_at(cb, s.v) === null) {
-        return apps(caps, s.v, false, (c2, c) =>
+      if (call_is(cb, s.v[0]) && inl_at(cb, s.v[0]) === null) {
+        return apps(caps, s.v[0], false, (c2, c) =>
           bound(c2, s, c, leaf, true));
       }
-      return expr(caps, s.v, null, (c2, v) => bound(c2, s, v, leaf));
-    }
-    const n = fork_span(s);
-    if (n >= 2) {
-      return fork(caps, fork_grow(s, n) as HLet, n);
+      return expr(caps, s.v[0], null, (c2, v) => bound(c2, s, v, leaf));
     }
     const got = inl_at(cb, t);
     if (got !== null) {
@@ -1103,33 +1055,28 @@ function carbonize(cb: Carb, def: Name, tld: Def, mint_all = false): HTerm {
     }
     return expr(caps, t, null, PASS);
   }
-  function fork(caps: Capture[], s: HLet, n: number): Open {
-    const { ls, rest } = fork_chain(s, n, null);
-    let jt = rest;
+  function fork(caps: Capture[], s: HLet): Open {
+    const n = s.k.length;
+    const o = term_lets(s);
+    let jt = o.b;
     for (let g; (g = inl_at(cb, jt)) !== null;) {
       jt = g;
     }
-    const jc = call_ok(cb, jt, n);
-    const whole = ls.every((l) => call_is(cb, l.v));
-    const chain = (c2: Capture[], j: number, vs: Open[],
-      t: HTerm): Open => {
-      if (j === n) {
-        if (!whole || (jc !== null && !cb.mint.get(jc.k))) {
-          return leaf(c2, t);
-        }
-        return mint_caps(c2.slice(-n),
-          mint(cb, def, "j", c2, false, n, () => leaf(c2, t)));
-      }
-      const l = term_strip(t) as HLet;
-      const cuts = !whole && call_is(cb, vs[j](EMPTY));
-      return bound(c2, l, vs[j], (c3, b) => chain(c3, j + 1, vs, b), cuts);
-    };
-    return many(caps, n, (c2, j, kx) => {
-      if (call_is(cb, ls[j].v)) {
-        return apps(c2, ls[j].v, false, kx);
-      }
-      return expr(c2, ls[j].v, null, kx);
-    }, (c2, vs) => chain(c2, 0, vs, s));
+    const jc = call_ok(cb, jt, o.ps);
+    return many(caps, n, (c2, j, kx) => apps(c2, s.v[j], false, kx),
+      (c2, vs) => {
+        const c3 = [...c2, ...vs.map((v, j) =>
+          ({ p: o.ps[j], q: s.q[j], A: ty_ann(v(EMPTY)) }))];
+        const body = jc !== null && !cb.mint.get(jc.k)
+          ? leaf(c3, o.b)
+          : mint_caps(c3.slice(-n),
+            mint(cb, def, "j", c3, false, n, () => leaf(c3, o.b)));
+        return (env) => Let(s.k, s.i, vs.map((v) => v(env)), (xs) => {
+          const e2 = new Map(env);
+          xs.forEach((x, j) => e2.set(o.ps[j], x));
+          return body(e2);
+        }, s.s, s.q);
+      });
   }
   function expr(caps: Capture[], t: HTerm, ty: HTerm | null,
     k: Kont): Open {
@@ -1147,7 +1094,7 @@ function carbonize(cb: Carb, def: Name, tld: Def, mint_all = false): HTerm {
     }
     if (call_is(cb, s)) {
       return apps(caps, s, false, (c2, c) => {
-        const l = Let("h", 0, s, (x) => x) as HLet;
+        const l = Let(["h"], [0], [s], (x: HTerm[]) => x[0]) as HLet;
         return bound(c2, l,
           ty === null ? c : (env) => Ann(c(env), ty),
           (c3, b) => k(c3, mint_lift(b)), true);
@@ -1196,14 +1143,17 @@ function carbonize(cb: Carb, def: Name, tld: Def, mint_all = false): HTerm {
           () => leaf(c2, b)));
       }
       case "Let": {
-        if (!quant_live(s.q)) {
+        if (s.k.length >= 2) {
+          return expr(caps, term_split(s), ty, k);
+        }
+        if (!quant_live(s.q[0])) {
           return expr(caps, s.f(s.v), null, k);
         }
-        if (call_has(cb, s.v) || has_cut(term_open(s).b)) {
-          return expr(caps, s.v, null, (c2, v) =>
+        if (call_has(cb, s.v[0]) || has_cut(term_lets(s).b)) {
+          return expr(caps, s.v[0], null, (c2, v) =>
             bound(c2, s, v, (c3, b) => expr(c3, b, null, k)));
         }
-        const v = expr(caps, s.v, null, PASS);
+        const v = expr(caps, s.v[0], null, PASS);
         return k(caps, bound(caps, s, v,
           (c2, b) => expr(c2, b, null, PASS)));
       }
@@ -1337,7 +1287,7 @@ function calm_func(cb: Carb, t: HTerm, ty0: HTerm | null): boolean {
 
 function calm_of(cb: Carb, t: HTerm): boolean {
   return calm_func(cb, t, null)
-    && !term_any(cb, t, (s) => fork_span(s) >= 2);
+    && !term_any(cb, t, (s) => s.$ === "Let" && s.k.length >= 2);
 }
 
 // Inl
@@ -1446,8 +1396,8 @@ function inl_splice(cb: Carb, t: HTerm, args: HTerm[], i: number,
       return rest(args[i]);
     }
     const bare = term_force(args[i]).$ === "Ann" || all === null;
-    return Let(s.k, s.i, bare ? args[i] : Ann(args[i], (all as HAll).A),
-      rest, undefined, all === null ? Lone() : all.q);
+    return Let([s.k], [s.i], [bare ? args[i] : Ann(args[i], (all as HAll).A)],
+      (xs: HTerm[]) => rest(xs[0]), undefined, [all === null ? Lone() : all.q]);
   }
   const sc = term_strip(args[i]);
   if (term_const(args[i]) && s.$ === "Mat" && sc.$ === "Ctr") {
@@ -1537,14 +1487,18 @@ function shr_build(cb: Carb): Set<string> {
   };
   const scan = (t: HTerm, ty0: HTerm | null): void => {
     const [s, ty] = ty_peel(t, ty0);
-    if (s.$ === "Lam" || s.$ === "Let") {
+    if (s.$ === "Let") {
+      const o = term_lets(s);
+      const u = term_uses(cb, o.b);
+      s.v.forEach((v, j) => {
+        site(ty_ann(v), term_use(u, o.ps[j]));
+        scan(v, null);
+      });
+      return scan(o.b, null);
+    }
+    if (s.$ === "Lam") {
       const { p, b: body } = term_open(s);
       const n = term_use(term_uses(cb, body), p);
-      if (s.$ === "Let") {
-        site(ty_ann(s.v), n);
-        scan(s.v, null);
-        return scan(body, null);
-      }
       const all = ty_all(cb.book, ty)
         ?? die(`a binder without a type: ${s.k}`);
       if (quant_live(all.q)) {
@@ -1627,18 +1581,17 @@ function brw_build(cb: Carb): void {
     const leaf = (t: HTerm) => {
       const x = term_strip(t);
       if (x.$ === "Let") {
-        const { ls, rest } = fork_chain(x, Infinity, cb);
-        if (ls.length >= 2) {
-          for (const l of ls) {
-            site(l.v, rest);
+        const o = term_lets(x);
+        if (x.k.length >= 2) {
+          for (const v of x.v) {
+            site(v, o.b);
           }
-          return site(rest, null);
+          return site(o.b, null);
         }
-        const o = term_open(x);
-        if (call_is(cb, x.v)) {
-          site(x.v, o.b);
+        if (call_is(cb, x.v[0])) {
+          site(x.v[0], o.b);
         } else {
-          guard(x.v);
+          guard(x.v[0]);
         }
         return leaf(o.b);
       }
@@ -1786,24 +1739,23 @@ function bind_pop(fl: File, x: HTerm): string {
   return b.local;
 }
 
-function bind_uses(fl: File, local: string, x: HBinder,
+function bind_uses(fl: File, local: string, p: Probe, b: HTerm,
   ty: HTerm | null, parts?: Parts): HTerm {
-  const o = term_open(x);
   if (parts !== undefined && !parts.w) {
-    local = emit_alias(fl, ctr_build(fl, parts.k, parts.vs), x.k);
+    local = emit_alias(fl, ctr_build(fl, parts.k, parts.vs), p.k);
     parts = undefined;
   }
   const brw = fl.brwl.has(local);
   const triv = parts !== undefined || brw || adt_triv(fl.book, ty);
-  const n = term_use(term_uses(fl.cb, o.b), o.p);
+  const n = term_use(term_uses(fl.cb, b), p);
   if (n === 0 && !brw) {
     if (!triv) {
       file_push(fl, `term_sink(e, ${local});`);
     }
   } else {
-    fl.uses.set(o.p, { owed: triv ? 1 : n, local, triv, parts });
+    fl.uses.set(p, { owed: triv ? 1 : n, local, triv, parts });
   }
-  return o.b;
+  return b;
 }
 
 // Seg
@@ -1846,8 +1798,11 @@ function node_fill(fl: File, k: string, alloc: string,
 function eq_set(fl: File, t: HTerm): { p: Probe; ks: number[] } | null {
   const st = term_strip(t);
   if (st.$ === "Let") {
-    const v = term_strip(st.v);
-    return v.$ === "Var" ? eq_set(fl, st.f(v)) : null;
+    if (st.k.length > 1) {
+      return null;
+    }
+    const v = term_strip(st.v[0]);
+    return v.$ === "Var" ? eq_set(fl, st.f([v])) : null;
   }
   const sp = term_spine(fl, t);
   if (sp.t.$ === "Mat" && sp.args.length === 1) {
@@ -2202,11 +2157,11 @@ function emit_call(fl: File, ck: Call, km: Call | null): void {
   emit_jump(fl, cargs, ck.k);
 }
 
-function emit_fork(fl: File, ls: HLet[], rest: HTerm): void {
+function emit_fork(fl: File, x: HLet): void {
   const tab0 = fl.tab;
-  const n = ls.length;
-  const calls = ls.map((l) => call_kind(fl, l.v) as Call);
-  const jc = call_kind(fl, rest) as Call;
+  const n = x.k.length;
+  const calls = x.v.map((v) => call_kind(fl, v) as Call);
+  const jc = call_kind(fl, term_lets(x).b) as Call;
   const alias = (x: string) => emit_alias(fl, x, "a");
   const margs = calls.map((c) => arg_lend(fl, c).map(alias));
   const caps = emit_exprs(fl, jc.args.slice(0, -n)).map(alias);
@@ -2263,9 +2218,13 @@ function emit_put(fl: File, dst: Dst, e: string): void {
 }
 
 function emit_open(fl: File, x: HLet): HTerm {
-  const name = name_local(fl, x.k);
-  file_push(fl, `Term ${name} = ${emit_expr(fl, x.v, null)};`);
-  return bind_uses(fl, name, x, ty_ann(x.v));
+  const o = term_lets(x);
+  x.k.forEach((k, j) => {
+    const name = name_local(fl, k);
+    file_push(fl, `Term ${name} = ${emit_expr(fl, x.v[j], null)};`);
+    bind_uses(fl, name, o.ps[j], o.b, ty_ann(x.v[j]));
+  });
+  return o.b;
 }
 
 function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): string {
@@ -2363,7 +2322,8 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
       const a0 = args[0];
       const name = typeof a0 === "string" ? emit_alias(fl, a0, x.k) : "";
       const rec = typeof a0 === "string" ? undefined : a0;
-      return emit_func(fl, bind_uses(fl, name, x, all.A, rec),
+      const o = term_open(x);
+      return emit_func(fl, bind_uses(fl, name, o.p, o.b, all.A, rec),
         all.B(DUMMY), args.slice(1), dst);
     }
     case "Mat":
@@ -2388,13 +2348,12 @@ function emit_leaf(fl: File, tm: HTerm, ty0: HTerm | null,
   dst: Dst): void {
   const [x, ty] = ty_peel(tm, ty0);
   if (x.$ === "Let") {
-    const { ls, rest } = fork_chain(x, Infinity, fl);
-    if (ls.length >= 2) {
-      return emit_fork(fl, ls, rest);
+    if (x.k.length >= 2) {
+      return emit_fork(fl, x);
     }
-    const vc = call_kind(fl, x.v);
+    const vc = call_kind(fl, x.v[0]);
     if (vc !== null) {
-      const km = call_kind(fl, rest) as Call;
+      const km = call_kind(fl, term_lets(x).b) as Call;
       if (!fuse_cut(fl, vc, km, dst)) {
         emit_call(fl, vc, km);
       }
@@ -2659,7 +2618,8 @@ function gen_defs(fl: File): string {
   for (const [k, tld] of done_defs(cb)) {
     memo_gc();
     if (!term_any(cb, tld.e as HTerm, (s) =>
-      (s.$ === "Let" && fork_chain(s, Infinity, cb).ls.length >= 2)
+      (s.$ === "Let" && s.k.length >= 2
+        && s.v.every((v) => call_kind(cb, v) !== null))
         || call_kind(cb, s)?.k === CLO_APPLY)) {
       nofk.add(k);
     }
@@ -2999,11 +2959,13 @@ function js_expr(fl: Js, tm: HTerm,
         "{$: \"" + x.k + "\"") + "}";
     }
     case "Let": {
-      if (!quant_live(x.q)) {
-        return js_expr(fl, x.f(x.v), ty);
-      }
-      const name = emit_hold(fl, [js_expr(fl, x.v, null)], x.k)[0];
-      return js_expr(fl, x.f(Var(name, 0)), ty);
+      const xs = x.v.map((v, j): HTerm => {
+        if (!quant_live(x.q[j])) {
+          return v;
+        }
+        return Var(emit_hold(fl, [js_expr(fl, v, null)], x.k[j])[0], 0);
+      });
+      return js_expr(fl, x.f(xs), ty);
     }
     case "Rwt": return js_expr(fl, x.f, ty);
     case "Rfl": case "Typ": case "All": case "ADT": case "Eql": return "null";
@@ -3045,15 +3007,17 @@ function js_leaf(fl: Js, tm: HTerm, ty: HTerm | null,
     return js_leaf(fl, x.x, x.T, tgt);
   }
   if (x.$ === "Let") {
-    if (!quant_live(x.q)) {
-      return js_leaf(fl, x.f(x.v), ty, tgt);
-    }
-    const ck = call_kind(fl.cb, x.v);
-    const v = ck === null
-      ? js_expr(fl, x.v, null)
-      : js_call(fl, ck.k, js_args(fl, ck.args), false);
-    const name = emit_hold(fl, [v], x.k)[0];
-    return js_leaf(fl, x.f(Var(name, 0)), ty, tgt);
+    const xs = x.v.map((v, j): HTerm => {
+      if (!quant_live(x.q[j])) {
+        return v;
+      }
+      const ck = call_kind(fl.cb, v);
+      const e = ck === null
+        ? js_expr(fl, v, null)
+        : js_call(fl, ck.k, js_args(fl, ck.args), false);
+      return Var(emit_hold(fl, [e], x.k[j])[0], 0);
+    });
+    return js_leaf(fl, x.f(xs), ty, tgt);
   }
   const ck = call_kind(fl.cb, x);
   if (ck !== null) {

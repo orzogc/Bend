@@ -240,7 +240,7 @@ def batch(d, s, pts):
     case 0n:
       cand(prng(s), pts)
     case 1n+p:
-      Both{a, b} = {Both{batch(p, U32.add(U32.mul(s, 1664525), 1), pts), batch(p, U32.add(U32.mul(s, 214013), 3), pts)} : Par<Sel, Sel>}
+      a b = batch(p, U32.add(U32.mul(s, 1664525), 1), pts) batch(p, U32.add(U32.mul(s, 214013), 3), pts)
       pick(a, b)
 
 # hill-climb the tournament winner: mutate the seed, keep improvements
