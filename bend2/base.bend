@@ -22,9 +22,6 @@ type Either<-A: Type, -B: Type>:
   Inl{value: A}
   Inr{value: B}
 
-type Par<A: Type, B: Type>:
-  Both{fst: A, snd: B}
-
 type Sigma<-A: Type, -B: @-x: A -> Type>:
   Tuple{fst: A, snd: B(fst)}
 
@@ -136,7 +133,7 @@ assert IO.print_err:
 
 assert IO.get_env:
   forall name: String
-  IO(Result<U32 & String, String>)
+  IO(Result<(U32 & String), String>)
 
 assert IO.die:
   forall -A: Type
@@ -146,28 +143,28 @@ assert IO.die:
 
 assert IO.pass:
   forall -A: Type
-  forall r: Result<U32 & String, A>
+  forall r: Result<(U32 & String), A>
   IO(A)
 
 assert IO.try:
   forall -A: Type
-  forall action: IO(Result<U32 & String, A>)
+  forall action: IO(Result<(U32 & String), A>)
   IO(A)
 
 assert File.open:
   forall path: String
   forall mode: String
-  IO(Result<U32 & String, File>)
+  IO(Result<(U32 & String), File>)
 
 assert File.read:
   forall file: File
   forall max: U32
-  IO(File & Result<U32 & String, String>)
+  IO(File & Result<(U32 & String), String>)
 
 assert File.write:
   forall file: File
   forall data: String
-  IO(File & Result<U32 & String, Unit>)
+  IO(File & Result<(U32 & String), Unit>)
 
 assert File.close:
   forall file: File
@@ -175,42 +172,42 @@ assert File.close:
 
 assert TCP.listen:
   forall port: U32
-  IO(Result<U32 & String, Listener>)
+  IO(Result<(U32 & String), Listener>)
 
 assert TCP.accept:
   forall listener: Listener
-  IO(Listener & Result<U32 & String, Socket>)
+  IO(Listener & Result<(U32 & String), Socket>)
 
 assert TCP.connect:
   forall host: String
   forall port: U32
-  IO(Result<U32 & String, Socket>)
+  IO(Result<(U32 & String), Socket>)
 
 assert TCP.send:
   forall socket: Socket
   forall data: String
-  IO(Socket & Result<U32 & String, Unit>)
+  IO(Socket & Result<(U32 & String), Unit>)
 
 assert TCP.recv:
   forall socket: Socket
   forall max: U32
-  IO(Socket & Result<U32 & String, String>)
+  IO(Socket & Result<(U32 & String), String>)
 
 assert UDP.bind:
   forall port: U32
-  IO(Result<U32 & String, Socket>)
+  IO(Result<(U32 & String), Socket>)
 
 assert UDP.send_to:
   forall socket: Socket
   forall host: String
   forall port: U32
   forall data: String
-  IO(Socket & Result<U32 & String, Unit>)
+  IO(Socket & Result<(U32 & String), Unit>)
 
 assert UDP.recv_from:
   forall socket: Socket
   forall max: U32
-  IO(Socket & Result<U32 & String, String & U32 & String>)
+  IO(Socket & Result<(U32 & String), String & U32 & String>)
 
 assert Socket.close:
   forall socket: Socket
@@ -1886,7 +1883,7 @@ def IO.pass(A, r):
       IO.die(A, code, message)
 
 def IO.try(A, action):
-  IO.bind(Result<U32 & String, A>, A, action, IO.pass(A))
+  IO.bind(Result<(U32 & String), A>, A, action, IO.pass(A))
 
 def File.open(path, mode):
   import "./effs/file_open.c"

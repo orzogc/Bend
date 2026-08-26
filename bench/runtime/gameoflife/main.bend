@@ -9,11 +9,9 @@ import Base
 # tallies and a board hash in scalar registers, materializing one
 # Census per chunk; czip merges censuses up the fork tree and the
 # checksum mixes the final census. Counters ride as Nats (no U32 match
-# in Bend4); a match scrutinizes only a parameter, so the classify
-# probes run through staged defs (each matching the bool its caller
-# computed) and the chunk tallies update branchlessly off cls.code.
-# This replaces the older Array-grid port, whose Bend3 counterpart no
-# longer exists.
+# in Bend4); classify.p1 is a continuation def (a Bend4 match cannot
+# follow a +local). This replaces the older Array-grid port, whose
+# Bend3 counterpart no longer exists.
 #
 # Sizes (size, gens): small (1, 2) expect 2601177279 (verified against
 # a Bend3 C run on the cluster), big (18, 32) expect 2016151040 (from
@@ -241,8 +239,7 @@ def batch(d, i, g):
     case 0n:
       chunk(64n, i, g, 0, 0, 0, 0)
     case 1n+p:
-      & a : Census = batch(p, i, g)
-      & b : Census = batch(p, U32.add(i, U32.shln(p, 64)), g);
+      a b = batch(p, i, g) batch(p, U32.add(i, U32.shln(p, 64)), g)
       czip(a, b)
 
 # final checksum: mix the census fields

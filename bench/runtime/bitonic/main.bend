@@ -94,9 +94,21 @@ def warp(a, b, s):
     case Node{aa, ab} Leaf{bv}:
       Leaf{0}
     case Node{aa, ab} Node{ba, bb}:
-      & wa : Tree = warp(aa, ba, s)
-      & wb : Tree = warp(ab, bb, s);
+      wa wb = warp(aa, ba, s) warp(ab, bb, s)
       warp_zip(wa, wb)
+
+# warp of a whole subtree: compare-and-swap its root pair
+assert warp_node:
+  forall t: Tree
+  forall +s: +Bool
+  Tree
+
+def warp_node(t, s):
+  match t:
+    case Leaf{v}:
+      Leaf{v}
+    case Node{a, b}:
+      warp(a, b, s)
 
 # bitonic merge, root pair already warped: flow(d, s, w) finishes a
 # merge of depth 1+d whose root warp the CALLER did (a match may only
@@ -116,17 +128,8 @@ def flow(d, s, w):
       Node{wa, wb}
     case 1n+p Leaf{v}:
       Leaf{v}
-    case 1n+p Node{Leaf{x}, Leaf{y}}:
-      Node{Leaf{x}, Leaf{y}}
-    case 1n+p Node{Leaf{x}, Node{y0, y1}}:
-      Node{Leaf{x}, flow(p, s, warp(y0, y1, s))}
-    case 1n+p Node{Node{x0, x1}, Leaf{y}}:
-      Node{flow(p, s, warp(x0, x1, s)), Leaf{y}}
-    case 1n+p Node{Node{x0, x1}, Node{y0, y1}}:
-      & wa : Tree = warp(x0, x1, s)
-      & wb : Tree = warp(y0, y1, s);
-      & fa : Tree = flow(p, s, wa)
-      & fb : Tree = flow(p, s, wb);
+    case 1n+p Node{wa, wb}:
+      fa fb = flow(p, s, warp_node(wa, s)) flow(p, s, warp_node(wb, s))
       Node{fa, fb}
 
 # fused build-and-sort: 2^d leaves keyed by index, halves sorted in
@@ -142,8 +145,7 @@ def bsort(d, s, x):
     case 0n:
       Leaf{key(x)}
     case 1n+p:
-      & sa : Tree = bsort(p, False{}, U32.inc(U32.shl(x)))
-      & sb : Tree = bsort(p, True{}, U32.shl(x));
+      sa sb = bsort(p, False{}, U32.inc(U32.shl(x))) bsort(p, True{}, U32.shl(x))
       flow(p, s, warp(sa, sb, s))
 
 # verification join: bounds ride outward, ok demands left.hi <=
@@ -186,8 +188,7 @@ def scan(t):
       +w = {v : +U32}
       St{w, w, 1, w}
     case Node{a, b}:
-      & l : Stat = scan(a)
-      & r : Stat = scan(b);
+      l r = scan(a) scan(b)
       stat_join(l, r)
 
 assert stat_out:

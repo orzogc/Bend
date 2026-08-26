@@ -83,8 +83,7 @@ def merge(a, b):
     case Mnode{a0, a1} Busy{}:
       Busy{}
     case Mnode{a0, a1} Mnode{b0, b1}:
-      & l : Trie = merge(a0, b0)
-      & r : Trie = merge(a1, b1);
+      l r = merge(a0, b0) merge(a1, b1)
       Mnode{l, r}
 
 assert gen:
@@ -97,8 +96,7 @@ def gen(n, x):
     case 0n:
       Single{key(x)}
     case 1n+p:
-      & l : Arr = gen(p, U32.shl(x))
-      & r : Arr = gen(p, U32.inc(U32.shl(x)));
+      l r = gen(p, U32.shl(x)) gen(p, U32.inc(U32.shl(x)))
       Concat{l, r}
 
 assert swap_bits.go:
@@ -148,8 +146,7 @@ def to_map(a):
     case Single{x}:
       radix(24n, x, 1, Busy{})
     case Concat{a, b}:
-      & l : Trie = to_map(a)
-      & r : Trie = to_map(b);
+      l r = to_map(a) to_map(b)
       merge(l, r)
 
 assert to_arr:
@@ -164,8 +161,7 @@ def to_arr(m, k):
     case Busy{}:
       Single{k}
     case Mnode{l, r}:
-      & la : Arr = to_arr(l, U32.shl(k))
-      & ra : Arr = to_arr(r, U32.inc(U32.shl(k)));
+      la ra = to_arr(l, U32.shl(k)) to_arr(r, U32.inc(U32.shl(k)))
       Concat{la, ra}
 
 # verification join: bounds ride outward, ok demands strict order
@@ -199,8 +195,7 @@ def chk(a):
       +w = {x : +U32}
       Cval{w, w, 1, 1, w}
     case Concat{a, b}:
-      & l : Chk = chk(a)
-      & r : Chk = chk(b);
+      l r = chk(a) chk(b)
       chk_join(l, r)
 
 assert chk_out:

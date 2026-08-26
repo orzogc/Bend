@@ -143,10 +143,7 @@ def gen(d, s):
     case 0n:
       Lf{U32.mod(s, 100)}
     case 1n+p:
-      & a : Mat = gen(p, U32.inc(U32.mul(s, 1664525)))
-      & b : Mat = gen(p, U32.add(U32.mul(s, 214013), 3))
-      & c : Mat = gen(p, U32.add(U32.mul(s, 16843009), 5))
-      & e : Mat = gen(p, U32.add(U32.mul(s, 48271), 7));
+      a b c e = gen(p, U32.inc(U32.mul(s, 1664525))) gen(p, U32.add(U32.mul(s, 214013), 3)) gen(p, U32.add(U32.mul(s, 16843009), 5)) gen(p, U32.add(U32.mul(s, 48271), 7))
       Qd{a, b, c, e}
 
 assert vgen:
@@ -159,8 +156,7 @@ def vgen(d, s):
     case 0n:
       Vl{U32.inc(U32.mod(U32.mul(s, 2654435761), 100))}
     case 1n+p:
-      & l : Vec = vgen(p, U32.inc(U32.mul(s, 1664525)))
-      & r : Vec = vgen(p, U32.add(U32.mul(s, 214013), 3));
+      l r = vgen(p, U32.inc(U32.mul(s, 1664525))) vgen(p, U32.add(U32.mul(s, 214013), 3))
       Vn{l, r}
 
 assert add:
@@ -177,10 +173,7 @@ def add(a, b):
     case Qd{a0, a1, a2, a3} Lf{y}:
       Lf{0}
     case Qd{a0, a1, a2, a3} Qd{b0, b1, b2, b3}:
-      & r0 : Mat = add(a0, b0)
-      & r1 : Mat = add(a1, b1)
-      & r2 : Mat = add(a2, b2)
-      & r3 : Mat = add(a3, b3);
+      r0 r1 r2 r3 = add(a0, b0) add(a1, b1) add(a2, b2) add(a3, b3)
       Qd{r0, r1, r2, r3}
 
 # join of one mul burst: C_ij = P_ij + Q_ij, all four quadrant sums
@@ -197,10 +190,7 @@ assert add4:
   Mat
 
 def add4(p0, q0, p1, q1, p2, q2, p3, q3):
-  & c0 : Mat = add(p0, q0)
-  & c1 : Mat = add(p1, q1)
-  & c2 : Mat = add(p2, q2)
-  & c3 : Mat = add(p3, q3);
+  c0 c1 c2 c3 = add(p0, q0) add(p1, q1) add(p2, q2) add(p3, q3)
   Qd{c0, c1, c2, c3}
 
 # each node spawns its whole 8-product burst as ONE 8-way fork,
@@ -219,14 +209,7 @@ def mul(a, b):
     case Qd{a0, a1, a2, a3} Lf{y}:
       Lf{0}
     case Qd{a0, a1, a2, a3} Qd{b0, b1, b2, b3}:
-      & p0 : Mat = mul(a0, b0)
-      & q0 : Mat = mul(a1, b2)
-      & p1 : Mat = mul(a0, b1)
-      & q1 : Mat = mul(a1, b3)
-      & p2 : Mat = mul(a2, b0)
-      & q2 : Mat = mul(a3, b2)
-      & p3 : Mat = mul(a2, b1)
-      & q3 : Mat = mul(a3, b3);
+      p0 q0 p1 q1 p2 q2 p3 q3 = mul(a0, b0) mul(a1, b2) mul(a0, b1) mul(a1, b3) mul(a2, b0) mul(a3, b2) mul(a2, b1) mul(a3, b3)
       add4(p0, q0, p1, q1, p2, q2, p3, q3)
 
 assert vadd:
@@ -243,8 +226,7 @@ def vadd(x, y):
     case Vn{a, b} Vl{c}:
       Vl{0}
     case Vn{a, b} Vn{c, d}:
-      & l : Vec = vadd(a, c)
-      & r : Vec = vadd(b, d);
+      l r = vadd(a, c) vadd(b, d)
       Vn{l, r}
 
 # join of one mvm burst: both half-sums in one fork
@@ -256,8 +238,7 @@ assert vadd2:
   Vec
 
 def vadd2(t0, t1, t2, t3):
-  & top : Vec = vadd(t0, t1)
-  & bot : Vec = vadd(t2, t3);
+  top bot = vadd(t0, t1) vadd(t2, t3)
   Vn{top, bot}
 
 # [[a,b],[c,d]] * (l,h) = (a*l + b*h, c*l + d*h)
@@ -275,10 +256,7 @@ def mvm(m, v):
     case Qd{a, b, c, d} Vl{y}:
       Vl{0}
     case Qd{a, b, c, d} Vn{l, h}:
-      & t0 : Vec = mvm(a, l)
-      & t1 : Vec = mvm(b, h)
-      & t2 : Vec = mvm(c, l)
-      & t3 : Vec = mvm(d, h);
+      t0 t1 t2 t3 = mvm(a, l) mvm(b, h) mvm(c, l) mvm(d, h)
       vadd2(t0, t1, t2, t3)
 
 assert cksum:
@@ -290,10 +268,7 @@ def cksum(m):
     case Lf{x}:
       x
     case Qd{a, b, c, d}:
-      & p : U32 = cksum(a)
-      & q : U32 = cksum(b)
-      & r : U32 = cksum(c)
-      & s : U32 = cksum(d);
+      p q r s = cksum(a) cksum(b) cksum(c) cksum(d)
       U32.add(U32.add(U32.add(p, q), r), s)
 
 # or-fold of elementwise xor: 0 iff the vectors are identical
@@ -311,8 +286,7 @@ def vdif(x, y):
     case Vn{a, b} Vl{c}:
       1
     case Vn{a, b} Vn{c, d}:
-      & l : U32 = vdif(a, c)
-      & r : U32 = vdif(b, d);
+      l r = vdif(a, c) vdif(b, d)
       U32.or(l, r)
 
 # one round: generate A, B, r; C = A*B; Freivalds-verify C*r == A*(B*r)
@@ -322,8 +296,7 @@ assert round:
   U32
 
 def round(d, s):
-  & a00 : Mat = gen(d, U32.inc(s))
-  & b00 : Mat = gen(d, U32.add(s, 2));
+  a00 b00 = gen(d, U32.inc(s)) gen(d, U32.add(s, 2))
   +a = {a00 : +Mat}
   +b = {b00 : +Mat}
   +r = {vgen(d, U32.add(s, 3)) : +Vec}
@@ -372,8 +345,7 @@ def batch(bg, i, n, m, d):
     case 0n:
       batch.leaf(U32.and(U32.mul(i, 2654435761), m), n, d)
     case 1n+p:
-      & x : U32 = batch(p, i, n, m, d)
-      & y : U32 = batch(p, U32.add(i, U32.shln(p, 1)), n, m, d);
+      x y = batch(p, i, n, m, d) batch(p, U32.add(i, U32.shln(p, 1)), n, m, d)
       U32.add(x, y)
 
 assert size:

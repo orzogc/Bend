@@ -305,8 +305,7 @@ def batch(d, i, m, nn, full, bound):
     case 0n:
       pfx(i, m, nn, full, bound)
     case 1n+p:
-      & a : Stats = batch(p, i, m, nn, full, bound)
-      & b : Stats = batch(p, U32.add(i, U32.shln(p, 1)), m, nn, full, bound);
+      a b = batch(p, i, m, nn, full, bound) batch(p, U32.add(i, U32.shln(p, 1)), m, nn, full, bound)
       smerge(a, b)
 
 assert run.fin:

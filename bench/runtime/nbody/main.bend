@@ -332,8 +332,7 @@ def batch(d, i, st):
     case 0n:
       chunk(8n, i, st, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     case 1n+p:
-      & a : Hs = batch(p, i, st)
-      & b : Hs = batch(p, U32.add(i, U32.shln(p, 8)), st);
+      a b = batch(p, i, st) batch(p, U32.add(i, U32.shln(p, 8)), st)
       hzip(a, b)
 
 assert run.fin:

@@ -403,7 +403,7 @@ def build(d, x):
     case 0n:
       L{x}
     case 1n+p:
-      & a : Tr = build(p, U32.mul(x, 2)) & b : Tr = build(p, U32.add(U32.mul(x, 2), 1));
+      a b = build(p, U32.mul(x, 2)) build(p, U32.add(U32.mul(x, 2), 1))
       N{a, b}
 
 assert sum:
@@ -415,7 +415,7 @@ def sum(t):
     case L{v}:
       v
     case N{a, b}:
-      & x : U32 = sum(a) & y : U32 = sum(b);
+      x y = sum(a) sum(b)
       U32.add(x, y)
 
 assert depth.max:

@@ -95,10 +95,12 @@ assert fill:
   Array<U32>
 
 def fill(j, ox, oz, r):
-  match j r:
-    case 0n (h, z):
+  match j:
+    case 0n:
+      (h, z) = r
       h
-    case 1n+q (h, z):
+    case 1n+q:
+      (h, z) = r
       +i = {U32.sub(4096, U32.inc(U32.from_nat(q))) : +U32}
       +g = {ground(U32.shln(6n, U32.add(ox, U32.and(i, 63))), U32.shln(6n, U32.add(oz, U32.shrn(6n, i)))) : +U32}
       fill(q, ox, oz, Array.swap(U32, h, i, g))
@@ -430,10 +432,12 @@ assert erode:
   Array<U32>
 
 def erode(j, p, r):
-  match j r:
-    case 0n (h, z):
+  match j:
+    case 0n:
+      (h, z) = r
       h
-    case 1n+q (h, z):
+    case 1n+q:
+      (h, z) = r
       +i = {U32.sub(4096, U32.shln(2n, U32.inc(U32.from_nat(q)))) : +U32}
       erode(q, p, erode.go(i, p, h))
 
@@ -460,10 +464,11 @@ assert gfold:
   U32
 
 def gfold(j, r, acc):
-  match j r:
-    case 0n rr:
+  match j:
+    case 0n:
       acc
-    case 1n+q (g2, c):
+    case 1n+q:
+      (g2, c) = r
       +i = {U32.sub(63, U32.from_nat(q)) : +U32}
       gfold(q, Array.get(g2, U32.inc(i)), U32.xor(U32.mul(acc, 2654435761), U32.mul(c, U32.add(i, 3))))
 
@@ -489,10 +494,13 @@ assert hist:
   U32
 
 def hist(j, r, rg, acc):
-  match j r rg:
-    case 0n rr (g, z):
+  match j:
+    case 0n:
+      (g, z) = rg
       gfold(64n, Array.get(g, 0), acc)
-    case 1n+q (h2, v0) (g, z):
+    case 1n+q:
+      (h2, v0) = r
+      (g, z) = rg
       +i = {U32.sub(4095, U32.from_nat(q)) : +U32}
       +v = {v0 : +U32}
       +b = {U32.and(U32.shrn(2n, v), 63) : +U32}
@@ -523,8 +531,7 @@ def batch(d, t, e):
     case 0n:
       tile(t, e)
     case 1n+q:
-      & a : U32 = batch(q, t, e)
-      & b : U32 = batch(q, U32.add(t, U32.shln(q, 1)), e);
+      a b = batch(q, t, e) batch(q, U32.add(t, U32.shln(q, 1)), e)
       U32.add(a, b)
 
 assert size:

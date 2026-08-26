@@ -164,8 +164,7 @@ def htree(d, b):
     case 0n:
       leafh(b)
     case 1n+p:
-      & a : U32 = htree(p, b)
-      & c : U32 = htree(p, U32.add(b, U32.shln(p, 1)));
+      a c = htree(p, b) htree(p, U32.add(b, U32.shln(p, 1)))
       mrk(a, c)
 
 # join two subtrees into a hashed node (peek the child hashes, rebuild)
@@ -204,8 +203,7 @@ def build(d, b):
     case 0n:
       Ml{leafh(b)}
     case 1n+p:
-      & l : Mt = build(p, b)
-      & r : Mt = build(p, U32.add(b, U32.shln(p, 1)));
+      l r = build(p, b) build(p, U32.add(b, U32.shln(p, 1)))
       mjoin(l, r)
 
 # audit: re-fold the tree; any stored-hash mismatch perturbs the result
@@ -218,8 +216,7 @@ def audit(t):
     case Ml{h}:
       h
     case Mn{h, l, r}:
-      & a : U32 = audit(l)
-      & b : U32 = audit(r);
+      a b = audit(l) audit(r)
       +m = {mrk(a, b) : +U32}
       U32.add(m, U32.xor(m, h))
 
@@ -236,10 +233,10 @@ def pgen(d, k, b):
     case 0n:
       Pn{}
     case 1n+p:
-      +bit = {U32.and(U32.shrn(p, k), 1) : +U32}
-      +half = {U32.shln(p, 1) : +U32}
-      sib = htree(p, sel(bit, U32.add(b, half), b))
-      rest = pgen(p, k, sel(bit, b, U32.add(b, half)))
+      bit0 half0 = U32.and(U32.shrn(p, k), 1) U32.shln(p, 1)
+      +bit = {bit0 : +U32}
+      +half = {half0 : +U32}
+      sib rest = htree(p, sel(bit, U32.add(b, half), b)) pgen(p, k, sel(bit, b, U32.add(b, half)))
       Pc{bit, sib, rest}
 
 # fold the proof back up from the leaf hash to a root hash
