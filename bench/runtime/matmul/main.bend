@@ -32,55 +32,95 @@ assert Mat.copy:
   forall m: Mat
   Copy(Mat, m) & Copy(Mat, m)
 
+assert Mat.copy.lf:
+  forall -v: U32
+  forall cv: Copy(U32, v) & Copy(U32, v)
+  Copy(Mat, Lf{v}) & Copy(Mat, Lf{v})
+
+def Mat.copy.lf(v, cv):
+  ((v1, e1), (v2, e2)) = cv
+  p1 = Equal.cong(U32, Mat, x => Lf{x}, v, v1, e1)
+  p2 = Equal.cong(U32, Mat, x => Lf{x}, v, v2, e2)
+  ((Lf{v1}, p1), (Lf{v2}, p2))
+
+assert Mat.copy.qd:
+  forall -a: Mat
+  forall -b: Mat
+  forall -c: Mat
+  forall -d: Mat
+  forall ca: Copy(Mat, a) & Copy(Mat, a)
+  forall cb: Copy(Mat, b) & Copy(Mat, b)
+  forall cc: Copy(Mat, c) & Copy(Mat, c)
+  forall cd: Copy(Mat, d) & Copy(Mat, d)
+  Copy(Mat, Qd{a, b, c, d}) & Copy(Mat, Qd{a, b, c, d})
+
+def Mat.copy.qd(a, b, c, d, ca, cb, cc, cd):
+  ((a1, ea1), (a2, ea2)) = ca
+  ((b1, eb1), (b2, eb2)) = cb
+  ((c1, ec1), (c2, ec2)) = cc
+  ((d1, ed1), (d2, ed2)) = cd
+  p1 = Equal.trans(Mat, Qd{a, b, c, d}, Qd{a1, b, c, d}, Qd{a1, b1, c1, d1},
+                   Equal.cong(Mat, Mat, x => Qd{x, b, c, d}, a, a1, ea1),
+                   Equal.trans(Mat, Qd{a1, b, c, d}, Qd{a1, b1, c, d}, Qd{a1, b1, c1, d1},
+                               Equal.cong(Mat, Mat, x => Qd{a1, x, c, d}, b, b1, eb1),
+                               Equal.trans(Mat, Qd{a1, b1, c, d}, Qd{a1, b1, c1, d}, Qd{a1, b1, c1, d1},
+                                           Equal.cong(Mat, Mat, x => Qd{a1, b1, x, d}, c, c1, ec1),
+                                           Equal.cong(Mat, Mat, x => Qd{a1, b1, c1, x}, d, d1, ed1))))
+  p2 = Equal.trans(Mat, Qd{a, b, c, d}, Qd{a2, b, c, d}, Qd{a2, b2, c2, d2},
+                   Equal.cong(Mat, Mat, x => Qd{x, b, c, d}, a, a2, ea2),
+                   Equal.trans(Mat, Qd{a2, b, c, d}, Qd{a2, b2, c, d}, Qd{a2, b2, c2, d2},
+                               Equal.cong(Mat, Mat, x => Qd{a2, x, c, d}, b, b2, eb2),
+                               Equal.trans(Mat, Qd{a2, b2, c, d}, Qd{a2, b2, c2, d}, Qd{a2, b2, c2, d2},
+                                           Equal.cong(Mat, Mat, x => Qd{a2, b2, x, d}, c, c2, ec2),
+                                           Equal.cong(Mat, Mat, x => Qd{a2, b2, c2, x}, d, d2, ed2))))
+  ((Qd{a1, b1, c1, d1}, p1), (Qd{a2, b2, c2, d2}, p2))
+
 def Mat.copy(m):
   match m:
     case Lf{v}:
-      ((v1, e1), (v2, e2)) = U32.copy(v)
-      p1 = Equal.cong(U32, Mat, x => Lf{x}, v, v1, e1)
-      p2 = Equal.cong(U32, Mat, x => Lf{x}, v, v2, e2)
-      ((Lf{v1}, p1), (Lf{v2}, p2))
+      Mat.copy.lf(v, U32.copy(v))
     case Qd{a, b, c, d}:
-      ((a1, ea1), (a2, ea2)) = Mat.copy(a)
-      ((b1, eb1), (b2, eb2)) = Mat.copy(b)
-      ((c1, ec1), (c2, ec2)) = Mat.copy(c)
-      ((d1, ed1), (d2, ed2)) = Mat.copy(d)
-      p1 = Equal.trans(Mat, Qd{a, b, c, d}, Qd{a1, b, c, d}, Qd{a1, b1, c1, d1},
-                       Equal.cong(Mat, Mat, x => Qd{x, b, c, d}, a, a1, ea1),
-                       Equal.trans(Mat, Qd{a1, b, c, d}, Qd{a1, b1, c, d}, Qd{a1, b1, c1, d1},
-                                   Equal.cong(Mat, Mat, x => Qd{a1, x, c, d}, b, b1, eb1),
-                                   Equal.trans(Mat, Qd{a1, b1, c, d}, Qd{a1, b1, c1, d}, Qd{a1, b1, c1, d1},
-                                               Equal.cong(Mat, Mat, x => Qd{a1, b1, x, d}, c, c1, ec1),
-                                               Equal.cong(Mat, Mat, x => Qd{a1, b1, c1, x}, d, d1, ed1))))
-      p2 = Equal.trans(Mat, Qd{a, b, c, d}, Qd{a2, b, c, d}, Qd{a2, b2, c2, d2},
-                       Equal.cong(Mat, Mat, x => Qd{x, b, c, d}, a, a2, ea2),
-                       Equal.trans(Mat, Qd{a2, b, c, d}, Qd{a2, b2, c, d}, Qd{a2, b2, c2, d2},
-                                   Equal.cong(Mat, Mat, x => Qd{a2, x, c, d}, b, b2, eb2),
-                                   Equal.trans(Mat, Qd{a2, b2, c, d}, Qd{a2, b2, c2, d}, Qd{a2, b2, c2, d2},
-                                               Equal.cong(Mat, Mat, x => Qd{a2, b2, x, d}, c, c2, ec2),
-                                               Equal.cong(Mat, Mat, x => Qd{a2, b2, c2, x}, d, d2, ed2))))
-      ((Qd{a1, b1, c1, d1}, p1), (Qd{a2, b2, c2, d2}, p2))
+      Mat.copy.qd(a, b, c, d, Mat.copy(a), Mat.copy(b), Mat.copy(c), Mat.copy(d))
 
 assert Vec.copy:
   forall v: Vec
   Copy(Vec, v) & Copy(Vec, v)
 
+assert Vec.copy.vl:
+  forall -x: U32
+  forall cx: Copy(U32, x) & Copy(U32, x)
+  Copy(Vec, Vl{x}) & Copy(Vec, Vl{x})
+
+def Vec.copy.vl(x, cx):
+  ((x1, e1), (x2, e2)) = cx
+  p1 = Equal.cong(U32, Vec, y => Vl{y}, x, x1, e1)
+  p2 = Equal.cong(U32, Vec, y => Vl{y}, x, x2, e2)
+  ((Vl{x1}, p1), (Vl{x2}, p2))
+
+assert Vec.copy.vn:
+  forall -l: Vec
+  forall -r: Vec
+  forall cl: Copy(Vec, l) & Copy(Vec, l)
+  forall cr: Copy(Vec, r) & Copy(Vec, r)
+  Copy(Vec, Vn{l, r}) & Copy(Vec, Vn{l, r})
+
+def Vec.copy.vn(l, r, cl, cr):
+  ((l1, el1), (l2, el2)) = cl
+  ((r1, er1), (r2, er2)) = cr
+  p1 = Equal.trans(Vec, Vn{l, r}, Vn{l1, r}, Vn{l1, r1},
+                   Equal.cong(Vec, Vec, y => Vn{y, r}, l, l1, el1),
+                   Equal.cong(Vec, Vec, y => Vn{l1, y}, r, r1, er1))
+  p2 = Equal.trans(Vec, Vn{l, r}, Vn{l2, r}, Vn{l2, r2},
+                   Equal.cong(Vec, Vec, y => Vn{y, r}, l, l2, el2),
+                   Equal.cong(Vec, Vec, y => Vn{l2, y}, r, r2, er2))
+  ((Vn{l1, r1}, p1), (Vn{l2, r2}, p2))
+
 def Vec.copy(v):
   match v:
     case Vl{x}:
-      ((x1, e1), (x2, e2)) = U32.copy(x)
-      p1 = Equal.cong(U32, Vec, y => Vl{y}, x, x1, e1)
-      p2 = Equal.cong(U32, Vec, y => Vl{y}, x, x2, e2)
-      ((Vl{x1}, p1), (Vl{x2}, p2))
+      Vec.copy.vl(x, U32.copy(x))
     case Vn{l, r}:
-      ((l1, el1), (l2, el2)) = Vec.copy(l)
-      ((r1, er1), (r2, er2)) = Vec.copy(r)
-      p1 = Equal.trans(Vec, Vn{l, r}, Vn{l1, r}, Vn{l1, r1},
-                       Equal.cong(Vec, Vec, y => Vn{y, r}, l, l1, el1),
-                       Equal.cong(Vec, Vec, y => Vn{l1, y}, r, r1, er1))
-      p2 = Equal.trans(Vec, Vn{l, r}, Vn{l2, r}, Vn{l2, r2},
-                       Equal.cong(Vec, Vec, y => Vn{y, r}, l, l2, el2),
-                       Equal.cong(Vec, Vec, y => Vn{l2, y}, r, r2, er2))
-      ((Vn{l1, r1}, p1), (Vn{l2, r2}, p2))
+      Vec.copy.vn(l, r, Vec.copy(l), Vec.copy(r))
 
 assert b2u:
   forall b: Bool
@@ -103,7 +143,10 @@ def gen(d, s):
     case 0n:
       Lf{U32.mod(s, 100)}
     case 1n+p:
-      Both{a, Both{b, Both{c, e}}} = {Both{gen(p, U32.inc(U32.mul(s, 1664525))), Both{gen(p, U32.add(U32.mul(s, 214013), 3)), Both{gen(p, U32.add(U32.mul(s, 16843009), 5)), gen(p, U32.add(U32.mul(s, 48271), 7))}}} : Par<Mat, Par<Mat, Par<Mat, Mat>>>}
+      & a : Mat = gen(p, U32.inc(U32.mul(s, 1664525)))
+      & b : Mat = gen(p, U32.add(U32.mul(s, 214013), 3))
+      & c : Mat = gen(p, U32.add(U32.mul(s, 16843009), 5))
+      & e : Mat = gen(p, U32.add(U32.mul(s, 48271), 7));
       Qd{a, b, c, e}
 
 assert vgen:
@@ -116,7 +159,8 @@ def vgen(d, s):
     case 0n:
       Vl{U32.inc(U32.mod(U32.mul(s, 2654435761), 100))}
     case 1n+p:
-      Both{l, r} = {Both{vgen(p, U32.inc(U32.mul(s, 1664525))), vgen(p, U32.add(U32.mul(s, 214013), 3))} : Par<Vec, Vec>}
+      & l : Vec = vgen(p, U32.inc(U32.mul(s, 1664525)))
+      & r : Vec = vgen(p, U32.add(U32.mul(s, 214013), 3));
       Vn{l, r}
 
 assert add:
@@ -133,7 +177,10 @@ def add(a, b):
     case Qd{a0, a1, a2, a3} Lf{y}:
       Lf{0}
     case Qd{a0, a1, a2, a3} Qd{b0, b1, b2, b3}:
-      Both{r0, Both{r1, Both{r2, r3}}} = {Both{add(a0, b0), Both{add(a1, b1), Both{add(a2, b2), add(a3, b3)}}} : Par<Mat, Par<Mat, Par<Mat, Mat>>>}
+      & r0 : Mat = add(a0, b0)
+      & r1 : Mat = add(a1, b1)
+      & r2 : Mat = add(a2, b2)
+      & r3 : Mat = add(a3, b3);
       Qd{r0, r1, r2, r3}
 
 # join of one mul burst: C_ij = P_ij + Q_ij, all four quadrant sums
@@ -150,7 +197,10 @@ assert add4:
   Mat
 
 def add4(p0, q0, p1, q1, p2, q2, p3, q3):
-  Both{c0, Both{c1, Both{c2, c3}}} = {Both{add(p0, q0), Both{add(p1, q1), Both{add(p2, q2), add(p3, q3)}}} : Par<Mat, Par<Mat, Par<Mat, Mat>>>}
+  & c0 : Mat = add(p0, q0)
+  & c1 : Mat = add(p1, q1)
+  & c2 : Mat = add(p2, q2)
+  & c3 : Mat = add(p3, q3);
   Qd{c0, c1, c2, c3}
 
 # each node spawns its whole 8-product burst as ONE 8-way fork,
@@ -169,7 +219,14 @@ def mul(a, b):
     case Qd{a0, a1, a2, a3} Lf{y}:
       Lf{0}
     case Qd{a0, a1, a2, a3} Qd{b0, b1, b2, b3}:
-      Both{p0, Both{q0, Both{p1, Both{q1, Both{p2, Both{q2, Both{p3, q3}}}}}}} = {Both{mul(a0, b0), Both{mul(a1, b2), Both{mul(a0, b1), Both{mul(a1, b3), Both{mul(a2, b0), Both{mul(a3, b2), Both{mul(a2, b1), mul(a3, b3)}}}}}}} : Par<Mat, Par<Mat, Par<Mat, Par<Mat, Par<Mat, Par<Mat, Par<Mat, Mat>>>>>>>}
+      & p0 : Mat = mul(a0, b0)
+      & q0 : Mat = mul(a1, b2)
+      & p1 : Mat = mul(a0, b1)
+      & q1 : Mat = mul(a1, b3)
+      & p2 : Mat = mul(a2, b0)
+      & q2 : Mat = mul(a3, b2)
+      & p3 : Mat = mul(a2, b1)
+      & q3 : Mat = mul(a3, b3);
       add4(p0, q0, p1, q1, p2, q2, p3, q3)
 
 assert vadd:
@@ -186,7 +243,8 @@ def vadd(x, y):
     case Vn{a, b} Vl{c}:
       Vl{0}
     case Vn{a, b} Vn{c, d}:
-      Both{l, r} = {Both{vadd(a, c), vadd(b, d)} : Par<Vec, Vec>}
+      & l : Vec = vadd(a, c)
+      & r : Vec = vadd(b, d);
       Vn{l, r}
 
 # join of one mvm burst: both half-sums in one fork
@@ -198,7 +256,8 @@ assert vadd2:
   Vec
 
 def vadd2(t0, t1, t2, t3):
-  Both{top, bot} = {Both{vadd(t0, t1), vadd(t2, t3)} : Par<Vec, Vec>}
+  & top : Vec = vadd(t0, t1)
+  & bot : Vec = vadd(t2, t3);
   Vn{top, bot}
 
 # [[a,b],[c,d]] * (l,h) = (a*l + b*h, c*l + d*h)
@@ -216,7 +275,10 @@ def mvm(m, v):
     case Qd{a, b, c, d} Vl{y}:
       Vl{0}
     case Qd{a, b, c, d} Vn{l, h}:
-      Both{t0, Both{t1, Both{t2, t3}}} = {Both{mvm(a, l), Both{mvm(b, h), Both{mvm(c, l), mvm(d, h)}}} : Par<Vec, Par<Vec, Par<Vec, Vec>>>}
+      & t0 : Vec = mvm(a, l)
+      & t1 : Vec = mvm(b, h)
+      & t2 : Vec = mvm(c, l)
+      & t3 : Vec = mvm(d, h);
       vadd2(t0, t1, t2, t3)
 
 assert cksum:
@@ -228,7 +290,10 @@ def cksum(m):
     case Lf{x}:
       x
     case Qd{a, b, c, d}:
-      Both{p, Both{q, Both{r, s}}} = {Both{cksum(a), Both{cksum(b), Both{cksum(c), cksum(d)}}} : Par<U32, Par<U32, Par<U32, U32>>>}
+      & p : U32 = cksum(a)
+      & q : U32 = cksum(b)
+      & r : U32 = cksum(c)
+      & s : U32 = cksum(d);
       U32.add(U32.add(U32.add(p, q), r), s)
 
 # or-fold of elementwise xor: 0 iff the vectors are identical
@@ -246,7 +311,8 @@ def vdif(x, y):
     case Vn{a, b} Vl{c}:
       1
     case Vn{a, b} Vn{c, d}:
-      Both{l, r} = {Both{vdif(a, c), vdif(b, d)} : Par<U32, U32>}
+      & l : U32 = vdif(a, c)
+      & r : U32 = vdif(b, d);
       U32.or(l, r)
 
 # one round: generate A, B, r; C = A*B; Freivalds-verify C*r == A*(B*r)
@@ -256,7 +322,8 @@ assert round:
   U32
 
 def round(d, s):
-  Both{a00, b00} = {Both{gen(d, U32.inc(s)), gen(d, U32.add(s, 2))} : Par<Mat, Mat>}
+  & a00 : Mat = gen(d, U32.inc(s))
+  & b00 : Mat = gen(d, U32.add(s, 2));
   +a = {a00 : +Mat}
   +b = {b00 : +Mat}
   +r = {vgen(d, U32.add(s, 3)) : +Vec}
@@ -266,18 +333,27 @@ def round(d, s):
   t2 = mvm(a, mvm(b, r))
   U32.add(U32.xor(k, U32.mul(s, 2654435761)), b2u(U32.is_zero(vdif(t1, t2))))
 
+assert batch.leaf.go:
+  forall t: Bool
+  forall d: Nat
+  forall pp: U32
+  U32
+
 assert batch.leaf:
   forall +pp: +U32
   forall n: U32
   forall d: Nat
   U32
 
-def batch.leaf(pp, n, d):
-  match U32.is_lt(pp, n):
+def batch.leaf.go(t, d, pp):
+  match t:
     case False{}:
       0
     case True{}:
       round(d, U32.mul(pp, 2654435761))
+
+def batch.leaf(pp, n, d):
+  batch.leaf.go(U32.is_lt(pp, n), d, pp)
 
 # batch tree over the round index space: leaf i runs one round when
 # p < nchain, p = the leaf's odd-multiplier permuted index (seed =
@@ -296,7 +372,8 @@ def batch(bg, i, n, m, d):
     case 0n:
       batch.leaf(U32.and(U32.mul(i, 2654435761), m), n, d)
     case 1n+p:
-      Both{x, y} = {Both{batch(p, i, n, m, d), batch(p, U32.add(i, U32.shln(p, 1)), n, m, d)} : Par<U32, U32>}
+      & x : U32 = batch(p, i, n, m, d)
+      & y : U32 = batch(p, U32.add(i, U32.shln(p, 1)), n, m, d);
       U32.add(x, y)
 
 assert size:

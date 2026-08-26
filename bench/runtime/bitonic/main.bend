@@ -41,18 +41,27 @@ def key(i):
 
 # compare-and-swap of two leaves; s flips the order (Bend3's
 # swap(s ^ (x > y), x, y))
+assert warp_leaf.go:
+  forall x: U32
+  forall y: U32
+  forall t: Bool
+  Tree
+
 assert warp_leaf:
   forall +x: +U32
   forall +y: +U32
   forall s: Bool
   Tree
 
-def warp_leaf(x, y, s):
-  match Bool.xor(s, U32.is_gt(x, y)):
+def warp_leaf.go(x, y, t):
+  match t:
     case False{}:
       Node{Leaf{x}, Leaf{y}}
     case True{}:
       Node{Leaf{y}, Leaf{x}}
+
+def warp_leaf(x, y, s):
+  warp_leaf.go(x, y, Bool.xor(s, U32.is_gt(x, y)))
 
 assert warp_zip:
   forall wa: Tree
@@ -85,38 +94,46 @@ def warp(a, b, s):
     case Node{aa, ab} Leaf{bv}:
       Leaf{0}
     case Node{aa, ab} Node{ba, bb}:
-      Both{wa, wb} = {Both{warp(aa, ba, s), warp(ab, bb, s)} : Par<Tree, Tree>}
+      & wa : Tree = warp(aa, ba, s)
+      & wb : Tree = warp(ab, bb, s);
       warp_zip(wa, wb)
 
-# bitonic merge of a tree of depth 1+d: warp the root pair, then merge
-# both halves one level shallower (Bend3's flow/down cycle, folded)
+# bitonic merge, root pair already warped: flow(d, s, w) finishes a
+# merge of depth 1+d whose root warp the CALLER did (a match may only
+# scrutinize a parameter or a field, so the warped tree rides in as
+# the argument and each half's warp feeds the next self-call)
 assert flow:
   forall +d: +Nat
   forall +s: +Bool
-  forall t: Tree
+  forall w: Tree
   Tree
 
-def flow(d, s, t):
-  match d t:
+def flow(d, s, w):
+  match d w:
     case 0n Leaf{v}:
       Leaf{v}
-    case 0n Node{a, b}:
-      warp(a, b, s)
+    case 0n Node{wa, wb}:
+      Node{wa, wb}
     case 1n+p Leaf{v}:
       Leaf{v}
-    case 1n+p Node{a, b}:
-      match warp(a, b, s):
-        case Leaf{v}:
-          Leaf{v}
-        case Node{wa, wb}:
-          Both{fa, fb} = {Both{flow(p, s, wa), flow(p, s, wb)} : Par<Tree, Tree>}
-          Node{fa, fb}
+    case 1n+p Node{Leaf{x}, Leaf{y}}:
+      Node{Leaf{x}, Leaf{y}}
+    case 1n+p Node{Leaf{x}, Node{y0, y1}}:
+      Node{Leaf{x}, flow(p, s, warp(y0, y1, s))}
+    case 1n+p Node{Node{x0, x1}, Leaf{y}}:
+      Node{flow(p, s, warp(x0, x1, s)), Leaf{y}}
+    case 1n+p Node{Node{x0, x1}, Node{y0, y1}}:
+      & wa : Tree = warp(x0, x1, s)
+      & wb : Tree = warp(y0, y1, s);
+      & fa : Tree = flow(p, s, wa)
+      & fb : Tree = flow(p, s, wb);
+      Node{fa, fb}
 
 # fused build-and-sort: 2^d leaves keyed by index, halves sorted in
 # opposite directions, then merged by flow
 assert bsort:
   forall +d: +Nat
-  forall s: Bool
+  forall +s: +Bool
   forall +x: +U32
   Tree
 
@@ -125,24 +142,38 @@ def bsort(d, s, x):
     case 0n:
       Leaf{key(x)}
     case 1n+p:
-      Both{sa, sb} = {Both{bsort(p, False{}, U32.inc(U32.shl(x))), bsort(p, True{}, U32.shl(x))} : Par<Tree, Tree>}
-      flow(p, s, Node{sa, sb})
+      & sa : Tree = bsort(p, False{}, U32.inc(U32.shl(x)))
+      & sb : Tree = bsort(p, True{}, U32.shl(x));
+      flow(p, s, warp(sa, sb, s))
 
 # verification join: bounds ride outward, ok demands left.hi <=
 # right.lo, the mix is order-sensitive
+assert stat_join.go:
+  forall alo: U32
+  forall bhi: U32
+  forall aok: U32
+  forall bok: U32
+  forall amx: U32
+  forall bmx: U32
+  forall t: Bool
+  Stat
+
 assert stat_join:
   forall a: Stat
   forall b: Stat
   Stat
 
+def stat_join.go(alo, bhi, aok, bok, amx, bmx, t):
+  match t:
+    case False{}:
+      St{alo, bhi, 0, U32.add(U32.mul(amx, 2654435761), bmx)}
+    case True{}:
+      St{alo, bhi, U32.and(aok, bok), U32.add(U32.mul(amx, 2654435761), bmx)}
+
 def stat_join(a, b):
   match a b:
     case St{alo, ahi, aok, amx} St{blo, bhi, bok, bmx}:
-      match U32.is_le(ahi, blo):
-        case False{}:
-          St{alo, bhi, 0, U32.add(U32.mul(amx, 2654435761), bmx)}
-        case True{}:
-          St{alo, bhi, U32.and(aok, bok), U32.add(U32.mul(amx, 2654435761), bmx)}
+      stat_join.go(alo, bhi, aok, bok, amx, bmx, U32.is_le(ahi, blo))
 
 # rank-summary scan over the sorted tree
 assert scan:
@@ -155,7 +186,8 @@ def scan(t):
       +w = {v : +U32}
       St{w, w, 1, w}
     case Node{a, b}:
-      Both{l, r} = {Both{scan(a), scan(b)} : Par<Stat, Stat>}
+      & l : Stat = scan(a)
+      & r : Stat = scan(b);
       stat_join(l, r)
 
 assert stat_out:

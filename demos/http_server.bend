@@ -25,34 +25,62 @@ def str_len(s):
     case SCon{c, t}:
       1 + str_len(t)
 
+assert req_skip.go:
+  forall s: String
+  forall e: Bool
+  String
+
 assert req_skip:
   forall s: String
   String
 
-def req_skip(s):
+def req_skip.go(s, e):
   match s:
     case SNil{}:
       SNil{}
     case SCon{Chr{code}, t}:
-      if U32.is_eq(code, 32):
-        t
-      else:
-        req_skip(t)
+      match e:
+        case True{}:
+          SCon{Chr{code}, t}
+        case False{}:
+          req_skip.go(t, U32.is_eq(code, 32))
+
+def req_skip(s):
+  req_skip.go(s, False{})
+
+assert req_take.sel:
+  forall e: Bool
+  forall u2: U32
+  forall rest: String
+  String
+
+assert req_take.cpy:
+  forall -code: U32
+  forall rest: String
+  forall c: Copy(U32, code) & Copy(U32, code)
+  String
 
 assert req_take:
   forall s: String
   String
+
+def req_take.sel(e, u2, rest):
+  match e:
+    case True{}:
+      SNil{}
+    case False{}:
+      SCon{Chr{u2}, rest}
+
+def req_take.cpy(code, rest, c):
+  ((u1, e1), (u2, e2)) = c
+  req_take.sel(U32.is_eq(u1, 32), u2, rest)
 
 def req_take(s):
   match s:
     case SNil{}:
       SNil{}
     case SCon{Chr{code}, t}:
-      ((u1, e1), (u2, e2)) = U32.copy(code)
-      if U32.is_eq(u1, 32):
-        SNil{}
-      else:
-        SCon{Chr{u2}, req_take(t)}
+      req_take.cpy(code, req_take(t), U32.copy(code))
 
 assert req_path:
   forall req: String
@@ -61,34 +89,57 @@ assert req_path:
 def req_path(req):
   req_take(req_skip(req))
 
+assert http_route.sel:
+  forall e: Bool
+  String & String
+
 assert http_route:
   forall path: String
   String & String
 
+def http_route.sel(e):
+  match e:
+    case True{}:
+      ("200 OK", "Hello from Bend!")
+    case False{}:
+      ("404 Not Found", "not found")
+
 def http_route(path):
-  if String.eq(path, "/"):
-    ("200 OK", "Hello from Bend!")
-  else:
-    ("404 Not Found", "not found")
+  http_route.sel(String.eq(path, "/"))
+
+assert http_response.go:
+  forall status: String
+  forall bb: String & String
+  String
 
 assert http_response:
   forall status: String
   forall body: String
   String
 
-def http_response(status, body):
-  (b1, b2) = String.copy(body)
+def http_response.go(status, bb):
+  (b1, b2) = bb
   head = "HTTP/1.1 " ++ status ++ "\r\n"
   size = "Content-Length: " ++ U32.show(str_len(b1)) ++ "\r\n\r\n"
   head ++ size ++ b2
+
+def http_response(status, body):
+  http_response.go(status, String.copy(body))
+
+assert http_reply.go:
+  forall sb: String & String
+  String
 
 assert http_reply:
   forall req: String
   String
 
-def http_reply(req):
-  (status, body) = http_route(req_path(req))
+def http_reply.go(sb):
+  (status, body) = sb
   http_response(status, body)
+
+def http_reply(req):
+  http_reply.go(http_route(req_path(req)))
 
 assert http_sent:
   forall sm: Socket & Result<U32 & String, Unit>
@@ -187,18 +238,37 @@ def http_finish(c):
     rm : Socket & Result<U32 & String, String> <- TCP.recv(c, 1024)
     http_finish_go(rm)
 
+assert report.sel:
+  forall label: String
+  forall g2: String
+  forall e: Bool
+  IO(Unit)
+
+assert report.go:
+  forall label: String
+  forall want: String
+  forall gg: String & String
+  IO(Unit)
+
 assert report:
   forall label: String
   forall got: String
   forall want: String
   IO(Unit)
 
+def report.sel(label, g2, e):
+  match e:
+    case True{}:
+      IO.print(label ++ ": exact response bytes")
+    case False{}:
+      IO.print(label ++ ": UNEXPECTED " ++ g2)
+
+def report.go(label, want, gg):
+  (g1, g2) = gg
+  report.sel(label, g2, String.eq(g1, want))
+
 def report(label, got, want):
-  (g1, g2) = String.copy(got)
-  if String.eq(g1, want):
-    IO.print(label ++ ": exact response bytes")
-  else:
-    IO.print(label ++ ": UNEXPECTED " ++ g2)
+  report.go(label, want, String.copy(got))
 
 assert http_retry:
   forall port: U32

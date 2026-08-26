@@ -31,7 +31,126 @@ type Expr:
 type Sel:
   Sel{fit: U32, seed: U32, sum: U32}
 
+assert Sel.copy.go:
+  forall -f: U32
+  forall -s: U32
+  forall -c: U32
+  forall cf: Copy(U32, f) & Copy(U32, f)
+  forall cs: Copy(U32, s) & Copy(U32, s)
+  forall cc: Copy(U32, c) & Copy(U32, c)
+  Copy(Sel, Sel{f, s, c}) & Copy(Sel, Sel{f, s, c})
+
+def Sel.copy.go(f, s, c, cf, cs, cc):
+  ((f1, e1), (f2, e2)) = cf
+  ((s1, g1), (s2, g2)) = cs
+  ((c1, h1), (c2, h2)) = cc
+  p1 = Equal.trans(Sel, Sel{f, s, c}, Sel{f1, s, c}, Sel{f1, s1, c1},
+                   Equal.cong(U32, Sel, x => Sel{x, s, c}, f, f1, e1),
+                   Equal.trans(Sel, Sel{f1, s, c}, Sel{f1, s1, c}, Sel{f1, s1, c1},
+                               Equal.cong(U32, Sel, x => Sel{f1, x, c}, s, s1, g1),
+                               Equal.cong(U32, Sel, x => Sel{f1, s1, x}, c, c1, h1)))
+  p2 = Equal.trans(Sel, Sel{f, s, c}, Sel{f2, s, c}, Sel{f2, s2, c2},
+                   Equal.cong(U32, Sel, x => Sel{x, s, c}, f, f2, e2),
+                   Equal.trans(Sel, Sel{f2, s, c}, Sel{f2, s2, c}, Sel{f2, s2, c2},
+                               Equal.cong(U32, Sel, x => Sel{f2, x, c}, s, s2, g2),
+                               Equal.cong(U32, Sel, x => Sel{f2, s2, x}, c, c2, h2)))
+  ((Sel{f1, s1, c1}, p1), (Sel{f2, s2, c2}, p2))
+
+assert Sel.copy:
+  forall v: Sel
+  Copy(Sel, v) & Copy(Sel, v)
+
+def Sel.copy(v):
+  match v:
+    case Sel{f, s, c}:
+      Sel.copy.go(f, s, c, U32.copy(f), U32.copy(s), U32.copy(c))
+
+assert Sel.fit:
+  forall v: Sel
+  U32
+
+def Sel.fit(v):
+  match v:
+    case Sel{f, s, c}:
+      f
+
+assert Sel.seed:
+  forall v: Sel
+  U32
+
+def Sel.seed(v):
+  match v:
+    case Sel{f, s, c}:
+      s
+
 # copy witness for the shared tree: never emitted, only licenses +Expr
+assert Expr.copy.lit:
+  forall -v: U32
+  forall cv: Copy(U32, v) & Copy(U32, v)
+  Copy(Expr, Lit{v}) & Copy(Expr, Lit{v})
+
+def Expr.copy.lit(v, cv):
+  ((v1, e1), (v2, e2)) = cv
+  p1 = Equal.cong(U32, Expr, x => Lit{x}, v, v1, e1)
+  p2 = Equal.cong(U32, Expr, x => Lit{x}, v, v2, e2)
+  ((Lit{v1}, p1), (Lit{v2}, p2))
+
+assert Expr.copy.add:
+  forall -a: Expr
+  forall -b: Expr
+  forall ca: Copy(Expr, a) & Copy(Expr, a)
+  forall cb: Copy(Expr, b) & Copy(Expr, b)
+  Copy(Expr, Add{a, b}) & Copy(Expr, Add{a, b})
+
+def Expr.copy.add(a, b, ca, cb):
+  ((a1, ea1), (a2, ea2)) = ca
+  ((b1, eb1), (b2, eb2)) = cb
+  p1 = Equal.trans(Expr, Add{a, b}, Add{a1, b}, Add{a1, b1}, Equal.cong(Expr, Expr, x => Add{x, b}, a, a1, ea1), Equal.cong(Expr, Expr, x => Add{a1, x}, b, b1, eb1))
+  p2 = Equal.trans(Expr, Add{a, b}, Add{a2, b}, Add{a2, b2}, Equal.cong(Expr, Expr, x => Add{x, b}, a, a2, ea2), Equal.cong(Expr, Expr, x => Add{a2, x}, b, b2, eb2))
+  ((Add{a1, b1}, p1), (Add{a2, b2}, p2))
+
+assert Expr.copy.sub:
+  forall -a: Expr
+  forall -b: Expr
+  forall ca: Copy(Expr, a) & Copy(Expr, a)
+  forall cb: Copy(Expr, b) & Copy(Expr, b)
+  Copy(Expr, Sub{a, b}) & Copy(Expr, Sub{a, b})
+
+def Expr.copy.sub(a, b, ca, cb):
+  ((a1, ea1), (a2, ea2)) = ca
+  ((b1, eb1), (b2, eb2)) = cb
+  p1 = Equal.trans(Expr, Sub{a, b}, Sub{a1, b}, Sub{a1, b1}, Equal.cong(Expr, Expr, x => Sub{x, b}, a, a1, ea1), Equal.cong(Expr, Expr, x => Sub{a1, x}, b, b1, eb1))
+  p2 = Equal.trans(Expr, Sub{a, b}, Sub{a2, b}, Sub{a2, b2}, Equal.cong(Expr, Expr, x => Sub{x, b}, a, a2, ea2), Equal.cong(Expr, Expr, x => Sub{a2, x}, b, b2, eb2))
+  ((Sub{a1, b1}, p1), (Sub{a2, b2}, p2))
+
+assert Expr.copy.mul:
+  forall -a: Expr
+  forall -b: Expr
+  forall ca: Copy(Expr, a) & Copy(Expr, a)
+  forall cb: Copy(Expr, b) & Copy(Expr, b)
+  Copy(Expr, Mul{a, b}) & Copy(Expr, Mul{a, b})
+
+def Expr.copy.mul(a, b, ca, cb):
+  ((a1, ea1), (a2, ea2)) = ca
+  ((b1, eb1), (b2, eb2)) = cb
+  p1 = Equal.trans(Expr, Mul{a, b}, Mul{a1, b}, Mul{a1, b1}, Equal.cong(Expr, Expr, x => Mul{x, b}, a, a1, ea1), Equal.cong(Expr, Expr, x => Mul{a1, x}, b, b1, eb1))
+  p2 = Equal.trans(Expr, Mul{a, b}, Mul{a2, b}, Mul{a2, b2}, Equal.cong(Expr, Expr, x => Mul{x, b}, a, a2, ea2), Equal.cong(Expr, Expr, x => Mul{a2, x}, b, b2, eb2))
+  ((Mul{a1, b1}, p1), (Mul{a2, b2}, p2))
+
+assert Expr.copy.xor:
+  forall -a: Expr
+  forall -b: Expr
+  forall ca: Copy(Expr, a) & Copy(Expr, a)
+  forall cb: Copy(Expr, b) & Copy(Expr, b)
+  Copy(Expr, Xor{a, b}) & Copy(Expr, Xor{a, b})
+
+def Expr.copy.xor(a, b, ca, cb):
+  ((a1, ea1), (a2, ea2)) = ca
+  ((b1, eb1), (b2, eb2)) = cb
+  p1 = Equal.trans(Expr, Xor{a, b}, Xor{a1, b}, Xor{a1, b1}, Equal.cong(Expr, Expr, x => Xor{x, b}, a, a1, ea1), Equal.cong(Expr, Expr, x => Xor{a1, x}, b, b1, eb1))
+  p2 = Equal.trans(Expr, Xor{a, b}, Xor{a2, b}, Xor{a2, b2}, Equal.cong(Expr, Expr, x => Xor{x, b}, a, a2, ea2), Equal.cong(Expr, Expr, x => Xor{a2, x}, b, b2, eb2))
+  ((Xor{a1, b1}, p1), (Xor{a2, b2}, p2))
+
 assert Expr.copy:
   forall e: Expr
   Copy(Expr, e) & Copy(Expr, e)
@@ -41,34 +160,15 @@ def Expr.copy(e):
     case Var{}:
       ((Var{}, {==}), (Var{}, {==}))
     case Lit{v}:
-      ((v1, e1), (v2, e2)) = U32.copy(v)
-      p1 = Equal.cong(U32, Expr, x => Lit{x}, v, v1, e1)
-      p2 = Equal.cong(U32, Expr, x => Lit{x}, v, v2, e2)
-      ((Lit{v1}, p1), (Lit{v2}, p2))
+      Expr.copy.lit(v, U32.copy(v))
     case Add{a, b}:
-      ((a1, ea1), (a2, ea2)) = Expr.copy(a)
-      ((b1, eb1), (b2, eb2)) = Expr.copy(b)
-      p1 = Equal.trans(Expr, Add{a, b}, Add{a1, b}, Add{a1, b1}, Equal.cong(Expr, Expr, x => Add{x, b}, a, a1, ea1), Equal.cong(Expr, Expr, x => Add{a1, x}, b, b1, eb1))
-      p2 = Equal.trans(Expr, Add{a, b}, Add{a2, b}, Add{a2, b2}, Equal.cong(Expr, Expr, x => Add{x, b}, a, a2, ea2), Equal.cong(Expr, Expr, x => Add{a2, x}, b, b2, eb2))
-      ((Add{a1, b1}, p1), (Add{a2, b2}, p2))
+      Expr.copy.add(a, b, Expr.copy(a), Expr.copy(b))
     case Sub{a, b}:
-      ((a1, ea1), (a2, ea2)) = Expr.copy(a)
-      ((b1, eb1), (b2, eb2)) = Expr.copy(b)
-      p1 = Equal.trans(Expr, Sub{a, b}, Sub{a1, b}, Sub{a1, b1}, Equal.cong(Expr, Expr, x => Sub{x, b}, a, a1, ea1), Equal.cong(Expr, Expr, x => Sub{a1, x}, b, b1, eb1))
-      p2 = Equal.trans(Expr, Sub{a, b}, Sub{a2, b}, Sub{a2, b2}, Equal.cong(Expr, Expr, x => Sub{x, b}, a, a2, ea2), Equal.cong(Expr, Expr, x => Sub{a2, x}, b, b2, eb2))
-      ((Sub{a1, b1}, p1), (Sub{a2, b2}, p2))
+      Expr.copy.sub(a, b, Expr.copy(a), Expr.copy(b))
     case Mul{a, b}:
-      ((a1, ea1), (a2, ea2)) = Expr.copy(a)
-      ((b1, eb1), (b2, eb2)) = Expr.copy(b)
-      p1 = Equal.trans(Expr, Mul{a, b}, Mul{a1, b}, Mul{a1, b1}, Equal.cong(Expr, Expr, x => Mul{x, b}, a, a1, ea1), Equal.cong(Expr, Expr, x => Mul{a1, x}, b, b1, eb1))
-      p2 = Equal.trans(Expr, Mul{a, b}, Mul{a2, b}, Mul{a2, b2}, Equal.cong(Expr, Expr, x => Mul{x, b}, a, a2, ea2), Equal.cong(Expr, Expr, x => Mul{a2, x}, b, b2, eb2))
-      ((Mul{a1, b1}, p1), (Mul{a2, b2}, p2))
+      Expr.copy.mul(a, b, Expr.copy(a), Expr.copy(b))
     case Xor{a, b}:
-      ((a1, ea1), (a2, ea2)) = Expr.copy(a)
-      ((b1, eb1), (b2, eb2)) = Expr.copy(b)
-      p1 = Equal.trans(Expr, Xor{a, b}, Xor{a1, b}, Xor{a1, b1}, Equal.cong(Expr, Expr, x => Xor{x, b}, a, a1, ea1), Equal.cong(Expr, Expr, x => Xor{a1, x}, b, b1, eb1))
-      p2 = Equal.trans(Expr, Xor{a, b}, Xor{a2, b}, Xor{a2, b2}, Equal.cong(Expr, Expr, x => Xor{x, b}, a, a2, ea2), Equal.cong(Expr, Expr, x => Xor{a2, x}, b, b2, eb2))
-      ((Xor{a1, b1}, p1), (Xor{a2, b2}, p2))
+      Expr.copy.xor(a, b, Expr.copy(a), Expr.copy(b))
 
 assert b2u:
   forall b: Bool
@@ -90,6 +190,19 @@ def prng(x):
   +d = {U32.xor(b, U32.shrn(17n, b)) : +U32}
   U32.xor(d, U32.shln(5n, d))
 
+assert sel.go:
+  forall x: U32
+  forall y: U32
+  forall z: Bool
+  U32
+
+def sel.go(x, y, z):
+  match z:
+    case True{}:
+      x
+    case False{}:
+      y
+
 assert sel:
   forall t: U32
   forall x: U32
@@ -97,11 +210,7 @@ assert sel:
   U32
 
 def sel(t, x, y):
-  match U32.is_zero(t):
-    case True{}:
-      x
-    case False{}:
-      y
+  sel.go(x, y, U32.is_zero(t))
 
 assert adiff:
   forall +a: +U32
@@ -129,19 +238,27 @@ def node(o, a, b):
       Xor{a, b}
 
 # materialize a candidate AST straight off the hash stream
+assert gen.leaf:
+  forall +h: +U32
+  forall z: Bool
+  Expr
+
 assert gen:
   forall +d: +Nat
   forall +h: +U32
   Expr
 
+def gen.leaf(h, z):
+  match z:
+    case True{}:
+      Var{}
+    case False{}:
+      Lit{U32.and(h, 255)}
+
 def gen(d, h):
   match d:
     case 0n:
-      match U32.is_zero(U32.and(U32.shrn(8n, h), 1)):
-        case True{}:
-          Var{}
-        case False{}:
-          Lit{U32.and(h, 255)}
+      gen.leaf(h, U32.is_zero(U32.and(U32.shrn(8n, h), 1)))
     case 1n+p:
       a = gen(p, prng(U32.xor(h, 2654435761)))
       b = gen(p, prng(U32.add(h, 340573321)))
@@ -240,7 +357,8 @@ def batch(d, s, pts):
     case 0n:
       cand(prng(s), pts)
     case 1n+p:
-      Both{a, b} = {Both{batch(p, U32.add(U32.mul(s, 1664525), 1), pts), batch(p, U32.add(U32.mul(s, 214013), 3), pts)} : Par<Sel, Sel>}
+      & a : Sel = batch(p, U32.add(U32.mul(s, 1664525), 1), pts)
+      & b : Sel = batch(p, U32.add(U32.mul(s, 214013), 3), pts);
       pick(a, b)
 
 # hill-climb the tournament winner: mutate the seed, keep improvements
@@ -256,11 +374,16 @@ def climb(r, bs, bf, pts):
     case 0n:
       U32.xor(bf, U32.mul(bs, 2654435761))
     case 1n+p:
-      match cand(prng(U32.xor(bs, U32.mul(U32.inc(U32.from_nat(p)), 40503))), pts):
-        case Sel{f2, s2, c2}:
-          +ff = {f2 : +U32}
-          +w = {b2u(U32.is_lt(ff, bf)) : +U32}
-          climb(p, sel(w, bs, s2), sel(w, bf, ff), pts)
+      +cn = {cand(prng(U32.xor(bs, U32.mul(U32.inc(U32.from_nat(p)), 40503))), pts) : +Sel ~ Sel.copy}
+      +ff = {Sel.fit(cn) : +U32}
+      +w = {b2u(U32.is_lt(ff, bf)) : +U32}
+      climb(p, sel(w, bs, Sel.seed(cn)), sel(w, bf, ff), pts)
+
+assert run.fin:
+  forall r: Nat
+  forall +p: +Nat
+  forall t: Sel
+  U32
 
 assert run:
   forall d: Nat
@@ -269,10 +392,13 @@ assert run:
   forall +p: +Nat
   U32
 
-def run(d, s0, r, p):
-  match batch(d, s0, p):
+def run.fin(r, p, t):
+  match t:
     case Sel{f, s, c}:
       U32.add(climb(r, s, f, p), c)
+
+def run(d, s0, r, p):
+  run.fin(r, p, batch(d, s0, p))
 
 assert size:
   Nat

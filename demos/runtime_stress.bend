@@ -92,16 +92,32 @@ def Rt.alloc(n, x):
 
 # read slot i without net effect: swap i in (reading the old value),
 # then swap the old value back; the value crosses the seam twice
+assert Rt.read.fin:
+  forall w: U32
+  forall bz: Array<U32> & U32
+  Array<U32> & U32
+
+def Rt.read.fin(w, bz):
+  (b3, z) = bz
+  (b3, w)
+
+assert Rt.read.back:
+  forall +i: +U32
+  forall bv: Array<U32> & U32
+  Array<U32> & U32
+
+def Rt.read.back(i, bv):
+  (b2, v) = bv
+  +w = {v : +U32}
+  Rt.read.fin(w, Array.swap(U32, b2, i, w))
+
 assert Rt.read:
   forall b: Array<U32>
   forall +i: +U32
   Array<U32> & U32
 
 def Rt.read(b, i):
-  (b2, v) = Array.swap(U32, b, i, i)
-  +w = {v : +U32}
-  (b3, z) = Array.swap(U32, b2, i, w)
-  (b3, w)
+  Rt.read.back(i, Array.swap(U32, b, i, i))
 
 assert Rt.write:
   forall b: Array<U32>
@@ -110,8 +126,7 @@ assert Rt.write:
   Array<U32>
 
 def Rt.write(b, i, v):
-  (b2, old) = Array.swap(U32, b, i, v)
-  b2
+  Array.set.fin(Array.swap(U32, b, i, v))
 
 assert Rt.swap:
   forall b: Array<U32>
@@ -129,6 +144,47 @@ def Rt.swap(b, i, v):
 # captures its two child closures and composes them; its two forks are
 # independent and their values join by add. Left seed s+m, right s*s,
 # so every path gets a distinct polynomial of the root seed.
+assert spawn.leaf.wr:
+  forall +s: +U32
+  forall q: U32
+  forall +j: +U32
+  forall bo: Array<U32> & U32
+  Array<U32>
+
+def spawn.leaf.wr(s, q, j, bo):
+  (b2, old) = bo
+  Rt.write(b2, j, Rt.add(Rt.mul(old, s), q))
+
+assert spawn.leaf.go:
+  forall +s: +U32
+  forall q: U32
+  forall +j: +U32
+  forall b: Array<U32>
+  Array<U32>
+
+def spawn.leaf.go(s, q, j, b):
+  spawn.leaf.wr(s, q, j, Rt.read(b, j))
+
+assert spawn.leaf.mk:
+  forall +s: +U32
+  forall qi: U32 & U32
+  U32 & (Array<U32> -> Array<U32>)
+
+def spawn.leaf.mk(s, qi):
+  (q, i) = qi
+  +j = {i : +U32}
+  (s, b => spawn.leaf.go(s, q, j, b))
+
+assert spawn.node:
+  forall l: U32 & (Array<U32> -> Array<U32>)
+  forall r: U32 & (Array<U32> -> Array<U32>)
+  U32 & (Array<U32> -> Array<U32>)
+
+def spawn.node(l, r):
+  (va, fa) = l
+  (vb, fb) = r
+  (Rt.add(va, vb), b => fb(fa(b)))
+
 assert spawn:
   forall +d: +Nat
   forall +m: +U32
@@ -138,20 +194,106 @@ assert spawn:
 def spawn(d, m, s):
   match d:
     case 0n:
-      (q, i) = Rt.divmod(s, m)
-      +j = {i : +U32}
-      (s, b => \{Tuple: b2 => old =>
-        Rt.write(b2, j, Rt.add(Rt.mul(old, s), q))}(Rt.read(b, j)))
+      spawn.leaf.mk(s, Rt.divmod(s, m))
     case 1n+p:
-      (va, fa) = spawn(p, m, Rt.add(s, m))
-      (vb, fb) = spawn(p, m, Rt.mul(s, s))
-      (Rt.add(va, vb), b => fb(fa(b)))
+      spawn.node(spawn(p, m, Rt.add(s, m)), spawn(p, m, Rt.mul(s, s)))
 
 # String-driven drain: per character, one native swap at slot acc mod
 # 48 (z is 48 < 64 slots), one digit char from what the slot held
 # (t is 10, z doubles as the '0' offset), one Bool branch on that
 # digit steering the next mix, tail call. h drops in the branch that
 # skips it (affine); at SNil acc and the whole live array drop.
+assert churn.pick:
+  forall +z: +U32
+  forall c: U32
+  forall b2: Array<U32>
+  forall +o: +U32
+  forall h: U32
+  forall +u: +U32
+  forall e: Bool
+  (Array<U32> & U32) & U32
+
+def churn.pick(z, c, b2, o, h, u, e):
+  match e:
+    case True{}:
+      ((b2, Rt.add(o, c)), Rt.add(z, u))
+    case False{}:
+      ((b2, Rt.add(Rt.mul(o, c), h)), Rt.add(z, u))
+
+assert churn.mix:
+  forall +z: +U32
+  forall c: U32
+  forall b2: Array<U32>
+  forall +o: +U32
+  forall hr: U32 & U32
+  (Array<U32> & U32) & U32
+
+def churn.mix(z, c, b2, o, hr):
+  (h, r) = hr
+  +u = {r : +U32}
+  churn.pick(z, c, b2, o, h, u, Rt.eqz(u))
+
+assert churn.spin:
+  forall +t: +U32
+  forall +z: +U32
+  forall c: U32
+  forall bo: Array<U32> & U32
+  (Array<U32> & U32) & U32
+
+def churn.spin(t, z, c, bo):
+  (b2, old) = bo
+  +o = {old : +U32}
+  churn.mix(z, c, b2, o, Rt.divmod(o, t))
+
+assert churn.turn:
+  forall +t: +U32
+  forall +z: +U32
+  forall b: Array<U32>
+  forall c: U32
+  forall qi: U32 & U32
+  (Array<U32> & U32) & U32
+
+def churn.turn(t, z, b, c, qi):
+  (q, i) = qi
+  churn.spin(t, z, c, Rt.swap(b, i, q))
+
+assert churn.wrap:
+  forall out: String
+  forall r: (Array<U32> & U32) & U32
+  (Array<U32> & U32) & String
+
+def churn.wrap(out, r):
+  ((b2, nx), d) = r
+  ((b2, nx), SCon{Chr{d}, out})
+
+assert churn.fold:
+  forall +t: +U32
+  forall +z: +U32
+  forall b: Array<U32>
+  forall acc: U32
+  forall c: U32
+  forall out: String
+  (Array<U32> & U32) & String
+
+def churn.fold(t, z, b, acc, c, out):
+  churn.wrap(out, churn.turn(t, z, b, c, Rt.divmod(acc, z)))
+
+assert churn.go:
+  forall s: String
+  forall st: (Array<U32> & U32) & String
+  forall +t: +U32
+  forall +z: +U32
+  String
+
+def churn.go(s, st, t, z):
+  match s:
+    case SNil{}:
+      ((b, acc), out) = st
+      out
+    case SCon{Chr{c}, cs}:
+      ((b, acc), out) = st
+      churn.go(cs, churn.fold(t, z, b, acc, c, out), t, z)
+
 assert churn:
   forall s: String
   forall +t: +U32
@@ -162,20 +304,7 @@ assert churn:
   String
 
 def churn(s, t, z, b, acc, out):
-  match s:
-    case SNil{}:
-      out
-    case SCon{Chr{c}, cs}:
-      (q, i)    = Rt.divmod(acc, z)
-      (b2, old) = Rt.swap(b, i, q)
-      +o = {old : +U32}
-      (h, r)    = Rt.divmod(o, t)
-      +u = {r : +U32}
-      match Rt.eqz(u):
-        case True{}:
-          churn(cs, t, z, b2, Rt.add(o, c), SCon{Chr{Rt.add(z, u)}, out})
-        case False{}:
-          churn(cs, t, z, b2, Rt.add(Rt.mul(o, c), h), SCon{Chr{Rt.add(z, u)}, out})
+  churn.go(s, ((b, acc), out), t, z)
 
 # The match extracts numeric constants: a char literal is the only U32
 # literal in source, and Chr must be matched to reach the code. '\n' is
@@ -186,13 +315,38 @@ def churn(s, t, z, b, acc, out):
 assert run.out:
   String
 
-def run.out():
-  match {'\n' : Char} {'0' : Char}:
+assert run.seed:
+  forall +a: +U32
+  forall +c: +U32
+  forall vf: U32 & (Array<U32> -> Array<U32>)
+  String
+
+def run.seed(a, c, vf):
+  (v, f) = vf
+  churn("Bend stresses its own runtime!", a, c, f(Rt.alloc(6n, c)), v, "")
+
+assert run.mix:
+  forall t: U32
+  forall z: U32
+  String
+
+def run.mix(t, z):
+  +a = {t : +U32}
+  +c = {z : +U32}
+  run.seed(a, c, spawn(20n, c, a))
+
+assert run.chr:
+  forall x: Char
+  forall y: Char
+  String
+
+def run.chr(x, y):
+  match x y:
     case Chr{t} Chr{z}:
-      +a = {t : +U32}
-      +c = {z : +U32}
-      (v, f) = spawn(20n, c, a)
-      churn("Bend stresses its own runtime!", a, c, f(Rt.alloc(6n, c)), v, "")
+      run.mix(t, z)
+
+def run.out():
+  run.chr('\n', '0')
 
 type Tr:
   L{v: U32}
@@ -203,23 +357,41 @@ assert Tr.copy:
   forall t: Tr
   Copy(Tr, t) & Copy(Tr, t)
 
+assert Tr.copy.leaf:
+  forall -v: U32
+  forall c: Copy(U32, v) & Copy(U32, v)
+  Copy(Tr, L{v}) & Copy(Tr, L{v})
+
+def Tr.copy.leaf(v, c):
+  ((v1, e1), (v2, e2)) = c
+  p1 = Equal.cong(U32, Tr, x => L{x}, v, v1, e1)
+  p2 = Equal.cong(U32, Tr, x => L{x}, v, v2, e2)
+  ((L{v1}, p1), (L{v2}, p2))
+
+assert Tr.copy.node:
+  forall -a: Tr
+  forall -b: Tr
+  forall ca: Copy(Tr, a) & Copy(Tr, a)
+  forall cb: Copy(Tr, b) & Copy(Tr, b)
+  Copy(Tr, N{a, b}) & Copy(Tr, N{a, b})
+
+def Tr.copy.node(a, b, ca, cb):
+  ((a1, ea1), (a2, ea2)) = ca
+  ((b1, eb1), (b2, eb2)) = cb
+  p1 = Equal.trans(Tr, N{a, b}, N{a1, b}, N{a1, b1},
+                   Equal.cong(Tr, Tr, x => N{x, b}, a, a1, ea1),
+                   Equal.cong(Tr, Tr, x => N{a1, x}, b, b1, eb1))
+  p2 = Equal.trans(Tr, N{a, b}, N{a2, b}, N{a2, b2},
+                   Equal.cong(Tr, Tr, x => N{x, b}, a, a2, ea2),
+                   Equal.cong(Tr, Tr, x => N{a2, x}, b, b2, eb2))
+  ((N{a1, b1}, p1), (N{a2, b2}, p2))
+
 def Tr.copy(t):
   match t:
     case L{v}:
-      ((v1, e1), (v2, e2)) = U32.copy(v)
-      p1 = Equal.cong(U32, Tr, x => L{x}, v, v1, e1)
-      p2 = Equal.cong(U32, Tr, x => L{x}, v, v2, e2)
-      ((L{v1}, p1), (L{v2}, p2))
+      Tr.copy.leaf(v, U32.copy(v))
     case N{a, b}:
-      ((a1, ea1), (a2, ea2)) = Tr.copy(a)
-      ((b1, eb1), (b2, eb2)) = Tr.copy(b)
-      p1 = Equal.trans(Tr, N{a, b}, N{a1, b}, N{a1, b1},
-                       Equal.cong(Tr, Tr, x => N{x, b}, a, a1, ea1),
-                       Equal.cong(Tr, Tr, x => N{a1, x}, b, b1, eb1))
-      p2 = Equal.trans(Tr, N{a, b}, N{a2, b}, N{a2, b2},
-                       Equal.cong(Tr, Tr, x => N{x, b}, a, a2, ea2),
-                       Equal.cong(Tr, Tr, x => N{a2, x}, b, b2, eb2))
-      ((N{a1, b1}, p1), (N{a2, b2}, p2))
+      Tr.copy.node(a, b, Tr.copy(a), Tr.copy(b))
 
 assert build:
   forall +d: +Nat
@@ -231,7 +403,7 @@ def build(d, x):
     case 0n:
       L{x}
     case 1n+p:
-      Both{a, b} = {Both{build(p, U32.mul(x, 2)), build(p, U32.add(U32.mul(x, 2), 1))} : Par<Tr, Tr>}
+      & a : Tr = build(p, U32.mul(x, 2)) & b : Tr = build(p, U32.add(U32.mul(x, 2), 1));
       N{a, b}
 
 assert sum:
@@ -243,8 +415,19 @@ def sum(t):
     case L{v}:
       v
     case N{a, b}:
-      Both{x, y} = {Both{sum(a), sum(b)} : Par<U32, U32>}
+      & x : U32 = sum(a) & y : U32 = sum(b);
       U32.add(x, y)
+
+assert depth.max:
+  forall g: Bool
+  U32
+
+def depth.max(g):
+  match g:
+    case True{}:
+      1
+    case False{}:
+      1
 
 assert depth:
   forall t: Tr
@@ -255,11 +438,7 @@ def depth(t):
     case L{v}:
       0
     case N{a, b}:
-      match U32.is_gt(depth(a), depth(b)):
-        case True{}:
-          1
-        case False{}:
-          1
+      depth.max(U32.is_gt(depth(a), depth(b)))
 
 assert tri:
   forall +t: +Tr
@@ -314,31 +493,57 @@ assert Arr.copy:
   forall a: Array<U32>
   Copy(Array<U32>, a) & Copy(Array<U32>, a)
 
+assert Arr.copy.leaf:
+  forall -v: U32
+  forall c: Copy(U32, v) & Copy(U32, v)
+  Copy(Array<U32>, ALeaf{v}) & Copy(Array<U32>, ALeaf{v})
+
+def Arr.copy.leaf(v, c):
+  ((v1, e1), (v2, e2)) = c
+  p1 = Equal.cong(U32, Array<U32>, x => ALeaf{x}, v, v1, e1)
+  p2 = Equal.cong(U32, Array<U32>, x => ALeaf{x}, v, v2, e2)
+  ((ALeaf{v1}, p1), (ALeaf{v2}, p2))
+
+assert Arr.copy.node:
+  forall -xs: Array<U32>
+  forall -ys: Array<U32>
+  forall cx: Copy(Array<U32>, xs) & Copy(Array<U32>, xs)
+  forall cy: Copy(Array<U32>, ys) & Copy(Array<U32>, ys)
+  Copy(Array<U32>, ANode{xs, ys}) & Copy(Array<U32>, ANode{xs, ys})
+
+def Arr.copy.node(xs, ys, cx, cy):
+  ((x1, ex1), (x2, ex2)) = cx
+  ((y1, ey1), (y2, ey2)) = cy
+  p1 = Equal.trans(Array<U32>, ANode{xs, ys}, ANode{x1, ys}, ANode{x1, y1},
+                   Equal.cong(Array<U32>, Array<U32>, x => ANode{x, ys}, xs, x1, ex1),
+                   Equal.cong(Array<U32>, Array<U32>, x => ANode{x1, x}, ys, y1, ey1))
+  p2 = Equal.trans(Array<U32>, ANode{xs, ys}, ANode{x2, ys}, ANode{x2, y2},
+                   Equal.cong(Array<U32>, Array<U32>, x => ANode{x, ys}, xs, x2, ex2),
+                   Equal.cong(Array<U32>, Array<U32>, x => ANode{x2, x}, ys, y2, ey2))
+  ((ANode{x1, y1}, p1), (ANode{x2, y2}, p2))
+
 def Arr.copy(a):
   match a:
     case ALeaf{v}:
-      ((v1, e1), (v2, e2)) = U32.copy(v)
-      p1 = Equal.cong(U32, Array<U32>, x => ALeaf{x}, v, v1, e1)
-      p2 = Equal.cong(U32, Array<U32>, x => ALeaf{x}, v, v2, e2)
-      ((ALeaf{v1}, p1), (ALeaf{v2}, p2))
+      Arr.copy.leaf(v, U32.copy(v))
     case ANode{xs, ys}:
-      ((x1, ex1), (x2, ex2)) = Arr.copy(xs)
-      ((y1, ey1), (y2, ey2)) = Arr.copy(ys)
-      p1 = Equal.trans(Array<U32>, ANode{xs, ys}, ANode{x1, ys}, ANode{x1, y1},
-                       Equal.cong(Array<U32>, Array<U32>, x => ANode{x, ys}, xs, x1, ex1),
-                       Equal.cong(Array<U32>, Array<U32>, x => ANode{x1, x}, ys, y1, ey1))
-      p2 = Equal.trans(Array<U32>, ANode{xs, ys}, ANode{x2, ys}, ANode{x2, y2},
-                       Equal.cong(Array<U32>, Array<U32>, x => ANode{x, ys}, xs, x2, ex2),
-                       Equal.cong(Array<U32>, Array<U32>, x => ANode{x2, x}, ys, y2, ey2))
-      ((ANode{x1, y1}, p1), (ANode{x2, y2}, p2))
+      Arr.copy.node(xs, ys, Arr.copy(xs), Arr.copy(ys))
+
+assert cow.fin:
+  forall +a: +Array<U32> ~ Arr.copy
+  forall bo: Array<U32> & U32
+  U32
+
+def cow.fin(a, bo):
+  (b, old) = bo
+  U32.add(rd(b), U32.add(rd(a), old))
 
 assert cow:
   forall +a: +Array<U32> ~ Arr.copy
   U32
 
 def cow(a):
-  (b, old) = Array.swap(U32, a, 0, 100)
-  U32.add(rd(b), U32.add(rd(a), old))
+  cow.fin(a, Array.swap(U32, a, 0, 100))
 
 assert share.out:
   U32

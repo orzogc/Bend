@@ -30,6 +30,19 @@ assert blocks:
 def blocks():
   30n
 
+assert sel.go:
+  forall x: U32
+  forall y: U32
+  forall z: Bool
+  U32
+
+def sel.go(x, y, z):
+  match z:
+    case True{}:
+      x
+    case False{}:
+      y
+
 assert sel:
   forall t: U32
   forall x: U32
@@ -37,11 +50,7 @@ assert sel:
   U32
 
 def sel(t, x, y):
-  match U32.is_zero(t):
-    case True{}:
-      x
-    case False{}:
-      y
+  sel.go(x, y, U32.is_zero(t))
 
 # Speck32/64 round keys for key 1918 1110 0908 0100
 assert rk:
@@ -155,7 +164,8 @@ def htree(d, b):
     case 0n:
       leafh(b)
     case 1n+p:
-      Both{a, c} = {Both{htree(p, b), htree(p, U32.add(b, U32.shln(p, 1)))} : Par<U32, U32>}
+      & a : U32 = htree(p, b)
+      & c : U32 = htree(p, U32.add(b, U32.shln(p, 1)));
       mrk(a, c)
 
 # join two subtrees into a hashed node (peek the child hashes, rebuild)
@@ -194,7 +204,8 @@ def build(d, b):
     case 0n:
       Ml{leafh(b)}
     case 1n+p:
-      Both{l, r} = {Both{build(p, b), build(p, U32.add(b, U32.shln(p, 1)))} : Par<Mt, Mt>}
+      & l : Mt = build(p, b)
+      & r : Mt = build(p, U32.add(b, U32.shln(p, 1)));
       mjoin(l, r)
 
 # audit: re-fold the tree; any stored-hash mismatch perturbs the result
@@ -207,7 +218,8 @@ def audit(t):
     case Ml{h}:
       h
     case Mn{h, l, r}:
-      Both{a, b} = {Both{audit(l), audit(r)} : Par<U32, U32>}
+      & a : U32 = audit(l)
+      & b : U32 = audit(r);
       +m = {mrk(a, b) : +U32}
       U32.add(m, U32.xor(m, h))
 
@@ -224,10 +236,10 @@ def pgen(d, k, b):
     case 0n:
       Pn{}
     case 1n+p:
-      Both{bit0, half0} = {Both{U32.and(U32.shrn(p, k), 1), U32.shln(p, 1)} : Par<U32, U32>}
-      +bit = {bit0 : +U32}
-      +half = {half0 : +U32}
-      Both{sib, rest} = {Both{htree(p, sel(bit, U32.add(b, half), b)), pgen(p, k, sel(bit, b, U32.add(b, half)))} : Par<U32, Path>}
+      +bit = {U32.and(U32.shrn(p, k), 1) : +U32}
+      +half = {U32.shln(p, 1) : +U32}
+      sib = htree(p, sel(bit, U32.add(b, half), b))
+      rest = pgen(p, k, sel(bit, b, U32.add(b, half)))
       Pc{bit, sib, rest}
 
 # fold the proof back up from the leaf hash to a root hash

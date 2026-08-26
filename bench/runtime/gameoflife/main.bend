@@ -9,9 +9,11 @@ import Base
 # tallies and a board hash in scalar registers, materializing one
 # Census per chunk; czip merges censuses up the fork tree and the
 # checksum mixes the final census. Counters ride as Nats (no U32 match
-# in Bend4); classify.p1 is a continuation def (a Bend4 match cannot
-# follow a +local). This replaces the older Array-grid port, whose
-# Bend3 counterpart no longer exists.
+# in Bend4); a match scrutinizes only a parameter, so the classify
+# probes run through staged defs (each matching the bool its caller
+# computed) and the chunk tallies update branchlessly off cls.code.
+# This replaces the older Array-grid port, whose Bend3 counterpart no
+# longer exists.
 #
 # Sizes (size, gens): small (1, 2) expect 2601177279 (verified against
 # a Bend3 C run on the cluster), big (18, 32) expect 2016151040 (from
@@ -68,17 +70,25 @@ assert next_alive:
 def next_alive(n):
   b2u(Bool.or(U32.is_eq(n, 2), U32.is_eq(n, 3)))
 
+assert next_cell.go:
+  forall n: U32
+  forall z: Bool
+  U32
+
+def next_cell.go(n, z):
+  match z:
+    case True{}:
+      next_dead(n)
+    case False{}:
+      next_alive(n)
+
 assert next_cell:
   forall a: U32
   forall n: U32
   U32
 
 def next_cell(a, n):
-  match U32.is_zero(a):
-    case True{}:
-      next_dead(n)
-    case False{}:
-      next_alive(n)
+  next_cell.go(n, U32.is_zero(a))
 
 assert step_cell:
   forall +board: +U32
@@ -122,21 +132,37 @@ def popcount(b):
   d = U32.and(U32.add(c, U32.shrn(4n, c)), 3855)
   U32.and(U32.shrn(8n, U32.mul(d, 257)), 31)
 
+assert classify.p2:
+  forall t: Bool
+  Cls
+
+def classify.p2(t):
+  match t:
+    case True{}:
+      Osc{}
+    case False{}:
+      Chaos{}
+
+assert classify.go:
+  forall t: Bool
+  forall n1: U32
+  forall b: U32
+  Cls
+
+def classify.go(t, n1, b):
+  match t:
+    case True{}:
+      Still{}
+    case False{}:
+      classify.p2(U32.is_eq(step(n1), b))
+
 assert classify.p1:
   forall +n1: +U32
   forall +b: +U32
   Cls
 
 def classify.p1(n1, b):
-  match U32.is_eq(n1, b):
-    case True{}:
-      Still{}
-    case False{}:
-      match U32.is_eq(step(n1), b):
-        case True{}:
-          Osc{}
-        case False{}:
-          Chaos{}
+  classify.go(U32.is_eq(n1, b), n1, b)
 
 # classify the settled board by two probe steps: fixed point = still
 # life, return after two = period-2 oscillator, anything else = chaos
@@ -156,6 +182,21 @@ assert sim:
 def sim(ix, g):
   run(g, U32.and(U32.mul(ix, 2654435761), 65535))
 
+# class code: Still 0, Osc 1, Chaos 2 (the chunk accumulators update
+# branchlessly off this code, so chunk never matches a computed value)
+assert cls.code:
+  forall c: Cls
+  U32
+
+def cls.code(c):
+  match c:
+    case Still{}:
+      0
+    case Osc{}:
+      1
+    case Chaos{}:
+      2
+
 # leaf chunk: 64 soups folded into scalar accumulators; the Census
 # ctor materializes once per chunk, never per soup
 assert chunk:
@@ -173,16 +214,11 @@ def chunk(j, i, g, pa, sa, oa, mx):
     case 0n:
       Census{pa, sa, oa, mx}
     case 1n+p:
-      Both{bd0, mxk0} = {Both{sim(U32.add(i, U32.from_nat(p)), g), U32.mul(mx, 2654435761)} : Par<U32, U32>}
-      +bd = {bd0 : +U32}
-      +mxk = {mxk0 : +U32}
-      match classify(bd):
-        case Still{}:
-          chunk(p, i, g, U32.add(pa, popcount(bd)), U32.inc(sa), oa, U32.xor(mxk, bd))
-        case Osc{}:
-          chunk(p, i, g, U32.add(pa, popcount(bd)), sa, U32.inc(oa), U32.xor(mxk, bd))
-        case Chaos{}:
-          chunk(p, i, g, U32.add(pa, popcount(bd)), sa, oa, U32.xor(mxk, bd))
+      +bd = {sim(U32.add(i, U32.from_nat(p)), g) : +U32}
+      +cd = {cls.code(classify(bd)) : +U32}
+      chunk(p, i, g, U32.add(pa, popcount(bd)),
+        U32.add(sa, b2u(U32.is_eq(cd, 0))), U32.add(oa, b2u(U32.is_eq(cd, 1))),
+        U32.xor(U32.mul(mx, 2654435761), bd))
 
 assert czip:
   forall a: Census
@@ -205,7 +241,8 @@ def batch(d, i, g):
     case 0n:
       chunk(64n, i, g, 0, 0, 0, 0)
     case 1n+p:
-      Both{a, b} = {Both{batch(p, i, g), batch(p, U32.add(i, U32.shln(p, 64)), g)} : Par<Census, Census>}
+      & a : Census = batch(p, i, g)
+      & b : Census = batch(p, U32.add(i, U32.shln(p, 64)), g);
       czip(a, b)
 
 # final checksum: mix the census fields

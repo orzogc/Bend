@@ -7,21 +7,28 @@ import Base
 # rules, and runs the classic recursive bitmask backtracker over the
 # remaining N-4 rows: peel the lowest candidate bit b = cand & (0 -
 # cand), descend on the child row's candidate word full & ~(nc|nl|nr),
-# then continue on the sibling set cand - b; Stats{sols, nodes} counts
-# one node per peel. smerge adds Stats pairwise up the fork tree.
-# Bend3 hard-codes the prefix mask 131071 (d = 17); here the mask is
-# 2^d - 1, threaded through batch, so small sizes shrink the prefix
-# space the same way. pfx.d is a continuation def: a Bend4 match on a
-# binder cannot follow a +local, so each decode stage passes its
-# shared words as + arguments. Checksum = (sols * 2654435761) ^ nodes.
+# then continue on the sibling set cand - b; the acc Stats{sols,
+# nodes} counts one node per peel. smerge adds Stats pairwise up the
+# fork tree. Bend3 hard-codes the prefix mask 131071 (d = 17); here
+# the mask is 2^d - 1, threaded through batch, so small sizes shrink
+# the prefix space the same way. a match scrutinizes only a parameter,
+# so every decision bool is computed by the CALLER and passed as an
+# argument: solve receives z = is_zero(cand) and e = is_eq(nc, full)
+# with the peeled words, and each self-call site precomputes the next
+# level's words; the prefix decode runs through the staged defs
+# pfx.s1/s2/s3, each matching the bool its caller computed. the
+# child's Stats result rides into the sibling call as the acc
+# argument, so no call result is ever destructured in place.
+# Checksum = (sols * 2654435761) ^ nodes.
 # solve is ONE def and its recursion is structural: the shrinking
 # candidate word is not a structure the checker can see, so a Nat fuel
 # rides ahead of every self-call (match f, recurse on its pred g).
 # Every nested self-call (child and sibling) drops the fuel by one, so
 # fuel bounds the DEPTH of the call chain: at most one frame per peel
-# plus one exit frame per row, under (n-3)*(n-2)+1 frames total. pfx.d
-# seeds n^2 (= nn2, already at hand), which exceeds that bound for
-# every n >= 5, so the 0n arm is dead code and the count is exact.
+# plus one exit frame per row, under (n-3)*(n-2)+1 frames total. the
+# initial call seeds n^2 (= nn2, already at hand), which exceeds that
+# bound for every n >= 5, so the 0n arm is dead code and the count is
+# exact.
 #
 # Sizes (d, n, limit): small (10, 5, 625) expect 774553824, big
 # (17, 17, 11730) expect 2063750025. Small verified against a Bend3 C
@@ -29,6 +36,7 @@ import Base
 # header.
 
 type Stats:
+  Stat0{}
   Stats{sols: U32, nodes: U32}
 
 assert b2u:
@@ -42,6 +50,19 @@ def b2u(b):
     case True{}:
       1
 
+assert sel.go:
+  forall x: U32
+  forall y: U32
+  forall z: Bool
+  U32
+
+def sel.go(x, y, z):
+  match z:
+    case True{}:
+      x
+    case False{}:
+      y
+
 assert sel:
   forall t: U32
   forall x: U32
@@ -49,11 +70,7 @@ assert sel:
   U32
 
 def sel(t, x, y):
-  match U32.is_zero(t):
-    case True{}:
-      x
-    case False{}:
-      y
+  sel.go(x, y, U32.is_zero(t))
 
 assert sq:
   forall +x: +U32
@@ -64,43 +81,152 @@ def sq(x):
 
 # the classic bitmask backtracker: descend on the child candidate
 # word (the natural non-tail call), then tail-loop on the sibling set;
-# the fuel f is the structure the descent rides, one unit per frame
+# the fuel f is the structure the descent rides, one unit per frame;
+# z = is_zero(cand) and e = is_eq(nc, full) arrive precomputed
 assert solve:
   forall +f: +Nat
-  forall +cand: +U32
+  forall z: Bool
+  forall e: Bool
+  forall sib: U32
+  forall +nc: +U32
+  forall +nl: +U32
+  forall +nr: +U32
   forall +cols: +U32
   forall +ld: +U32
   forall +rd: +U32
   forall +full: +U32
+  forall ret: Stats
   forall sols: U32
   forall nodes: U32
   Stats
 
-def solve(f, cand, cols, ld, rd, full, sols, nodes):
-  match f:
-    case 0n:
+def solve(f, z, e, sib, nc, nl, nr, cols, ld, rd, full, ret, sols, nodes):
+  match f z e ret:
+    case 0n z0 e0 Stat0{}:
       Stats{sols, nodes}
-    case 1n+g:
-      match U32.is_zero(cand):
-        case True{}:
-          Stats{sols, nodes}
-        case False{}:
-          +b = {U32.and(cand, U32.sub(0, cand)) : +U32}
-          +nc = {U32.or(cols, b) : +U32}
-          match U32.is_eq(nc, full):
-            case True{}:
-              solve(g, U32.sub(cand, b), cols, ld, rd, full, U32.inc(sols), U32.inc(nodes))
-            case False{}:
-              Both{nl0, nr0} = {Both{U32.shl(U32.or(ld, b)), U32.shr(U32.or(rd, b))} : Par<U32, U32>}
-              +nl = {nl0 : +U32}
-              +nr = {nr0 : +U32}
-              match solve(g, U32.and(full, U32.not(U32.or(nc, U32.or(nl, nr)))), nc, nl, nr, full, sols, U32.inc(nodes)):
-                case Stats{s1, n1}:
-                  solve(g, U32.sub(cand, b), cols, ld, rd, full, s1, n1)
+    case 0n z1 e2 Stats{s1, n1}:
+      Stats{U32.add(sols, s1), U32.add(nodes, n1)}
+    case 1n+g True{} e3 Stat0{}:
+      Stats{sols, nodes}
+    case 1n+g True{} e4 Stats{s1, n1}:
+      Stats{U32.add(sols, s1), U32.add(nodes, n1)}
+    case 1n+g False{} True{} Stat0{}:
+      +c2 = {sib : +U32}
+      +b2 = {U32.and(c2, U32.sub(0, c2)) : +U32}
+      +n2 = {U32.or(cols, b2) : +U32}
+      solve(g, U32.is_zero(c2), U32.is_eq(n2, full), U32.sub(c2, b2), n2,
+        U32.shl(U32.or(ld, b2)), U32.shr(U32.or(rd, b2)),
+        cols, ld, rd, full, Stat0{}, U32.inc(sols), U32.inc(nodes))
+    case 1n+g False{} True{} Stats{s1, n1}:
+      +c2 = {sib : +U32}
+      +b2 = {U32.and(c2, U32.sub(0, c2)) : +U32}
+      +n2 = {U32.or(cols, b2) : +U32}
+      solve(g, U32.is_zero(c2), U32.is_eq(n2, full), U32.sub(c2, b2), n2,
+        U32.shl(U32.or(ld, b2)), U32.shr(U32.or(rd, b2)),
+        cols, ld, rd, full, Stat0{},
+        U32.inc(U32.add(sols, s1)), U32.inc(U32.add(nodes, n1)))
+    case 1n+g False{} False{} Stat0{}:
+      +cc = {U32.and(full, U32.not(U32.or(nc, U32.or(nl, nr)))) : +U32}
+      +cb = {U32.and(cc, U32.sub(0, cc)) : +U32}
+      +cn = {U32.or(nc, cb) : +U32}
+      +c2 = {sib : +U32}
+      +b2 = {U32.and(c2, U32.sub(0, c2)) : +U32}
+      +n2 = {U32.or(cols, b2) : +U32}
+      solve(g, U32.is_zero(c2), U32.is_eq(n2, full), U32.sub(c2, b2), n2,
+        U32.shl(U32.or(ld, b2)), U32.shr(U32.or(rd, b2)),
+        cols, ld, rd, full,
+        solve(g, U32.is_zero(cc), U32.is_eq(cn, full), U32.sub(cc, cb), cn,
+          U32.shl(U32.or(nl, cb)), U32.shr(U32.or(nr, cb)),
+          nc, nl, nr, full, Stat0{}, sols, U32.inc(nodes)), 0, 0)
+    case 1n+g False{} False{} Stats{s1, n1}:
+      +cc = {U32.and(full, U32.not(U32.or(nc, U32.or(nl, nr)))) : +U32}
+      +cb = {U32.and(cc, U32.sub(0, cc)) : +U32}
+      +cn = {U32.or(nc, cb) : +U32}
+      +c2 = {sib : +U32}
+      +b2 = {U32.and(c2, U32.sub(0, c2)) : +U32}
+      +n2 = {U32.or(cols, b2) : +U32}
+      solve(g, U32.is_zero(c2), U32.is_eq(n2, full), U32.sub(c2, b2), n2,
+        U32.shl(U32.or(ld, b2)), U32.shr(U32.or(rd, b2)),
+        cols, ld, rd, full,
+        solve(g, U32.is_zero(cc), U32.is_eq(cn, full), U32.sub(cc, cb), cn,
+          U32.shl(U32.or(nl, cb)), U32.shr(U32.or(nr, cb)),
+          nc, nl, nr, full, Stat0{}, U32.add(sols, s1), U32.inc(U32.add(nodes, n1))), 0, 0)
 
 # one 4-row prefix: permute the fork index (odd-multiplier bijection on
 # the 2^d space), decode the column quad, filter illegal placements,
-# solve the remaining rows
+# solve the remaining rows; each stage matches the bool its caller
+# computed
+assert pfx.s3:
+  forall t: Bool
+  forall +nn2: +U32
+  forall +full: +U32
+  forall +b3: +U32
+  forall +c3: +U32
+  forall +l3: +U32
+  forall +r3: +U32
+  Stats
+
+def pfx.s3(t, nn2, full, b3, c3, l3, r3):
+  match t:
+    case False{}:
+      Stats{0, 0}
+    case True{}:
+      +c4 = {U32.or(c3, b3) : +U32}
+      +l4 = {U32.shl(U32.or(l3, b3)) : +U32}
+      +r4 = {U32.shr(U32.or(r3, b3)) : +U32}
+      +cc = {U32.and(full, U32.not(U32.or(c4, U32.or(l4, r4)))) : +U32}
+      +cb = {U32.and(cc, U32.sub(0, cc)) : +U32}
+      +cn = {U32.or(c4, cb) : +U32}
+      solve(U32.to_nat(nn2), U32.is_zero(cc), U32.is_eq(cn, full), U32.sub(cc, cb), cn,
+        U32.shl(U32.or(l4, cb)), U32.shr(U32.or(r4, cb)),
+        c4, l4, r4, full, Stat0{}, 0, 0)
+
+assert pfx.s2:
+  forall t: Bool
+  forall +nn2: +U32
+  forall +i: +U32
+  forall +nn: +U32
+  forall +full: +U32
+  forall +b2: +U32
+  forall +c2: +U32
+  forall +l2: +U32
+  forall +r2: +U32
+  Stats
+
+def pfx.s2(t, nn2, i, nn, full, b2, c2, l2, r2):
+  match t:
+    case False{}:
+      Stats{0, 0}
+    case True{}:
+      +b3 = {U32.shln(U32.to_nat(U32.mod(i, nn)), 1) : +U32}
+      +c3 = {U32.or(c2, b2) : +U32}
+      +l3 = {U32.shl(U32.or(l2, b2)) : +U32}
+      +r3 = {U32.shr(U32.or(r2, b2)) : +U32}
+      pfx.s3(U32.is_eq(U32.and(b3, U32.or(c3, U32.or(l3, r3))), 0),
+        nn2, full, b3, c3, l3, r3)
+
+assert pfx.s1:
+  forall t: Bool
+  forall +nn2: +U32
+  forall +i: +U32
+  forall +nn: +U32
+  forall +full: +U32
+  forall +b0: +U32
+  forall +b1: +U32
+  Stats
+
+def pfx.s1(t, nn2, i, nn, full, b0, b1):
+  match t:
+    case False{}:
+      Stats{0, 0}
+    case True{}:
+      +b2 = {U32.shln(U32.to_nat(U32.mod(U32.div(i, nn), nn)), 1) : +U32}
+      +c2 = {U32.or(b0, b1) : +U32}
+      +l2 = {U32.shl(U32.or(U32.shl(b0), b1)) : +U32}
+      +r2 = {U32.shr(U32.or(U32.shr(b0), b1)) : +U32}
+      pfx.s2(U32.is_eq(U32.and(b2, U32.or(c2, U32.or(l2, r2))), 0),
+        nn2, i, nn, full, b2, c2, l2, r2)
+
 assert pfx.d:
   forall +nn2: +U32
   forall +i: +U32
@@ -109,38 +235,24 @@ assert pfx.d:
   Stats
 
 def pfx.d(nn2, i, nn, full):
-  Both{b00, b10} = {Both{U32.shln(U32.to_nat(U32.div(i, U32.mul(nn2, nn))), 1), U32.shln(U32.to_nat(U32.mod(U32.div(i, nn2), nn)), 1)} : Par<U32, U32>}
-  +b0 = {b00 : +U32}
-  +b1 = {b10 : +U32}
-  match U32.is_eq(U32.and(b1, U32.or(b0, U32.or(U32.shl(b0), U32.shr(b0)))), 0):
+  +b0 = {U32.shln(U32.to_nat(U32.div(i, U32.mul(nn2, nn))), 1) : +U32}
+  +b1 = {U32.shln(U32.to_nat(U32.mod(U32.div(i, nn2), nn)), 1) : +U32}
+  pfx.s1(U32.is_eq(U32.and(b1, U32.or(b0, U32.or(U32.shl(b0), U32.shr(b0)))), 0),
+    nn2, i, nn, full, b0, b1)
+
+assert pfx.go2:
+  forall t: Bool
+  forall +i: +U32
+  forall +nn: +U32
+  forall full: U32
+  Stats
+
+def pfx.go2(t, i, nn, full):
+  match t:
     case False{}:
       Stats{0, 0}
     case True{}:
-      Both{b20, c20} = {Both{U32.shln(U32.to_nat(U32.mod(U32.div(i, nn), nn)), 1), U32.or(b0, b1)} : Par<U32, U32>}
-      +b2 = {b20 : +U32}
-      +c2 = {c20 : +U32}
-      Both{l20, r20} = {Both{U32.shl(U32.or(U32.shl(b0), b1)), U32.shr(U32.or(U32.shr(b0), b1))} : Par<U32, U32>}
-      +l2 = {l20 : +U32}
-      +r2 = {r20 : +U32}
-      match U32.is_eq(U32.and(b2, U32.or(c2, U32.or(l2, r2))), 0):
-        case False{}:
-          Stats{0, 0}
-        case True{}:
-          Both{b30, c30} = {Both{U32.shln(U32.to_nat(U32.mod(i, nn)), 1), U32.or(c2, b2)} : Par<U32, U32>}
-          +b3 = {b30 : +U32}
-          +c3 = {c30 : +U32}
-          Both{l30, r30} = {Both{U32.shl(U32.or(l2, b2)), U32.shr(U32.or(r2, b2))} : Par<U32, U32>}
-          +l3 = {l30 : +U32}
-          +r3 = {r30 : +U32}
-          match U32.is_eq(U32.and(b3, U32.or(c3, U32.or(l3, r3))), 0):
-            case False{}:
-              Stats{0, 0}
-            case True{}:
-              Both{c40, Both{l40, r40}} = {Both{U32.or(c3, b3), Both{U32.shl(U32.or(l3, b3)), U32.shr(U32.or(r3, b3))}} : Par<U32, Par<U32, U32>>}
-              +c4 = {c40 : +U32}
-              +l4 = {l40 : +U32}
-              +r4 = {r40 : +U32}
-              solve(U32.to_nat(nn2), U32.and(full, U32.not(U32.or(c4, U32.or(l4, r4)))), c4, l4, r4, full, 0, 0)
+      pfx.d(U32.mul(nn, nn), i, nn, full)
 
 assert pfx.go:
   forall +i: +U32
@@ -150,11 +262,7 @@ assert pfx.go:
   Stats
 
 def pfx.go(i, nn, full, bound):
-  match U32.is_lt(i, bound):
-    case False{}:
-      Stats{0, 0}
-    case True{}:
-      pfx.d(U32.mul(nn, nn), i, nn, full)
+  pfx.go2(U32.is_lt(i, bound), i, nn, full)
 
 assert pfx:
   forall j: U32
@@ -176,6 +284,12 @@ def smerge(a, b):
   match a b:
     case Stats{s1, n1} Stats{s2, n2}:
       Stats{U32.add(s1, s2), U32.add(n1, n2)}
+    case Stats{s1, n1} Stat0{}:
+      Stats{s1, n1}
+    case Stat0{} Stats{s2, n2}:
+      Stats{s2, n2}
+    case Stat0{} Stat0{}:
+      Stat0{}
 
 assert batch:
   forall +d: +Nat
@@ -191,8 +305,20 @@ def batch(d, i, m, nn, full, bound):
     case 0n:
       pfx(i, m, nn, full, bound)
     case 1n+p:
-      Both{a, b} = {Both{batch(p, i, m, nn, full, bound), batch(p, U32.add(i, U32.shln(p, 1)), m, nn, full, bound)} : Par<Stats, Stats>}
+      & a : Stats = batch(p, i, m, nn, full, bound)
+      & b : Stats = batch(p, U32.add(i, U32.shln(p, 1)), m, nn, full, bound);
       smerge(a, b)
+
+assert run.fin:
+  forall st: Stats
+  U32
+
+def run.fin(st):
+  match st:
+    case Stat0{}:
+      0
+    case Stats{s, w}:
+      U32.xor(U32.mul(s, 2654435761), w)
 
 assert run:
   forall +d: +Nat
@@ -201,12 +327,11 @@ assert run:
   U32
 
 def run(d, n, lim):
-  Both{nnnn0, full} = {Both{sq(sq(n)), U32.sub(U32.shln(U32.to_nat(n), 1), 1)} : Par<U32, U32>}
-  +nnnn = {nnnn0 : +U32}
+  +nnnn = {sq(sq(n)) : +U32}
+  full = U32.sub(U32.shln(U32.to_nat(n), 1), 1)
   # bound = min-like clamp: lim when lim < n^4, else n^4
-  match batch(d, 0, U32.sub(U32.shln(d, 1), 1), n, full, sel(b2u(U32.is_lt(lim, nnnn)), nnnn, lim)):
-    case Stats{s, w}:
-      U32.xor(U32.mul(s, 2654435761), w)
+  run.fin(batch(d, 0, U32.sub(U32.shln(d, 1), 1), n, full,
+    sel(b2u(U32.is_lt(lim, nnnn)), nnnn, lim)))
 
 assert size:
   U32

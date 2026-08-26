@@ -27,6 +27,51 @@ type Hs:
 type V2:
   V2{cs: U32, eb: U32}
 
+assert V2.copy.go:
+  forall -c: U32
+  forall -b: U32
+  forall cc: Copy(U32, c) & Copy(U32, c)
+  forall cb: Copy(U32, b) & Copy(U32, b)
+  Copy(V2, V2{c, b}) & Copy(V2, V2{c, b})
+
+def V2.copy.go(c, b, cc, cb):
+  ((c1, e1), (c2, e2)) = cc
+  ((b1, f1), (b2, f2)) = cb
+  p1 = Equal.trans(V2, V2{c, b}, V2{c1, b}, V2{c1, b1},
+                   Equal.cong(U32, V2, x => V2{x, b}, c, c1, e1),
+                   Equal.cong(U32, V2, x => V2{c1, x}, b, b1, f1))
+  p2 = Equal.trans(V2, V2{c, b}, V2{c2, b}, V2{c2, b2},
+                   Equal.cong(U32, V2, x => V2{x, b}, c, c2, e2),
+                   Equal.cong(U32, V2, x => V2{c2, x}, b, b2, f2))
+  ((V2{c1, b1}, p1), (V2{c2, b2}, p2))
+
+assert V2.copy:
+  forall v: V2
+  Copy(V2, v) & Copy(V2, v)
+
+def V2.copy(v):
+  match v:
+    case V2{c, b}:
+      V2.copy.go(c, b, U32.copy(c), U32.copy(b))
+
+assert V2.cs:
+  forall v: V2
+  U32
+
+def V2.cs(v):
+  match v:
+    case V2{c, b}:
+      c
+
+assert V2.eb:
+  forall v: V2
+  U32
+
+def V2.eb(v):
+  match v:
+    case V2{c, b}:
+      b
+
 assert b2u:
   forall b: Bool
   U32
@@ -47,6 +92,19 @@ def prng(x):
   +d = {U32.xor(b, U32.shrn(17n, b)) : +U32}
   U32.xor(d, U32.shln(5n, d))
 
+assert sel.go:
+  forall x: U32
+  forall y: U32
+  forall z: Bool
+  U32
+
+def sel.go(x, y, z):
+  match z:
+    case True{}:
+      x
+    case False{}:
+      y
+
 assert sel:
   forall t: U32
   forall x: U32
@@ -54,11 +112,7 @@ assert sel:
   U32
 
 def sel(t, x, y):
-  match U32.is_zero(t):
-    case True{}:
-      x
-    case False{}:
-      y
+  sel.go(x, y, U32.is_zero(t))
 
 # a float literal n/d (one correctly-rounded division of two exact
 # u32 conversions -- bit-exact vs the Bend3 C literal)
@@ -242,8 +296,8 @@ def chunk(j, i, st, h0, h1, h2, h3, h4, h5, h6, h7, cs):
       Hl{h0, h1, h2, h3, h4, h5, h6, h7, cs}
     case 1n+p:
       +sy = {U32.add(i, U32.from_nat(p)) : +U32}
-      V2{c, b} = sim(sy, st)
-      +bb = {b : +U32}
+      +w = {sim(sy, st) : +V2 ~ V2.copy}
+      +bb = {V2.eb(w) : +U32}
       m0 = b2u(U32.is_eq(bb, 0))
       m1 = b2u(U32.is_eq(bb, 1))
       m2 = b2u(U32.is_eq(bb, 2))
@@ -255,7 +309,7 @@ def chunk(j, i, st, h0, h1, h2, h3, h4, h5, h6, h7, cs):
       chunk(p, i, st,
             U32.add(h0, m0), U32.add(h1, m1), U32.add(h2, m2), U32.add(h3, m3),
             U32.add(h4, m4), U32.add(h5, m5), U32.add(h6, m6), U32.add(h7, m7),
-            U32.add(cs, U32.mul(c, U32.inc(U32.mul(sy, 2654435761)))))
+            U32.add(cs, U32.mul(V2.cs(w), U32.inc(U32.mul(sy, 2654435761)))))
 
 assert hzip:
   forall a: Hs
@@ -278,8 +332,25 @@ def batch(d, i, st):
     case 0n:
       chunk(8n, i, st, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     case 1n+p:
-      Both{a, b} = {Both{batch(p, i, st), batch(p, U32.add(i, U32.shln(p, 8)), st)} : Par<Hs, Hs>}
+      & a : Hs = batch(p, i, st)
+      & b : Hs = batch(p, U32.add(i, U32.shln(p, 8)), st);
       hzip(a, b)
+
+assert run.fin:
+  forall t: Hs
+  U32
+
+def run.fin(t):
+  match t:
+    case Hl{h0, h1, h2, h3, h4, h5, h6, h7, cs}:
+      g1 = U32.add(U32.mul(h0, 2654435761), h1)
+      g2 = U32.add(U32.mul(g1, 2654435761), h2)
+      g3 = U32.add(U32.mul(g2, 2654435761), h3)
+      g4 = U32.add(U32.mul(g3, 2654435761), h4)
+      g5 = U32.add(U32.mul(g4, 2654435761), h5)
+      g6 = U32.add(U32.mul(g5, 2654435761), h6)
+      g7 = U32.add(U32.mul(g6, 2654435761), h7)
+      U32.add(U32.mul(g7, 2654435761), cs)
 
 assert run:
   forall d: Nat
@@ -287,15 +358,7 @@ assert run:
   U32
 
 def run(d, ts):
-  Hl{h0, h1, h2, h3, h4, h5, h6, h7, cs} = batch(d, 0, ts)
-  g1 = U32.add(U32.mul(h0, 2654435761), h1)
-  g2 = U32.add(U32.mul(g1, 2654435761), h2)
-  g3 = U32.add(U32.mul(g2, 2654435761), h3)
-  g4 = U32.add(U32.mul(g3, 2654435761), h4)
-  g5 = U32.add(U32.mul(g4, 2654435761), h5)
-  g6 = U32.add(U32.mul(g5, 2654435761), h6)
-  g7 = U32.add(U32.mul(g6, 2654435761), h7)
-  U32.add(U32.mul(g7, 2654435761), cs)
+  run.fin(batch(d, 0, ts))
 
 assert sy:
   Nat

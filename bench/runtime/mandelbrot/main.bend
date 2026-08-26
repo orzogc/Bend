@@ -34,6 +34,19 @@ def b2u(b):
     case True{}:
       1
 
+assert sel.go:
+  forall x: U32
+  forall y: U32
+  forall z: Bool
+  U32
+
+def sel.go(x, y, z):
+  match z:
+    case True{}:
+      x
+    case False{}:
+      y
+
 assert sel:
   forall t: U32
   forall x: U32
@@ -41,11 +54,7 @@ assert sel:
   U32
 
 def sel(t, x, y):
-  match U32.is_zero(t):
-    case True{}:
-      x
-    case False{}:
-      y
+  sel.go(x, y, U32.is_zero(t))
 
 # arithmetic shift right by 8 over two's-complement u32
 assert asr8:
@@ -155,7 +164,8 @@ def hfold(d, i, tn):
     case 0n:
       hchunk(64n, i, tn, 0, 0, 0, 0, 0, 0, 0, 0)
     case 1n+p:
-      Both{a, b} = {Both{hfold(p, i, tn), hfold(p, U32.add(i, U32.shln(p, 64)), tn)} : Par<Hs, Hs>}
+      & a : Hs = hfold(p, i, tn)
+      & b : Hs = hfold(p, U32.add(i, U32.shln(p, 64)), tn);
       hzip(a, b)
 
 # histogram equalization: LUT k = cdf(k) scaled to 0..255
@@ -218,8 +228,36 @@ def rcol(d, i, tn, k0, k1, k2, k3, k4, k5, k6, k7):
     case 0n:
       rpix(i, tn, k0, k1, k2, k3, k4, k5, k6, k7)
     case 1n+p:
-      Both{a, b} = {Both{rcol(p, i, tn, k0, k1, k2, k3, k4, k5, k6, k7), rcol(p, U32.add(i, U32.shln(p, 1)), tn, k0, k1, k2, k3, k4, k5, k6, k7)} : Par<U32, U32>}
+      & a : U32 = rcol(p, i, tn, k0, k1, k2, k3, k4, k5, k6, k7)
+      & b : U32 = rcol(p, U32.add(i, U32.shln(p, 1)), tn, k0, k1, k2, k3, k4, k5, k6, k7);
       U32.add(a, b)
+
+assert rend.mix:
+  forall +hd: +Nat
+  forall +tn: +Nat
+  forall lut: Lut
+  U32
+
+def rend.mix(hd, tn, lut):
+  match lut:
+    case Lut{l0, l1, l2, l3, l4, l5, l6, l7}:
+      +q0 = {l0 : +U32}
+      +q1 = {l1 : +U32}
+      +q2 = {l2 : +U32}
+      +q3 = {l3 : +U32}
+      +q4 = {l4 : +U32}
+      +q5 = {l5 : +U32}
+      +q6 = {l6 : +U32}
+      +q7 = {l7 : +U32}
+      m1 = U32.add(U32.mul(q0, 2654435761), q1)
+      m2 = U32.add(U32.mul(m1, 2654435761), q2)
+      m3 = U32.add(U32.mul(m2, 2654435761), q3)
+      m4 = U32.add(U32.mul(m3, 2654435761), q4)
+      m5 = U32.add(U32.mul(m4, 2654435761), q5)
+      m6 = U32.add(U32.mul(m5, 2654435761), q6)
+      m7 = U32.add(U32.mul(m6, 2654435761), q7)
+      r = rcol(Nat.add(hd, 6n), 0, tn, q0, q1, q2, q3, q4, q5, q6, q7)
+      U32.add(U32.mul(m7, 2654435761), r)
 
 assert rend:
   forall +hd: +Nat
@@ -227,24 +265,7 @@ assert rend:
   U32
 
 def rend(hd, tn):
-  Lut{l0, l1, l2, l3, l4, l5, l6, l7} = cdf(hfold(hd, 0, tn))
-  +q0 = {l0 : +U32}
-  +q1 = {l1 : +U32}
-  +q2 = {l2 : +U32}
-  +q3 = {l3 : +U32}
-  +q4 = {l4 : +U32}
-  +q5 = {l5 : +U32}
-  +q6 = {l6 : +U32}
-  +q7 = {l7 : +U32}
-  m1 = U32.add(U32.mul(q0, 2654435761), q1)
-  m2 = U32.add(U32.mul(m1, 2654435761), q2)
-  m3 = U32.add(U32.mul(m2, 2654435761), q3)
-  m4 = U32.add(U32.mul(m3, 2654435761), q4)
-  m5 = U32.add(U32.mul(m4, 2654435761), q5)
-  m6 = U32.add(U32.mul(m5, 2654435761), q6)
-  m7 = U32.add(U32.mul(m6, 2654435761), q7)
-  r = rcol(Nat.add(hd, 6n), 0, tn, q0, q1, q2, q3, q4, q5, q6, q7)
-  U32.add(U32.mul(m7, 2654435761), r)
+  rend.mix(hd, tn, cdf(hfold(hd, 0, tn)))
 
 assert its:
   Nat

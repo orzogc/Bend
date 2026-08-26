@@ -62,13 +62,21 @@ assert Nat.copy:
   forall n: Nat
   Copy(Nat, n) & Copy(Nat, n)
 
+assert Nat.copy.succ:
+  forall -p: Nat
+  forall c: Copy(Nat, p) & Copy(Nat, p)
+  Copy(Nat, S{p}) & Copy(Nat, S{p})
+
+def Nat.copy.succ(p, c):
+  ((a, ea), (b, eb)) = c
+  ((S{a}, %ea : {S{p} == S{_} : Nat}; {==}), (S{b}, %eb : {S{p} == S{_} : Nat}; {==}))
+
 def Nat.copy(n):
   match n:
     case Z{}:
       ((Z{}, {==}), (Z{}, {==}))
     case S{p}:
-      ((a, ea), (b, eb)) = Nat.copy(p)
-      ((S{a}, %ea : {S{p} == S{_} : Nat}; {==}), (S{b}, %eb : {S{p} == S{_} : Nat}; {==}))
+      Nat.copy.succ(p, Nat.copy(p))
 
 assert mul:
   forall a: Nat

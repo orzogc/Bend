@@ -47,6 +47,19 @@ def prng(x):
   +d = {U32.xor(b, U32.shrn(17n, b)) : +U32}
   U32.xor(d, U32.shln(5n, d))
 
+assert sel.go:
+  forall x: U32
+  forall y: U32
+  forall z: Bool
+  U32
+
+def sel.go(x, y, z):
+  match z:
+    case True{}:
+      x
+    case False{}:
+      y
+
 assert sel:
   forall t: U32
   forall x: U32
@@ -54,11 +67,7 @@ assert sel:
   U32
 
 def sel(t, x, y):
-  match U32.is_zero(t):
-    case True{}:
-      x
-    case False{}:
-      y
+  sel.go(x, y, U32.is_zero(t))
 
 assert min2:
   forall +a: +U32
@@ -96,7 +105,8 @@ def szip(a, b):
     case Sn{l, r} Sl{a, b, c}:
       Sn{l, r}
     case Sn{a, b} Sn{c, d}:
-      Both{l, r} = {Both{szip(a, c), szip(b, d)} : Par<St, St>}
+      & l : St = szip(a, c)
+      & r : St = szip(b, d);
       Sn{l, r}
 
 # combiner: a leaf chunk folds 64 points into 24 scalar accumulators
@@ -188,7 +198,8 @@ def pfold(d, i, c0, c1, c2, c3, c4, c5, c6, c7):
     case 0n:
       chunk(64n, i, c0, c1, c2, c3, c4, c5, c6, c7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     case 1n+p:
-      Both{a, b} = {Both{pfold(p, i, c0, c1, c2, c3, c4, c5, c6, c7), pfold(p, U32.add(i, U32.shln(p, 64)), c0, c1, c2, c3, c4, c5, c6, c7)} : Par<St, St>}
+      & a : St = pfold(p, i, c0, c1, c2, c3, c4, c5, c6, c7)
+      & b : St = pfold(p, U32.add(i, U32.shln(p, 64)), c0, c1, c2, c3, c4, c5, c6, c7);
       szip(a, b)
 
 # new centroid from a stats leaf; an empty cluster keeps the old one
@@ -210,20 +221,28 @@ def cnew(s, old):
 type Cs:
   Cs{c0: U32, c1: U32, c2: U32, c3: U32, c4: U32, c5: U32, c6: U32, c7: U32}
 
-type Tw2:
-  Tw2{l: St, r: St}
-
-# total splitter of one Sn level (the Sl row is an unreachable filler)
-assert sp2:
+# extract the 8 new centroids from the depth-3 stats tree (the
+# catch-all row is an unreachable filler: a chunk always materializes
+# the full Sn^3 shape and szip preserves it)
+assert step.fin:
+  forall c0: U32
+  forall c1: U32
+  forall c2: U32
+  forall c3: U32
+  forall c4: U32
+  forall c5: U32
+  forall c6: U32
+  forall c7: U32
   forall t: St
-  Tw2
+  Cs
 
-def sp2(t):
+def step.fin(c0, c1, c2, c3, c4, c5, c6, c7, t):
   match t:
-    case Sn{l, r}:
-      Tw2{l, r}
-    case Sl{a, b, c}:
-      Tw2{Sl{a, b, c}, Sl{0, 0, 0}}
+    case Sn{Sn{Sn{q0, q1}, Sn{q2, q3}}, Sn{Sn{q4, q5}, Sn{q6, q7}}}:
+      Cs{cnew(q0, c0), cnew(q1, c1), cnew(q2, c2), cnew(q3, c3),
+         cnew(q4, c4), cnew(q5, c5), cnew(q6, c6), cnew(q7, c7)}
+    case t2:
+      Cs{c0, c1, c2, c3, c4, c5, c6, c7}
 
 assert step:
   forall d: Nat
@@ -238,32 +257,18 @@ assert step:
   Cs
 
 def step(d, c0, c1, c2, c3, c4, c5, c6, c7):
-  Tw2{a, b} = sp2(pfold(Nat.sub(d, 6n), 0, c0, c1, c2, c3, c4, c5, c6, c7))
-  Tw2{aa, ab} = sp2(a)
-  Tw2{ba, bb} = sp2(b)
-  Tw2{q0, q1} = sp2(aa)
-  Tw2{q2, q3} = sp2(ab)
-  Tw2{q4, q5} = sp2(ba)
-  Tw2{q6, q7} = sp2(bb)
-  Cs{cnew(q0, c0), cnew(q1, c1), cnew(q2, c2), cnew(q3, c3),
-     cnew(q4, c4), cnew(q5, c5), cnew(q6, c6), cnew(q7, c7)}
+  step.fin(c0, c1, c2, c3, c4, c5, c6, c7,
+    pfold(Nat.sub(d, 6n), 0, c0, c1, c2, c3, c4, c5, c6, c7))
 
 assert loop:
   forall r: Nat
   forall +d: +Nat
-  forall c0: U32
-  forall c1: U32
-  forall c2: U32
-  forall c3: U32
-  forall c4: U32
-  forall c5: U32
-  forall c6: U32
-  forall c7: U32
+  forall cs: Cs
   U32
 
-def loop(r, d, c0, c1, c2, c3, c4, c5, c6, c7):
-  match r:
-    case 0n:
+def loop(r, d, cs):
+  match r cs:
+    case 0n Cs{c0, c1, c2, c3, c4, c5, c6, c7}:
       m1 = U32.add(U32.mul(c0, 2654435761), c1)
       m2 = U32.add(U32.mul(m1, 2654435761), c2)
       m3 = U32.add(U32.mul(m2, 2654435761), c3)
@@ -271,9 +276,8 @@ def loop(r, d, c0, c1, c2, c3, c4, c5, c6, c7):
       m5 = U32.add(U32.mul(m4, 2654435761), c5)
       m6 = U32.add(U32.mul(m5, 2654435761), c6)
       U32.add(U32.mul(m6, 2654435761), c7)
-    case 1n+p:
-      Cs{n0, n1, n2, n3, n4, n5, n6, n7} = step(d, c0, c1, c2, c3, c4, c5, c6, c7)
-      loop(p, d, n0, n1, n2, n3, n4, n5, n6, n7)
+    case 1n+p Cs{c0, c1, c2, c3, c4, c5, c6, c7}:
+      loop(p, d, step(d, c0, c1, c2, c3, c4, c5, c6, c7))
 
 assert cini:
   forall k: U32
@@ -291,7 +295,7 @@ assert rst:
 
 def rst(r, d):
   +rr = {U32.mul(r, 8) : +U32}
-  loop(20n, d, cini(U32.inc(rr)), cini(U32.add(rr, 2)), cini(U32.add(rr, 3)), cini(U32.add(rr, 4)), cini(U32.add(rr, 5)), cini(U32.add(rr, 6)), cini(U32.add(rr, 7)), cini(U32.add(rr, 8)))
+  loop(20n, d, Cs{cini(U32.inc(rr)), cini(U32.add(rr, 2)), cini(U32.add(rr, 3)), cini(U32.add(rr, 4)), cini(U32.add(rr, 5)), cini(U32.add(rr, 6)), cini(U32.add(rr, 7)), cini(U32.add(rr, 8))})
 
 # 64 independent restarts fork as a balanced tree (kmeans++ style
 # restarts keep the machine wide across the whole run)
@@ -306,7 +310,8 @@ def rbatch(b, r, d):
     case 0n:
       rst(r, d)
     case 1n+p:
-      Both{x, y} = {Both{rbatch(p, r, d), rbatch(p, U32.add(r, U32.shln(p, 1)), d)} : Par<U32, U32>}
+      & x : U32 = rbatch(p, r, d)
+      & y : U32 = rbatch(p, U32.add(r, U32.shln(p, 1)), d);
       U32.add(x, y)
 
 assert size:
