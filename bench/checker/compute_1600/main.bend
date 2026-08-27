@@ -1,8 +1,8 @@
-type Nat -> Data:
+type Nat is Data:
   Z{}
   S{pred: Nat}
 
-type Sigma<-A: Type, -B: @-x: A -> Type> -> Type:
+type Sigma<-A: Type, -B: @-x: A -> Type> is Type:
   Tuple{fst: A, snd: B(fst)}
 
 assert Pair:
@@ -288,7 +288,7 @@ assert n32:
 def n32():
   S{n31()}
 
-type Duo<-A: Type, -B: Type> -> Type:
+type Duo<-A: Type, -B: Type> is Type:
   Duo{fst: A, snd: B}
 
 assert Tup:

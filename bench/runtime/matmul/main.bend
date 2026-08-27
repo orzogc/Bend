@@ -18,11 +18,11 @@ import Base
 # (verified against a Bend3 C run on the cluster), big (7, 9, 384)
 # expect 3797651056 (from the Bend3 header).
 
-type Mat -> Data:
+type Mat is Data:
   Lf{v: U32}
   Qd{a: Mat, b: Mat, c: Mat, d: Mat}
 
-type Vec -> Data:
+type Vec is Data:
   Vl{v: U32}
   Vn{l: Vec, r: Vec}
 

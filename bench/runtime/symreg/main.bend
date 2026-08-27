@@ -20,7 +20,7 @@ import Base
 # a Bend3 C run on the cluster), big (18, 110) expect 2383953211 (from
 # the Bend3 header).
 
-type Expr -> Data:
+type Expr is Data:
   Var{}
   Lit{v: U32}
   Add{a: Expr, b: Expr}
@@ -28,7 +28,7 @@ type Expr -> Data:
   Mul{a: Expr, b: Expr}
   Xor{a: Expr, b: Expr}
 
-type Sel -> Data:
+type Sel is Data:
   Sel{fit: U32, seed: U32, sum: U32}
 
 assert Sel.fit:

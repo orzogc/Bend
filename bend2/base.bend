@@ -4,44 +4,44 @@
 # Data
 # ----
 
-type Empty -> Data:
+type Empty is Data:
 
-type Unit -> Data:
+type Unit is Data:
   Unit{}
 
-type Bool -> Data:
+type Bool is Data:
   False{}
   True{}
 
-type Cmp -> Data:
+type Cmp is Data:
   LT{}
   EQ{}
   GT{}
 
-type Either<a, b, -A: Kind(a), -B: Kind(b)> -> Kind(a <&> b):
+type Either<a, b, -A: Kind(a), -B: Kind(b)> is Kind(a <&> b):
   Inl{value: A}
   Inr{value: B}
 
-type Sigma<a, b, -A: Kind(a), -B: @-x: A -> Kind(b)> -> Kind(a <&> b):
+type Sigma<a, b, -A: Kind(a), -B: @-x: A -> Kind(b)> is Kind(a <&> b):
   Tuple{fst: A, snd: B(fst)}
 
-type Nat -> Data:
+type Nat is Data:
   Zero{}
   Succ{pred: Nat}
 
-type Maybe<a, -A: Kind(a)> -> Kind(a):
+type Maybe<a, -A: Kind(a)> is Kind(a):
   None{}
   Some{value: A}
 
-type Result<a, b, -E: Kind(a), -A: Kind(b)> -> Kind(a <&> b):
+type Result<a, b, -E: Kind(a), -A: Kind(b)> is Kind(a <&> b):
   Fail{error: E}
   Done{value: A}
 
-type List<a, -A: Kind(a)> -> Kind(a):
+type List<a, -A: Kind(a)> is Kind(a):
   Nil{}
   Con{head: A, tail: List<a, A>}
 
-type Array<-T: Type> -> Type:
+type Array<-T: Type> is Type:
   ALeaf{value: T}
   ANode{xs: Array<T>, ys: Array<T>}
 
@@ -49,42 +49,42 @@ assert Word:
   forall n: Nat
   Data
 
-type Word.Nil -> Data:
+type Word.Nil is Data:
   WNil{}
 
-type Word.Con<-p: Nat> -> Data:
+type Word.Con<-p: Nat> is Data:
   WCon{head: Bool, tail: Word(p)}
 
-type U32 -> Data:
+type U32 is Data:
   U32{data: Word(32n)}
 
-type Char -> Data:
+type Char is Data:
   Chr{code: U32}
 
-type String -> Data:
+type String is Data:
   SNil{}
   SCon{head: Char, tail: String}
 
 # Effects
 # -------
 
-type File -> Type:
+type File is Type:
   File{slot: U32, gen: U32}
 
-type Socket -> Type:
+type Socket is Type:
   Socket{slot: U32, gen: U32}
 
-type Listener -> Type:
+type Listener is Type:
   Listener{slot: U32, gen: U32}
 
-type IO.OP<-R: Type> -> Type:
+type IO.OP<-R: Type> is Type:
   Emit{value: R}
   Halt{code: U32, message: String}
 
 # Map
 # ---
 
-type Map<a, -V: Kind(a)> -> Kind(a):
+type Map<a, -V: Kind(a)> is Kind(a):
   MTip{}
   MLeaf{key: String, val: V}
   MNode{pos: Nat, lo: Map<a, V>, hi: Map<a, V>}

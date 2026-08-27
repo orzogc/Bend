@@ -14,11 +14,11 @@ import Base
 # Sizes: small depth = 8 (expect 971629740), big depth = 23 (expect
 # 3787129428); both verified against Bend3 C runs on the cluster.
 
-type Tree -> Data:
+type Tree is Data:
   Leaf{v: U32}
   Node{l: Tree, r: Tree}
 
-type Stat -> Data:
+type Stat is Data:
   St{lo: U32, hi: U32, ok: U32, mx: U32}
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5

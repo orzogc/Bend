@@ -40,7 +40,7 @@
 // Reply  ::= Term
 // Body   ::= Match | Local | Reply
 // Ctr    ::= Name "{" [Bind ","?] "}"
-// ADT    ::= "type" Name ("<" [Bind ","?] ">")? "->" Term ":" [Ctr]
+// ADT    ::= "type" Name ("<" [Bind ","?] ">")? "is" Term ":" [Ctr]
 // Clause ::= ("forall" Quant | "exists") Name ":" Term ("where" Term)?
 // Assert ::= "assert" Name ":" [Clause] Term
 // Def    ::= "def" Name "(" [Name ","?] ")" ":" (Body | ["import" STRING]+)
@@ -2397,7 +2397,9 @@ export function parse_adt(p: Parse, book: Book): void {
   const n0 = p.sc.stk.length;
   parse_skip(p);
   const params = parse_take(p, "<") ? parse_tele(p, ">") : [];
-  parse_eat(p, "->");
+  if (!parse_word(p, "is")) {
+    parse_fail(p, "'is'");
+  }
   const K = parse_term(p);
   parse_eat(p, ":");
   const cs: Ctrs = [];
@@ -3540,7 +3542,7 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
   }
   const kind = term_wnf(book, sig);
   if (kind.$ !== "Typ") {
-    throw Err(book, ctx_nil(), "a kind (type " + k + "<..> -> Kind(g))", kind, undefined, k);
+    throw Err(book, ctx_nil(), "a kind (type " + k + "<..> is Kind(g))", kind, undefined, k);
   }
   for (const ctr of adt.c) {
     let tel: HTerm = ctr.T;

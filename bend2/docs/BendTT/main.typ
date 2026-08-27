@@ -723,7 +723,7 @@ licenses nothing: a polymorphic function cannot duplicate its
 argument, and #co[+] becomes available only after instantiation.
 
 _Declarations earn their grade._ A datatype is declared
-#co[type D\<p_1, .., p_n\> -\> Kind(G):] with $G$ a grade over the
+#co[type D\<p_1, .., p_n\> is Kind(G):] with $G$ a grade over the
 parameters; a bare name in the telescope is sugar for an erased
 #Gr parameter. The book validator reads $G$ off the signature and
 then, for each constructor, infers every field's kind in the real
@@ -741,12 +741,12 @@ the base library:
 
 #block(breakable: false)[
 ```
-type List<a, -A: Kind(a)> -> Kind(a):
+type List<a, -A: Kind(a)> is Kind(a):
   Nil{}
   Con{head: A, tail: List<a, A>}
 
 type Sigma<a, b, -A: Kind(a), -B: @-x: A -> Kind(b)>
-  -> Kind(a <&> b):
+  is Kind(a <&> b):
   Tuple{fst: A, snd: B(fst)}
 ```
 ]

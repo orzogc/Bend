@@ -173,7 +173,7 @@ parameter, so `List<&2, U32>` is `Data` and may be bound with `+`. From the base
 library:
 
 ```python
-type List<a, -A: Kind(a)> -> Kind(a):
+type List<a, -A: Kind(a)> is Kind(a):
   Nil{}
   Con{head: A, tail: List<a, A>}
 ```

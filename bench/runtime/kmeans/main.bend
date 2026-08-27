@@ -23,7 +23,7 @@ import Base
 # Bend3 C run on the cluster), big (19n) expect 1616398086 (from the
 # Bend3 header, verified on the cluster in seq, par and metal modes).
 
-type St -> Data:
+type St is Data:
   Sl{sx: U32, sy: U32, n: U32}
   Sn{l: St, r: St}
 
@@ -216,7 +216,7 @@ def cnew(s, old):
     case Sn{l, r}:
       old
 
-type Cs -> Data:
+type Cs is Data:
   Cs{c0: U32, c1: U32, c2: U32, c3: U32, c4: U32, c5: U32, c6: U32, c7: U32}
 
 # extract the 8 new centroids from the depth-3 stats tree (the

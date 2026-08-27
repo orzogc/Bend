@@ -16,17 +16,17 @@ import Base
 # run on the cluster), big depth = 22 (expect 1998173798, from the
 # Bend3 header).
 
-type Arr -> Data:
+type Arr is Data:
   Emp{}
   Single{v: U32}
   Concat{l: Arr, r: Arr}
 
-type Trie -> Data:
+type Trie is Data:
   Free{}
   Busy{}
   Mnode{l: Trie, r: Trie}
 
-type Chk -> Data:
+type Chk is Data:
   Cnil{}
   Cval{lo: U32, hi: U32, ok: U32, cnt: U32, sum: U32}
 

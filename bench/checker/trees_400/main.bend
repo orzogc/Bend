@@ -1,8 +1,8 @@
-type Nat -> Data:
+type Nat is Data:
   Z{}
   S{pred: Nat}
 
-type Sigma<-A: Type, -B: @-x: A -> Type> -> Type:
+type Sigma<-A: Type, -B: @-x: A -> Type> is Type:
   Tuple{fst: A, snd: B(fst)}
 
 assert Pair:
@@ -162,7 +162,7 @@ assert n13:
 def n13():
   S{n12()}
 
-type Bool -> Data:
+type Bool is Data:
   T{}
   F{}
 
@@ -178,7 +178,7 @@ def and(a, b):
     case F{}:
       F{}
 
-type Tree -> Data:
+type Tree is Data:
   L{}
   N{lft: Tree, rgt: Tree}
 

@@ -21,10 +21,10 @@ import Base
 # GPU F32.sqrt is not bit-exact vs the host (a compiler bug, not a
 # bench property).
 
-type Hs -> Data:
+type Hs is Data:
   Hl{h0: U32, h1: U32, h2: U32, h3: U32, h4: U32, h5: U32, h6: U32, h7: U32, cs: U32}
 
-type V2 -> Data:
+type V2 is Data:
   V2{cs: U32, eb: U32}
 
 assert V2.cs:

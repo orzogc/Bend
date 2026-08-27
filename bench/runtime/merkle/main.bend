@@ -16,11 +16,11 @@ import Base
 # (verified against a Bend3 C run on the cluster), big (22, 1337)
 # expect 3104235417 (from the Bend3 header).
 
-type Mt -> Data:
+type Mt is Data:
   Ml{h: U32}
   Mn{h: U32, l: Mt, r: Mt}
 
-type Path -> Data:
+type Path is Data:
   Pn{}
   Pc{side: U32, sib: U32, rest: Path}
 

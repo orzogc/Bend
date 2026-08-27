@@ -17,10 +17,10 @@ import Base
 # 3101455856 (from the Bend3 header, verified on the cluster in seq,
 # par and metal modes).
 
-type Hs -> Data:
+type Hs is Data:
   Hl{h0: U32, h1: U32, h2: U32, h3: U32, h4: U32, h5: U32, h6: U32, h7: U32}
 
-type Lut -> Data:
+type Lut is Data:
   Lut{k0: U32, k1: U32, k2: U32, k3: U32, k4: U32, k5: U32, k6: U32, k7: U32}
 
 assert b2u:

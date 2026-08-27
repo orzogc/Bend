@@ -35,7 +35,7 @@ import Base
 # run on the cluster (mask 1023, run!(10, 5, 625)); big from the Bend3
 # header.
 
-type Stats -> Data:
+type Stats is Data:
   Stat0{}
   Stats{sols: U32, nodes: U32}
 

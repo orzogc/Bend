@@ -17,12 +17,12 @@ import Base
 # a Bend3 C run on the cluster), big (18, 32) expect 2016151040 (from
 # the Bend3 header).
 
-type Cls -> Data:
+type Cls is Data:
   Still{}
   Osc{}
   Chaos{}
 
-type Census -> Data:
+type Census is Data:
   Census{pop: U32, still: U32, osc: U32, mix: U32}
 
 assert b2u:

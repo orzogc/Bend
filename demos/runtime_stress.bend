@@ -348,7 +348,7 @@ def run.chr(x, y):
 def run.out():
   run.chr('\n', '0')
 
-type Tr -> Data:
+type Tr is Data:
   L{v: U32}
   N{a: Tr, b: Tr}
 

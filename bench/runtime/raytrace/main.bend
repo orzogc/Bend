@@ -31,10 +31,10 @@ import Base
 # a Bend3 C run on the cluster), big (12, 6000) expect 1924309504
 # (from the Bend3 header).
 
-type Sph -> Data:
+type Sph is Data:
   Sph{x: F32, y: F32, z: F32, r: F32, kr: F32}
 
-type Hit -> Data:
+type Hit is Data:
   Hit{ms: Bool, t: F32, i: U32}
 
 assert Hit.t:
