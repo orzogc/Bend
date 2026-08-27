@@ -2869,9 +2869,6 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
   }
 }
 
-// Uncop
-// =====
-
 // SNF
 // ===
 
