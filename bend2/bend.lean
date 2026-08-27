@@ -15,7 +15,7 @@
 -- (the checker rejects a Many binder at formation) and survives only
 -- inside the usage measure, where it means "consumed more than once"
 -- and is always a violation. (The shipped checker adds one licensed
--- duplication mechanism, the grade system — see NOT MODELED below;
+-- duplication mechanism, the kind system — see NOT MODELED below;
 -- this file mechanizes the all-&1 fragment.) Every live self-call
 -- descends lexicographically on the definition's own case-tree
 -- columns, and no rule coerces dead to live. In a functional language
@@ -66,17 +66,18 @@
 -- are parsing and pipeline concerns with no counterpart here;
 -- U32/SCon/SNil string literals are base.bend constructors, not
 -- calculus. Four checker mechanisms sit outside this mechanization:
--- (1) the grade system: every type has a kind Kind(g) over a grade
---     g : Grade, &1 (affine) or &2 (reusable); Type = Kind(&1), Data =
---     Kind(&2); at check-any Data fits every kind and every kind fits
---     Type, never else.
---     A Many binder (+x at All/Let formation and over ADT telescopes)
---     is licensed iff its type's kind whnfs to Data (term_check_data).
+-- (1) the kind system: every type has a kind Kind(q) over a quantity
+--     q : Quant, &1 (Lone) or &2 (Many); Type = Kind(&1), Data =
+--     Kind(&2); at check-any Kind(g) fits Kind(h) when h <= g, so Data
+--     fits every kind and every kind fits Type, never else.
+--     A binder q x (at All/Let formation and over ADT telescopes)
+--     checks its type against Kind(q), so a Many binder needs a type
+--     whose kind fits Data under term_equal's order.
 --     A function type is Type, an equation is Data, a datatype declares
---     its kind Kind(G), and adt_valid demands every live field's grade
---     be entailed by G over atoms (term_check_grade), in the real
+--     its kind Kind(G), and adt_valid checks every live field's type
+--     against Kind(G) (a + field against Data), in the real
 --     constructor context; the meet a <&> b reduces only against a
---     literal. Here every kind is Kind(&1): Grade, &2 and the meet are
+--     literal. Here every kind is Kind(&1): Quant, &2 and the meet are
 --     absent, and Many is unspellable and always a violation.
 -- (2) check-efq's emptied-context clause: a LIVE context binder at an
 --     emptied family admits an empty match with constructors remaining

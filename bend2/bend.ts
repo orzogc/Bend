@@ -18,10 +18,9 @@
 //   | Ref ::= Name
 //   | Ann ::= "{" Term ":" Term "}"
 //   | Typ ::= "Type" | "Data" | "Kind" "(" Term ")"
-//   | GrT ::= "Grade"
-//   | Gr1 ::= "&1"
-//   | Gr2 ::= "&2"
-//   | GrA ::= Term "<&>" Term
+//   | Qnt ::= "Quant"
+//   | Qua ::= "&1" | "&2"
+//   | Min ::= Term "<&>" Term
 //   | All ::= "@" Bind "->" Term
 //   | Lam ::= Name "=>" Body
 //   | App ::= Term "(" [Term ","?] ")"
@@ -69,8 +68,8 @@
 // Fill   | D "<" [A ","?] ">"         | D<&1.., A..>
 // Plus   | "+" D ("<" [A ","?] ">")?  | D<&2.., A..>
 //
-// a bare Bind name is -Name: Grade. Fill and Plus omit a datatype's
-// leading Grade parameters as a block; Plus alone fills a grade-only D.
+// a bare Bind name is -Name: Quant. Fill and Plus omit a datatype's
+// leading Quant parameters as a block; Plus alone fills a quant-only D.
 // a literal expands to one node per unit, unbounded by design. Arrow is
 // right-associative; the domain of a written @ or & binder stops at the
 // first bare "->", so an arrow (or a nested binder) there needs parens.
@@ -122,16 +121,18 @@
 // recursive types with no universe hierarchy and no positivity check.
 // quantities None | Lone | Many (-x, x, +x) add sequentially (two live
 // uses saturate to Many) and join pointwise-max across branches. every
-// type has a kind Kind(g) over a grade g : Grade, &1 (affine) or &2
-// (reusable); Type is Kind(&1), Data is Kind(&2), and term_equal
-// orders kinds: Data fits every kind, every kind fits Type, and a meet
-// fits every kind under one of its sides, never else. a + binder needs
-// a type that fits Data. a function type is Type (a closure captures),
-// an equation is Data (evidence is erased), a datatype declares its
-// kind, Kind(G) over its parameters, and the meet a <&> b reduces only
-// against a literal. adt_valid earns G: every live field's kind must
-// fit Kind(G) in the real constructor context, so a constructor-local
-// grade never reaches G and a function field never sits in Data.
+// type has a kind Kind(q) over a quantity q : Quant, &1 (Lone) or &2
+// (Many); Type is Kind(&1), Data is Kind(&2), and term_equal orders
+// kinds by the quantity order: Kind(g) fits Kind(h) when h <= g, so
+// Data fits every kind and every kind fits Type, and a meet fits every
+// kind under one of its sides, never else. a binder q x: A needs A to
+// fit Kind(q): its type's quantity is at least its own. a function type
+// is Type (a closure captures), an equation is Data (evidence is
+// erased), a datatype declares its kind, Kind(G) over its parameters,
+// and the meet a <&> b reduces only against a literal. adt_valid earns
+// G: every live field's kind must fit Kind(G) in the real constructor
+// context, so a constructor-local quantity never reaches G and a
+// function field never sits in Data.
 // a type position, an erased (-) argument, an equality endpoint or a
 // motive checks dead: it may diverge and inhabit Empty; no rule coerces
 // dead to live. datatype fields never carry a license, a -field is
@@ -187,10 +188,9 @@ export type TermOf<B> = (
   | { $: "Sub"; i: number; v: TermOf<B>; f: TermOf<B> }                            // x <- v; f
   | { $: "Let"; k: Name[]; i: number[]; q: Quant[]; v: TermOf<B>[]; f: LetsOf<B> } // x y = v w; f
   | { $: "Typ"; g: TermOf<B> }                                                     // Kind(g)
-  | { $: "GrT" }                                                                   // Grade
-  | { $: "Gr1" }                                                                   // &1
-  | { $: "Gr2" }                                                                   // &2
-  | { $: "GrA"; a: TermOf<B>; b: TermOf<B> }                                       // a <&> b
+  | { $: "Qnt" }                                                                   // Quant
+  | { $: "Qua"; q: Quant }                                                         // &1, &2
+  | { $: "Min"; a: TermOf<B>; b: TermOf<B> }                                       // a <&> b
   | { $: "All"; q: Quant; k: Name; i: number; A: TermOf<B>; B: BodyOf<B> }         // @x:A -> B
   | { $: "Lam"; k: Name; i: number; f: BodyOf<B> }                                 // x => f
   | { $: "App"; f: TermOf<B>; x: TermOf<B> }                                       // f(x)
@@ -250,8 +250,8 @@ export type Frame =
   | { $: "APP"; x: HTerm } // _(x)
   | { $: "MAT"; t: Extract<HTerm, { $: "Mat" }>; e: HTerm; lhs: { t: () => HTerm; n: number } | null } // \{c:h;m}(_)
   | { $: "VAR"; l: Extract<HTerm, { $: "Var" }>; a?: Extract<HTerm, { $: "Ann" }> } // a share cell being filled
-  | { $: "GRA"; b: HTerm; s?: Span } // _ <&> b
-  | { $: "GRB"; a: HTerm; s?: Span } // a <&> _
+  | { $: "MNA"; b: HTerm; s?: Span } // _ <&> b
+  | { $: "MNB"; a: HTerm; s?: Span } // a <&> _
 
 // Error
 export type Expr = HTerm | string;
@@ -285,20 +285,16 @@ export function Typ<X>(g: TermOf<X>, s?: Span): TermOf<X> {
   return { $: "Typ", g, s };
 }
 
-export function GrT<X>(s?: Span): TermOf<X> {
-  return { $: "GrT", s };
+export function Qnt<X>(s?: Span): TermOf<X> {
+  return { $: "Qnt", s };
 }
 
-export function Gr1<X>(s?: Span): TermOf<X> {
-  return { $: "Gr1", s };
+export function Qua<X>(q: Quant, s?: Span): TermOf<X> {
+  return { $: "Qua", q, s };
 }
 
-export function Gr2<X>(s?: Span): TermOf<X> {
-  return { $: "Gr2", s };
-}
-
-export function GrA<X>(a: TermOf<X>, b: TermOf<X>, s?: Span): TermOf<X> {
-  return { $: "GrA", a, b, s };
+export function Min<X>(a: TermOf<X>, b: TermOf<X>, s?: Span): TermOf<X> {
+  return { $: "Min", a, b, s };
 }
 
 export function All<X>(q: Quant, k: Name, i: number, A: NoInfer<TermOf<[X]>>, B: X, s?: Span): TermOf<[X]> {
@@ -709,13 +705,12 @@ export function term_higher(tm: LTerm, env: Env = Emp<HTerm>()): HTerm {
       case "Typ": {
         return mk([go(t.g)], (ys) => Typ(ys[0], t.s));
       }
-      case "GrT":
-      case "Gr1":
-      case "Gr2": {
+      case "Qnt":
+      case "Qua": {
         return t;
       }
-      case "GrA": {
-        return mk([go(t.a), go(t.b)], (ys) => GrA(ys[0], ys[1], t.s));
+      case "Min": {
+        return mk([go(t.a), go(t.b)], (ys) => Min(ys[0], ys[1], t.s));
       }
       case "All": {
         const A = go(t.A);
@@ -784,13 +779,12 @@ export function term_lower(term: HTerm, dep: number = 0): LTerm {
       case "Typ": {
         return Typ(yield [tm.g, d], tm.s);
       }
-      case "GrT":
-      case "Gr1":
-      case "Gr2": {
+      case "Qnt":
+      case "Qua": {
         return tm;
       }
-      case "GrA": {
-        return GrA(yield [tm.a, d], yield [tm.b, d], tm.s);
+      case "Min": {
+        return Min(yield [tm.a, d], yield [tm.b, d], tm.s);
       }
       case "All": {
         const x: HTerm = Var(tm.k, d);
@@ -1204,20 +1198,21 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
       }
       case "Typ": {
         const g = term_force(tm.g);
-        if (g.$ === "Gr1") {
+        if (g.$ === "Qua" && g.q.$ === "Lone") {
           return "Type";
         }
-        if (g.$ === "Gr2") {
+        if (g.$ === "Qua" && g.q.$ === "Many") {
           return "Data";
         }
         return "Kind(" + (yield [tm.g, 0]) + ")";
       }
-      case "GrT":
-      case "Gr1":
-      case "Gr2": {
-        return { GrT: "Grade", Gr1: "&1", Gr2: "&2" }[tm.$];
+      case "Qnt": {
+        return "Quant";
       }
-      case "GrA": {
+      case "Qua": {
+        return { None: "&0", Lone: "&1", Many: "&2" }[tm.q.$];
+      }
+      case "Min": {
         const s = (yield [tm.a, 2]) + " <&> " + (yield [tm.b, 2]);
         return prc > 1 ? "(" + s + ")" : s;
       }
@@ -1380,7 +1375,7 @@ export function err_show(err: Err): string {
 
 const KEYWORDS = new Set([
   "def", "type", "match", "case", "do",
-  "return", "Type", "Data", "Kind", "Grade",
+  "return", "Type", "Data", "Kind", "Quant",
 ]);
 
 export function parse_new(book: Book, dir: string, str: string, ns: string = ""): Parse {
@@ -1631,9 +1626,7 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
     case "&": {
       if (parse_at(p, "&1") || parse_at(p, "&2")) {
         parse_bump(p);
-        const g: LTerm = parse_bump(p) === "1" ? Gr1() : Gr2();
-        g.s = parse_span(p, beg);
-        return g;
+        return Qua(parse_bump(p) === "1" ? Lone() : Many(), parse_span(p, beg));
       }
       return parse_term_all(p, true);
     }
@@ -1649,10 +1642,10 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
       }
       const tld = p.book.tlds[k];
       if (tld === undefined || tld.$ !== "ADT" || tld.g === 0 || tld.g < tld.n && t.$ !== "ADT") {
-        parse_fail(p, "a graded datatype after + (+D<..> sets D's leading grades to &2)");
+        parse_fail(p, "a quantified datatype after + (+D<..> sets D's leading quantities to &2)");
       }
-      const xs = t.$ === "ADT" ? t.x : Array.from({ length: tld.n }, (): LTerm => Gr1(s));
-      return ADT(k, xs.map((x, i) => i < tld.g ? Gr2(s) : x), s);
+      const xs = t.$ === "ADT" ? t.x : Array.from({ length: tld.n }, (): LTerm => Qua(Lone(), s));
+      return ADT(k, xs.map((x, i) => i < tld.g ? Qua(Many(), s) : x), s);
     }
     case "\\": {
       parse_bump(p);
@@ -1693,13 +1686,13 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
 
 export function parse_term_base_word(p: Parse, k: Name, beg: Loc): LTerm {
   if (k === "Type") {
-    return Typ(Gr1(), parse_span(p, beg));
+    return Typ(Qua(Lone()), parse_span(p, beg));
   }
   if (k === "Data") {
-    return Typ(Gr2(), parse_span(p, beg));
+    return Typ(Qua(Many()), parse_span(p, beg));
   }
-  if (k === "Grade") {
-    return GrT(parse_span(p, beg));
+  if (k === "Quant") {
+    return Qnt(parse_span(p, beg));
   }
   if (k === "Kind") {
     parse_eat(p, "(");
@@ -1861,7 +1854,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
         const k   = parse_reso(p, out.k);
         const tld = p.book.tlds[k];
         if (tld !== undefined && tld.$ === "ADT" && xs.length + tld.g === tld.n) {
-          xs.unshift(...xs.slice(0, tld.g).map((): LTerm => Gr1(s)));
+          xs.unshift(...xs.slice(0, tld.g).map((): LTerm => Qua(Lone(), s)));
         }
         out = ADT(k, xs, s);
       } else {
@@ -1888,7 +1881,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     }
     if (lvl <= 5 && parse_take(p, "<&>")) {
       const b = parse_term(p, 5);
-      out = GrA(out, b, parse_grow(p, out));
+      out = Min(out, b, parse_grow(p, out));
       continue;
     }
     const op = parse_infx_find(p);
@@ -2279,7 +2272,7 @@ export function parse_tele(p: Parse, close: string): Array<[Quant, Name, number,
     const k = parse_name(p);
     parse_skip(p);
     if (q.$ === "Lone" && !parse_at(p, ":")) {
-      tele.push([None(), k, parse_open(p, k), GrT()]);
+      tele.push([None(), k, parse_open(p, k), Qnt()]);
     } else {
       parse_eat(p, ":");
       const T = parse_term(p);
@@ -2403,7 +2396,7 @@ export function parse_adt(p: Parse, book: Book): void {
   const K = parse_term(p);
   parse_eat(p, ":");
   const cs: Ctrs = [];
-  const g  = params.findIndex((cell) => cell[3].$ !== "GrT");
+  const g  = params.findIndex((cell) => cell[3].$ !== "Qnt");
   book.tlds[k] = { $: "ADT", n: params.length, g: g < 0 ? params.length : g, T: term_higher(tele_bind(params, K)), c: cs };
   while (true) {
     parse_skip(p);
@@ -2691,8 +2684,8 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
         tm = tm.x;
         continue main;
       }
-      case "GrA": {
-        frs.push({ $: "GRA", b: tm.b, s: tm.s });
+      case "Min": {
+        frs.push({ $: "MNA", b: tm.b, s: tm.s });
         tm = tm.a;
         continue main;
       }
@@ -2794,23 +2787,23 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
             tm = term_apply(tm, fr.x);
             continue back;
           }
-          case "GRA": {
-            if (tm.$ === "Gr2") {
+          case "MNA": {
+            if (tm.$ === "Qua" && tm.q.$ === "Many") {
               tm = fr.b;
               continue main;
             }
-            if (tm.$ !== "Gr1") {
-              frs.push({ $: "GRB", a: tm, s: fr.s });
+            if (tm.$ !== "Qua") {
+              frs.push({ $: "MNB", a: tm, s: fr.s });
               tm = fr.b;
               continue main;
             }
             continue back;
           }
-          case "GRB": {
-            if (tm.$ === "Gr2") {
+          case "MNB": {
+            if (tm.$ === "Qua" && tm.q.$ === "Many") {
               tm = fr.a;
-            } else if (tm.$ !== "Gr1") {
-              tm = GrA(fr.a, tm, fr.s);
+            } else if (tm.$ !== "Qua") {
+              tm = Min(fr.a, tm, fr.s);
             }
             continue back;
           }
@@ -2889,13 +2882,12 @@ export function term_snf(book: Book, term: HTerm): HTerm {
       case "Typ": {
         return Typ(yield tm.g, tm.s);
       }
-      case "GrT":
-      case "Gr1":
-      case "Gr2": {
+      case "Qnt":
+      case "Qua": {
         return tm;
       }
-      case "GrA": {
-        return GrA(yield tm.a, yield tm.b, tm.s);
+      case "Min": {
+        return Min(yield tm.a, yield tm.b, tm.s);
       }
       case "All": {
         return All(tm.q, tm.k, tm.i, yield tm.A, (x: HTerm) => {
@@ -2974,24 +2966,25 @@ export function term_equal(book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0):
       }
       const g = term_wnf(book, a.g);
       const h = term_wnf(book, b.g);
-      if (g.$ === "Gr2" || h.$ === "Gr1") {
+      if ((g.$ === "Qua" && g.q.$ === "Many") || (h.$ === "Qua" && h.q.$ !== "Many")) {
         return true;
       }
-      if (g.$ === "GrA") {
+      if (g.$ === "Min") {
         return term_equal(book, Typ(g.a), b, dep) && term_equal(book, Typ(g.b), b, dep);
       }
-      if (h.$ === "GrA") {
+      if (h.$ === "Min") {
         return term_equal(book, a, Typ(h.a), dep) || term_equal(book, a, Typ(h.b), dep);
       }
       return term_equal(book, g, h, dep);
     }
-    case "GrT":
-    case "Gr1":
-    case "Gr2": {
-      return a.$ === b.$;
+    case "Qnt": {
+      return b.$ === "Qnt";
     }
-    case "GrA": {
-      return b.$ === "GrA" && term_equal(book, a.a, b.a, dep) && term_equal(book, a.b, b.b, dep);
+    case "Qua": {
+      return b.$ === "Qua" && a.q.$ === b.q.$;
+    }
+    case "Min": {
+      return b.$ === "Min" && term_equal(book, a.a, b.a, dep) && term_equal(book, a.b, b.b, dep);
     }
     case "All": {
       const x: HTerm = Var(a.k, dep);
@@ -3054,19 +3047,11 @@ export function term_equal(book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0):
 // not exist yet; goals always compute on source terms. lhs is the def's
 // own equation, rebuilt as the tree walks; lhs.qs holds the def's
 // parameter quantities, read off its type once, so descent can skip
-// erased columns. grades: term_check_data demands a + binder's type
-// infer a kind that fits Data under term_equal's order.
+// erased columns. quantities: a binder q x: A checks A against Kind(q),
+// so its type's quantity is at least q under term_equal's order.
 
 export type HAnn  = Extract<HTerm, { $: "Ann" }>;
 export type Infer = { tm: HTerm; us: Uses };
-
-export function term_check_data(book: Book, lhs: LHS | null, A: HTerm, ctx: Ctx, d: number, s?: Span): void {
-  const def   = lhs === null ? undefined : lhs.def;
-  const A_inf = term_infer(book, lhs, A, None(), ctx, d);
-  if (!term_equal(book, (A_inf.tm as HAnn).T, Typ(Gr2()))) {
-    throw Err(book, ctx, "a Data type (a + binder needs a Data-kinded type)", A, s, def);
-  }
-}
 
 export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ctx: Ctx, d: number): Infer {
   const def = lhs?.def;
@@ -3110,46 +3095,41 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
       }
       return { tm: Ann(tm, tld.T), us: uses_nil() };
     }
-    // Γ ⊢ g : Grade
-    // where g is dead
+    // Γ ⊢ q : Quant
+    // where q is dead
     // ------------------- infer-typ
-    // Γ ⊢ Kind(g) : Type
+    // Γ ⊢ Kind(q) : Type
     case "Typ": {
-      const g_chk = term_check(book, lhs, tm.g, None(), GrT(tm.s), ctx, d);
-      return { tm: Ann<HBody>(Typ(g_chk.tm, tm.s), Typ(Gr1(), tm.s)), us: uses_nil() };
+      const g_chk = term_check(book, lhs, tm.g, None(), Qnt(tm.s), ctx, d);
+      return { tm: Ann<HBody>(Typ(g_chk.tm, tm.s), Typ(Qua(Lone()), tm.s)), us: uses_nil() };
     }
     // ∅
-    // ------------------------------------ infer-grd
-    // Γ ⊢ Grade : Type    Γ ⊢ &1, &2 : Grade
-    case "GrT":
-    case "Gr1":
-    case "Gr2": {
-      const T = tm.$ === "GrT" ? Typ<HBody>(Gr1(), tm.s) : GrT<HBody>(tm.s);
+    // ------------------------------------ infer-qnt
+    // Γ ⊢ Quant : Type    Γ ⊢ &1, &2 : Quant
+    case "Qnt":
+    case "Qua": {
+      const T = tm.$ === "Qnt" ? Typ<HBody>(Qua(Lone()), tm.s) : Qnt<HBody>(tm.s);
       return { tm: Ann(tm, T), us: uses_nil() };
     }
-    // Γ ⊢ a : Grade    Γ ⊢ b : Grade
+    // Γ ⊢ a : Quant    Γ ⊢ b : Quant
     // where a and b are dead
-    // ------------------------------- infer-gra
-    // Γ ⊢ a <&> b : Grade
-    case "GrA": {
-      const a_chk = term_check(book, lhs, tm.a, None(), GrT(tm.s), ctx, d);
-      const b_chk = term_check(book, lhs, tm.b, None(), GrT(tm.s), ctx, d);
-      return { tm: Ann<HBody>(GrA(a_chk.tm, b_chk.tm, tm.s), GrT(tm.s)), us: uses_nil() };
+    // ------------------------------- infer-min
+    // Γ ⊢ a <&> b : Quant
+    case "Min": {
+      const a_chk = term_check(book, lhs, tm.a, None(), Qnt(tm.s), ctx, d);
+      const b_chk = term_check(book, lhs, tm.b, None(), Qnt(tm.s), ctx, d);
+      return { tm: Ann<HBody>(Min(a_chk.tm, b_chk.tm, tm.s), Qnt(tm.s)), us: uses_nil() };
     }
-    // Γ ⊢ A : Type
+    // Γ ⊢ A : Kind(q)
     // Γ , x : qA ⊢ B(x) : Type
-    // where a + binder's A is Data
     // ----------------------------------------------- infer-all
     // Γ ⊢ @q x:A -> B : Type
     case "All": {
       const B_ctx = ctx_bind(ctx, d, tm.q, tm.k, tm.A);
-      const A_chk = term_check(book, lhs, tm.A, None(), Typ(Gr1(), tm.s), ctx, d);
-      if (tm.q.$ === "Many") {
-        term_check_data(book, lhs, tm.A, ctx, d, tm.s);
-      }
-      const B_chk = term_check(book, lhs, tm.B(Var(tm.k, d)), None(), Typ(Gr1(), tm.s), B_ctx, d+1);
-      const out = All(tm.q, tm.k, tm.i, A_chk.tm, (y: HTerm) => y.$ === "Var" && y.i === d ? B_chk.tm : term_check(book, lhs, tm.B(y), None(), Typ(Gr1()), B_ctx, d+1).tm, tm.s);
-      return { tm: Ann(out, Typ(Gr1(), tm.s)), us: uses_nil() };
+      const A_chk = term_check(book, lhs, tm.A, None(), Typ(Qua(tm.q), tm.s), ctx, d);
+      const B_chk = term_check(book, lhs, tm.B(Var(tm.k, d)), None(), Typ(Qua(Lone()), tm.s), B_ctx, d+1);
+      const out = All(tm.q, tm.k, tm.i, A_chk.tm, (y: HTerm) => y.$ === "Var" && y.i === d ? B_chk.tm : term_check(book, lhs, tm.B(y), None(), Typ(Qua(Lone())), B_ctx, d+1).tm, tm.s);
+      return { tm: Ann(out, Typ(Qua(Lone()), tm.s)), us: uses_nil() };
     }
     // Γ ⊢ f : @q x:A -> B ~ fu
     // Γ ⊢ a : A ~ au
@@ -3250,11 +3230,11 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
     // ------------------------------------------------------ infer-eql
     // Γ ⊢ {a == b : A} : Data ~ {}
     case "Eql": {
-      const T_chk = term_check(book, lhs, tm.T, None(), Typ(Gr1(), tm.s), ctx, d);
+      const T_chk = term_check(book, lhs, tm.T, None(), Typ(Qua(Lone()), tm.s), ctx, d);
       const a_chk = term_check(book, lhs, tm.a, None(), tm.T, ctx, d);
       const b_chk = term_check(book, lhs, tm.b, None(), tm.T, ctx, d);
       const out = Eql(a_chk.tm, b_chk.tm, T_chk.tm, tm.s);
-      return { tm: Ann(out, Typ(Gr2(), tm.s)), us: uses_nil() };
+      return { tm: Ann(out, Typ(Qua(Many()), tm.s)), us: uses_nil() };
     }
     // Γ ⊢ T : Type
     // Γ ⊢ x : T ~ u
@@ -3262,7 +3242,7 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
     // ------------------- infer-ann
     // Γ ⊢ {x : T} : T ~ u
     case "Ann": {
-      term_check(book, lhs, tm.T, None(), Typ(Gr1(), tm.s), ctx, d);
+      term_check(book, lhs, tm.T, None(), Typ(Qua(Lone()), tm.s), ctx, d);
       return term_check(book, lhs, tm.x, qt, tm.T, ctx, d);
     }
     // x is a Lam, Let, Ctr, Mat, Efq, Rfl or Rwt
@@ -3303,9 +3283,9 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
       return { tm: Ann(out, ty), us: uses_del(f_chk.us, d) };
     }
     // Γ ⊢ vj : Aj ~ vuj  (each value in Γ: the binders are parallel)
+    // Γ ⊢ Aj : Kind(qj)
     // Γ , x1 : q1A1 , .. , xn : qnAn ⊢ f(x1, .., xn) : T ~ fu
-    // where a + binder's Aj is Data
-    //       vj is dead if qj is -
+    // where vj is dead if qj is -
     //       fu[xj] <= qj
     //       the elaborated let re-checks its body lazily; a bare
     //       opened variable takes its value back, so a forcer's
@@ -3321,9 +3301,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
         const v_dem = quant_dem(tm.q[j], qt);
         const v_inf = term_infer(book, lhs, tm.v[j], v_dem, ctx, d);
         const v_ann = v_inf.tm as HAnn;
-        if (tm.q[j].$ === "Many") {
-          term_check_data(book, lhs, v_ann.T, ctx, d, tm.s);
-        }
+        term_check(book, lhs, v_ann.T, None(), Typ(Qua(tm.q[j]), tm.s), ctx, d);
         vx.push(v_inf.tm);
         us = uses_add(us, v_inf.us);
         f_ctx = ctx_bind(f_ctx, d + j, tm.q[j], tm.k[j], v_ann.T);
@@ -3482,7 +3460,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
       if (e_wnf.$ !== "Eql") {
         throw Err(book, ctx, "an equation {a == b : T}", e_ann.T, tm.s, def);
       }
-      const p_typ = All<HBody>(Lone(), "_", 0, e_wnf.T, (x: HTerm) => All<HBody>(Lone(), "e", 0, Eql(e_wnf.a, x, e_wnf.T), () => Typ(Gr1()), tm.s), tm.s);
+      const p_typ = All<HBody>(Lone(), "_", 0, e_wnf.T, (x: HTerm) => All<HBody>(Lone(), "e", 0, Eql(e_wnf.a, x, e_wnf.T), () => Typ(Qua(Lone())), tm.s), tm.s);
       const p_chk = term_check(book, lhs, tm.p, None(), p_typ, ctx, d);
       const b_gol = term_apply(term_apply(tm.p, e_wnf.b), tm.e);
       if (!term_equal(book, b_gol, ty, d)) {
@@ -3523,15 +3501,16 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
 // stuck. a def checks its type against Type, then its tree against it,
 // entering with { t: Ref k, n: Def.n, qs: the parameter quantities read
 // off T }; an ADT checks its signature against Type and reads its
-// declared kind Kind(G) off the tip, then infers every constructor
-// telescope domain (parameters, then fields) in the real context: a
-// live field's kind must fit Kind(G) under term_equal's order, a +
-// binder's must reduce to &2, and the tip must be the family applied to
-// its own parameters, in order. one telescope per declaration: there is
-// no second face, no substitution and no speculative pass.
+// declared kind Kind(G) off the tip, then checks every constructor
+// telescope domain (parameters, then fields) in the real context
+// against one goal: Kind(G) for a live field, Kind(q) for a binder of
+// quantity q otherwise (term_equal's order does the fitting); the tip must
+// be the family applied to its own parameters, in order. one telescope
+// per declaration: there is no second face, no substitution and no
+// speculative pass.
 
 export function adt_valid(book: Book, k: Name, adt: ADT): void {
-  term_check(book, null, adt.T, None(), Typ(Gr1()), ctx_nil(), 0);
+  term_check(book, null, adt.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
   let sig: HTerm = adt.T;
   for (let d = 0; d < adt.n; d++) {
     const s_all = tele_head(book, sig, ctx_nil(), k);
@@ -3546,17 +3525,8 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
     let ctx = ctx_nil();
     for (let d = 0; d < adt.n + ctr.n; d++) {
       const t_all = tele_head(book, tel, ctx, ctr.k);
-      const A_inf = term_infer(book, null, t_all.A, None(), ctx, d);
-      const K     = term_wnf(book, (A_inf.tm as HAnn).T);
-      if (K.$ !== "Typ") {
-        throw Err(book, ctx, Typ(Gr1()), K, undefined, ctr.k);
-      }
-      if (t_all.q.$ === "Many" && !term_equal(book, K, Typ(Gr2()))) {
-        throw Err(book, ctx, "a Data type (a + binder needs a Data-kinded type)", t_all.A, undefined, ctr.k);
-      }
-      if (d >= adt.n && t_all.q.$ !== "None" && !term_equal(book, K, kind)) {
-        throw Err(book, ctx, Typ(kind.g), K, undefined, ctr.k);
-      }
+      const goal: HTerm = d >= adt.n && t_all.q.$ === "Lone" ? kind : Typ(Qua(t_all.q));
+      term_check(book, { t: Ref(ctr.k), n: 0, def: ctr.k, qs: [] }, t_all.A, None(), goal, ctx, d);
       ctx = ctx_bind(ctx, d, t_all.q, t_all.k, t_all.A);
       tel = t_all.B(Var(t_all.k, d));
     }
@@ -3575,7 +3545,7 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
 }
 
 export function def_valid(book: Book, k: Name, def: Def): void {
-  term_check(book, null, def.T, None(), Typ(Gr1()), ctx_nil(), 0);
+  term_check(book, null, def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
   if (def.i) {
     let tel = term_strip(def.T);
     while (tel.$ === "All") {

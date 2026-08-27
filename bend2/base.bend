@@ -370,13 +370,13 @@ assert Nat.is_lt:
 # -----
 
 assert Maybe.pure:
-  forall -a: Grade
+  forall -a: Quant
   forall -A: Kind(a)
   forall x: A
   Maybe<a, A>
 
 assert Maybe.bind:
-  forall -a: Grade
+  forall -a: Quant
   forall -A: Kind(a)
   forall -B: Kind(a)
   forall m: Maybe<a, A>
@@ -387,24 +387,24 @@ assert Maybe.bind:
 # ------
 
 assert Result.pure:
-  forall -a: Grade
-  forall -b: Grade
+  forall -a: Quant
+  forall -b: Quant
   forall -E: Kind(a)
   forall -A: Kind(b)
   forall x: A
   Result<a, b, E, A>
 
 assert Result.fail:
-  forall -a: Grade
-  forall -b: Grade
+  forall -a: Quant
+  forall -b: Quant
   forall -E: Kind(a)
   forall -A: Kind(b)
   forall e: E
   Result<a, b, E, A>
 
 assert Result.bind:
-  forall -a: Grade
-  forall -b: Grade
+  forall -a: Quant
+  forall -b: Quant
   forall -E: Kind(a)
   forall -A: Kind(b)
   forall -B: Kind(b)
@@ -1098,12 +1098,12 @@ assert Map.diff:
   Nat
 
 assert Map.new:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   Map<a, V>
 
 assert Map.put.bit:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall x: V
   forall p2: Nat
@@ -1113,7 +1113,7 @@ assert Map.put.bit:
   Map<a, V>
 
 assert Map.put:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall key: String
@@ -1121,7 +1121,7 @@ assert Map.put:
   Map<a, V>
 
 assert Map.ins.splice.bit:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall x: V
   forall rest: Map<a, V>
@@ -1130,7 +1130,7 @@ assert Map.ins.splice.bit:
   Map<a, V>
 
 assert Map.ins.splice:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall +p: Nat
   forall key: String
@@ -1139,7 +1139,7 @@ assert Map.ins.splice:
   Map<a, V>
 
 assert Map.ins.deep:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall x: V
   forall lo: Map<a, V>
@@ -1150,7 +1150,7 @@ assert Map.ins.deep:
   Map<a, V>
 
 assert Map.ins.if:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall key: String
   forall x: V
@@ -1162,7 +1162,7 @@ assert Map.ins.if:
   Map<a, V>
 
 assert Map.ins:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall key: String
@@ -1171,7 +1171,7 @@ assert Map.ins:
   Map<a, V>
 
 assert Map.seek.lo:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall p2: Nat
   forall hi: Map<a, V>
@@ -1179,7 +1179,7 @@ assert Map.seek.lo:
   (Map<a, V> & String) & Maybe<&2, String>
 
 assert Map.seek.hi:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall p2: Nat
   forall lo: Map<a, V>
@@ -1187,7 +1187,7 @@ assert Map.seek.hi:
   (Map<a, V> & String) & Maybe<&2, String>
 
 assert Map.seek.bit:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall lo: Map<a, V>
   forall hi: Map<a, V>
@@ -1196,14 +1196,14 @@ assert Map.seek.bit:
   (Map<a, V> & String) & Maybe<&2, String>
 
 assert Map.seek:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall key: String
   (Map<a, V> & String) & Maybe<&2, String>
 
 assert Map.set.fin.go:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall key: String
@@ -1212,7 +1212,7 @@ assert Map.set.fin.go:
   Map<a, V>
 
 assert Map.set.fin:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall key: String
@@ -1222,14 +1222,14 @@ assert Map.set.fin:
   Map<a, V>
 
 assert Map.set.go:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall x: V
   forall r: (Map<a, V> & String) & Maybe<&2, String>
   Map<a, V>
 
 assert Map.set:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall key: String
@@ -1237,21 +1237,21 @@ assert Map.set:
   Map<a, V>
 
 assert Map.set.kv:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall kv: Sigma<&2, a, String, _ => V>
   Map<a, V>
 
 assert Map.has.leaf:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall v: V
   forall r: (String & String) & Cmp
   Map<a, V> & Bool
 
 assert Map.has.lo:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall p2: Nat
   forall hi: Map<a, V>
@@ -1259,7 +1259,7 @@ assert Map.has.lo:
   Map<a, V> & Bool
 
 assert Map.has.hi:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall p2: Nat
   forall lo: Map<a, V>
@@ -1267,7 +1267,7 @@ assert Map.has.hi:
   Map<a, V> & Bool
 
 assert Map.has.bit:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall lo: Map<a, V>
   forall hi: Map<a, V>
@@ -1276,7 +1276,7 @@ assert Map.has.bit:
   Map<a, V> & Bool
 
 assert Map.has:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall key: String
@@ -1320,7 +1320,7 @@ assert Map.get:
   Map<&2, V> & V
 
 assert Map.pop.lo:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall pos: Nat
   forall lo: Map<a, V>
@@ -1329,7 +1329,7 @@ assert Map.pop.lo:
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.hi:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall pos: Nat
   forall lo: Map<a, V>
@@ -1338,14 +1338,14 @@ assert Map.pop.hi:
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.leaf:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall v: V
   forall r: (String & String) & Cmp
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.golo:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall p2: Nat
   forall hi: Map<a, V>
@@ -1353,7 +1353,7 @@ assert Map.pop.golo:
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.gohi:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall p2: Nat
   forall lo: Map<a, V>
@@ -1361,7 +1361,7 @@ assert Map.pop.gohi:
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.bit:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall lo: Map<a, V>
   forall hi: Map<a, V>
@@ -1370,66 +1370,66 @@ assert Map.pop.bit:
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall key: String
   Map<a, V> & Maybe<a, V>
 
 assert Map.del.fin:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall r: Map<a, V> & Maybe<a, V>
   Map<a, V>
 
 assert Map.del:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall key: String
   Map<a, V>
 
 assert Map.to_list.go:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall acc: List<a, Sigma<&2, a, String, _ => V>>
   List<a, Sigma<&2, a, String, _ => V>>
 
 assert Map.to_list:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   List<a, Sigma<&2, a, String, _ => V>>
 
 assert Map.keys.go:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall acc: List<&2, String>
   List<&2, String>
 
 assert Map.keys:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   List<&2, String>
 
 assert Map.from_list.go:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall kvs: List<a, Sigma<&2, a, String, _ => V>>
   forall m: Map<a, V>
   Map<a, V>
 
 assert Map.from_list:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall kvs: List<a, Sigma<&2, a, String, _ => V>>
   Map<a, V>
 
 assert Map.union:
-  forall -a: Grade
+  forall -a: Quant
   forall -V: Kind(a)
   forall m: Map<a, V>
   forall n: Map<a, V>

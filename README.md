@@ -166,10 +166,10 @@ def main():
   IO.print(U32.show(sum!(24n, 0)))
 ```
 
-Every type has a kind with a grade: `Type` for affine values (closures live
-here) or `Data` for reusable ones. A datatype declares its kind, and the checker
-verifies it at every constructor; a generic datatype takes the grade as a
-parameter, so `List<&2, U32>` is `Data` and may be bound with `+`. From the base
+Every type has a kind over a quantity: `Type` (`Kind(&1)`) for affine values
+(closures live here) or `Data` (`Kind(&2)`) for reusable ones. A datatype
+declares its kind, and the checker verifies it at every constructor; a generic
+datatype takes the quantity as a parameter, so `List<&2, U32>` is `Data` and may be bound with `+`. From the base
 library:
 
 ```python

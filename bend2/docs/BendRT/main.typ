@@ -212,10 +212,10 @@ this stack; there are none (@sec:related).
 Bend's checker tracks every use. A live value is consumed at most
 once, with one way around it: a binder marked #co[+] may be
 consumed freely, and its type must be of the reusable kind
-#co[Data], a _grade_ every datatype declares and the checker
+#co[Data], a _kind_ every datatype declares and the checker
 verifies at each constructor, so that no closure ever sits inside
 a #co[Data] value (the companion paper develops the discipline).
-Grades are erased at runtime; a #co[+] variable is simply emitted
+Kinds are erased at runtime; a #co[+] variable is simply emitted
 at every use. The checker
 is authoritative about cost: a compiler may drop a cost the
 source spelled, never add a clone or a retain the source did not.
