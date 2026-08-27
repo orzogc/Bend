@@ -181,7 +181,6 @@ export type TermOf<B> = (
   | { $: "Rwt"; e: TermOf<B>; p: TermOf<B>; f: TermOf<B> }                         // %e@E : P; f (p = _ => e => P)
   | { $: "Cop"; T: TermOf<B>; c: TermOf<B> }                                       // + T ~ c
   | { $: "Ann"; x: TermOf<B>; T: TermOf<B> }                                       // {x : T}
-  | { $: "Laz"; f: () => TermOf<B>; x?: TermOf<B>; v?: TermOf<B> }                 // x
 ) & { s?: Span };
 
 export type LTerm = TermOf<[LTerm]>;
@@ -228,8 +227,8 @@ export type Span  = { src: string; beg: Loc; end: Loc; };
 export type LHS   = { t: HTerm; n: number; def: Name; qs: Quant[] };
 export type Frame =
   | { $: "APP"; x: HTerm } // _(x)
-  | { $: "MAT"; t: Extract<HTerm, { $: "Mat" }>; e: HTerm; lhs: { t: HTerm; n: number } | null } // \{c:h;m}(_)
-  | { $: "LAZ"; l: Extract<HTerm, { $: "Laz" }> } // a thunk being filled
+  | { $: "MAT"; t: Extract<HTerm, { $: "Mat" }>; e: HTerm; lhs: { t: () => HTerm; n: number } | null } // \{c:h;m}(_)
+  | { $: "VAR"; l: Extract<HTerm, { $: "Var" }>; a?: Extract<HTerm, { $: "Ann" }> } // a share cell being filled
 
 // Error
 export type Expr = HTerm | string;
@@ -309,10 +308,6 @@ export function Cop<X>(T: TermOf<X>, c: TermOf<X>, s?: Span): TermOf<X> {
 
 export function Ann<X>(x: TermOf<X>, T: TermOf<X>, s?: Span): TermOf<X> {
   return { $: "Ann", x, T, s };
-}
-
-export function Laz<X>(f: () => TermOf<X>, s?: Span, x?: TermOf<X>): TermOf<X> {
-  return { $: "Laz", f, x, s };
 }
 
 // PMap
@@ -570,10 +565,6 @@ export function term_apply(fn: HTerm, tm: HTerm): HTerm {
         f = f.x;
         break;
       }
-      case "Laz": {
-        f = term_force(f);
-        break;
-      }
       case "Lam": {
         return f.f(tm);
       }
@@ -589,10 +580,6 @@ export function term_unapply(tm: HTerm): [HTerm, HTerm[]] {
   let cur = tm;
   while (true) {
     switch (cur.$) {
-      case "Laz": {
-        cur = term_force(cur);
-        break;
-      }
       case "App": {
         xs.push(cur.x);
         cur = cur.f;
@@ -607,14 +594,10 @@ export function term_unapply(tm: HTerm): [HTerm, HTerm[]] {
 }
 
 export function term_force<X>(t: TermOf<X>): TermOf<X> {
-  if (t.$ !== "Laz") {
-    return t;
+  while (t.$ === "Var" && t.i < 0) {
+    t = t.v as TermOf<X>;
   }
-  if (t.v === undefined) {
-    t.v = term_force(t.f());
-    t.x = undefined;
-  }
-  return t.v;
+  return t;
 }
 
 export function term_strip<X>(tm: TermOf<X>): TermOf<X> {
@@ -748,10 +731,6 @@ export function term_higher(tm: LTerm, env: Env): HTerm {
         const out = mk([go(t.x), go(t.T)], (ys) => Ann(ys[0], ys[1], t.s));
         return out;
       }
-      case "Laz": {
-        const out = go(term_force(t));
-        return out;
-      }
     }
   }
   const m = go(tm);
@@ -761,10 +740,7 @@ export function term_higher(tm: LTerm, env: Env): HTerm {
 export function term_lower(term: HTerm, dep: number = 0): LTerm {
   type Q = [HTerm, number];
   function* go([t0, d]: Q): Generator<Q, LTerm, LTerm> {
-    let tm = t0;
-    while (tm.$ === "Laz") {
-      tm = term_force(tm);
-    }
+    const tm = term_force(t0);
     switch (tm.$) {
       case "Var": {
         return Var(tm.k, tm.i, tm.s);
@@ -1320,9 +1296,6 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
       case "Ann": {
         return "{" + (yield [tm.x, 1]) + " : " + (yield [tm.T, 1]) + "}";
       }
-      case "Laz": {
-        return yield [term_force(tm), prc];
-      }
     }
   }
   return loop_run(go, [term, top]);
@@ -1615,28 +1588,7 @@ export function parse_patt(p: Parse, t: LTerm): Patt {
 // Term
 // ----
 
-export function parse_term(p: Parse): LTerm {
-  const out = parse_term_sub(p, 0);
-  parse_skip(p);
-  if (parse_take(p, "=>")) {
-    if (out.$ !== "Var") {
-      parse_fail(p, "a lambda binder (one name: k => body)");
-    }
-    const n0 = p.sc.stk.length;
-    const i  = parse_open(p, out.k);
-    const f  = parse_block(p);
-    parse_close(p, n0);
-    return Lam(out.k, i, f, out.s);
-  }
-  if (parse_take(p, "->")) {
-    const B = parse_term(p);
-    const s = parse_grow(p, out);
-    return All(Lone(), "_", parse_open(p, "_"), out, B, s);
-  }
-  return out;
-}
-
-export function parse_term_sub(p: Parse, lvl: number): LTerm {
+export function parse_term(p: Parse, lvl: number = 0): LTerm {
   parse_skip(p);
   const beg  = p.pos;
   const base = parse_term_base(p);
@@ -1696,19 +1648,13 @@ export function parse_term_base(p: Parse): LTerm {
     }
     case "+": {
       parse_bump(p);
-      return parse_term_cop(p, parse_term_sub(p, 2), beg);
+      return parse_term_cop(p, parse_term(p, 2), beg);
     }
     default: {
       parse_fail(p, "a term");
     }
   }
 }
-
-const HEADLESS: Record<Name, string> = {
-  "match" : "a term (a match heads a def body, not a term)",
-  "case"  : "a match heading this case (this case is orphaned)",
-  "return": "a do-block heading this return",
-};
 
 export function parse_term_base_word(p: Parse, k: Name, beg: Loc): LTerm {
   if (k === "Type") {
@@ -1717,8 +1663,14 @@ export function parse_term_base_word(p: Parse, k: Name, beg: Loc): LTerm {
   if (k === "do") {
     return parse_term_do(p);
   }
-  if (HEADLESS[k] !== undefined) {
-    parse_fail(p, HEADLESS[k]);
+  if (k === "match") {
+    parse_fail(p, "a term (a match heads a def body, not a term)");
+  }
+  if (k === "case") {
+    parse_fail(p, "a match heading this case (this case is orphaned)");
+  }
+  if (k === "return") {
+    parse_fail(p, "a do-block heading this return");
   }
   if (KEYWORDS.has(k)) {
     parse_fail(p, "a term (the keyword '" + k + "' cannot head one)");
@@ -1837,7 +1789,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
       const s = parse_grow(p, out);
       parse_skip(p);
       if (!parse_nl(p) && parse_take(p, "<-")) {
-        const v = parse_term_sub(p, 2);
+        const v = parse_term(p, 2);
         out = App(App(App(Ref("Array.set", s), out, s), ix, s), v, s);
       } else {
         out = App(App(Ref("Array.get", s), out, s), ix, s);
@@ -1847,7 +1799,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     if (parse_at(p, "<") && !"-=<.>".includes(p.str[p.pos + 1] ?? "")
       && (lvl <= 4 || /\S/.test(p.str[p.pos - 1] ?? ""))) {
       parse_bump(p);
-      const a = parse_term_sub(p, 5);
+      const a = parse_term(p, 5);
       parse_skip(p);
       const s = parse_grow(p, out);
       if (parse_at(p, ">") || parse_at(p, ",")) {
@@ -1865,12 +1817,29 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
       }
       continue;
     }
+    if (lvl === 0 && parse_take(p, "=>")) {
+      if (out.$ !== "Var") {
+        parse_fail(p, "a lambda binder (one name: k => body)");
+      }
+      const n0 = p.sc.stk.length;
+      const i  = parse_open(p, out.k);
+      const f  = parse_block(p);
+      parse_close(p, n0);
+      out = Lam(out.k, i, f, out.s);
+      continue;
+    }
+    if (lvl === 0 && parse_take(p, "->")) {
+      const B = parse_term(p);
+      const s = parse_grow(p, out);
+      out = All(Lone(), "_", parse_open(p, "_"), out, B, s);
+      continue;
+    }
     const op = parse_infx_find(p);
     if (op === null || op[1] < lvl) {
       return out;
     }
     parse_take(p, op[0]);
-    const b = parse_term_sub(p, op[2] ? op[1] : op[1] + 1);
+    const b = parse_term(p, op[2] ? op[1] : op[1] + 1);
     const s = parse_grow(p, out);
     if (op[0] === "&") {
       out = App(App(Ref("Pair", s), out, s), b, s);
@@ -1888,7 +1857,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
 
 export function parse_term_cop(p: Parse, T: LTerm, beg: Loc): LTerm {
   parse_skip(p);
-  const c = parse_take(p, "~") ? parse_term_sub(p, 2) : parse_term_cop_wit(p, T);
+  const c = parse_take(p, "~") ? parse_term(p, 2) : parse_term_cop_wit(p, T);
   return Cop(T, c, parse_span(p, beg));
 }
 
@@ -1933,7 +1902,7 @@ export function parse_term_all(p: Parse): LTerm {
   const q = parse_quant(p);
   const k = parse_name(p);
   parse_eat(p, ":");
-  const A = parse_term_sub(p, 0);
+  const A = parse_term(p, 1);
   parse_eat(p, "->");
   const n0 = p.sc.stk.length;
   const i  = parse_open(p, k);
@@ -1946,7 +1915,7 @@ export function parse_term_exi(p: Parse): LTerm {
   parse_bump(p);
   const k = parse_name(p);
   parse_eat(p, ":");
-  const A = parse_term_sub(p, 0);
+  const A = parse_term(p, 1);
   parse_skip(p);
   parse_eat(p, "->");
   const n0 = p.sc.stk.length;
@@ -2161,7 +2130,7 @@ export function parse_term_do_stmt(p: Parse, m: Name, ls: LTerm[], R: LTerm | nu
   const t = parse_term(p);
   parse_skip(p);
   if (t.$ === "Var" && parse_take(p, ":")) {
-    const A   = parse_term_sub(p, 0);
+    const A   = parse_term(p, 1);
     parse_skip(p);
     const asg = parse_at(p, "=") && !parse_at(p, "==");
     if (asg) {
@@ -2208,7 +2177,7 @@ export function parse_body(p: Parse, col: number = 0): Body {
     parse_eat(p, "=");
   } else if (parse_at(p, "+")) {
     parse_bump(p);
-    const t = parse_term_sub(p, 2);
+    const t = parse_term(p, 2);
     parse_skip(p);
     if (t.$ !== "Var" || !parse_at(p, "=") || parse_at(p, "==")) {
       const x = parse_term_ops(p, parse_term_cop(p, t, beg), 0);
@@ -2711,22 +2680,19 @@ export function body_flatten(b: Body, vars: PVar[], fr: () => number): LTerm {
 // underapplied one stays. a family Ref never unfolds: a nullary one
 // steps to its canonical ADT node, a parameterized one is stuck (the
 // one spelling is D<..>, and infer-ref rejects a bare family head).
-// substitutions and demanded match fields bind memoized thunks, so
-// shared work runs once; a var steps into its let value; tree nodes
-// inside a leaf are plain values. a rewrite demands its evidence and
-// steps to its body on {==}, else sticks as a value.
-
-export function wnf_laz(book: Book, x: HTerm): HTerm {
-  return x.$ === "Laz" ? x : Laz(() => {
-    const r = term_wnf(book, x);
-    return x.$ === "Ann" ? Ann(r, x.T, x.s) : r;
-  }, undefined, x);
-}
+// a term entering a spine (an argument, a let value, a demanded match
+// field) becomes a share Var: index -1, its value the raw term; the
+// machine overwrites the value with its whnf, restores the term's Ann,
+// and marks the var -2, so shared work runs once and a type survives
+// the fill; a forcer outside the machine calls term_wnf on the var; a
+// var steps into its value; tree nodes inside a leaf are plain values.
+// a rewrite demands its evidence and steps to its body on {==}, else
+// sticks as a value.
 
 export function term_wnf(book: Book, term: HTerm): HTerm {
   const frs: Frame[] = [];
   let tm: HTerm = term;
-  let lhs_t: HTerm | null = null;
+  let lhs_t: (() => HTerm) | null = null;
   let lhs_n = 0;
   main: while (true) {
     focus: switch (tm.$) {
@@ -2734,32 +2700,28 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
         if (tm.v === undefined) {
           break focus;
         } else {
+          if (tm.i === -1) {
+            frs.push({ $: "VAR", l: tm, a: tm.v.$ === "Ann" ? tm.v : undefined });
+          }
           lhs_t = null;
           tm = tm.v;
           continue main;
         }
-      }
-      case "Laz": {
-        lhs_t = null;
-        if (tm.x === undefined) {
-          tm = term_force(tm);
-        } else {
-          frs.push({ $: "LAZ", l: tm });
-          tm = tm.x;
-        }
-        continue main;
       }
       case "Ann": {
         tm = tm.x;
         continue main;
       }
       case "Let": {
-        tm = tm.f(tm.v.map((v) => wnf_laz(book, v)));
+        const l = tm;
+        tm = l.f(l.v.map((v, j) => v.$ === "Var" && v.i < 0 ? v : Var(l.k[j], -1, v.s, v)));
         continue main;
       }
       case "App": {
-        const x = tm.x;
-        frs.push({ $: "APP", x: wnf_laz(book, x) });
+        if (tm.x.$ !== "Var" || tm.x.i >= 0) {
+          tm.x = Var("_", -1, tm.x.s, tm.x);
+        }
+        frs.push({ $: "APP", x: tm.x });
         lhs_t = null;
         tm = tm.f;
         continue main;
@@ -2773,8 +2735,8 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
             if (lhs_n === 0) {
               lhs_t = null;
             } else {
-              const pt: HTerm = lhs_t;
-              lhs_t = Laz(() => term_apply(pt, fr.x));
+              const pt: () => HTerm = lhs_t;
+              lhs_t = () => term_apply(pt(), fr.x);
               lhs_n = lhs_n - 1;
             }
           }
@@ -2795,7 +2757,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
       }
       case "Efq": {
         if (lhs_t !== null && lhs_n > 0 && frs.length > 0 && frs[frs.length - 1].$ === "APP") {
-          tm = term_force(lhs_t);
+          tm = lhs_t();
         }
         break focus;
       }
@@ -2825,7 +2787,8 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
         if (run < tld.n || tld.v === null) {
           break focus;
         }
-        lhs_t = tm;
+        const rf: HTerm = tm;
+        lhs_t = () => rf;
         lhs_n = tld.n;
         tm = tld.v;
         continue main;
@@ -2841,10 +2804,9 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
         return tm;
       } else {
         switch (fr.$) {
-          case "LAZ": {
-            const x = fr.l.x;
-            fr.l.v = x?.$ === "Ann" ? Ann(tm, x.T, x.s) : tm;
-            fr.l.x = undefined;
+          case "VAR": {
+            fr.l.v = fr.a === undefined ? tm : Ann(tm, fr.a.T, fr.a.s);
+            fr.l.i = -2;
             continue main;
           }
           case "APP": {
@@ -2861,23 +2823,19 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
                     t = t.x;
                     continue walk;
                   }
-                  case "Laz": {
-                    t = term_force(t);
-                    continue walk;
-                  }
                   case "Mat": {
                     if (t.k === ctr.k) {
                       if (fr.lhs === null) {
                         lhs_t = null;
                       } else {
                         const ft = fr.lhs.t;
-                        lhs_t = Laz(() => lhs_ext(term_force(ft), ctr.k, ctr.x.length));
+                        lhs_t = () => lhs_ext(ft(), ctr.k, ctr.x.length);
                         lhs_n = fr.lhs.n - 1 + ctr.x.length;
                       }
                       for (let j = ctr.x.length - 1; j >= 0; j--) {
                         const x = ctr.x[j];
-                        if (x.$ !== "Laz") {
-                          ctr.x[j] = wnf_laz(book, x);
+                        if (x.$ !== "Var" || x.i >= 0) {
+                          ctr.x[j] = Var("_", -1, x.s, x);
                         }
                         frs.push({ $: "APP", x: ctr.x[j] });
                       }
@@ -2889,7 +2847,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
                     }
                   }
                   case "Efq": {
-                    tm = term_apply(fr.lhs === null ? fr.t : term_force(fr.lhs.t), fr.e);
+                    tm = term_apply(fr.lhs === null ? fr.t : fr.lhs.t(), fr.e);
                     continue back;
                   }
                   default: {
@@ -2906,7 +2864,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
                 }
               }
             } else {
-              tm = term_apply(fr.lhs === null ? fr.t : term_force(fr.lhs.t), fr.e);
+              tm = term_apply(fr.lhs === null ? fr.t : fr.lhs.t(), fr.e);
               continue back;
             }
           }
@@ -2933,7 +2891,7 @@ export function term_uncop(book: Book, term: HTerm): HTerm {
 export function term_snf(book: Book, term: HTerm): HTerm {
   function* go(t0: HTerm): Generator<HTerm, HTerm, HTerm> {
     const tm = term_wnf(book, t0) as
-      Exclude<HTerm, { $: "Laz" | "Let" | "Ann" }>;
+      Exclude<HTerm, { $: "Let" | "Ann" }>;
     switch (tm.$) {
       case "Var": {
         return Var(tm.k, tm.i, tm.s);
@@ -3116,7 +3074,8 @@ export function term_equal(book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0):
 // premise it itself checks dead; only demanded premises add.
 // ordinary typing never consults the usage measure: resource accounting
 // rides alongside the type judgment, it does not steer it. a checked term
-// returns Ann-wrapped, lazily re-checking bodies, for a compiler that does
+// returns Ann-wrapped, its binder bodies closed over the one checked body
+// (a poke off the checked variable re-checks), for a compiler that does
 // not exist yet; goals always compute on source terms. lhs is the def's
 // own equation, rebuilt as the tree walks; lhs.qs holds the def's
 // parameter quantities, read off its type once, so descent can skip
@@ -3151,6 +3110,9 @@ export function term_check_wit(book: Book, lhs: LHS | null, tm: HTerm, ty: HTerm
 
 export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ctx: Ctx, d: number): Infer {
   const def = lhs === null ? undefined : lhs.def;
+  if (tm.$ === "Var" && tm.i < 0) {
+    tm = term_wnf(book, tm);
+  }
   switch (tm.$) {
     // Γ[x] = q A
     // ----------------- infer-var
@@ -3213,8 +3175,8 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
       if (!quant_valid(book, tm.q, tm.A)) {
         throw Err(book, ctx, "a copiable type (a + binder needs a + T ~ C type)", tm, tm.s, def);
       }
-      term_check(book, lhs, tm.B(Var(tm.k, d)), None(), Typ(tm.s), B_ctx, d+1);
-      var tm = All(b.q, b.k, b.i, A_chk.tm, (y: HTerm) => Laz(() => term_check(book, lhs, b.B(y), None(), Typ(), B_ctx, d+1).tm), b.s);
+      const B_chk = term_check(book, lhs, tm.B(Var(tm.k, d)), None(), Typ(tm.s), B_ctx, d+1);
+      var tm = All(b.q, b.k, b.i, A_chk.tm, (y: HTerm) => y.$ === "Var" && y.i === d ? B_chk.tm : term_check(book, lhs, b.B(y), None(), Typ(), B_ctx, d+1).tm, b.s);
       var tm = Ann(tm, Typ(tm.s));
       var us = uses_nil();
       return { tm, us };
@@ -3282,7 +3244,7 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
         }
         const f_dem = quant_dem(f_wnf.q, qt);
         const x_chk = term_check(book, lhs, x, f_dem, f_wnf.A, ctx, d);
-        f_inf = { tm: Ann(App(f_inf.tm, x_chk.tm, tm.s), Laz(() => f_wnf.B(x))), us: uses_add(f_inf.us, x_chk.us) };
+        f_inf = { tm: Ann(App(f_inf.tm, x_chk.tm, tm.s), f_wnf.B(x)), us: uses_add(f_inf.us, x_chk.us) };
       }
       return f_inf;
     }
@@ -3346,13 +3308,6 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
       var us = x_chk.us;
       return { tm, us };
     }
-    // Γ ⊢ force(x) : T ~ u
-    // --------------------- infer-laz
-    // Γ ⊢ x : T ~ u
-    case "Laz": {
-      const t = term_infer(book, lhs, term_force(tm), qt, ctx, d);
-      return t;
-    }
     // x is a Lam, Let, Ctr, Mat, Efq, Rfl or Rwt
     // ------------------------------------------- infer-err
     // Γ ⊢ x : ⊥ (a goal is needed)
@@ -3367,6 +3322,9 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
 
 export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty: HTerm, ctx: Ctx, d: number): Infer {
   const def = lhs === null ? undefined : lhs.def;
+  if (tm.$ === "Var" && tm.i < 0) {
+    tm = term_wnf(book, tm);
+  }
   if (qt.$ === "None" && term_check_goal(book, ty, d)) {
     return term_check_wit(book, lhs, tm, ty, ctx, d);
   }
@@ -3388,7 +3346,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
       const f_ctx = ctx_bind(ctx, d, t_wnf.q, tm.k, t_wnf.A);
       const f_chk = term_check(book, f_lhs(x), tm.f(x), qt, t_wnf.B(x), f_ctx, d+1);
       quant_used(book, ctx, tm.k, t_wnf.q, uses_get(f_chk.us, d), tm.s, def);
-      var tm = Lam(b.k, b.i, (y: HTerm) => y.$ === "Var" && y.i === d ? f_chk.tm : Laz(() => term_check(book, f_lhs(y), b.f(y), qt, t_wnf.B(y), f_ctx, d+1).tm), b.s);
+      var tm = Lam(b.k, b.i, (y: HTerm) => y.$ === "Var" && y.i === d ? f_chk.tm : term_check(book, f_lhs(y), b.f(y), qt, t_wnf.B(y), f_ctx, d+1).tm, b.s);
       var tm = Ann(tm, ty);
       var us = uses_del(f_chk.us, d);
       return { tm, us };
@@ -3432,7 +3390,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
       }
       const f_val = (ys: HTerm[]): HTerm[] => ys.map((y, j) => y.$ === "Var" && y.v === undefined ? Var(y.k, y.i, y.s, b.v[j]) : y);
       const f_hit = (ys: HTerm[]): boolean => ys.every((y, j) => y.$ === "Var" && y.i === d + j);
-      var tm = Let(b.k, b.i, vx, (ys: HTerm[]) => f_hit(ys) ? f_chk.tm : Laz(() => term_check(book, lhs, b.f(f_val(ys)), qt, ty, f_ctx, d + n).tm), b.s, b.q);
+      var tm = Let(b.k, b.i, vx, (ys: HTerm[]) => f_hit(ys) ? f_chk.tm : term_check(book, lhs, b.f(f_val(ys)), qt, ty, f_ctx, d + n).tm, b.s, b.q);
       var tm = Ann(tm, (f_chk.tm as HAnn).T);
       var us = uses_add(us, fu);
       return { tm, us };
@@ -3596,13 +3554,6 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
       var tm = Ann(Rwt(e_inf.tm, p_chk.tm, f_chk.tm, tm.s), ty);
       var us = uses_add(e_inf.us, f_chk.us);
       return { tm, us };
-    }
-    // Γ ⊢ force(x) : T ~ u
-    // --------------------- check-laz
-    // Γ ⊢ x : T ~ u
-    case "Laz": {
-      const t = term_check(book, lhs, term_force(tm), qt, ty, ctx, d);
-      return t;
     }
     // Γ ⊢ x : A ~ u    A == T
     // --------------------------- check-any

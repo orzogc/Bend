@@ -8,7 +8,7 @@ import { All, Ann, App, Ctr, Efq, Emp, Lam, Let, Lone, Many, Mat,
   term_strip, term_unapply, term_uncop, term_wnf, u32_from_term,
 } from "./bend.ts";
 
-import type { Book, Def, Err, HTerm, Name, PMap, Quant, TLD,
+import type { Book, Def, Err, HBody, HTerm, Name, PMap, Quant, TLD,
 } from "./bend.ts";
 
 // Comp
@@ -942,7 +942,7 @@ function mint(cb: Carb, def: Name, stem: string, scope: Capture[],
   const bt = body(EMPTY);
   const kept = scope.filter((c, i) => i >= scope.length - tail
     || !quant_live(c.q) || term_use(term_uses(cb, bt), c.p) > 0);
-  const T = kept.reduceRight((R, c, i) => All(c.q, c.p.k, i,
+  const T = kept.reduceRight<HTerm>((R, c, i) => All<HBody>(c.q, c.p.k, i,
     c.A ?? die(`a minted capture without a type: ${name} ${c.p.k}`),
     (_x) => R), mint_ret(cb, bt));
   const lams = kept.reduceRight<Open>((rest, c, i) =>
@@ -1106,7 +1106,7 @@ function carbonize(cb: Carb, def: Name, tld: Def): HTerm {
     if (term_const(t)) {
       return k(caps, mint_lift(t));
     }
-    if (t.$ === "Laz" && SHARE.has(t)) {
+    if (t.$ === "Var" && t.i < 0 && SHARE.has(t)) {
       const p = SHARE.get(t);
       if (p != null && caps.some((c) => c.p === p)) {
         return k(caps, mint_lift(p));
@@ -1358,24 +1358,25 @@ function inl_at(cb: Carb, t: HTerm): HTerm | null {
   const tlds = { get [k](): TLD | undefined {
     return (fuel -= 1) >= 0 ? sp : undefined;
   } } as Book["tlds"];
-  const out = term_wnf({ ...cb.book, tlds },
-    m.all.reduce((f, x) => App(f, x), m.t as HTerm));
+  const fb = { ...cb.book, tlds };
+  const out = term_wnf(fb, m.all.reduce((f, x) => App(f, x), m.t as HTerm));
   const [h, hx] = term_unapply(term_strip(out));
   if ((h.$ === "Ref" && h.k === k && hx.length === tld.n)
     || !inl_calls(cb, out) || !calm_of(cb, out)) {
     return null;
   }
-  inl_tally(cb, out, new Set());
+  inl_tally(cb, fb, out, new Set());
   return Ann(out, ty_tele(cb.book, tld.T, m.all));
 }
 
-function inl_tally(cb: Carb, t: HTerm, seen: Set<HTerm>): void {
-  if (t.$ === "Laz") {
+function inl_tally(cb: Carb, fb: Book, t: HTerm, seen: Set<HTerm>): void {
+  if (t.$ === "Var" && t.i < 0) {
     if (seen.has(t)) {
       SHARE.set(t, SHARE.get(t) ?? null);
       return;
     }
     seen.add(t);
+    term_wnf(fb, t);
   }
   const s = term_force(t);
   if (seen.has(s)) {
@@ -1383,7 +1384,7 @@ function inl_tally(cb: Carb, t: HTerm, seen: Set<HTerm>): void {
   }
   seen.add(s);
   for (const x of term_kids(cb, s)) {
-    inl_tally(cb, x, seen);
+    inl_tally(cb, fb, x, seen);
   }
 }
 
