@@ -227,9 +227,9 @@ export type Span  = { src: string; beg: Loc; end: Loc; };
 // Machine
 export type LHS   = { t: HTerm; n: number; def: Name; qs: Quant[] };
 export type Frame =
-  | { $: "APP"; x: HTerm }                                                   // _(x)
+  | { $: "APP"; x: HTerm } // _(x)
   | { $: "MAT"; t: Extract<HTerm, { $: "Mat" }>; e: HTerm; lhs: { t: HTerm; n: number } | null } // \{c:h;m}(_)
-  | { $: "LAZ"; l: Extract<HTerm, { $: "Laz" }> }                            // a thunk being filled
+  | { $: "LAZ"; l: Extract<HTerm, { $: "Laz" }> } // a thunk being filled
 
 // Error
 export type Expr = HTerm | string;
