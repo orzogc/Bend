@@ -139,8 +139,8 @@ backend, and report benchmarks on an Apple M4 Mac Mini.
 Bend is a pure functional language: programs are recursive
 functions over algebraic datatypes, and its type system, an affine
 dependent type theory developed in a companion paper @bendtt2026,
-makes every live value consumed at most once unless the program
-itself supplies a copying license; where reuse is licensed, the
+makes every live value consumed at most once unless its type is
+of the reusable kind #co[Data]; where reuse is licensed, the
 compiler places a borrow (a read in place) or a counted share,
 each decided at compile time. A functional program is an
 evaluation strategy away from a parallel one, since independent
@@ -211,10 +211,12 @@ this stack; there are none (@sec:related).
 
 Bend's checker tracks every use. A live value is consumed at most
 once, with one way around it: a binder marked #co[+] may be
-consumed freely, and its type must carry a _copying license_, a
-proof term #co[Copiable(T)] that the program itself supplies, a
-function producing two copies of any value together with equality
-proofs (the companion paper develops the discipline). The checker
+consumed freely, and its type must be of the reusable kind
+#co[Data], a _grade_ every datatype declares and the checker
+verifies at each constructor, so that no closure ever sits inside
+a #co[Data] value (the companion paper develops the discipline).
+Grades are erased at runtime; a #co[+] variable is simply emitted
+at every use. The checker
 is authoritative about cost: a compiler may drop a cost the
 source spelled, never add a clone or a retain the source did not.
 The runtime exploits that latitude. The default is a move: passing
@@ -575,9 +577,10 @@ iterative traversal that threads its worklist through the nodes
 being freed, each node's first word displaced by the parent link,
 so the walk itself allocates nothing and runs synchronously from
 any code; shared terms decrement and stop unless they were the
-last owner. There is no deep cloner anywhere in the runtime:
-user-visible copying is the program's own #co[Copiable] witness,
-an ordinary compiled function, scheduled like user code. There is
+last owner. There is no deep cloner and no copy intrinsic
+anywhere in the runtime: a #co[+] variable is emitted at every
+use because its type is #co[Data] by declaration, and each extra
+use is the borrow or the share the compiler placed. There is
 no tracing, no epochs, and no deferred queues: the whole
 discipline is plain malloc-free-shaped code, the frees placed by
 the types, plus a compiler-placed count exactly where a second
@@ -998,7 +1001,7 @@ statically. The reference-counted functional runtimes, Lean's
 mechanism to Bend's shares: precise counts, reuse, and no tracing.
 Bend differs in where the counts live and when they exist at all:
 its type system makes affinity the default and admits contraction
-only under a program-supplied license, so counts are minted only
+only at the reusable kind #co[Data], so counts are minted only
 where a whole-program analysis finds genuine sharing, ride in a
 separate redirect word rather than on the object, and the
 unshared majority of the program compiles to moves, borrows, and

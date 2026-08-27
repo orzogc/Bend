@@ -3,9 +3,9 @@
 #
 # Base supplies the surface: the U32 ops and Array.swap the Rt layer
 # adapts are base claims the backends wire straight to the real
-# natives. Sharing is spelled with cloned (+) binders, each licensed
-# by a Cop witness (base copies for the words, local proved copies for
-# Tr and Array<U32>); the C runtime backs each with its RC redirector.
+# natives. Sharing is spelled with + binders over Data types (the
+# words and the Tr tree); the C runtime backs each with its RC
+# redirector. An Array is affine: cow duplicates it with Array.clone.
 #
 # PART ONE - the machine, the closures and the collector. One
 # algorithm, three defs. `spawn` builds a depth-20 tree of array
@@ -37,8 +37,8 @@
 # a shallow probe), so redirectors mint, bump, open by shallow copy and
 # collapse; `dropper` shares and then drops one pointer (the count
 # path); `nest` re-shares a shared tree through a helper (redirector
-# bump, no second redirector); `cow` shares an Array, swaps through one
-# pointer and reads both (the copy-on-write path). Its answer is
+# bump, no second redirector); `cow` clones an Array, swaps through one
+# copy and reads both. Its answer is
 # 23561 = 23441 + 120, byte-stable across 1 and 8 threads (the census
 # fail-stops on any lost or doubled owner).
 
@@ -64,8 +64,8 @@ def Rt.mul(a, b):
   U32.mul(a, b)
 
 assert Rt.divmod:
-  forall +a: +U32
-  forall +b: +U32
+  forall +a: U32
+  forall +b: U32
   U32 & U32
 
 def Rt.divmod(a, b):
@@ -79,8 +79,8 @@ def Rt.eqz(a):
   U32.is_zero(a)
 
 assert Rt.alloc:
-  forall +n: +Nat
-  forall +x: +U32
+  forall +n: Nat
+  forall +x: U32
   Array<U32>
 
 def Rt.alloc(n, x):
@@ -102,18 +102,18 @@ def Rt.read.fin(w, bz):
   (b3, w)
 
 assert Rt.read.back:
-  forall +i: +U32
+  forall +i: U32
   forall bv: Array<U32> & U32
   Array<U32> & U32
 
 def Rt.read.back(i, bv):
   (b2, v) = bv
-  +w = {v : +U32}
+  +w = v
   Rt.read.fin(w, Array.swap(U32, b2, i, w))
 
 assert Rt.read:
   forall b: Array<U32>
-  forall +i: +U32
+  forall +i: U32
   Array<U32> & U32
 
 def Rt.read(b, i):
@@ -145,9 +145,9 @@ def Rt.swap(b, i, v):
 # independent and their values join by add. Left seed s+m, right s*s,
 # so every path gets a distinct polynomial of the root seed.
 assert spawn.leaf.wr:
-  forall +s: +U32
+  forall +s: U32
   forall q: U32
-  forall +j: +U32
+  forall +j: U32
   forall bo: Array<U32> & U32
   Array<U32>
 
@@ -156,9 +156,9 @@ def spawn.leaf.wr(s, q, j, bo):
   Rt.write(b2, j, Rt.add(Rt.mul(old, s), q))
 
 assert spawn.leaf.go:
-  forall +s: +U32
+  forall +s: U32
   forall q: U32
-  forall +j: +U32
+  forall +j: U32
   forall b: Array<U32>
   Array<U32>
 
@@ -166,13 +166,13 @@ def spawn.leaf.go(s, q, j, b):
   spawn.leaf.wr(s, q, j, Rt.read(b, j))
 
 assert spawn.leaf.mk:
-  forall +s: +U32
+  forall +s: U32
   forall qi: U32 & U32
   U32 & (Array<U32> -> Array<U32>)
 
 def spawn.leaf.mk(s, qi):
   (q, i) = qi
-  +j = {i : +U32}
+  +j = i
   (s, b => spawn.leaf.go(s, q, j, b))
 
 assert spawn.node:
@@ -186,9 +186,9 @@ def spawn.node(l, r):
   (Rt.add(va, vb), b => fb(fa(b)))
 
 assert spawn:
-  forall +d: +Nat
-  forall +m: +U32
-  forall +s: +U32
+  forall +d: Nat
+  forall +m: U32
+  forall +s: U32
   U32 & (Array<U32> -> Array<U32>)
 
 def spawn(d, m, s):
@@ -204,12 +204,12 @@ def spawn(d, m, s):
 # digit steering the next mix, tail call. h drops in the branch that
 # skips it (affine); at SNil acc and the whole live array drop.
 assert churn.pick:
-  forall +z: +U32
+  forall +z: U32
   forall c: U32
   forall b2: Array<U32>
-  forall +o: +U32
+  forall +o: U32
   forall h: U32
-  forall +u: +U32
+  forall +u: U32
   forall e: Bool
   (Array<U32> & U32) & U32
 
@@ -221,33 +221,33 @@ def churn.pick(z, c, b2, o, h, u, e):
       ((b2, Rt.add(Rt.mul(o, c), h)), Rt.add(z, u))
 
 assert churn.mix:
-  forall +z: +U32
+  forall +z: U32
   forall c: U32
   forall b2: Array<U32>
-  forall +o: +U32
+  forall +o: U32
   forall hr: U32 & U32
   (Array<U32> & U32) & U32
 
 def churn.mix(z, c, b2, o, hr):
   (h, r) = hr
-  +u = {r : +U32}
+  +u = r
   churn.pick(z, c, b2, o, h, u, Rt.eqz(u))
 
 assert churn.spin:
-  forall +t: +U32
-  forall +z: +U32
+  forall +t: U32
+  forall +z: U32
   forall c: U32
   forall bo: Array<U32> & U32
   (Array<U32> & U32) & U32
 
 def churn.spin(t, z, c, bo):
   (b2, old) = bo
-  +o = {old : +U32}
+  +o = old
   churn.mix(z, c, b2, o, Rt.divmod(o, t))
 
 assert churn.turn:
-  forall +t: +U32
-  forall +z: +U32
+  forall +t: U32
+  forall +z: U32
   forall b: Array<U32>
   forall c: U32
   forall qi: U32 & U32
@@ -267,8 +267,8 @@ def churn.wrap(out, r):
   ((b2, nx), SCon{Chr{d}, out})
 
 assert churn.fold:
-  forall +t: +U32
-  forall +z: +U32
+  forall +t: U32
+  forall +z: U32
   forall b: Array<U32>
   forall acc: U32
   forall c: U32
@@ -281,8 +281,8 @@ def churn.fold(t, z, b, acc, c, out):
 assert churn.go:
   forall s: String
   forall st: (Array<U32> & U32) & String
-  forall +t: +U32
-  forall +z: +U32
+  forall +t: U32
+  forall +z: U32
   String
 
 def churn.go(s, st, t, z):
@@ -296,8 +296,8 @@ def churn.go(s, st, t, z):
 
 assert churn:
   forall s: String
-  forall +t: +U32
-  forall +z: +U32
+  forall +t: U32
+  forall +z: U32
   forall b: Array<U32>
   forall acc: U32
   forall out: String
@@ -316,8 +316,8 @@ assert run.out:
   String
 
 assert run.seed:
-  forall +a: +U32
-  forall +c: +U32
+  forall +a: U32
+  forall +c: U32
   forall vf: U32 & (Array<U32> -> Array<U32>)
   String
 
@@ -331,8 +331,8 @@ assert run.mix:
   String
 
 def run.mix(t, z):
-  +a = {t : +U32}
-  +c = {z : +U32}
+  +a = t
+  +c = z
   run.seed(a, c, spawn(20n, c, a))
 
 assert run.chr:
@@ -348,54 +348,13 @@ def run.chr(x, y):
 def run.out():
   run.chr('\n', '0')
 
-type Tr:
+type Tr -> Data:
   L{v: U32}
   N{a: Tr, b: Tr}
 
-# copy witness for the shared heap tree: never emitted, only licenses +Tr
-assert Tr.copy:
-  forall t: Tr
-  Copy(Tr, t) & Copy(Tr, t)
-
-assert Tr.copy.leaf:
-  forall -v: U32
-  forall c: Copy(U32, v) & Copy(U32, v)
-  Copy(Tr, L{v}) & Copy(Tr, L{v})
-
-def Tr.copy.leaf(v, c):
-  ((v1, e1), (v2, e2)) = c
-  p1 = Equal.cong(U32, Tr, x => L{x}, v, v1, e1)
-  p2 = Equal.cong(U32, Tr, x => L{x}, v, v2, e2)
-  ((L{v1}, p1), (L{v2}, p2))
-
-assert Tr.copy.node:
-  forall -a: Tr
-  forall -b: Tr
-  forall ca: Copy(Tr, a) & Copy(Tr, a)
-  forall cb: Copy(Tr, b) & Copy(Tr, b)
-  Copy(Tr, N{a, b}) & Copy(Tr, N{a, b})
-
-def Tr.copy.node(a, b, ca, cb):
-  ((a1, ea1), (a2, ea2)) = ca
-  ((b1, eb1), (b2, eb2)) = cb
-  p1 = Equal.trans(Tr, N{a, b}, N{a1, b}, N{a1, b1},
-                   Equal.cong(Tr, Tr, x => N{x, b}, a, a1, ea1),
-                   Equal.cong(Tr, Tr, x => N{a1, x}, b, b1, eb1))
-  p2 = Equal.trans(Tr, N{a, b}, N{a2, b}, N{a2, b2},
-                   Equal.cong(Tr, Tr, x => N{x, b}, a, a2, ea2),
-                   Equal.cong(Tr, Tr, x => N{a2, x}, b, b2, eb2))
-  ((N{a1, b1}, p1), (N{a2, b2}, p2))
-
-def Tr.copy(t):
-  match t:
-    case L{v}:
-      Tr.copy.leaf(v, U32.copy(v))
-    case N{a, b}:
-      Tr.copy.node(a, b, Tr.copy(a), Tr.copy(b))
-
 assert build:
-  forall +d: +Nat
-  forall +x: +U32
+  forall +d: Nat
+  forall +x: U32
   Tr
 
 def build(d, x):
@@ -441,14 +400,14 @@ def depth(t):
       depth.max(U32.is_gt(depth(a), depth(b)))
 
 assert tri:
-  forall +t: +Tr
+  forall +t: Tr
   U32
 
 def tri(t):
   U32.add(sum(t), U32.add(sum(t), depth(t)))
 
 assert dropper:
-  forall +t: +Tr
+  forall +t: Tr
   U32
 
 def dropper(t):
@@ -457,14 +416,14 @@ def dropper(t):
   x
 
 assert helper:
-  forall +u: +Tr
+  forall +u: Tr
   U32
 
 def helper(u):
   U32.add(sum(u), sum(u))
 
 assert nest:
-  forall +t: +Tr
+  forall +t: Tr
   U32
 
 def nest(t):
@@ -487,50 +446,8 @@ def rd(a):
     case ANode{xs, ys}:
       U32.add(rd(xs), rd(ys))
 
-# proved copy witness over Array<U32> (base's Array.copy is proof-free,
-# so +Array<U32> cannot resolve to it); spelled explicitly at cow
-assert Arr.copy:
-  forall a: Array<U32>
-  Copy(Array<U32>, a) & Copy(Array<U32>, a)
-
-assert Arr.copy.leaf:
-  forall -v: U32
-  forall c: Copy(U32, v) & Copy(U32, v)
-  Copy(Array<U32>, ALeaf{v}) & Copy(Array<U32>, ALeaf{v})
-
-def Arr.copy.leaf(v, c):
-  ((v1, e1), (v2, e2)) = c
-  p1 = Equal.cong(U32, Array<U32>, x => ALeaf{x}, v, v1, e1)
-  p2 = Equal.cong(U32, Array<U32>, x => ALeaf{x}, v, v2, e2)
-  ((ALeaf{v1}, p1), (ALeaf{v2}, p2))
-
-assert Arr.copy.node:
-  forall -xs: Array<U32>
-  forall -ys: Array<U32>
-  forall cx: Copy(Array<U32>, xs) & Copy(Array<U32>, xs)
-  forall cy: Copy(Array<U32>, ys) & Copy(Array<U32>, ys)
-  Copy(Array<U32>, ANode{xs, ys}) & Copy(Array<U32>, ANode{xs, ys})
-
-def Arr.copy.node(xs, ys, cx, cy):
-  ((x1, ex1), (x2, ex2)) = cx
-  ((y1, ey1), (y2, ey2)) = cy
-  p1 = Equal.trans(Array<U32>, ANode{xs, ys}, ANode{x1, ys}, ANode{x1, y1},
-                   Equal.cong(Array<U32>, Array<U32>, x => ANode{x, ys}, xs, x1, ex1),
-                   Equal.cong(Array<U32>, Array<U32>, x => ANode{x1, x}, ys, y1, ey1))
-  p2 = Equal.trans(Array<U32>, ANode{xs, ys}, ANode{x2, ys}, ANode{x2, y2},
-                   Equal.cong(Array<U32>, Array<U32>, x => ANode{x, ys}, xs, x2, ex2),
-                   Equal.cong(Array<U32>, Array<U32>, x => ANode{x2, x}, ys, y2, ey2))
-  ((ANode{x1, y1}, p1), (ANode{x2, y2}, p2))
-
-def Arr.copy(a):
-  match a:
-    case ALeaf{v}:
-      Arr.copy.leaf(v, U32.copy(v))
-    case ANode{xs, ys}:
-      Arr.copy.node(xs, ys, Arr.copy(xs), Arr.copy(ys))
-
 assert cow.fin:
-  forall +a: +Array<U32> ~ Arr.copy
+  forall a: Array<U32>
   forall bo: Array<U32> & U32
   U32
 
@@ -538,12 +455,20 @@ def cow.fin(a, bo):
   (b, old) = bo
   U32.add(rd(b), U32.add(rd(a), old))
 
+assert cow.go:
+  forall aa: Array<U32> & Array<U32>
+  U32
+
+def cow.go(aa):
+  (a, a2) = aa
+  cow.fin(a, Array.swap(U32, a2, 0, 100))
+
 assert cow:
-  forall +a: +Array<U32> ~ Arr.copy
+  forall a: Array<U32>
   U32
 
 def cow(a):
-  cow.fin(a, Array.swap(U32, a, 0, 100))
+  cow.go(Array.clone(a))
 
 assert share.out:
   U32

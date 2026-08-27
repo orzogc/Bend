@@ -17,12 +17,12 @@ import Base
 # a Bend3 C run on the cluster), big (18, 32) expect 2016151040 (from
 # the Bend3 header).
 
-type Cls:
+type Cls -> Data:
   Still{}
   Osc{}
   Chaos{}
 
-type Census:
+type Census -> Data:
   Census{pop: U32, still: U32, osc: U32, mix: U32}
 
 assert b2u:
@@ -43,12 +43,12 @@ assert cell_get:
   U32
 
 def cell_get(board, r, c):
-  U32.and(U32.shrn(U32.to_nat(U32.and(U32.add(U32.mul(U32.and(r, 3), 4), U32.and(c, 3)), 31)), board), 1)
+  U32.and(U32.shrn(board, U32.to_nat(U32.and(U32.add(U32.mul(U32.and(r, 3), 4), U32.and(c, 3)), 31))), 1)
 
 assert neighbor_count:
-  forall +board: +U32
-  forall +r: +U32
-  forall +c: +U32
+  forall +board: U32
+  forall +r: U32
+  forall +c: U32
   U32
 
 def neighbor_count(board, r, c):
@@ -62,7 +62,7 @@ def next_dead(n):
   b2u(U32.is_eq(n, 3))
 
 assert next_alive:
-  forall +n: +U32
+  forall +n: U32
   U32
 
 def next_alive(n):
@@ -89,19 +89,19 @@ def next_cell(a, n):
   next_cell.go(n, U32.is_zero(a))
 
 assert step_cell:
-  forall +board: +U32
-  forall +pos: +U32
+  forall +board: U32
+  forall +pos: U32
   U32
 
 def step_cell(board, pos):
-  +rr = {U32.shrn(2n, pos) : +U32}
-  +cc = {U32.and(pos, 3) : +U32}
+  +rr = U32.shrn(pos, 2n)
+  +cc = U32.and(pos, 3)
   alive = cell_get(board, rr, cc)
   neighbors = neighbor_count(board, rr, cc)
-  U32.shln(U32.to_nat(U32.and(pos, 31)), next_cell(alive, neighbors))
+  U32.shln(next_cell(alive, neighbors), U32.to_nat(U32.and(pos, 31)))
 
 assert step:
-  forall +b: +U32
+  forall +b: U32
   U32
 
 def step(b):
@@ -121,14 +121,14 @@ def run(n, board):
 
 # 16-bit SWAR population count
 assert popcount:
-  forall +b: +U32
+  forall +b: U32
   U32
 
 def popcount(b):
-  +a = {U32.sub(b, U32.and(U32.shrn(1n, b), 21845)) : +U32}
-  +c = {U32.add(U32.and(a, 13107), U32.and(U32.shrn(2n, a), 13107)) : +U32}
-  d = U32.and(U32.add(c, U32.shrn(4n, c)), 3855)
-  U32.and(U32.shrn(8n, U32.mul(d, 257)), 31)
+  +a = U32.sub(b, U32.and(U32.shrn(b, 1n), 21845))
+  +c = U32.add(U32.and(a, 13107), U32.and(U32.shrn(a, 2n), 13107))
+  d = U32.and(U32.add(c, U32.shrn(c, 4n)), 3855)
+  U32.and(U32.shrn(U32.mul(d, 257), 8n), 31)
 
 assert classify.p2:
   forall t: Bool
@@ -155,8 +155,8 @@ def classify.go(t, n1, b):
       classify.p2(U32.is_eq(step(n1), b))
 
 assert classify.p1:
-  forall +n1: +U32
-  forall +b: +U32
+  forall +n1: U32
+  forall +b: U32
   Cls
 
 def classify.p1(n1, b):
@@ -165,7 +165,7 @@ def classify.p1(n1, b):
 # classify the settled board by two probe steps: fixed point = still
 # life, return after two = period-2 oscillator, anything else = chaos
 assert classify:
-  forall +b: +U32
+  forall +b: U32
   Cls
 
 def classify(b):
@@ -198,9 +198,9 @@ def cls.code(c):
 # leaf chunk: 64 soups folded into scalar accumulators; the Census
 # ctor materializes once per chunk, never per soup
 assert chunk:
-  forall +j: +Nat
-  forall +i: +U32
-  forall +g: +Nat
+  forall +j: Nat
+  forall +i: U32
+  forall +g: Nat
   forall pa: U32
   forall sa: U32
   forall oa: U32
@@ -212,8 +212,8 @@ def chunk(j, i, g, pa, sa, oa, mx):
     case 0n:
       Census{pa, sa, oa, mx}
     case 1n+p:
-      +bd = {sim(U32.add(i, U32.from_nat(p)), g) : +U32}
-      +cd = {cls.code(classify(bd)) : +U32}
+      +bd = sim(U32.add(i, U32.from_nat(p)), g)
+      +cd = cls.code(classify(bd))
       chunk(p, i, g, U32.add(pa, popcount(bd)),
         U32.add(sa, b2u(U32.is_eq(cd, 0))), U32.add(oa, b2u(U32.is_eq(cd, 1))),
         U32.xor(U32.mul(mx, 2654435761), bd))
@@ -229,9 +229,9 @@ def czip(a, b):
       Census{U32.add(p, q), U32.add(s, t), U32.add(o, r), U32.add(U32.mul(m, 2654435761), n)}
 
 assert batch:
-  forall +d: +Nat
-  forall +i: +U32
-  forall +g: +Nat
+  forall +d: Nat
+  forall +i: U32
+  forall +g: Nat
   Census
 
 def batch(d, i, g):
@@ -239,7 +239,7 @@ def batch(d, i, g):
     case 0n:
       chunk(64n, i, g, 0, 0, 0, 0)
     case 1n+p:
-      a b = batch(p, i, g) batch(p, U32.add(i, U32.shln(p, 64)), g)
+      a b = batch(p, i, g) batch(p, U32.add(i, U32.shln(64, p)), g)
       czip(a, b)
 
 # final checksum: mix the census fields

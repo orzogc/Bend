@@ -23,7 +23,7 @@ import Base
 # Bend3 C run on the cluster), big (19n) expect 1616398086 (from the
 # Bend3 header, verified on the cluster in seq, par and metal modes).
 
-type St:
+type St -> Data:
   Sl{sx: U32, sy: U32, n: U32}
   Sn{l: St, r: St}
 
@@ -39,13 +39,13 @@ def b2u(b):
       1
 
 assert prng:
-  forall +x: +U32
+  forall +x: U32
   U32
 
 def prng(x):
-  +b = {U32.xor(x, U32.shln(13n, x)) : +U32}
-  +d = {U32.xor(b, U32.shrn(17n, b)) : +U32}
-  U32.xor(d, U32.shln(5n, d))
+  +b = U32.xor(x, U32.shln(x, 13n))
+  +d = U32.xor(b, U32.shrn(b, 17n))
+  U32.xor(d, U32.shln(d, 5n))
 
 assert sel.go:
   forall x: U32
@@ -70,8 +70,8 @@ def sel(t, x, y):
   sel.go(x, y, U32.is_zero(t))
 
 assert min2:
-  forall +a: +U32
-  forall +b: +U32
+  forall +a: U32
+  forall +b: U32
   U32
 
 def min2(a, b):
@@ -80,16 +80,16 @@ def min2(a, b):
 # squared distance from (x, y) to packed centroid c, tagged with slot k:
 # d ranges to 2*1023^2 < 2^21, so d<<3|k fits comfortably
 assert dst:
-  forall +x: +U32
-  forall +y: +U32
-  forall +c: +U32
+  forall +x: U32
+  forall +y: U32
+  forall +c: U32
   forall k: U32
   U32
 
 def dst(x, y, c, k):
-  +dx = {sel(b2u(U32.is_lt(x, U32.and(c, 65535))), U32.sub(x, U32.and(c, 65535)), U32.sub(U32.and(c, 65535), x)) : +U32}
-  +dy = {sel(b2u(U32.is_lt(y, U32.shrn(16n, c))), U32.sub(y, U32.shrn(16n, c)), U32.sub(U32.shrn(16n, c), y)) : +U32}
-  U32.or(U32.shln(3n, U32.add(U32.mul(dx, dx), U32.mul(dy, dy))), k)
+  +dx = sel(b2u(U32.is_lt(x, U32.and(c, 65535))), U32.sub(x, U32.and(c, 65535)), U32.sub(U32.and(c, 65535), x))
+  +dy = sel(b2u(U32.is_lt(y, U32.shrn(c, 16n))), U32.sub(y, U32.shrn(c, 16n)), U32.sub(U32.shrn(c, 16n), y))
+  U32.or(U32.shln(U32.add(U32.mul(dx, dx), U32.mul(dy, dy)), 3n), k)
 
 assert szip:
   forall a: St
@@ -112,16 +112,16 @@ def szip(a, b):
 # (8 clusters x sx/sy/n, branchless masked adds -- pure register math),
 # then materializes one stats tree per chunk for the forked reduction
 assert chunk:
-  forall +j: +Nat
-  forall +i: +U32
-  forall +c0: +U32
-  forall +c1: +U32
-  forall +c2: +U32
-  forall +c3: +U32
-  forall +c4: +U32
-  forall +c5: +U32
-  forall +c6: +U32
-  forall +c7: +U32
+  forall +j: Nat
+  forall +i: U32
+  forall +c0: U32
+  forall +c1: U32
+  forall +c2: U32
+  forall +c3: U32
+  forall +c4: U32
+  forall +c5: U32
+  forall +c6: U32
+  forall +c7: U32
   forall s0x: U32
   forall s0y: U32
   forall s0n: U32
@@ -154,21 +154,21 @@ def chunk(j, i, c0, c1, c2, c3, c4, c5, c6, c7, s0x, s0y, s0n, s1x, s1y, s1n, s2
       Sn{Sn{Sn{Sl{s0x, s0y, s0n}, Sl{s1x, s1y, s1n}}, Sn{Sl{s2x, s2y, s2n}, Sl{s3x, s3y, s3n}}},
          Sn{Sn{Sl{s4x, s4y, s4n}, Sl{s5x, s5y, s5n}}, Sn{Sl{s6x, s6y, s6n}, Sl{s7x, s7y, s7n}}}}
     case 1n+p:
-      +hh = {prng(U32.mul(U32.inc(U32.add(i, U32.from_nat(p))), 2654435761)) : +U32}
-      +xx = {U32.and(hh, 1023) : +U32}
-      +yy = {U32.and(U32.shrn(16n, hh), 1023) : +U32}
-      +bk = {U32.and(min2(min2(min2(dst(xx, yy, c0, 0), dst(xx, yy, c1, 1)),
+      +hh = prng(U32.mul(U32.inc(U32.add(i, U32.from_nat(p))), 2654435761))
+      +xx = U32.and(hh, 1023)
+      +yy = U32.and(U32.shrn(hh, 16n), 1023)
+      +bk = U32.and(min2(min2(min2(dst(xx, yy, c0, 0), dst(xx, yy, c1, 1)),
                               min2(dst(xx, yy, c2, 2), dst(xx, yy, c3, 3))),
                          min2(min2(dst(xx, yy, c4, 4), dst(xx, yy, c5, 5)),
-                              min2(dst(xx, yy, c6, 6), dst(xx, yy, c7, 7)))), 7) : +U32}
-      +m0 = {b2u(U32.is_eq(bk, 0)) : +U32}
-      +m1 = {b2u(U32.is_eq(bk, 1)) : +U32}
-      +m2 = {b2u(U32.is_eq(bk, 2)) : +U32}
-      +m3 = {b2u(U32.is_eq(bk, 3)) : +U32}
-      +m4 = {b2u(U32.is_eq(bk, 4)) : +U32}
-      +m5 = {b2u(U32.is_eq(bk, 5)) : +U32}
-      +m6 = {b2u(U32.is_eq(bk, 6)) : +U32}
-      +m7 = {b2u(U32.is_eq(bk, 7)) : +U32}
+                              min2(dst(xx, yy, c6, 6), dst(xx, yy, c7, 7)))), 7)
+      +m0 = b2u(U32.is_eq(bk, 0))
+      +m1 = b2u(U32.is_eq(bk, 1))
+      +m2 = b2u(U32.is_eq(bk, 2))
+      +m3 = b2u(U32.is_eq(bk, 3))
+      +m4 = b2u(U32.is_eq(bk, 4))
+      +m5 = b2u(U32.is_eq(bk, 5))
+      +m6 = b2u(U32.is_eq(bk, 6))
+      +m7 = b2u(U32.is_eq(bk, 7))
       chunk(p, i, c0, c1, c2, c3, c4, c5, c6, c7,
             U32.add(s0x, U32.mul(m0, xx)), U32.add(s0y, U32.mul(m0, yy)), U32.add(s0n, m0),
             U32.add(s1x, U32.mul(m1, xx)), U32.add(s1y, U32.mul(m1, yy)), U32.add(s1n, m1),
@@ -180,16 +180,16 @@ def chunk(j, i, c0, c1, c2, c3, c4, c5, c6, c7, s0x, s0y, s0n, s1x, s1y, s1n, s2
             U32.add(s7x, U32.mul(m7, xx)), U32.add(s7y, U32.mul(m7, yy)), U32.add(s7n, m7))
 
 assert pfold:
-  forall +d: +Nat
-  forall +i: +U32
-  forall +c0: +U32
-  forall +c1: +U32
-  forall +c2: +U32
-  forall +c3: +U32
-  forall +c4: +U32
-  forall +c5: +U32
-  forall +c6: +U32
-  forall +c7: +U32
+  forall +d: Nat
+  forall +i: U32
+  forall +c0: U32
+  forall +c1: U32
+  forall +c2: U32
+  forall +c3: U32
+  forall +c4: U32
+  forall +c5: U32
+  forall +c6: U32
+  forall +c7: U32
   St
 
 def pfold(d, i, c0, c1, c2, c3, c4, c5, c6, c7):
@@ -197,7 +197,7 @@ def pfold(d, i, c0, c1, c2, c3, c4, c5, c6, c7):
     case 0n:
       chunk(64n, i, c0, c1, c2, c3, c4, c5, c6, c7, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     case 1n+p:
-      a b = pfold(p, i, c0, c1, c2, c3, c4, c5, c6, c7) pfold(p, U32.add(i, U32.shln(p, 64)), c0, c1, c2, c3, c4, c5, c6, c7)
+      a b = pfold(p, i, c0, c1, c2, c3, c4, c5, c6, c7) pfold(p, U32.add(i, U32.shln(64, p)), c0, c1, c2, c3, c4, c5, c6, c7)
       szip(a, b)
 
 # new centroid from a stats leaf; an empty cluster keeps the old one
@@ -210,13 +210,13 @@ assert cnew:
 def cnew(s, old):
   match s:
     case Sl{sx, sy, n}:
-      +nn = {n : +U32}
-      +mm = {sel(b2u(U32.is_zero(nn)), nn, 1) : +U32}
-      sel(b2u(U32.is_zero(nn)), U32.or(U32.div(sx, mm), U32.shln(16n, U32.div(sy, mm))), old)
+      +nn = n
+      +mm = sel(b2u(U32.is_zero(nn)), nn, 1)
+      sel(b2u(U32.is_zero(nn)), U32.or(U32.div(sx, mm), U32.shln(U32.div(sy, mm), 16n)), old)
     case Sn{l, r}:
       old
 
-type Cs:
+type Cs -> Data:
   Cs{c0: U32, c1: U32, c2: U32, c3: U32, c4: U32, c5: U32, c6: U32, c7: U32}
 
 # extract the 8 new centroids from the depth-3 stats tree (the
@@ -244,14 +244,14 @@ def step.fin(c0, c1, c2, c3, c4, c5, c6, c7, t):
 
 assert step:
   forall d: Nat
-  forall +c0: +U32
-  forall +c1: +U32
-  forall +c2: +U32
-  forall +c3: +U32
-  forall +c4: +U32
-  forall +c5: +U32
-  forall +c6: +U32
-  forall +c7: +U32
+  forall +c0: U32
+  forall +c1: U32
+  forall +c2: U32
+  forall +c3: U32
+  forall +c4: U32
+  forall +c5: U32
+  forall +c6: U32
+  forall +c7: U32
   Cs
 
 def step(d, c0, c1, c2, c3, c4, c5, c6, c7):
@@ -260,7 +260,7 @@ def step(d, c0, c1, c2, c3, c4, c5, c6, c7):
 
 assert loop:
   forall r: Nat
-  forall +d: +Nat
+  forall +d: Nat
   forall cs: Cs
   U32
 
@@ -282,8 +282,8 @@ assert cini:
   U32
 
 def cini(k):
-  +hh = {prng(U32.add(12345, k)) : +U32}
-  U32.or(U32.and(hh, 1023), U32.shln(16n, U32.and(U32.shrn(16n, hh), 1023)))
+  +hh = prng(U32.add(12345, k))
+  U32.or(U32.and(hh, 1023), U32.shln(U32.and(U32.shrn(hh, 16n), 1023), 16n))
 
 # one restart: 20 Lloyd rounds from this restart's random centroids
 assert rst:
@@ -292,15 +292,15 @@ assert rst:
   U32
 
 def rst(r, d):
-  +rr = {U32.mul(r, 8) : +U32}
+  +rr = U32.mul(r, 8)
   loop(20n, d, Cs{cini(U32.inc(rr)), cini(U32.add(rr, 2)), cini(U32.add(rr, 3)), cini(U32.add(rr, 4)), cini(U32.add(rr, 5)), cini(U32.add(rr, 6)), cini(U32.add(rr, 7)), cini(U32.add(rr, 8))})
 
 # 64 independent restarts fork as a balanced tree (kmeans++ style
 # restarts keep the machine wide across the whole run)
 assert rbatch:
-  forall +b: +Nat
-  forall +r: +U32
-  forall +d: +Nat
+  forall +b: Nat
+  forall +r: U32
+  forall +d: Nat
   U32
 
 def rbatch(b, r, d):
@@ -308,7 +308,7 @@ def rbatch(b, r, d):
     case 0n:
       rst(r, d)
     case 1n+p:
-      x y = rbatch(p, r, d) rbatch(p, U32.add(r, U32.shln(p, 1)), d)
+      x y = rbatch(p, r, d) rbatch(p, U32.add(r, U32.shln(1, p)), d)
       U32.add(x, y)
 
 assert size:

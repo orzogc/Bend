@@ -22,8 +22,8 @@
 # proof that needs replicas opens copy2 in CPS -- a lambda-match
 # application is a banned form, so there is no data-shaped copy to
 # destructure -- and spends one equation per rewrite to relink the
-# goal to the replicas; eqcopy2 duplicates a spent equation the same
-# way.
+# goal to the replicas; eqcopy2 hands back two uses of one equation
+# the same way (an equation is Data, so a + binder licenses it).
 
 import Base
 
@@ -60,32 +60,19 @@ def copy2_spec(n, P, f):
         f(1n+a, %ea : {1n+a == 1n+_ : Nat}; {==}, 1n+b, %eb : {1n+b == 1n+_ : Nat}; {==}, %eab : {1n+b == 1n+_ : Nat}; {==})) : {f(1n+p, {==}, 1n+p, {==}, {==}) == _ : P}
       {==}
 
-# equations are consumed by rewrites; eqcopy2 hands back two replicas
-# of one, through base's Equal.copy, in the same CPS shape
-
-assert eqsplit:
-  forall -a: Nat
-  forall -b: Nat
-  forall -e: {a == b : Nat}
-  forall -P: Type
-  forall f: @e1: {a == b : Nat} -> @e2: {a == b : Nat} -> P
-  forall c: Copy({a == b : Nat}, e) & Copy({a == b : Nat}, e)
-  P
-
-def eqsplit(a, b, e, P, f, c):
-  ((x, u1), (y, u2)) = c
-  f(x, y)
+# equations are consumed by rewrites; eqcopy2 hands back two uses of
+# one, through a + binder (an equation is Data), in the same CPS shape
 
 assert eqcopy2:
   forall -a: Nat
   forall -b: Nat
-  forall e: {a == b : Nat}
+  forall +e: {a == b : Nat}
   forall -P: Type
   forall f: @e1: {a == b : Nat} -> @e2: {a == b : Nat} -> P
   P
 
 def eqcopy2(a, b, e, P, f):
-  eqsplit(a, b, e, P, f, Equal.copy(Nat, a, b, e))
+  f(e, e)
 
 assert add:
   forall a: Nat

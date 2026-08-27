@@ -15,14 +15,15 @@
 -- (the checker rejects a Many binder at formation) and survives only
 -- inside the usage measure, where it means "consumed more than once"
 -- and is always a violation. (The shipped checker adds one licensed
--- duplication mechanism, the Cop system — see NOT MODELED below; this
--- file mechanizes the Cop-free core.) Every live self-call descends
--- lexicographically on the definition's own case-tree columns, and no
--- rule coerces dead to live. In a functional language there are only two
--- ways to loop: self-replicating lambdas (dead on arrival: no live
--- binding contracts at all) and recursion (closed by descent). Dead code
--- is specification, not proof: it may diverge and may inhabit Empty, and
--- the claims are stated for the live fragment only.
+-- duplication mechanism, the grade system — see NOT MODELED below;
+-- this file mechanizes the all-&1 fragment.) Every live self-call
+-- descends lexicographically on the definition's own case-tree
+-- columns, and no rule coerces dead to live. In a functional language
+-- there are only two ways to loop: self-replicating lambdas (dead on
+-- arrival: no live binding contracts at all) and recursion (closed by
+-- descent). Dead code is specification, not proof: it may diverge and
+-- may inhabit Empty, and the claims are stated for the live fragment
+-- only.
 --
 -- THE SYNTAX is one Term type, de Bruijn, first-order. Datatypes are
 -- user-declared families in the book: a family signature is a telescope
@@ -65,13 +66,18 @@
 -- are parsing and pipeline concerns with no counterpart here;
 -- U32/SCon/SNil string literals are base.bend constructors, not
 -- calculus. Four checker mechanisms sit outside this mechanization:
--- (1) the Cop system: a Cop type + T ~ C (C : Copiable(T), the
---     infer-cop rule) licenses a Many binder (quant_valid at All/Let
---     formation and over ADT telescopes), term_equal peels Cop, and
---     the promotion rule (cop_goal/cop_wit at the term_check entry)
---     re-checks a dead term at a Copiable goal LIVE, metering its
---     context uses; Sigma, Copy and Copiable are locked in book_valid.
---     Here Many is unspellable and always a violation.
+-- (1) the grade system: every type has a kind Kind(g) over a grade
+--     g : Grade, &1 (affine) or &2 (reusable); Type = Kind(&1), Data =
+--     Kind(&2); at check-any Data fits every kind and every kind fits
+--     Type, never else.
+--     A Many binder (+x at All/Let formation and over ADT telescopes)
+--     is licensed iff its type's kind whnfs to Data (term_check_data).
+--     A function type is Type, an equation is Data, a datatype declares
+--     its kind Kind(G), and adt_valid demands every live field's grade
+--     be entailed by G over atoms (term_check_grade), in the real
+--     constructor context; the meet a <&> b reduces only against a
+--     literal. Here every kind is Kind(&1): Grade, &2 and the meet are
+--     absent, and Many is unspellable and always a violation.
 -- (2) check-efq's emptied-context clause: a LIVE context binder at an
 --     emptied family admits an empty match with constructors remaining
 --     (ctx_dead); the efq rule here demands every constructor peeled.

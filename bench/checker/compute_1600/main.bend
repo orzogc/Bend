@@ -1,8 +1,8 @@
-type Nat:
+type Nat -> Data:
   Z{}
   S{pred: Nat}
 
-type Sigma<-A: Type, -B: @-x: A -> Type>:
+type Sigma<-A: Type, -B: @-x: A -> Type> -> Type:
   Tuple{fst: A, snd: B(fst)}
 
 assert Pair:
@@ -13,20 +13,20 @@ assert Pair:
 def Pair(A, B):
   Sigma<A, _ => B>
 
-assert Copy:
+assert Cpy:
   forall -A: Type
   forall -x: A
   Type
 
-def Copy(A, x):
-  &y: A -> {x == y : A}
+def Cpy(A, x):
+  Sigma<A, y => {x == y : A}>
 
-assert Copiable:
+assert Cpyable:
   forall -T: Type
   Type
 
-def Copiable(T):
-  @x: T -> Copy(T, x) & Copy(T, x)
+def Cpyable(T):
+  @x: T -> Cpy(T, x) & Cpy(T, x)
 
 assert Equal.cong2:
   forall -A: Type
@@ -58,29 +58,29 @@ def add(a, b):
     case S{a}:
       S{add(a, b)}
 
-assert Nat.copy:
+assert Nat.cpy:
   forall n: Nat
-  Copy(Nat, n) & Copy(Nat, n)
+  Cpy(Nat, n) & Cpy(Nat, n)
 
-assert Nat.copy.succ:
+assert Nat.cpy.succ:
   forall -p: Nat
-  forall c: Copy(Nat, p) & Copy(Nat, p)
-  Copy(Nat, S{p}) & Copy(Nat, S{p})
+  forall c: Cpy(Nat, p) & Cpy(Nat, p)
+  Cpy(Nat, S{p}) & Cpy(Nat, S{p})
 
-def Nat.copy.succ(p, c):
+def Nat.cpy.succ(p, c):
   ((a, ea), (b, eb)) = c
   ((S{a}, %ea : {S{p} == S{_} : Nat}; {==}), (S{b}, %eb : {S{p} == S{_} : Nat}; {==}))
 
-def Nat.copy(n):
+def Nat.cpy(n):
   match n:
     case Z{}:
       ((Z{}, {==}), (Z{}, {==}))
     case S{p}:
-      Nat.copy.succ(p, Nat.copy(p))
+      Nat.cpy.succ(p, Nat.cpy(p))
 
 assert mul:
   forall a: Nat
-  forall +b: +Nat
+  forall +b: Nat
   Nat
 
 def mul(a, b):
@@ -288,7 +288,7 @@ assert n32:
 def n32():
   S{n31()}
 
-type Duo<-A: Type, -B: Type>:
+type Duo<-A: Type, -B: Type> -> Type:
   Duo{fst: A, snd: B}
 
 assert Tup:

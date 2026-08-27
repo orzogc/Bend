@@ -150,9 +150,11 @@ classical paradox needs to duplicate a function at some point.
 Recursion is checked by a lexicographic strict-subterm descent
 over each definition's own case tree, and only the live level must
 terminate: dead code and types may diverge. Duplication returns at
-the surface as a license the program itself proves, a copying
-function with equality proofs, never as a kernel rule. Everything
-else is standard, by design. We define the calculus, argue
+the surface as a grade on kinds: a datatype declares whether its
+values are reusable, the checker verifies the claim at every
+constructor, and only a value of a reusable kind may be consumed
+freely; the kernel itself has no such rule. Everything else is
+standard, by design. We define the calculus, argue
 informally that it terminates, and describe a Lean 4 mechanization
 of its metatheory: confluence, subject reduction, progress, weak
 normalization, and consistency, with no unproven obligations. This
@@ -187,11 +189,12 @@ mechanized in Lean 4 (@sec:mech). An earlier version of this
 kernel carried a built-in judgment classifying the types whose
 values may be copied; the present kernel goes further and admits
 _no_ duplication at all: the copying permit moved out of the
-kernel and into the programs, as a proof obligation
-(@sec:cop).
+kernel and into the surface, as a grade each datatype declares
+and the checker verifies against its constructors
+(@sec:grades).
 
 The implemented language is larger than the kernel: machine words
-and floats, flat arrays, and the surface copying license itself
+and floats, flat arrays, and the surface grade system itself
 exist in the implementation and are not yet formalized
 (@sec:bend); those gaps are listed exactly. The calculus also
 deliberately leaves room for extensions such as quotients and
@@ -206,8 +209,9 @@ datatypes flatten into case trees, machine 32-bit words and floats
 and flat arrays ride beside them, propositional equality rewrites
 through explicit motives, and every definition passes the descent
 check. Values are affine by default; a binder marked #co[+] may be
-consumed freely, and its type must carry the proved copying
-license of @sec:cop. One program hint, the fork #co[let], drives a
+consumed freely, and its type must be of the reusable kind
+#co[Data] under the grade system of @sec:grades. One program hint,
+the fork #co[let], drives a
 bulk-synchronous runtime: programs compile to a standalone C file
 that runs on CPU threads and on Apple-Silicon GPUs
 @bendrt2026. The checker is bidirectional, with no unification, no
@@ -362,7 +366,8 @@ dropping is free and duplicating does not exist. A third value
 $omega$ exists only inside the usage accounting, where it means
 "consumed more than once" and is always a violation: no rule of
 the kernel forms an $omega$ binder, and the surface spelling
-#co[+x] belongs to the license of @sec:cop, not to the kernel.
+#co[+x] belongs to the grade system of @sec:grades, not to the
+kernel.
 
 Usage is tracked by the judgment itself. A derivation returns a
 _usage vector_ $pi$, a finitely supported map from variables to
@@ -457,8 +462,8 @@ quantity when it closes ($pi(x) lt.eq q'$), and two live uses
 saturate the measure to $omega$, which no binder satisfies. This
 single check is the consistency mechanism (@sec:term); the
 implemented language re-admits contraction only through the
-surface license of @sec:cop, which the kernel never sees as a
-rule.
+surface grade system of @sec:grades, which the kernel never sees
+as a rule.
 
 _The erased fragment is free._ At demand $0$ nothing is charged:
 a dead premise's measure is unconstrained and the rule that checks
@@ -649,69 +654,157 @@ fragment with a partial one in a single language @casinghino2014.
 BendTT draws the line at the demand: live terms terminate, dead
 terms and types need not.
 
-= The Copiable License <sec:cop>
+= The Grade System <sec:grades>
+
+#let Gr = $sans("Grade")$
+#let Da = $sans("Data")$
+#let g1 = $"&1"$
+#let g2 = $"&2"$
+#let Kd(g) = $sans("Kind")(#g)$
 
 The kernel forbids contraction; programs still need it, an
 inductive proof feeds one field to the induction hypothesis and a
-lemma at once. Bend re-admits it as a _license the program
-proves_. Two definitions, written in Bend itself, state what
-copying means:
+lemma at once. Bend re-admits it through a _grade on every kind_.
+The one sort of the kernel splits: a type's kind is #Kd($g$) over
+a grade $g$, either #g1 (affine) or #g2 (reusable), with
+#Ty $=$ #Kd(g1) and #Da $=$ #Kd(g2). A binder of quantity $omega$
+(surface #co[+x], or the local #co[+x = v]) is permitted if and
+only if its type's kind reduces to #Da. This is the only
+duplication mechanism in the language; nothing else contracts.
+
+#figure(caption: [The grade extension. The rules of @fig:typing
+stay; these are added over them. $a inter.sq b$ is the grade
+_meet_ (surface #co[<\&>]), which reduces only against a literal:
+$#g1 inter.sq b stepto #g1$, $a inter.sq #g1 stepto #g1$,
+$#g2 inter.sq b stepto b$, $a inter.sq #g2 stepto a$, and a meet of two
+stuck grades is stuck. The last two rules are the subsumptions:
+every kind weakens to #Ty and #Da weakens to every kind, so #Da
+is the bottom, #Ty the top, and nothing weakens to #Da. A family
+signature now tips at #Kd($G$), so through #smallcaps[app] a
+family applied to its parameters has kind #Kd($G[p_1...]$).], {
+  set text(size: 9.5pt)
+  rules(
+    (rule(JJ($Gamma$, $q$, Gr, $#Ty$, $uz$)),
+     rule(JJ($Gamma$, $q$, g1, Gr, $uz$)),
+     rule(JJ($Gamma$, $q$, g2, Gr, $uz$)),
+     rule(JJ($Gamma$, $q$, Kd($g$), $#Ty$, $uz$), JJ($Gamma$, $0$, $g$, Gr, $dot$)),
+     rule(JJ($Gamma$, $q$, $a inter.sq b$, Gr, $uz$), JJ($Gamma$, $0$, $a$, Gr, $dot$), JJ($Gamma$, $0$, $b$, Gr, $dot$))),
+    (rule(JJ($Gamma$, $q$, $forall^omega x:A. thin B$, $#Ty$, $uz$),
+       JJ($Gamma$, $0$, $A$, Da, $dot$), JJ($Gamma, x:A$, $0$, $B$, $#Ty$, $dot$)),
+     rule(JJ($Gamma$, $q$, $omega thin x = v"; " b$, $B$, $pi' + (pi backslash x)$),
+       JJ($Gamma$, $0$, $A$, Da, $dot$),
+       JJ($Gamma$, $q$, $v$, $A$, $pi'$),
+       JJ($Gamma, x:A$, $q$, $b$, $B$, $pi$),
+       $x in.not B$)),
+    (rule(JJ($Gamma$, $q$, ${a = b : T}$, Da, $uz$),
+       JJ($Gamma$, $0$, $T$, $#Ty$, $dot$), JJ($Gamma$, $0$, $a$, $T$, $dot$),
+       JJ($Gamma$, $0$, $b$, $T$, $dot$)),
+     rule(JJ($Gamma$, $q$, $t$, $#Ty$, $pi$), JJ($Gamma$, $q$, $t$, Kd($g$), $pi$)),
+     rule(JJ($Gamma$, $q$, $t$, Kd($g$), $pi$), JJ($Gamma$, $q$, $t$, Da, $pi$))),
+  )
+}) <fig:grades>
+
+@fig:grades gives the rules. Three points carry the design.
+
+_Kinds are assigned by shape, and weaken one way._ A function type
+is #Ty: a closure captures, so it is never reusable, whatever its
+domain and codomain. An equation is #Da: its evidence is erased,
+and a closed live proof is #ic[${=}$], so there is nothing inside
+to duplicate. A datatype declares its own kind, and the declared
+grade may depend on the parameters. At the conversion rule every
+kind converts to #Ty and #Da converts to every kind, so a #Da type
+is accepted wherever any kind is expected, and nothing converts to
+#Da. Values do not weaken with
+their kinds: #co[List<\&2, A>] and #co[List<\&1, A>] are distinct
+types, and generic code is _grade-polymorphic_, taking the grade
+as an erased parameter (#co[forall -a: Grade]). A $omega$ binder
+needs a kind whose grade _reduces_ to #g2, so a parameter grade
+licenses nothing: a polymorphic function cannot duplicate its
+argument, and #co[+] becomes available only after instantiation.
+
+_Declarations earn their grade._ A datatype is declared
+#co[type D\<p_1, .., p_n\> -\> Kind(G):] with $G$ a grade over the
+parameters; a bare name in the telescope is sugar for an erased
+#Gr parameter. The book validator reads $G$ off the signature and
+then, for each constructor, infers every field's kind in the real
+constructor context, parameters then fields, and demands that a
+_live_ field's grade $H$ be _entailed_ by $G$, written
+$G models H$. Entailment is over atoms:
+$"atoms"(#g2) = nothing$, $"atoms"(#g1) = {#g1}$,
+$"atoms"(a inter.sq b) = "atoms"(a) union "atoms"(b)$, a stuck grade
+is its own atom, and $G models H$ holds when
+$#g1 in "atoms"(G)$ or $"atoms"(H) subset.eq "atoms"(G)$ up to
+conversion. So #g2 entails only grades that reduce to #g2, #g1
+entails everything, and a parameter grade entails itself. An
+erased field is absent from storage and dead, and is exempt. From
+the base library:
 
 #block(breakable: false)[
 ```
-def Copy(A, x):
-  &y: A -> {x == y : A}
+type List<a, -A: Kind(a)> -> Kind(a):
+  Nil{}
+  Con{head: A, tail: List<a, A>}
 
-def Copiable(T):
-  @x: T -> Copy(T, x) & Copy(T, x)
+type Sigma<a, b, -A: Kind(a), -B: @-x: A -> Kind(b)>
+  -> Kind(a <&> b):
+  Tuple{fst: A, snd: B(fst)}
 ```
 ]
 
-A #co[Copy] of #co[x] is a value equal to it, packaged with its
-proof; a #co[Copiable(T)] is a function producing _two_ such
-copies of any value of #co[T]. The license enters through one new
-type former, the Cop type `+ T ~ c`, well-formed exactly when
-#co[c] checks against #co[Copiable(T)], and convertible-equal to
-#co[T] itself: the witness is erased and the values are ordinary
-values of #co[T]. A binder of quantity $omega$ (surface #co[+x])
-is permitted if and only if its type is a Cop. The sugar `+T`
-derives the witness structurally, `+Nat` is
-`+ Nat ~ Nat.copy`, and the base library proves the witnesses
-for its own first-order types, each copy returning its equality
-proofs.
+#co[List] is as reusable as its element; a pair is reusable when
+both halves are; #co[Nat], #co[Bool], #co[U32] and #co[String] are
+declared at #Da, so an inductive proof may bind a predecessor with
+#co[+] and feed it to the induction hypothesis and a lemma at
+once.
 
-Three mechanisms keep the license honest. First, the _locks_:
-#co[Sigma], #co[Copy] and #co[Copiable] are locked declarations,
-the book validator checks any local spelling of them by conversion
-against the reference definitions, so a forged #co[Copiable], one
-that answers two copies without proving them equal to the
-original, cannot exist under those names, and a closed live proof
-of an equation normalizes to #ic[${=}$]. Second, the _promotion
-rule_: a witness sits in an erased position, but a term checked
-dead at a #co[Copiable] goal is re-checked _live_, its context
-uses metered against live binders or erased #co[Copiable]
-hypotheses only, and the measured uses are then discarded, the
-witness stays erased. A dead hypothesis never licenses: the
-promoted check is what stops an inhabitant of the erased fragment,
-which can prove anything, from smuggling a copying permit into
-live code. Third, the standing walls carry the rest: a circular
-witness dies by descent, an unfilled assert by the live-reference
-rule, and a contracting inline lambda by the usage cap itself,
-which never switches off.
+_Nothing affine hides in #Da._ The entailment check, run in the
+real constructor context, closes every hiding place we know of.
+A _function field_ has kind #Ty, whose atom #g1 no #g2 or
+parameter grade contains, so a closure can sit only in a family
+declared at #Ty: where the predecessor design had to argue that
+its copyable class excluded functions, this check refuses them per
+declaration. An _equation_ holds nothing that runs; rewriting
+consumes it once, like any value, and duplicating #ic[${=}$]
+duplicates nothing. An _existential_ takes the meet of its
+components: the type of copies of $x$, #co[\&y: T -> {x == y : T}],
+has the single inhabitant #co[(x, {==})], and a system that treats
+that contractible type as reusable duplicates $x$ with it; here its
+kind is #Kd($a inter.sq #g2$) $=$ #Kd($a$), the grade of $T$ itself.
+A _recursive type_ needs no fixed point: the declaration's own
+kind is assumed at its own occurrences, and this is sound because
+a live value is a finite tree, so the invariant, a #Da value holds
+no live affine value, follows by induction on the value, the
+recursive field being the induction hypothesis. A
+_constructor-local abstraction_, a constructor that binds its own
+erased type or grade and stores a field at it, is refused: the
+field's kind is #Kd(g1) or #Kd($g$) for a local $g$, and neither
+atom occurs in $G$, which is spelled over the family's parameters
+only. A _grade equation_, #co[{\&1 == \&2 : Grade}], can be stated,
+since endpoints are dead, and a rewrite through it produces a term
+of type #Da from a function type, licensing a $omega$ binder over
+it; this is harmless, because that type is a stuck rewrite, which
+no lambda checks against and no application eliminates, so the
+binder duplicates only stuck terms, and it stays stuck while the
+evidence does. The evidence sheds only at #ic[${=}$], which needs
+#g1 $conv$ #g2, so no closed live proof of the equation exists,
+and a dead one never reaches live code.
 
-The license is an implementation extension, not a kernel rule, and
-it is stated here with that honesty: the mechanization of
-@sec:mech covers the affine kernel, in which the license does not
-exist, and the argument for the extension is elementary rather
-than mechanized: a #co[Copiable] witness is a live function that
-already produces two provably equal copies, so consuming a
-licensed binder $n$ times abbreviates $n - 1$ witness calls the
-program could have written by hand. Mechanizing that elaboration
-is planned work, and the license's implementation is under active
-audit. No escape hatch stands beside it: an earlier pragma let a
-file opt out of the Cop condition and the descent, and it was
-removed once the whole corpus checked without it; the affine
-usage cap had never been part of the trade.
+The grade system is an implementation extension, not a kernel
+rule, and it is stated here with that honesty: the mechanization
+of @sec:mech covers the affine kernel, in which #g2 does not
+exist, and the consistency of the live fragment under the
+extension is a conjecture, backed by hostile audits rather than a
+theorem. The argument for it is elementary: a #Da declaration's
+constructors hold only #Da fields, so a structural clone of any
+#Da value is an ordinary recursive Bend definition over its
+declaration, one match per constructor, one rewrite per equation,
+and consuming a $omega$ binder $n$ times abbreviates $n - 1$ such
+clones the program could have written by hand. Mechanizing that
+elaboration is planned work. Grades are erased at runtime, like
+types. No escape hatch stands beside the system: an earlier pragma
+let a file opt out of the duplication condition and the descent,
+and it was removed once the whole corpus checked without it; the
+affine usage cap had never been part of the trade.
 
 = The Mechanization <sec:mech>
 
@@ -827,14 +920,14 @@ conversion, live-usable for the event loop, and nothing else.
 _Unformalized extensions._ Machine 32-bit words and floats (the
 float family is axiomatic in the base library), flat arrays with
 in-place backends, the base library's native representations, and
-the Copiable license of @sec:cop, whose kernel-side meaning is the
+the grade system of @sec:grades, whose kernel-side meaning is the
 elaboration argument given there. The compiler is bound by a cost
 law the checker sets: it may drop a cost the source spelled, a
-licensed copy may become a counted share or a borrow, but it may
+licensed reuse may become a counted share or a borrow, but it may
 never add a clone or a retain the source did not spell
 @bendrt2026. None of these features interacts with the
-consistency argument, and formalizing the license is the next
-planned extension of the mechanization.
+consistency argument, and formalizing the grade system is the
+next planned extension of the mechanization.
 
 = Discussion <sec:discussion>
 
@@ -845,13 +938,12 @@ The honest price is contraction on closures. The standard
 $ "map" : forall^1 f:(A arr(1) B). thin forall^1 x s:"List" thin A. thin "List" thin B $
 
 is ill-typed: $f$ is used once per element, its binder would need
-$omega$, and no #co[Copiable] witness for a function type can
-exist, a copy would have to prove its clone equal to the original,
-which intensional equality does not grant for closures. There is
-no workaround that smuggles a closure copy in. The practical
+$omega$, and a function type is #Ty, never #Da: a closure
+captures, and no declaration can grade it reusable. There is no
+workaround that smuggles a closure copy in. The practical
 escape is that _code_ is free: a top-level definition may be
 referenced any number of times, so specialized maps, or maps over
-licensed data in place of closures, cover the common idioms; but
+#Da in place of closures, cover the common idioms; but
 first-class closure-heavy style does not transfer. Bend accepts
 this deliberately: the restriction is also what the runtime wants
 @bendrt2026, and years of writing in this discipline suggest the
@@ -872,13 +964,12 @@ On the proof side the freedom is larger, not smaller. Statements
 are erased: at demand $0$ occurrences cost nothing, so a theorem
 may quantify over functions, repeat variables, and apply anything
 freely; affinity constrains what runs, never what is said. Live
-proofs draw their duplication from the license at first-order
-data, which is what induction wants: the base library proves its
-own copy witnesses, each returning equality proofs, derives its
+proofs draw their duplication from #Da, the reusable kind of
+first-order data, which is what induction wants: the base library
+declares its naturals, words and strings at #Da, derives its
 equality kit (congruence, symmetry, transitivity, each a single
-rewrite), and proves commutativity of addition for both unary
-naturals and 32-bit words, the successor field feeding the
-induction hypothesis and a lemma at once, checked by Bend itself.
+rewrite), and proves commutativity of addition on 32-bit words,
+checked by Bend itself.
 Theorems whose subjects are first-order, most of mathematics,
 never meet the restriction at all.
 
@@ -890,8 +981,9 @@ ${0, 1}$ mirrors Atkey's. But QTT admits $omega$ binders at every
 type, so QTT with #Ty : #Ty is Girard-inconsistent; its
 consistency comes from the universe hierarchy it keeps. BendTT
 has no $omega$ binders at all, no scaling and no semiring, and
-the copying permit is a program-level proof (@sec:cop): the
-absence carries the entire weight the hierarchy would.
+the copying permit is a surface grade that each datatype
+declares and the checker verifies (@sec:grades): the absence
+carries the entire weight the hierarchy would.
 
 _"Equality needs non-linear variables:
 $"refl" : forall a. thin {a = a : T}$ mentions $a$ twice."_
@@ -927,12 +1019,12 @@ erased inhabitant, no rule coerces dead to live, and the theorems
 quantify over live judgments. The mechanization states this
 boundary as a theorem rather than hiding it.
 
-_"A forged #co[Copiable] could license anything."_ It could,
-which is why the three names it depends on are locked against
-their reference definitions by the book validator, why the witness
-position is re-checked live under the promotion rule, and why the
-license lives outside the kernel: the mechanized claims do not
-rest on it (@sec:cop).
+_"A #co[Data] declaration could hide a closure."_ It cannot:
+the book validator checks every live field of every constructor
+against the declared grade, in the constructor's own context, and
+a function type is #Ty there, as is any constructor-local type or
+grade (@sec:grades). And the grade system lives outside the
+kernel: the mechanized claims do not rest on it.
 
 _"Why not just use universes?"_ Universes are the orthodox road,
 and nothing prevents adding a hierarchy to BendTT later. But Bend
@@ -953,8 +1045,9 @@ would explain _why_ affinity carries the weight, not only that it
 does; realizability for linear dependent theories @speight2026
 looks like a starting point, and this is future work. Conversion
 is joinability of reduction with $eta$ for functions and nothing
-for pairs. The Copiable license is argued, locked and audited, but
-not yet mechanized (@sec:cop). And the theorems are about the
+for pairs. The grade system is argued and audited, but not yet
+mechanized, and the consistency of the live fragment under it is
+a conjecture (@sec:grades). And the theorems are about the
 calculus, not the code: the reference checker is ordinary
 unverified software, and @sec:bend's correspondence is an
 engineering claim, not a theorem.
@@ -991,10 +1084,11 @@ audit in an afternoon, and is mechanized end to end, recursive
 definitions included. The one liberty its predecessor took inside
 the kernel, a built-in class of copyable types, has been evicted:
 the kernel now refuses all duplication, and the surface earns it
-back with proofs. Nothing in the calculus is difficult, and that
-is the point: it is meant to be read, audited, and extended. The
+back with grades, declared per datatype and verified at every
+constructor. Nothing in the calculus is difficult, and that is
+the point: it is meant to be read, audited, and extended. The
 mechanization will keep growing toward the implemented language,
-the copying license first, and perhaps toward stronger equalities:
+the grade system first, and perhaps toward stronger equalities:
 we watch the higher observational line, Narya in particular
 @narya2024, as the likely shape of that redesign.
 

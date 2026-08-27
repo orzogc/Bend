@@ -54,10 +54,9 @@ assert req_take.sel:
   forall rest: String
   String
 
-assert req_take.cpy:
-  forall -code: U32
+assert req_take.go:
+  forall +code: U32
   forall rest: String
-  forall c: Copy(U32, code) & Copy(U32, code)
   String
 
 assert req_take:
@@ -71,16 +70,15 @@ def req_take.sel(e, u2, rest):
     case False{}:
       SCon{Chr{u2}, rest}
 
-def req_take.cpy(code, rest, c):
-  ((u1, e1), (u2, e2)) = c
-  req_take.sel(U32.is_eq(u1, 32), u2, rest)
+def req_take.go(code, rest):
+  req_take.sel(U32.is_eq(code, 32), code, rest)
 
 def req_take(s):
   match s:
     case SNil{}:
       SNil{}
     case SCon{Chr{code}, t}:
-      req_take.cpy(code, req_take(t), U32.copy(code))
+      req_take.go(code, req_take(t))
 
 assert req_path:
   forall req: String
@@ -107,24 +105,15 @@ def http_route.sel(e):
 def http_route(path):
   http_route.sel(String.eq(path, "/"))
 
-assert http_response.go:
-  forall status: String
-  forall bb: String & String
-  String
-
 assert http_response:
   forall status: String
-  forall body: String
+  forall +body: String
   String
 
-def http_response.go(status, bb):
-  (b1, b2) = bb
-  head = "HTTP/1.1 " ++ status ++ "\r\n"
-  size = "Content-Length: " ++ U32.show(str_len(b1)) ++ "\r\n\r\n"
-  head ++ size ++ b2
-
 def http_response(status, body):
-  http_response.go(status, String.copy(body))
+  head = "HTTP/1.1 " ++ status ++ "\r\n"
+  size = "Content-Length: " ++ U32.show(str_len(body)) ++ "\r\n\r\n"
+  head ++ size ++ body
 
 assert http_reply.go:
   forall sb: String & String
@@ -142,7 +131,7 @@ def http_reply(req):
   http_reply.go(http_route(req_path(req)))
 
 assert http_sent:
-  forall sm: Socket & Result<(U32 & String), Unit>
+  forall sm: Socket & Result<&1, &1, U32 & String, Unit>
   IO(Unit)
 
 def http_sent(sm):
@@ -152,14 +141,14 @@ def http_sent(sm):
     Socket.close(s)
 
 assert http_handle_go:
-  forall rm: Socket & Result<(U32 & String), String>
+  forall rm: Socket & Result<&1, &1, U32 & String, String>
   IO(Unit)
 
 def http_handle_go(rm):
   (s, r) = rm
   do IO<Unit>:
     req : String <- IO.pass(String, r)
-    sm : Socket & Result<(U32 & String), Unit> <- TCP.send(s, http_reply(req))
+    sm : Socket & Result<&1, &1, U32 & String, Unit> <- TCP.send(s, http_reply(req))
     http_sent(sm)
 
 assert http_handle:
@@ -168,11 +157,11 @@ assert http_handle:
 
 def http_handle(s):
   do IO<Unit>:
-    rm : Socket & Result<(U32 & String), String> <- TCP.recv(s, 1024)
+    rm : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(s, 1024)
     http_handle_go(rm)
 
 assert http_accept_go:
-  forall ap: Listener & Result<(U32 & String), Socket>
+  forall ap: Listener & Result<&1, &1, U32 & String, Socket>
   IO(Listener)
 
 def http_accept_go(ap):
@@ -193,12 +182,12 @@ def http_serve(n, l):
       IO.pure(Listener, l)
     case 1n+m:
       do IO<Listener>:
-        ap : Listener & Result<(U32 & String), Socket> <- TCP.accept(l)
+        ap : Listener & Result<&1, &1, U32 & String, Socket> <- TCP.accept(l)
         l2 : Listener <- http_accept_go(ap)
         http_serve(m, l2)
 
 assert http_start_go:
-  forall sm: Socket & Result<(U32 & String), Unit>
+  forall sm: Socket & Result<&1, &1, U32 & String, Unit>
   IO(Socket)
 
 def http_start_go(sm):
@@ -215,11 +204,11 @@ assert http_start:
 def http_start(port, req):
   do IO<Socket>:
     c : Socket <- IO.try(Socket, TCP.connect("127.0.0.1", port))
-    sm : Socket & Result<(U32 & String), Unit> <- TCP.send(c, req)
+    sm : Socket & Result<&1, &1, U32 & String, Unit> <- TCP.send(c, req)
     http_start_go(sm)
 
 assert http_finish_go:
-  forall rm: Socket & Result<(U32 & String), String>
+  forall rm: Socket & Result<&1, &1, U32 & String, String>
   IO(String)
 
 def http_finish_go(rm):
@@ -235,7 +224,7 @@ assert http_finish:
 
 def http_finish(c):
   do IO<String>:
-    rm : Socket & Result<(U32 & String), String> <- TCP.recv(c, 1024)
+    rm : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(c, 1024)
     http_finish_go(rm)
 
 assert report.sel:
@@ -244,15 +233,9 @@ assert report.sel:
   forall e: Bool
   IO(Unit)
 
-assert report.go:
-  forall label: String
-  forall want: String
-  forall gg: String & String
-  IO(Unit)
-
 assert report:
   forall label: String
-  forall got: String
+  forall +got: String
   forall want: String
   IO(Unit)
 
@@ -263,16 +246,12 @@ def report.sel(label, g2, e):
     case False{}:
       IO.print(label ++ ": UNEXPECTED " ++ g2)
 
-def report.go(label, want, gg):
-  (g1, g2) = gg
-  report.sel(label, g2, String.eq(g1, want))
-
 def report(label, got, want):
-  report.go(label, want, String.copy(got))
+  report.sel(label, got, String.eq(got, want))
 
 assert http_retry:
   forall port: U32
-  forall r: Result<(U32 & String), Listener>
+  forall r: Result<&1, &1, U32 & String, Listener>
   forall rest: IO(Listener & U32)
   IO(Listener & U32)
 
@@ -285,7 +264,7 @@ def http_retry(port, r, rest):
 
 assert http_bind:
   forall tries: Nat
-  forall +port: +U32
+  forall +port: U32
   IO(Listener & U32)
 
 def http_bind(tries, port):
@@ -295,12 +274,12 @@ def http_bind(tries, port):
     case 1n+t:
       rest = http_bind(t, port + 1)
       do IO<Listener & U32>:
-        r : Result<(U32 & String), Listener> <- TCP.listen(port)
+        r : Result<&1, &1, U32 & String, Listener> <- TCP.listen(port)
         http_retry(port, r, rest)
 
 assert main_run:
   forall l: Listener
-  forall +port: +U32
+  forall +port: U32
   IO(U32)
 
 def main_run(l, port):

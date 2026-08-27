@@ -21,38 +21,11 @@ import Base
 # GPU F32.sqrt is not bit-exact vs the host (a compiler bug, not a
 # bench property).
 
-type Hs:
+type Hs -> Data:
   Hl{h0: U32, h1: U32, h2: U32, h3: U32, h4: U32, h5: U32, h6: U32, h7: U32, cs: U32}
 
-type V2:
+type V2 -> Data:
   V2{cs: U32, eb: U32}
-
-assert V2.copy.go:
-  forall -c: U32
-  forall -b: U32
-  forall cc: Copy(U32, c) & Copy(U32, c)
-  forall cb: Copy(U32, b) & Copy(U32, b)
-  Copy(V2, V2{c, b}) & Copy(V2, V2{c, b})
-
-def V2.copy.go(c, b, cc, cb):
-  ((c1, e1), (c2, e2)) = cc
-  ((b1, f1), (b2, f2)) = cb
-  p1 = Equal.trans(V2, V2{c, b}, V2{c1, b}, V2{c1, b1},
-                   Equal.cong(U32, V2, x => V2{x, b}, c, c1, e1),
-                   Equal.cong(U32, V2, x => V2{c1, x}, b, b1, f1))
-  p2 = Equal.trans(V2, V2{c, b}, V2{c2, b}, V2{c2, b2},
-                   Equal.cong(U32, V2, x => V2{x, b}, c, c2, e2),
-                   Equal.cong(U32, V2, x => V2{c2, x}, b, b2, f2))
-  ((V2{c1, b1}, p1), (V2{c2, b2}, p2))
-
-assert V2.copy:
-  forall v: V2
-  Copy(V2, v) & Copy(V2, v)
-
-def V2.copy(v):
-  match v:
-    case V2{c, b}:
-      V2.copy.go(c, b, U32.copy(c), U32.copy(b))
 
 assert V2.cs:
   forall v: V2
@@ -84,13 +57,13 @@ def b2u(b):
       1
 
 assert prng:
-  forall +x: +U32
+  forall +x: U32
   U32
 
 def prng(x):
-  +b = {U32.xor(x, U32.shln(13n, x)) : +U32}
-  +d = {U32.xor(b, U32.shrn(17n, b)) : +U32}
-  U32.xor(d, U32.shln(5n, d))
+  +b = U32.xor(x, U32.shln(x, 13n))
+  +d = U32.xor(b, U32.shrn(b, 17n))
+  U32.xor(d, U32.shln(d, 5n))
 
 assert sel.go:
   forall x: U32
@@ -129,27 +102,27 @@ def fl(n, d):
 # bucketed by its bound magnitude
 assert loop3:
   forall s: Nat
-  forall +x0: +F32
-  forall +y0: +F32
-  forall +z0: +F32
-  forall +x1: +F32
-  forall +y1: +F32
-  forall +z1: +F32
-  forall +x2: +F32
-  forall +y2: +F32
-  forall +z2: +F32
-  forall +vx0: +F32
-  forall +vy0: +F32
-  forall +vz0: +F32
-  forall +vx1: +F32
-  forall +vy1: +F32
-  forall +vz1: +F32
-  forall +vx2: +F32
-  forall +vy2: +F32
-  forall +vz2: +F32
-  forall +m0: +F32
-  forall +m1: +F32
-  forall +m2: +F32
+  forall +x0: F32
+  forall +y0: F32
+  forall +z0: F32
+  forall +x1: F32
+  forall +y1: F32
+  forall +z1: F32
+  forall +x2: F32
+  forall +y2: F32
+  forall +z2: F32
+  forall +vx0: F32
+  forall +vy0: F32
+  forall +vz0: F32
+  forall +vx1: F32
+  forall +vy1: F32
+  forall +vz1: F32
+  forall +vx2: F32
+  forall +vy2: F32
+  forall +vz2: F32
+  forall +m0: F32
+  forall +m1: F32
+  forall +m2: F32
   V2
 
 def loop3(s, x0, y0, z0, x1, y1, z1, x2, y2, z2, vx0, vy0, vz0, vx1, vy1, vz1, vx2, vy2, vz2, m0, m1, m2):
@@ -162,24 +135,24 @@ def loop3(s, x0, y0, z0, x1, y1, z1, x2, y2, z2, vx0, vy0, vz0, vx1, vy1, vz1, v
       k1 = F32.mul(F32.mul(fl(5, 10), m1), s1)
       k2 = F32.mul(F32.mul(fl(5, 10), m2), s2)
       ke = F32.add(k0, F32.add(k1, k2))
-      +ax = {F32.sub(x1, x0) : +F32}
-      +ay = {F32.sub(y1, y0) : +F32}
-      +az = {F32.sub(z1, z0) : +F32}
+      +ax = F32.sub(x1, x0)
+      +ay = F32.sub(y1, y0)
+      +az = F32.sub(z1, z0)
       da = F32.add(F32.add(F32.mul(ax, ax), F32.add(F32.mul(ay, ay), F32.mul(az, az))), fl(5, 100))
-      +bx = {F32.sub(x2, x0) : +F32}
-      +by = {F32.sub(y2, y0) : +F32}
-      +bz = {F32.sub(z2, z0) : +F32}
+      +bx = F32.sub(x2, x0)
+      +by = F32.sub(y2, y0)
+      +bz = F32.sub(z2, z0)
       db = F32.add(F32.add(F32.mul(bx, bx), F32.add(F32.mul(by, by), F32.mul(bz, bz))), fl(5, 100))
-      +cx = {F32.sub(x2, x1) : +F32}
-      +cy = {F32.sub(y2, y1) : +F32}
-      +cz = {F32.sub(z2, z1) : +F32}
+      +cx = F32.sub(x2, x1)
+      +cy = F32.sub(y2, y1)
+      +cz = F32.sub(z2, z1)
       dc = F32.add(F32.add(F32.mul(cx, cx), F32.add(F32.mul(cy, cy), F32.mul(cz, cz))), fl(5, 100))
       pa = F32.div(F32.mul(m0, m1), F32.sqrt(da))
       pb = F32.div(F32.mul(m0, m2), F32.sqrt(db))
       pc = F32.div(F32.mul(m1, m2), F32.sqrt(dc))
       pe = F32.add(pa, F32.add(pb, pc))
       e = F32.sub(ke, pe)
-      +nb = {F32.to_u32(F32.sub(U32.to_f32(0), e)) : +U32}
+      +nb = F32.to_u32(F32.sub(U32.to_f32(0), e))
       eb = sel(b2u(U32.is_gt(nb, 7)), nb, 7)
       w0 = U32.add(U32.mul(F32.to_u32(F32.mul(F32.add(x0, U32.to_f32(8)), U32.to_f32(65536))), 31), F32.to_u32(F32.mul(F32.add(y0, U32.to_f32(8)), U32.to_f32(65536))))
       w1 = U32.add(U32.mul(F32.to_u32(F32.mul(F32.add(x1, U32.to_f32(8)), U32.to_f32(65536))), 31), F32.to_u32(F32.mul(F32.add(y1, U32.to_f32(8)), U32.to_f32(65536))))
@@ -191,42 +164,42 @@ def loop3(s, x0, y0, z0, x1, y1, z1, x2, y2, z2, vx0, vy0, vz0, vx1, vy1, vz1, v
       cs = U32.add(U32.mul(w6, 2654435761), F32.to_u32(F32.mul(F32.add(z2, U32.to_f32(8)), U32.to_f32(65536))))
       V2{cs, eb}
     case 1n+p:
-      +ax = {F32.sub(x1, x0) : +F32}
-      +ay = {F32.sub(y1, y0) : +F32}
-      +az = {F32.sub(z1, z0) : +F32}
+      +ax = F32.sub(x1, x0)
+      +ay = F32.sub(y1, y0)
+      +az = F32.sub(z1, z0)
       da = F32.add(F32.add(F32.mul(ax, ax), F32.add(F32.mul(ay, ay), F32.mul(az, az))), fl(5, 100))
-      +ia = {F32.div(U32.to_f32(1), F32.sqrt(da)) : +F32}
-      +i3a = {F32.mul(F32.mul(ia, ia), ia) : +F32}
-      +qax = {F32.mul(ax, i3a) : +F32}
-      +qay = {F32.mul(ay, i3a) : +F32}
-      +qaz = {F32.mul(az, i3a) : +F32}
-      +bx = {F32.sub(x2, x0) : +F32}
-      +by = {F32.sub(y2, y0) : +F32}
-      +bz = {F32.sub(z2, z0) : +F32}
+      +ia = F32.div(U32.to_f32(1), F32.sqrt(da))
+      +i3a = F32.mul(F32.mul(ia, ia), ia)
+      +qax = F32.mul(ax, i3a)
+      +qay = F32.mul(ay, i3a)
+      +qaz = F32.mul(az, i3a)
+      +bx = F32.sub(x2, x0)
+      +by = F32.sub(y2, y0)
+      +bz = F32.sub(z2, z0)
       db = F32.add(F32.add(F32.mul(bx, bx), F32.add(F32.mul(by, by), F32.mul(bz, bz))), fl(5, 100))
-      +ib = {F32.div(U32.to_f32(1), F32.sqrt(db)) : +F32}
-      +i3b = {F32.mul(F32.mul(ib, ib), ib) : +F32}
-      +qbx = {F32.mul(bx, i3b) : +F32}
-      +qby = {F32.mul(by, i3b) : +F32}
-      +qbz = {F32.mul(bz, i3b) : +F32}
-      +cx = {F32.sub(x2, x1) : +F32}
-      +cy = {F32.sub(y2, y1) : +F32}
-      +cz = {F32.sub(z2, z1) : +F32}
+      +ib = F32.div(U32.to_f32(1), F32.sqrt(db))
+      +i3b = F32.mul(F32.mul(ib, ib), ib)
+      +qbx = F32.mul(bx, i3b)
+      +qby = F32.mul(by, i3b)
+      +qbz = F32.mul(bz, i3b)
+      +cx = F32.sub(x2, x1)
+      +cy = F32.sub(y2, y1)
+      +cz = F32.sub(z2, z1)
       dc = F32.add(F32.add(F32.mul(cx, cx), F32.add(F32.mul(cy, cy), F32.mul(cz, cz))), fl(5, 100))
-      +ic = {F32.div(U32.to_f32(1), F32.sqrt(dc)) : +F32}
-      +i3c = {F32.mul(F32.mul(ic, ic), ic) : +F32}
-      +qcx = {F32.mul(cx, i3c) : +F32}
-      +qcy = {F32.mul(cy, i3c) : +F32}
-      +qcz = {F32.mul(cz, i3c) : +F32}
-      +nvx0 = {F32.add(vx0, F32.mul(F32.add(F32.mul(qax, m1), F32.mul(qbx, m2)), fl(1, 1000))) : +F32}
-      +nvy0 = {F32.add(vy0, F32.mul(F32.add(F32.mul(qay, m1), F32.mul(qby, m2)), fl(1, 1000))) : +F32}
-      +nvz0 = {F32.add(vz0, F32.mul(F32.add(F32.mul(qaz, m1), F32.mul(qbz, m2)), fl(1, 1000))) : +F32}
-      +nvx1 = {F32.add(vx1, F32.mul(F32.sub(F32.mul(qcx, m2), F32.mul(qax, m0)), fl(1, 1000))) : +F32}
-      +nvy1 = {F32.add(vy1, F32.mul(F32.sub(F32.mul(qcy, m2), F32.mul(qay, m0)), fl(1, 1000))) : +F32}
-      +nvz1 = {F32.add(vz1, F32.mul(F32.sub(F32.mul(qcz, m2), F32.mul(qaz, m0)), fl(1, 1000))) : +F32}
-      +nvx2 = {F32.sub(vx2, F32.mul(F32.add(F32.mul(qbx, m0), F32.mul(qcx, m1)), fl(1, 1000))) : +F32}
-      +nvy2 = {F32.sub(vy2, F32.mul(F32.add(F32.mul(qby, m0), F32.mul(qcy, m1)), fl(1, 1000))) : +F32}
-      +nvz2 = {F32.sub(vz2, F32.mul(F32.add(F32.mul(qbz, m0), F32.mul(qcz, m1)), fl(1, 1000))) : +F32}
+      +ic = F32.div(U32.to_f32(1), F32.sqrt(dc))
+      +i3c = F32.mul(F32.mul(ic, ic), ic)
+      +qcx = F32.mul(cx, i3c)
+      +qcy = F32.mul(cy, i3c)
+      +qcz = F32.mul(cz, i3c)
+      +nvx0 = F32.add(vx0, F32.mul(F32.add(F32.mul(qax, m1), F32.mul(qbx, m2)), fl(1, 1000)))
+      +nvy0 = F32.add(vy0, F32.mul(F32.add(F32.mul(qay, m1), F32.mul(qby, m2)), fl(1, 1000)))
+      +nvz0 = F32.add(vz0, F32.mul(F32.add(F32.mul(qaz, m1), F32.mul(qbz, m2)), fl(1, 1000)))
+      +nvx1 = F32.add(vx1, F32.mul(F32.sub(F32.mul(qcx, m2), F32.mul(qax, m0)), fl(1, 1000)))
+      +nvy1 = F32.add(vy1, F32.mul(F32.sub(F32.mul(qcy, m2), F32.mul(qay, m0)), fl(1, 1000)))
+      +nvz1 = F32.add(vz1, F32.mul(F32.sub(F32.mul(qcz, m2), F32.mul(qaz, m0)), fl(1, 1000)))
+      +nvx2 = F32.sub(vx2, F32.mul(F32.add(F32.mul(qbx, m0), F32.mul(qcx, m1)), fl(1, 1000)))
+      +nvy2 = F32.sub(vy2, F32.mul(F32.add(F32.mul(qby, m0), F32.mul(qcy, m1)), fl(1, 1000)))
+      +nvz2 = F32.sub(vz2, F32.mul(F32.add(F32.mul(qbz, m0), F32.mul(qcz, m1)), fl(1, 1000)))
       loop3(p,
             F32.add(x0, F32.mul(nvx0, fl(1, 1000))), F32.add(y0, F32.mul(nvy0, fl(1, 1000))), F32.add(z0, F32.mul(nvz0, fl(1, 1000))),
             F32.add(x1, F32.mul(nvx1, fl(1, 1000))), F32.add(y1, F32.mul(nvy1, fl(1, 1000))), F32.add(z1, F32.mul(nvz1, fl(1, 1000))),
@@ -235,7 +208,7 @@ def loop3(s, x0, y0, z0, x1, y1, z1, x2, y2, z2, vx0, vy0, vz0, vx1, vy1, vz1, v
 
 # one random system: three seeded bodies, ST steps, digest
 assert sim:
-  forall +sd: +U32
+  forall +sd: U32
   forall st: Nat
   V2
 
@@ -252,16 +225,16 @@ def sim(sd, st):
   c2 = prng(U32.mul(U32.add(U32.mul(sd, 12), 10), 2654435761))
   c3 = prng(U32.mul(U32.add(U32.mul(sd, 12), 11), 2654435761))
   c4 = prng(U32.mul(U32.add(U32.mul(sd, 12), 12), 2654435761))
-  +x0 = {F32.sub(F32.div(U32.to_f32(U32.and(a1, 65535)), U32.to_f32(32768)), U32.to_f32(1)) : +F32}
-  +y0 = {F32.sub(F32.div(U32.to_f32(U32.and(a2, 65535)), U32.to_f32(32768)), U32.to_f32(1)) : +F32}
+  +x0 = F32.sub(F32.div(U32.to_f32(U32.and(a1, 65535)), U32.to_f32(32768)), U32.to_f32(1))
+  +y0 = F32.sub(F32.div(U32.to_f32(U32.and(a2, 65535)), U32.to_f32(32768)), U32.to_f32(1))
   z0 = F32.sub(F32.div(U32.to_f32(U32.and(a3, 65535)), U32.to_f32(32768)), U32.to_f32(1))
   m0 = F32.add(F32.div(U32.to_f32(U32.and(a4, 65535)), U32.to_f32(65536)), fl(5, 10))
-  +x1 = {F32.sub(F32.div(U32.to_f32(U32.and(b1, 65535)), U32.to_f32(32768)), U32.to_f32(1)) : +F32}
-  +y1 = {F32.sub(F32.div(U32.to_f32(U32.and(b2, 65535)), U32.to_f32(32768)), U32.to_f32(1)) : +F32}
+  +x1 = F32.sub(F32.div(U32.to_f32(U32.and(b1, 65535)), U32.to_f32(32768)), U32.to_f32(1))
+  +y1 = F32.sub(F32.div(U32.to_f32(U32.and(b2, 65535)), U32.to_f32(32768)), U32.to_f32(1))
   z1 = F32.sub(F32.div(U32.to_f32(U32.and(b3, 65535)), U32.to_f32(32768)), U32.to_f32(1))
   m1 = F32.add(F32.div(U32.to_f32(U32.and(b4, 65535)), U32.to_f32(65536)), fl(5, 10))
-  +x2 = {F32.sub(F32.div(U32.to_f32(U32.and(c1, 65535)), U32.to_f32(32768)), U32.to_f32(1)) : +F32}
-  +y2 = {F32.sub(F32.div(U32.to_f32(U32.and(c2, 65535)), U32.to_f32(32768)), U32.to_f32(1)) : +F32}
+  +x2 = F32.sub(F32.div(U32.to_f32(U32.and(c1, 65535)), U32.to_f32(32768)), U32.to_f32(1))
+  +y2 = F32.sub(F32.div(U32.to_f32(U32.and(c2, 65535)), U32.to_f32(32768)), U32.to_f32(1))
   z2 = F32.sub(F32.div(U32.to_f32(U32.and(c3, 65535)), U32.to_f32(32768)), U32.to_f32(1))
   m2 = F32.add(F32.div(U32.to_f32(U32.and(c4, 65535)), U32.to_f32(65536)), fl(5, 10))
   vx0 = F32.mul(y0, fl(1, 10))
@@ -276,9 +249,9 @@ def sim(sd, st):
 # fork leaf: 8 systems; outcome histogram in 8 scalar counters plus a
 # position-weighted digest accumulator
 assert chunk:
-  forall +j: +Nat
-  forall +i: +U32
-  forall +st: +Nat
+  forall +j: Nat
+  forall +i: U32
+  forall +st: Nat
   forall h0: U32
   forall h1: U32
   forall h2: U32
@@ -295,9 +268,9 @@ def chunk(j, i, st, h0, h1, h2, h3, h4, h5, h6, h7, cs):
     case 0n:
       Hl{h0, h1, h2, h3, h4, h5, h6, h7, cs}
     case 1n+p:
-      +sy = {U32.add(i, U32.from_nat(p)) : +U32}
-      +w = {sim(sy, st) : +V2 ~ V2.copy}
-      +bb = {V2.eb(w) : +U32}
+      +sy = U32.add(i, U32.from_nat(p))
+      +w = sim(sy, st)
+      +bb = V2.eb(w)
       m0 = b2u(U32.is_eq(bb, 0))
       m1 = b2u(U32.is_eq(bb, 1))
       m2 = b2u(U32.is_eq(bb, 2))
@@ -322,9 +295,9 @@ def hzip(a, b):
       Hl{U32.add(a0, b0), U32.add(a1, b1), U32.add(a2, b2), U32.add(a3, b3), U32.add(a4, b4), U32.add(a5, b5), U32.add(a6, b6), U32.add(a7, b7), U32.add(ac, bc)}
 
 assert batch:
-  forall +d: +Nat
-  forall +i: +U32
-  forall +st: +Nat
+  forall +d: Nat
+  forall +i: U32
+  forall +st: Nat
   Hs
 
 def batch(d, i, st):
@@ -332,7 +305,7 @@ def batch(d, i, st):
     case 0n:
       chunk(8n, i, st, 0, 0, 0, 0, 0, 0, 0, 0, 0)
     case 1n+p:
-      a b = batch(p, i, st) batch(p, U32.add(i, U32.shln(p, 8)), st)
+      a b = batch(p, i, st) batch(p, U32.add(i, U32.shln(8, p)), st)
       hzip(a, b)
 
 assert run.fin:

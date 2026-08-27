@@ -14,22 +14,22 @@ import Base
 # Sizes: small depth = 8 (expect 971629740), big depth = 23 (expect
 # 3787129428); both verified against Bend3 C runs on the cluster.
 
-type Tree:
+type Tree -> Data:
   Leaf{v: U32}
   Node{l: Tree, r: Tree}
 
-type Stat:
+type Stat -> Data:
   St{lo: U32, hi: U32, ok: U32, mx: U32}
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
 assert prng:
-  forall +x: +U32
+  forall +x: U32
   U32
 
 def prng(x):
-  +b = {U32.xor(x, U32.shln(13n, x)) : +U32}
-  +d = {U32.xor(b, U32.shrn(17n, b)) : +U32}
-  U32.xor(d, U32.shln(5n, d))
+  +b = U32.xor(x, U32.shln(x, 13n))
+  +d = U32.xor(b, U32.shrn(b, 17n))
+  U32.xor(d, U32.shln(d, 5n))
 
 # leaf key: hash of the leaf index
 assert key:
@@ -48,8 +48,8 @@ assert warp_leaf.go:
   Tree
 
 assert warp_leaf:
-  forall +x: +U32
-  forall +y: +U32
+  forall +x: U32
+  forall +y: U32
   forall s: Bool
   Tree
 
@@ -82,7 +82,7 @@ def warp_zip(wa, wb):
 assert warp:
   forall a: Tree
   forall b: Tree
-  forall +s: +Bool
+  forall +s: Bool
   Tree
 
 def warp(a, b, s):
@@ -100,7 +100,7 @@ def warp(a, b, s):
 # warp of a whole subtree: compare-and-swap its root pair
 assert warp_node:
   forall t: Tree
-  forall +s: +Bool
+  forall +s: Bool
   Tree
 
 def warp_node(t, s):
@@ -115,8 +115,8 @@ def warp_node(t, s):
 # scrutinize a parameter or a field, so the warped tree rides in as
 # the argument and each half's warp feeds the next self-call)
 assert flow:
-  forall +d: +Nat
-  forall +s: +Bool
+  forall +d: Nat
+  forall +s: Bool
   forall w: Tree
   Tree
 
@@ -135,9 +135,9 @@ def flow(d, s, w):
 # fused build-and-sort: 2^d leaves keyed by index, halves sorted in
 # opposite directions, then merged by flow
 assert bsort:
-  forall +d: +Nat
-  forall +s: +Bool
-  forall +x: +U32
+  forall +d: Nat
+  forall +s: Bool
+  forall +x: U32
   Tree
 
 def bsort(d, s, x):
@@ -185,7 +185,7 @@ assert scan:
 def scan(t):
   match t:
     case Leaf{v}:
-      +w = {v : +U32}
+      +w = v
       St{w, w, 1, w}
     case Node{a, b}:
       l r = scan(a) scan(b)

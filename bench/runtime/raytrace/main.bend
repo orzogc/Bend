@@ -31,10 +31,10 @@ import Base
 # a Bend3 C run on the cluster), big (12, 6000) expect 1924309504
 # (from the Bend3 header).
 
-type Sph:
+type Sph -> Data:
   Sph{x: F32, y: F32, z: F32, r: F32, kr: F32}
 
-type Hit:
+type Hit -> Data:
   Hit{ms: Bool, t: F32, i: U32}
 
 assert Hit.t:
@@ -93,7 +93,7 @@ def isect.t2(t, z):
       t
 
 assert isect.t:
-  forall +t: +F32
+  forall +t: F32
   F32
 
 def isect.t(t):
@@ -114,7 +114,7 @@ def isect.go2(b, disc, z):
 
 assert isect.go:
   forall b: F32
-  forall +disc: +F32
+  forall +disc: F32
   F32
 
 def isect.go(b, disc):
@@ -135,11 +135,11 @@ assert isect5:
   F32
 
 def isect5(cx, cy, cz, r, ox, oy, oz, dx, dy, dz):
-  +px = {F32.sub(ox, cx) : +F32}
-  +py = {F32.sub(oy, cy) : +F32}
-  +pz = {F32.sub(oz, cz) : +F32}
-  +rr = {r : +F32}
-  +b = {F32.add(F32.add(F32.mul(px, dx), F32.mul(py, dy)), F32.mul(pz, dz)) : +F32}
+  +px = F32.sub(ox, cx)
+  +py = F32.sub(oy, cy)
+  +pz = F32.sub(oz, cz)
+  +rr = r
+  +b = F32.add(F32.add(F32.mul(px, dx), F32.mul(py, dy)), F32.mul(pz, dz))
   isect.go(b, F32.sub(F32.mul(b, b), F32.sub(F32.add(F32.add(F32.mul(px, px), F32.mul(py, py)), F32.mul(pz, pz)), F32.mul(rr, rr))))
 
 assert sx:
@@ -227,17 +227,17 @@ def skr(i):
 # lt column (guard shift): pt/pk hold the pending candidate, and each
 # arm first applies the pending verdict, then tests its own sphere
 assert nearest:
-  forall +i: +Nat
-  forall +ox: +F32
-  forall +oy: +F32
-  forall +oz: +F32
-  forall +dx: +F32
-  forall +dy: +F32
-  forall +dz: +F32
-  forall +pt: +F32
-  forall +pk: +U32
-  forall +bt: +F32
-  forall +bi: +U32
+  forall +i: Nat
+  forall +ox: F32
+  forall +oy: F32
+  forall +oz: F32
+  forall +dx: F32
+  forall +dy: F32
+  forall +dz: F32
+  forall +pt: F32
+  forall +pk: U32
+  forall +bt: F32
+  forall +bi: U32
   forall lt: Bool
   Hit
 
@@ -248,12 +248,12 @@ def nearest(i, ox, oy, oz, dx, dy, dz, pt, pk, bt, bi, lt):
     case 0n True{}:
       Hit{U32.is_eq(pk, 9), pt, pk}
     case 1n+k False{}:
-      +kk = {k : +Nat}
-      +t = {isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz) : +F32}
+      +kk = k
+      +t = isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz)
       nearest(kk, ox, oy, oz, dx, dy, dz, t, U32.from_nat(kk), bt, bi, F32.is_lt(t, bt))
     case 1n+k True{}:
-      +kk = {k : +Nat}
-      +t = {isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz) : +F32}
+      +kk = k
+      +t = isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz)
       nearest(kk, ox, oy, oz, dx, dy, dz, t, U32.from_nat(kk), pt, pk, F32.is_lt(t, pt))
 
 assert fmax0.go:
@@ -269,7 +269,7 @@ def fmax0.go(x, z):
       x
 
 assert fmax0:
-  forall +x: +F32
+  forall +x: F32
   F32
 
 def fmax0(x):
@@ -291,7 +291,7 @@ assert clamp01.hi.go:
   F32
 
 assert clamp01.hi:
-  forall +x: +F32
+  forall +x: F32
   F32
 
 def clamp01.hi.go(x, z):
@@ -310,7 +310,7 @@ assert clamp01.go:
   F32
 
 assert clamp01:
-  forall +x: +F32
+  forall +x: F32
   F32
 
 def clamp01.go(x, z):
@@ -327,15 +327,15 @@ def clamp01(x):
 # min distance (a machine word, so the whole probe fuses into the
 # caller's segment with no Hit node and no continuation)
 assert nearest.t:
-  forall +i: +Nat
-  forall +ox: +F32
-  forall +oy: +F32
-  forall +oz: +F32
-  forall +dx: +F32
-  forall +dy: +F32
-  forall +dz: +F32
-  forall +pt: +F32
-  forall +bt: +F32
+  forall +i: Nat
+  forall +ox: F32
+  forall +oy: F32
+  forall +oz: F32
+  forall +dx: F32
+  forall +dy: F32
+  forall +dz: F32
+  forall +pt: F32
+  forall +bt: F32
   forall lt: Bool
   F32
 
@@ -346,12 +346,12 @@ def nearest.t(i, ox, oy, oz, dx, dy, dz, pt, bt, lt):
     case 0n True{}:
       pt
     case 1n+k False{}:
-      +kk = {k : +Nat}
-      +t = {isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz) : +F32}
+      +kk = k
+      +t = isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz)
       nearest.t(kk, ox, oy, oz, dx, dy, dz, t, bt, F32.is_lt(t, bt))
     case 1n+k True{}:
-      +kk = {k : +Nat}
-      +t = {isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz) : +F32}
+      +kk = k
+      +t = isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz)
       nearest.t(kk, ox, oy, oz, dx, dy, dz, t, pt, F32.is_lt(t, pt))
 
 # the bounce loop, ONE self-recursive def and one level per turn,
@@ -367,14 +367,14 @@ def nearest.t(i, ox, oy, oz, dx, dy, dz, pt, bt, lt):
 assert trace:
   forall dep: Nat
   forall ht: Hit
-  forall +sox: +F32
-  forall +soy: +F32
-  forall +soz: +F32
-  forall +rdx: +F32
-  forall +rdy: +F32
-  forall +rdz: +F32
+  forall +sox: F32
+  forall +soy: F32
+  forall +soz: F32
+  forall +rdx: F32
+  forall +rdy: F32
+  forall +rdz: F32
   forall acc: F32
-  forall +w: +F32
+  forall +w: F32
   F32
 
 def trace(dep, ht, sox, soy, soz, rdx, rdy, rdz, acc, w):
@@ -382,22 +382,22 @@ def trace(dep, ht, sox, soy, soz, rdx, rdy, rdz, acc, w):
     case d2 Hit{True{}, mt, mi}:
       acc
     case 0n Hit{False{}, t, i}:
-      +tt = {t : +F32}
-      +si = {U32.to_nat(i) : +Nat}
-      +rr = {sr(si) : +F32}
-      +hx = {F32.add(sox, F32.mul(tt, rdx)) : +F32}
-      +hy = {F32.add(soy, F32.mul(tt, rdy)) : +F32}
-      +hz = {F32.add(soz, F32.mul(tt, rdz)) : +F32}
-      +nx2 = {F32.div(F32.sub(hx, sx(si)), rr) : +F32}
-      +ny2 = {F32.div(F32.sub(hy, sy(si)), rr) : +F32}
-      +nz2 = {F32.div(F32.sub(hz, sz(si)), rr) : +F32}
-      +lvx = {F32.sub(F32.sub(U32.to_f32(0), U32.to_f32(3)), hx) : +F32}
-      +lvy = {F32.sub(U32.to_f32(8), hy) : +F32}
-      +lvz = {F32.sub(U32.to_f32(1), hz) : +F32}
-      +ll = {F32.sqrt(F32.add(F32.add(F32.mul(lvx, lvx), F32.mul(lvy, lvy)), F32.mul(lvz, lvz))) : +F32}
-      +lx = {F32.div(lvx, ll) : +F32}
-      +ly = {F32.div(lvy, ll) : +F32}
-      +lz = {F32.div(lvz, ll) : +F32}
+      +tt = t
+      +si = U32.to_nat(i)
+      +rr = sr(si)
+      +hx = F32.add(sox, F32.mul(tt, rdx))
+      +hy = F32.add(soy, F32.mul(tt, rdy))
+      +hz = F32.add(soz, F32.mul(tt, rdz))
+      +nx2 = F32.div(F32.sub(hx, sx(si)), rr)
+      +ny2 = F32.div(F32.sub(hy, sy(si)), rr)
+      +nz2 = F32.div(F32.sub(hz, sz(si)), rr)
+      +lvx = F32.sub(F32.sub(U32.to_f32(0), U32.to_f32(3)), hx)
+      +lvy = F32.sub(U32.to_f32(8), hy)
+      +lvz = F32.sub(U32.to_f32(1), hz)
+      +ll = F32.sqrt(F32.add(F32.add(F32.mul(lvx, lvx), F32.mul(lvy, lvy)), F32.mul(lvz, lvz)))
+      +lx = F32.div(lvx, ll)
+      +ly = F32.div(lvy, ll)
+      +lz = F32.div(lvz, ll)
       df = fmax0(F32.add(F32.add(F32.mul(nx2, lx), F32.mul(ny2, ly)), F32.mul(nz2, lz)))
       sox2 = F32.add(hx, F32.mul(fl(1, 1000), nx2))
       soy2 = F32.add(hy, F32.mul(fl(1, 1000), ny2))
@@ -405,60 +405,60 @@ def trace(dep, ht, sox, soy, soz, rdx, rdy, rdz, acc, w):
       st = nearest.t(9n, sox2, soy2, soz2, lx, ly, lz, U32.to_f32(1000000000), U32.to_f32(1000000000), False{})
       F32.add(acc, F32.mul(w, F32.add(fl(1, 10), F32.mul(fl(85, 100), shade(st, ll, df)))))
     case 1n+k Hit{False{}, t, i}:
-      +tt = {t : +F32}
-      +si = {U32.to_nat(i) : +Nat}
-      +rr = {sr(si) : +F32}
-      +hx = {F32.add(sox, F32.mul(tt, rdx)) : +F32}
-      +hy = {F32.add(soy, F32.mul(tt, rdy)) : +F32}
-      +hz = {F32.add(soz, F32.mul(tt, rdz)) : +F32}
-      +nx2 = {F32.div(F32.sub(hx, sx(si)), rr) : +F32}
-      +ny2 = {F32.div(F32.sub(hy, sy(si)), rr) : +F32}
-      +nz2 = {F32.div(F32.sub(hz, sz(si)), rr) : +F32}
-      +lvx = {F32.sub(F32.sub(U32.to_f32(0), U32.to_f32(3)), hx) : +F32}
-      +lvy = {F32.sub(U32.to_f32(8), hy) : +F32}
-      +lvz = {F32.sub(U32.to_f32(1), hz) : +F32}
-      +ll = {F32.sqrt(F32.add(F32.add(F32.mul(lvx, lvx), F32.mul(lvy, lvy)), F32.mul(lvz, lvz))) : +F32}
-      +lx = {F32.div(lvx, ll) : +F32}
-      +ly = {F32.div(lvy, ll) : +F32}
-      +lz = {F32.div(lvz, ll) : +F32}
+      +tt = t
+      +si = U32.to_nat(i)
+      +rr = sr(si)
+      +hx = F32.add(sox, F32.mul(tt, rdx))
+      +hy = F32.add(soy, F32.mul(tt, rdy))
+      +hz = F32.add(soz, F32.mul(tt, rdz))
+      +nx2 = F32.div(F32.sub(hx, sx(si)), rr)
+      +ny2 = F32.div(F32.sub(hy, sy(si)), rr)
+      +nz2 = F32.div(F32.sub(hz, sz(si)), rr)
+      +lvx = F32.sub(F32.sub(U32.to_f32(0), U32.to_f32(3)), hx)
+      +lvy = F32.sub(U32.to_f32(8), hy)
+      +lvz = F32.sub(U32.to_f32(1), hz)
+      +ll = F32.sqrt(F32.add(F32.add(F32.mul(lvx, lvx), F32.mul(lvy, lvy)), F32.mul(lvz, lvz)))
+      +lx = F32.div(lvx, ll)
+      +ly = F32.div(lvy, ll)
+      +lz = F32.div(lvz, ll)
       df = fmax0(F32.add(F32.add(F32.mul(nx2, lx), F32.mul(ny2, ly)), F32.mul(nz2, lz)))
-      +sox2 = {F32.add(hx, F32.mul(fl(1, 1000), nx2)) : +F32}
-      +soy2 = {F32.add(hy, F32.mul(fl(1, 1000), ny2)) : +F32}
-      +soz2 = {F32.add(hz, F32.mul(fl(1, 1000), nz2)) : +F32}
+      +sox2 = F32.add(hx, F32.mul(fl(1, 1000), nx2))
+      +soy2 = F32.add(hy, F32.mul(fl(1, 1000), ny2))
+      +soz2 = F32.add(hz, F32.mul(fl(1, 1000), nz2))
       st = nearest.t(9n, sox2, soy2, soz2, lx, ly, lz, U32.to_f32(1000000000), U32.to_f32(1000000000), False{})
-      +lum2 = {F32.add(fl(1, 10), F32.mul(fl(85, 100), shade(st, ll, df))) : +F32}
-      +kr2 = {skr(si) : +F32}
-      +k2 = {F32.mul(U32.to_f32(2), F32.add(F32.add(F32.mul(rdx, nx2), F32.mul(rdy, ny2)), F32.mul(rdz, nz2))) : +F32}
-      +rd2x = {F32.sub(rdx, F32.mul(k2, nx2)) : +F32}
-      +rd2y = {F32.sub(rdy, F32.mul(k2, ny2)) : +F32}
-      +rd2z = {F32.sub(rdz, F32.mul(k2, nz2)) : +F32}
+      +lum2 = F32.add(fl(1, 10), F32.mul(fl(85, 100), shade(st, ll, df)))
+      +kr2 = skr(si)
+      +k2 = F32.mul(U32.to_f32(2), F32.add(F32.add(F32.mul(rdx, nx2), F32.mul(rdy, ny2)), F32.mul(rdz, nz2)))
+      +rd2x = F32.sub(rdx, F32.mul(k2, nx2))
+      +rd2y = F32.sub(rdy, F32.mul(k2, ny2))
+      +rd2z = F32.sub(rdz, F32.mul(k2, nz2))
       php = nearest(9n, sox2, soy2, soz2, rd2x, rd2y, rd2z, U32.to_f32(1000000000), 9, U32.to_f32(1000000000), 9, False{})
       trace(k, php, sox2, soy2, soz2, rd2x, rd2y, rd2z,
         F32.add(acc, F32.mul(F32.mul(w, lum2), F32.sub(U32.to_f32(1), kr2))), F32.mul(w, kr2))
 
 assert subray:
-  forall +fx: +F32
-  forall +fy: +F32
+  forall +fx: F32
+  forall +fy: F32
   F32
 
 def subray(fx, fy):
-  +dl = {F32.sqrt(F32.add(F32.add(F32.mul(fx, fx), F32.mul(fy, fy)), U32.to_f32(1))) : +F32}
-  +dx = {F32.div(fx, dl) : +F32}
-  +dy = {F32.div(fy, dl) : +F32}
-  +dz = {F32.div(U32.to_f32(1), dl) : +F32}
+  +dl = F32.sqrt(F32.add(F32.add(F32.mul(fx, fx), F32.mul(fy, fy)), U32.to_f32(1)))
+  +dx = F32.div(fx, dl)
+  +dy = F32.div(fy, dl)
+  +dz = F32.div(U32.to_f32(1), dl)
   php = nearest(9n, U32.to_f32(0), U32.to_f32(0), U32.to_f32(0), dx, dy, dz, U32.to_f32(1000000000), 9, U32.to_f32(1000000000), 9, False{})
   trace(4n, php, U32.to_f32(0), U32.to_f32(0), U32.to_f32(0), dx, dy, dz, U32.to_f32(0), U32.to_f32(1))
 
 assert pixel:
   forall x: U32
   forall y: U32
-  forall +hw: +F32
-  forall +hh: +F32
+  forall +hw: F32
+  forall +hh: F32
   U32
 
 def pixel(x, y, hw, hh):
-  +xf = {U32.to_f32(x) : +F32}
-  +yf = {U32.to_f32(y) : +F32}
+  +xf = U32.to_f32(x)
+  +yf = U32.to_f32(y)
   l1 = subray(F32.div(F32.sub(F32.add(xf, fl(1, 4)), hw), hw), F32.div(F32.sub(hh, F32.add(yf, fl(1, 4))), hw))
   l2 = subray(F32.div(F32.sub(F32.add(xf, fl(3, 4)), hw), hw), F32.div(F32.sub(hh, F32.add(yf, fl(1, 4))), hw))
   l3 = subray(F32.div(F32.sub(F32.add(xf, fl(1, 4)), hw), hw), F32.div(F32.sub(hh, F32.add(yf, fl(3, 4))), hw))
@@ -474,7 +474,7 @@ assert colf.px.go:
   U32
 
 assert colf.px:
-  forall +xx: +U32
+  forall +xx: U32
   forall y: U32
   forall w: U32
   forall hw: F32
@@ -492,12 +492,12 @@ def colf.px(xx, y, w, hw, hh):
   colf.px.go(U32.is_lt(xx, w), xx, y, hw, hh)
 
 assert colf:
-  forall +d: +Nat
-  forall +x: +U32
-  forall +y: +U32
-  forall +w: +U32
-  forall +hw: +F32
-  forall +hh: +F32
+  forall +d: Nat
+  forall +x: U32
+  forall +y: U32
+  forall +w: U32
+  forall +hw: F32
+  forall +hh: F32
   U32
 
 def colf(d, x, y, w, hw, hh):
@@ -505,16 +505,16 @@ def colf(d, x, y, w, hw, hh):
     case 0n:
       colf.px(U32.and(U32.mul(x, 2654435761), 16383), y, w, hw, hh)
     case 1n+p:
-      a b = colf(p, x, y, w, hw, hh) colf(p, U32.add(x, U32.shln(p, 1)), y, w, hw, hh)
+      a b = colf(p, x, y, w, hw, hh) colf(p, U32.add(x, U32.shln(1, p)), y, w, hw, hh)
       U32.add(a, b)
 
 assert rowf:
-  forall +d: +Nat
-  forall +y: +U32
-  forall +m: +U32
-  forall +w: +U32
-  forall +hw: +F32
-  forall +hh: +F32
+  forall +d: Nat
+  forall +y: U32
+  forall +m: U32
+  forall +w: U32
+  forall +hw: F32
+  forall +hh: F32
   U32
 
 def rowf(d, y, m, w, hw, hh):
@@ -522,7 +522,7 @@ def rowf(d, y, m, w, hw, hh):
     case 0n:
       colf(14n, 0, U32.and(U32.mul(y, 1588635697), m), w, hw, hh)
     case 1n+p:
-      a b = rowf(p, y, m, w, hw, hh) rowf(p, U32.add(y, U32.shln(p, 1)), m, w, hw, hh)
+      a b = rowf(p, y, m, w, hw, hh) rowf(p, U32.add(y, U32.shln(1, p)), m, w, hw, hh)
       U32.add(a, b)
 
 assert rows:
@@ -542,9 +542,9 @@ assert main:
   IO(Unit)
 
 def main():
-  +rr = {rows() : +Nat}
-  +w = {width() : +U32}
+  +rr = rows()
+  +w = width()
   hw = U32.to_f32(U32.div(w, 2))
-  hh = U32.to_f32(U32.div(U32.shln(rr, 1), 2))
-  hm = U32.sub(U32.shln(rr, 1), 1)
+  hh = U32.to_f32(U32.div(U32.shln(1, rr), 2))
+  hm = U32.sub(U32.shln(1, rr), 1)
   IO.print(U32.show(rowf!(rr, 0, hm, w, hw, hh)))

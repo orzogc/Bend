@@ -16,17 +16,17 @@ import Base
 # run on the cluster), big depth = 22 (expect 1998173798, from the
 # Bend3 header).
 
-type Arr:
+type Arr -> Data:
   Emp{}
   Single{v: U32}
   Concat{l: Arr, r: Arr}
 
-type Trie:
+type Trie -> Data:
   Free{}
   Busy{}
   Mnode{l: Trie, r: Trie}
 
-type Chk:
+type Chk -> Data:
   Cnil{}
   Cval{lo: U32, hi: U32, ok: U32, cnt: U32, sum: U32}
 
@@ -43,13 +43,13 @@ def b2u(b):
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
 assert prng:
-  forall +x: +U32
+  forall +x: U32
   U32
 
 def prng(x):
-  +b = {U32.xor(x, U32.shln(13n, x)) : +U32}
-  +d = {U32.xor(b, U32.shrn(17n, b)) : +U32}
-  U32.xor(d, U32.shln(5n, d))
+  +b = U32.xor(x, U32.shln(x, 13n))
+  +d = U32.xor(b, U32.shrn(b, 17n))
+  U32.xor(d, U32.shln(d, 5n))
 
 # 24-bit key: masked hash of the global index
 assert key:
@@ -87,8 +87,8 @@ def merge(a, b):
       Mnode{l, r}
 
 assert gen:
-  forall +n: +Nat
-  forall +x: +U32
+  forall +n: Nat
+  forall +x: U32
   Arr
 
 def gen(n, x):
@@ -123,8 +123,8 @@ def swap_bits(n, x0, x1):
 
 assert radix:
   forall i: Nat
-  forall +n: +U32
-  forall +k: +U32
+  forall +n: U32
+  forall +k: U32
   forall r: Trie
   Trie
 
@@ -151,7 +151,7 @@ def to_map(a):
 
 assert to_arr:
   forall m: Trie
-  forall +k: +U32
+  forall +k: U32
   Arr
 
 def to_arr(m, k):
@@ -192,7 +192,7 @@ def chk(a):
     case Emp{}:
       Cnil{}
     case Single{x}:
-      +w = {x : +U32}
+      +w = x
       Cval{w, w, 1, 1, w}
     case Concat{a, b}:
       l r = chk(a) chk(b)

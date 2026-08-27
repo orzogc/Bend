@@ -78,7 +78,7 @@ get a proof, just assert a property:
 # ASSERT: for every game state, for every sequence of trades,
 # the count of every item in the game stays EXACTLY the same.
 assert no_cloned_items:
-  forall ts: List<Trade>
+  forall ts: List<&2, Trade>
   forall g: Game
   {items(run(ts, g)) == items(g) : Bag}
 ```
@@ -112,9 +112,9 @@ paper: [BendTT: A Linear Dependent Type Theory](docs/BendTT.pdf).
 The runtime is also documented. Bend compiles to a small linear machine where
 every value has exactly one owner: matching is always O(1) (it steals its node
 in place), and there is no GC. Extra uses must be licensed: a `+` binder
-demands a `Copiable` instance, and the compiler turns the licensed copies into
-eager clones - or into inferred reference counts (copy-on-write, freed at
-zero) where it proves them cheaper.
+demands a type of kind `Data` (first-order data, never a closure), and the
+compiler turns the extra uses into borrows - or into inferred reference counts
+(copy-on-write, freed at zero) where a second owner really escapes.
 One uniform emission runs the whole language, unchanged, on CPU threads and on
 Apple GPUs via Metal. Read the paper: [BendRT: A Parallel Runtime for CPUs and
 GPUs](docs/BendRT.pdf).
@@ -138,16 +138,16 @@ def main():
 ```
 
 Parallelism is achieved via divide-and-conquer. `!` is used for GPU evaluation.
-Values are affine: a `+` binder is what licenses reuse, via a `Copiable`
-instance - that's how Bend stays safe with no GC.
+Values are affine: a `+` binder is what licenses reuse, and only a type of
+kind `Data` admits one - that's how Bend stays safe with no GC.
 
 ```python
 import Base
 
 # Sums a range of numbers in parallel.
 assert sum:
-  forall +d: +Nat
-  forall +i: +U32
+  forall +d: Nat
+  forall +i: U32
   U32
 
 def sum(d, i):
@@ -164,6 +164,18 @@ assert main:
 
 def main():
   IO.print(U32.show(sum!(24n, 0)))
+```
+
+Every type has a kind with a grade: `Type` for affine values (closures live
+here) or `Data` for reusable ones. A datatype declares its kind, and the checker
+verifies it at every constructor; a generic datatype takes the grade as a
+parameter, so `List<&2, U32>` is `Data` and may be bound with `+`. From the base
+library:
+
+```python
+type List<a, -A: Kind(a)> -> Kind(a):
+  Nil{}
+  Con{head: A, tail: List<a, A>}
 ```
 
 Theorems are just asserts whose type is a proposition. Proofs use a direct,

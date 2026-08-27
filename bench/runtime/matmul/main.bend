@@ -18,109 +18,13 @@ import Base
 # (verified against a Bend3 C run on the cluster), big (7, 9, 384)
 # expect 3797651056 (from the Bend3 header).
 
-type Mat:
+type Mat -> Data:
   Lf{v: U32}
   Qd{a: Mat, b: Mat, c: Mat, d: Mat}
 
-type Vec:
+type Vec -> Data:
   Vl{v: U32}
   Vn{l: Vec, r: Vec}
-
-# copy witnesses for the shared trees: never emitted, they only
-# license +Mat / +Vec
-assert Mat.copy:
-  forall m: Mat
-  Copy(Mat, m) & Copy(Mat, m)
-
-assert Mat.copy.lf:
-  forall -v: U32
-  forall cv: Copy(U32, v) & Copy(U32, v)
-  Copy(Mat, Lf{v}) & Copy(Mat, Lf{v})
-
-def Mat.copy.lf(v, cv):
-  ((v1, e1), (v2, e2)) = cv
-  p1 = Equal.cong(U32, Mat, x => Lf{x}, v, v1, e1)
-  p2 = Equal.cong(U32, Mat, x => Lf{x}, v, v2, e2)
-  ((Lf{v1}, p1), (Lf{v2}, p2))
-
-assert Mat.copy.qd:
-  forall -a: Mat
-  forall -b: Mat
-  forall -c: Mat
-  forall -d: Mat
-  forall ca: Copy(Mat, a) & Copy(Mat, a)
-  forall cb: Copy(Mat, b) & Copy(Mat, b)
-  forall cc: Copy(Mat, c) & Copy(Mat, c)
-  forall cd: Copy(Mat, d) & Copy(Mat, d)
-  Copy(Mat, Qd{a, b, c, d}) & Copy(Mat, Qd{a, b, c, d})
-
-def Mat.copy.qd(a, b, c, d, ca, cb, cc, cd):
-  ((a1, ea1), (a2, ea2)) = ca
-  ((b1, eb1), (b2, eb2)) = cb
-  ((c1, ec1), (c2, ec2)) = cc
-  ((d1, ed1), (d2, ed2)) = cd
-  p1 = Equal.trans(Mat, Qd{a, b, c, d}, Qd{a1, b, c, d}, Qd{a1, b1, c1, d1},
-                   Equal.cong(Mat, Mat, x => Qd{x, b, c, d}, a, a1, ea1),
-                   Equal.trans(Mat, Qd{a1, b, c, d}, Qd{a1, b1, c, d}, Qd{a1, b1, c1, d1},
-                               Equal.cong(Mat, Mat, x => Qd{a1, x, c, d}, b, b1, eb1),
-                               Equal.trans(Mat, Qd{a1, b1, c, d}, Qd{a1, b1, c1, d}, Qd{a1, b1, c1, d1},
-                                           Equal.cong(Mat, Mat, x => Qd{a1, b1, x, d}, c, c1, ec1),
-                                           Equal.cong(Mat, Mat, x => Qd{a1, b1, c1, x}, d, d1, ed1))))
-  p2 = Equal.trans(Mat, Qd{a, b, c, d}, Qd{a2, b, c, d}, Qd{a2, b2, c2, d2},
-                   Equal.cong(Mat, Mat, x => Qd{x, b, c, d}, a, a2, ea2),
-                   Equal.trans(Mat, Qd{a2, b, c, d}, Qd{a2, b2, c, d}, Qd{a2, b2, c2, d2},
-                               Equal.cong(Mat, Mat, x => Qd{a2, x, c, d}, b, b2, eb2),
-                               Equal.trans(Mat, Qd{a2, b2, c, d}, Qd{a2, b2, c2, d}, Qd{a2, b2, c2, d2},
-                                           Equal.cong(Mat, Mat, x => Qd{a2, b2, x, d}, c, c2, ec2),
-                                           Equal.cong(Mat, Mat, x => Qd{a2, b2, c2, x}, d, d2, ed2))))
-  ((Qd{a1, b1, c1, d1}, p1), (Qd{a2, b2, c2, d2}, p2))
-
-def Mat.copy(m):
-  match m:
-    case Lf{v}:
-      Mat.copy.lf(v, U32.copy(v))
-    case Qd{a, b, c, d}:
-      Mat.copy.qd(a, b, c, d, Mat.copy(a), Mat.copy(b), Mat.copy(c), Mat.copy(d))
-
-assert Vec.copy:
-  forall v: Vec
-  Copy(Vec, v) & Copy(Vec, v)
-
-assert Vec.copy.vl:
-  forall -x: U32
-  forall cx: Copy(U32, x) & Copy(U32, x)
-  Copy(Vec, Vl{x}) & Copy(Vec, Vl{x})
-
-def Vec.copy.vl(x, cx):
-  ((x1, e1), (x2, e2)) = cx
-  p1 = Equal.cong(U32, Vec, y => Vl{y}, x, x1, e1)
-  p2 = Equal.cong(U32, Vec, y => Vl{y}, x, x2, e2)
-  ((Vl{x1}, p1), (Vl{x2}, p2))
-
-assert Vec.copy.vn:
-  forall -l: Vec
-  forall -r: Vec
-  forall cl: Copy(Vec, l) & Copy(Vec, l)
-  forall cr: Copy(Vec, r) & Copy(Vec, r)
-  Copy(Vec, Vn{l, r}) & Copy(Vec, Vn{l, r})
-
-def Vec.copy.vn(l, r, cl, cr):
-  ((l1, el1), (l2, el2)) = cl
-  ((r1, er1), (r2, er2)) = cr
-  p1 = Equal.trans(Vec, Vn{l, r}, Vn{l1, r}, Vn{l1, r1},
-                   Equal.cong(Vec, Vec, y => Vn{y, r}, l, l1, el1),
-                   Equal.cong(Vec, Vec, y => Vn{l1, y}, r, r1, er1))
-  p2 = Equal.trans(Vec, Vn{l, r}, Vn{l2, r}, Vn{l2, r2},
-                   Equal.cong(Vec, Vec, y => Vn{y, r}, l, l2, el2),
-                   Equal.cong(Vec, Vec, y => Vn{l2, y}, r, r2, er2))
-  ((Vn{l1, r1}, p1), (Vn{l2, r2}, p2))
-
-def Vec.copy(v):
-  match v:
-    case Vl{x}:
-      Vec.copy.vl(x, U32.copy(x))
-    case Vn{l, r}:
-      Vec.copy.vn(l, r, Vec.copy(l), Vec.copy(r))
 
 assert b2u:
   forall b: Bool
@@ -134,8 +38,8 @@ def b2u(b):
       1
 
 assert gen:
-  forall +d: +Nat
-  forall +s: +U32
+  forall +d: Nat
+  forall +s: U32
   Mat
 
 def gen(d, s):
@@ -147,8 +51,8 @@ def gen(d, s):
       Qd{a, b, c, e}
 
 assert vgen:
-  forall +d: +Nat
-  forall +s: +U32
+  forall +d: Nat
+  forall +s: U32
   Vec
 
 def vgen(d, s):
@@ -196,8 +100,8 @@ def add4(p0, q0, p1, q1, p2, q2, p3, q3):
 # each node spawns its whole 8-product burst as ONE 8-way fork,
 # then joins through add4's single add burst
 assert mul:
-  forall +a: +Mat
-  forall +b: +Mat
+  forall +a: Mat
+  forall +b: Mat
   Mat
 
 def mul(a, b):
@@ -244,7 +148,7 @@ def vadd2(t0, t1, t2, t3):
 # [[a,b],[c,d]] * (l,h) = (a*l + b*h, c*l + d*h)
 assert mvm:
   forall m: Mat
-  forall +v: +Vec
+  forall +v: Vec
   Vec
 
 def mvm(m, v):
@@ -291,16 +195,16 @@ def vdif(x, y):
 
 # one round: generate A, B, r; C = A*B; Freivalds-verify C*r == A*(B*r)
 assert round:
-  forall +d: +Nat
-  forall +s: +U32
+  forall +d: Nat
+  forall +s: U32
   U32
 
 def round(d, s):
   a00 b00 = gen(d, U32.inc(s)) gen(d, U32.add(s, 2))
-  +a = {a00 : +Mat}
-  +b = {b00 : +Mat}
-  +r = {vgen(d, U32.add(s, 3)) : +Vec}
-  +c = {mul(a, b) : +Mat}
+  +a = a00
+  +b = b00
+  +r = vgen(d, U32.add(s, 3))
+  +c = mul(a, b)
   k = cksum(c)
   t1 = mvm(c, r)
   t2 = mvm(a, mvm(b, r))
@@ -313,7 +217,7 @@ assert batch.leaf.go:
   U32
 
 assert batch.leaf:
-  forall +pp: +U32
+  forall +pp: U32
   forall n: U32
   forall d: Nat
   U32
@@ -333,11 +237,11 @@ def batch.leaf(pp, n, d):
 # hashed p, so the live chain set -- and the checksum -- is the same
 # for any spread)
 assert batch:
-  forall +bg: +Nat
-  forall +i: +U32
-  forall +n: +U32
-  forall +m: +U32
-  forall +d: +Nat
+  forall +bg: Nat
+  forall +i: U32
+  forall +n: U32
+  forall +m: U32
+  forall +d: Nat
   U32
 
 def batch(bg, i, n, m, d):
@@ -345,7 +249,7 @@ def batch(bg, i, n, m, d):
     case 0n:
       batch.leaf(U32.and(U32.mul(i, 2654435761), m), n, d)
     case 1n+p:
-      x y = batch(p, i, n, m, d) batch(p, U32.add(i, U32.shln(p, 1)), n, m, d)
+      x y = batch(p, i, n, m, d) batch(p, U32.add(i, U32.shln(1, p)), n, m, d)
       U32.add(x, y)
 
 assert size:
@@ -371,5 +275,5 @@ assert main:
   IO(Unit)
 
 def main():
-  mm = U32.sub(U32.shln(blog(), 1), 1)
+  mm = U32.sub(U32.shln(1, blog()), 1)
   IO.print(U32.show(batch!(blog(), 0, nchain(), mm, size())))

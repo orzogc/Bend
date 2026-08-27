@@ -16,11 +16,11 @@ import Base
 # (verified against a Bend3 C run on the cluster), big (22, 1337)
 # expect 3104235417 (from the Bend3 header).
 
-type Mt:
+type Mt -> Data:
   Ml{h: U32}
   Mn{h: U32, l: Mt, r: Mt}
 
-type Path:
+type Path -> Data:
   Pn{}
   Pc{side: U32, sib: U32, rest: Path}
 
@@ -107,23 +107,23 @@ def rk(j):
 # 22 Speck rounds over the 16-bit halves x, y (n counts down, j up)
 assert spk:
   forall n: Nat
-  forall +j: +Nat
-  forall +x: +U32
-  forall +y: +U32
+  forall +j: Nat
+  forall +x: U32
+  forall +y: U32
   U32
 
 def spk(n, j, x, y):
   match n:
     case 0n:
-      U32.or(x, U32.shln(16n, y))
+      U32.or(x, U32.shln(y, 16n))
     case 1n+p:
-      +nx = {U32.and(U32.xor(U32.and(U32.add(U32.and(U32.or(U32.shrn(7n, x), U32.shln(9n, x)), 65535), y), 65535), rk(j)), 65535) : +U32}
-      spk(p, 1n+j, nx, U32.and(U32.xor(U32.and(U32.or(U32.shln(2n, y), U32.shrn(14n, y)), 65535), nx), 65535))
+      +nx = U32.and(U32.xor(U32.and(U32.add(U32.and(U32.or(U32.shrn(x, 7n), U32.shln(x, 9n)), 65535), y), 65535), rk(j)), 65535)
+      spk(p, 1n+j, nx, U32.and(U32.xor(U32.and(U32.or(U32.shln(y, 2n), U32.shrn(y, 14n)), 65535), nx), 65535))
 
 # one leaf: encrypt BLOCKS counter blocks, chain the ciphertexts
 assert blk:
   forall j: Nat
-  forall +b: +U32
+  forall +b: U32
   forall acc: U32
   U32
 
@@ -132,11 +132,11 @@ def blk(j, b, acc):
     case 0n:
       acc
     case 1n+p:
-      ct = spk(22n, 0n, U32.and(b, 65535), U32.and(U32.shrn(16n, b), 65535))
+      ct = spk(22n, 0n, U32.and(b, 65535), U32.and(U32.shrn(b, 16n), 65535))
       blk(p, U32.inc(b), U32.add(U32.mul(acc, 2654435761), ct))
 
 assert leafh:
-  forall +b: +U32
+  forall +b: U32
   U32
 
 def leafh(b):
@@ -149,14 +149,14 @@ assert mrk:
   U32
 
 def mrk(a, b):
-  +hh = {U32.xor(U32.mul(a, 2654435761), b) : +U32}
-  +h2 = {U32.xor(U32.mul(U32.add(hh, 2246822519), 2246822519), U32.shrn(13n, hh)) : +U32}
-  U32.xor(h2, U32.shrn(16n, h2))
+  +hh = U32.xor(U32.mul(a, 2654435761), b)
+  +h2 = U32.xor(U32.mul(U32.add(hh, 2246822519), 2246822519), U32.shrn(hh, 13n))
+  U32.xor(h2, U32.shrn(h2, 16n))
 
 # the scalar prover: recompute a subtree hash without materializing it
 assert htree:
-  forall +d: +Nat
-  forall +b: +U32
+  forall +d: Nat
+  forall +b: U32
   U32
 
 def htree(d, b):
@@ -164,7 +164,7 @@ def htree(d, b):
     case 0n:
       leafh(b)
     case 1n+p:
-      a c = htree(p, b) htree(p, U32.add(b, U32.shln(p, 1)))
+      a c = htree(p, b) htree(p, U32.add(b, U32.shln(1, p)))
       mrk(a, c)
 
 # join two subtrees into a hashed node (peek the child hashes, rebuild)
@@ -176,26 +176,26 @@ assert mjoin:
 def mjoin(l, r):
   match l r:
     case Ml{a} Ml{b}:
-      +aa = {a : +U32}
-      +bb = {b : +U32}
+      +aa = a
+      +bb = b
       Mn{mrk(aa, bb), Ml{aa}, Ml{bb}}
     case Ml{a} Mn{c, x, y}:
-      +aa = {a : +U32}
-      +cc = {c : +U32}
+      +aa = a
+      +cc = c
       Mn{mrk(aa, cc), Ml{aa}, Mn{cc, x, y}}
     case Mn{a, x, y} Ml{b}:
-      +aa = {a : +U32}
-      +bb = {b : +U32}
+      +aa = a
+      +bb = b
       Mn{mrk(aa, bb), Mn{aa, x, y}, Ml{bb}}
     case Mn{a, x, y} Mn{c, w, z}:
-      +aa = {a : +U32}
-      +cc = {c : +U32}
+      +aa = a
+      +cc = c
       Mn{mrk(aa, cc), Mn{aa, x, y}, Mn{cc, w, z}}
 
 # build the Merkle tree over blocks b .. b + 2^d - 1
 assert build:
-  forall +d: +Nat
-  forall +b: +U32
+  forall +d: Nat
+  forall +b: U32
   Mt
 
 def build(d, b):
@@ -203,7 +203,7 @@ def build(d, b):
     case 0n:
       Ml{leafh(b)}
     case 1n+p:
-      l r = build(p, b) build(p, U32.add(b, U32.shln(p, 1)))
+      l r = build(p, b) build(p, U32.add(b, U32.shln(1, p)))
       mjoin(l, r)
 
 # audit: re-fold the tree; any stored-hash mismatch perturbs the result
@@ -217,15 +217,15 @@ def audit(t):
       h
     case Mn{h, l, r}:
       a b = audit(l) audit(r)
-      +m = {mrk(a, b) : +U32}
+      +m = mrk(a, b)
       U32.add(m, U32.xor(m, h))
 
 # Merkle proof for leaf k: per level, the side bit and the sibling hash
 # (recomputed by the scalar prover; the ladder forks each sibling)
 assert pgen:
-  forall +d: +Nat
-  forall +k: +U32
-  forall +b: +U32
+  forall +d: Nat
+  forall +k: U32
+  forall +b: U32
   Path
 
 def pgen(d, k, b):
@@ -233,9 +233,9 @@ def pgen(d, k, b):
     case 0n:
       Pn{}
     case 1n+p:
-      bit0 half0 = U32.and(U32.shrn(p, k), 1) U32.shln(p, 1)
-      +bit = {bit0 : +U32}
-      +half = {half0 : +U32}
+      bit0 half0 = U32.and(U32.shrn(k, p), 1) U32.shln(1, p)
+      +bit = bit0
+      +half = half0
       sib rest = htree(p, sel(bit, U32.add(b, half), b)) pgen(p, k, sel(bit, b, U32.add(b, half)))
       Pc{bit, sib, rest}
 
@@ -250,9 +250,9 @@ def pverify(p, lh):
     case Pn{}:
       lh
     case Pc{s, sib, rest}:
-      +ss = {s : +U32}
-      +hh = {pverify(rest, lh) : +U32}
-      +sb = {sib : +U32}
+      +ss = s
+      +hh = pverify(rest, lh)
+      +sb = sib
       mrk(sel(ss, hh, sb), sel(ss, sb, hh))
 
 # small: (4n, 13) expect 524568222; big (22n, 1337) expect 3104235417
