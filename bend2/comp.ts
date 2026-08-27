@@ -1,15 +1,6 @@
-import { readFileSync, realpathSync, writeFileSync } from "node:fs";
+import * as fs from "node:fs";
 
-import { All, Ann, App, Ctr, Efq, Emp, Lam, Let, Lone, Many, Mat,
-  Ref, Var, book_adt, book_load, book_nil, book_valid, err_show,
-  pmap_get, pmap_set, pmap_union,
-  tele_unbind as tele_walk,
-  term_force, term_higher, term_lower, term_show, term_snf,
-  term_strip, term_unapply, term_wnf, u32_from_term,
-} from "./bend.ts";
-
-import type { Book, Def, Err, HBody, HTerm, Name, PMap, Quant, TLD,
-} from "./bend.ts";
+import * as Bend from "./bend.ts";
 
 // Comp
 // ====
@@ -19,7 +10,7 @@ import type { Book, Def, Err, HBody, HTerm, Name, PMap, Quant, TLD,
 
 type Seg = {
   fid: string;
-  def: Name;
+  def: Bend.Name;
   lines: string[];
   params: string[];
   frame: { pop: number; base: number } | null;
@@ -30,27 +21,27 @@ type Seg = {
 };
 
 type Spine = {
-  h: HTerm;
-  t: HTerm;
-  all: HTerm[];
-  args: HTerm[];
+  h: Bend.HTerm;
+  t: Bend.HTerm;
+  all: Bend.HTerm[];
+  args: Bend.HTerm[];
 };
 
 type Comp = Carb | File | Js;
 
-type Capture = { p: Probe; q: Quant; A: HTerm | null };
+type Capture = { p: Probe; q: Bend.Quant; A: Bend.HTerm | null };
 
 type Carb = {
-  src: Record<Name, TLD>;
-  book: Book;
-  mint: Map<Name, boolean>;
+  src: Record<Bend.Name, Bend.TLD>;
+  book: Bend.Book;
+  mint: Map<Bend.Name, boolean>;
   kn: number;
-  done: Set<Name>;
-  queue: Name[];
-  inl: Map<Name, HTerm | null>;
-  inlrun: Set<Name>;
-  bangs: Set<Name>;
-  brw: Map<Name, boolean[]>;
+  done: Set<Bend.Name>;
+  queue: Bend.Name[];
+  inl: Map<Bend.Name, Bend.HTerm | null>;
+  inlrun: Set<Bend.Name>;
+  bangs: Set<Bend.Name>;
+  brw: Map<Bend.Name, boolean[]>;
   clo: boolean;
 };
 
@@ -60,8 +51,8 @@ type File = {
   uses: Map<Probe, Bind>;
   local: Set<string>;
   brwl: Set<string>;
-  fusing: Set<Name>;
-  book: Book;
+  fusing: Set<Bend.Name>;
+  book: Bend.Book;
   segs: Seg[];
   seg: Seg;
   tab: number;
@@ -77,12 +68,12 @@ type File = {
 type Gen = string | ((xs: string[]) => string);
 
 type Native = {
-  intr: Record<Name, Gen>;
-  elim?: Record<Name, string[]>;
-  cond?: Record<Name, string>;
+  intr: Record<Bend.Name, Gen>;
+  elim?: Record<Bend.Name, string[]>;
+  cond?: Record<Bend.Name, string>;
 };
 
-type Of<K> = Extract<HTerm, { $: K }>;
+type Of<K> = Extract<Bend.HTerm, { $: K }>;
 
 type Probe = Of<"Var">;
 
@@ -92,21 +83,21 @@ type HAdt = Of<"ADT">;
 
 type HLet = Of<"Let">;
 
-type UMap = PMap<number>;
+type UMap = Bend.PMap<number>;
 
 type Call = {
-  k: Name;
-  args: HTerm[];
+  k: Bend.Name;
+  args: Bend.HTerm[];
   bang?: boolean;
 };
 
-type Open = (env: Map<HTerm, HTerm>) => HTerm;
+type Open = (env: Map<Bend.HTerm, Bend.HTerm>) => Bend.HTerm;
 
 type Kont = (caps: Capture[], x: Open) => Open;
 
-type Root = [Name, number];
+type Root = [Bend.Name, number];
 
-type Parts = { k: Name; vs: string[]; w: boolean };
+type Parts = { k: Bend.Name; vs: string[]; w: boolean };
 
 type Bind = { owed: number; local: string; triv: boolean; parts?: Parts };
 
@@ -122,7 +113,7 @@ type Intr = {
 };
 
 type Js = {
-  book:  Book;
+  book:  Bend.Book;
   cb:    Carb;
   seg:   { lines: string[] };
   tab:   number;
@@ -130,7 +121,7 @@ type Js = {
   fresh: Map<string, number>;
 };
 
-type Dom = [Quant, Name, HTerm];
+type Dom = [Bend.Quant, Bend.Name, Bend.HTerm];
 
 // Constants
 // =========
@@ -143,7 +134,7 @@ const STRLIT = new RegExp("^\"(?:[^\"\\\\]|\\\\.)*\"$");
 
 const NATIVE_DIE = " does not match the native format of its type";
 
-const NATIVES: Record<Name, Native> = Object.setPrototypeOf({
+const NATIVES: Record<Bend.Name, Native> = Object.setPrototypeOf({
   Nat: {
     intr: {
       Zero: "0",
@@ -249,33 +240,33 @@ let PIDN = 0;
 
 const DUMMY = probe("~");
 
-const USE0 = Emp<number>();
+const USE0 = Bend.Emp<number>();
 
-const OPENS: Map<Of<"Lam">, { p: Probe; b: HTerm }> = new Map();
+const OPENS: Map<Of<"Lam">, { p: Probe; b: Bend.HTerm }> = new Map();
 
-const LOPENS: Map<HLet, { ps: Probe[]; b: HTerm }> = new Map();
+const LOPENS: Map<HLet, { ps: Probe[]; b: Bend.HTerm }> = new Map();
 
-const USES: Map<HTerm, UMap> = new Map();
+const USES: Map<Bend.HTerm, UMap> = new Map();
 
-const TELES: Map<HTerm, ReturnType<typeof tele_walk>> = new Map();
+const TELES: Map<Bend.HTerm, ReturnType<typeof Bend.tele_unbind>> = new Map();
 
-const REFS: Map<Name, Set<Name>> = new Map();
+const REFS: Map<Bend.Name, Set<Bend.Name>> = new Map();
 
-const FRESH: Set<Name> = new Set();
+const FRESH: Set<Bend.Name> = new Set();
 
-const FACTS: Map<HTerm, number> = new Map();
+const FACTS: Map<Bend.HTerm, number> = new Map();
 
-const SHARE: Map<HTerm, Probe | null> = new Map();
+const SHARE: Map<Bend.HTerm, Probe | null> = new Map();
 
-const DEEPS: Map<Name, boolean> = new Map();
+const DEEPS: Map<Bend.Name, boolean> = new Map();
 
-const SPINES: Map<HTerm, Spine> = new Map();
+const SPINES: Map<Bend.HTerm, Spine> = new Map();
 
-const PURES: Map<HTerm, boolean> = new Map();
+const PURES: Map<Bend.HTerm, boolean> = new Map();
 
-const CONSTS: Map<HTerm, boolean> = new Map();
+const CONSTS: Map<Bend.HTerm, boolean> = new Map();
 
-const EMPTY = new Map<HTerm, HTerm>();
+const EMPTY = new Map<Bend.HTerm, Bend.HTerm>();
 
 export const JS_INTRINSICS: Record<string, Gen> = Object.setPrototypeOf({
   nat_double:    "($0 << 1n)",
@@ -293,7 +284,7 @@ export const JS_INTRINSICS: Record<string, Gen> = Object.setPrototypeOf({
     [k, it.js])),
 }, null);
 
-const JS_NATIVES: Record<Name, Native> = {
+const JS_NATIVES: Record<Bend.Name, Native> = {
   Nat: {
     intr: {
       Zero: "0n",
@@ -346,7 +337,7 @@ function name_clean(k: string): string {
   return k.replace(/[^A-Za-z0-9_]/g, "_");
 }
 
-function name_local(fl: File, k: Name): string {
+function name_local(fl: File, k: Bend.Name): string {
   const base = name_clean(k);
   const n = fl.fresh.get(base) ?? 0;
   fl.fresh.set(base, n + 1);
@@ -395,50 +386,50 @@ function memo_gc(): void {
 // Probe
 // =====
 
-function probe(k: Name): Probe {
-  return Var(k, (PIDN += 1)) as Probe;
+function probe(k: Bend.Name): Probe {
+  return Bend.Var(k, (PIDN += 1)) as Probe;
 }
 
-function probe_of(t: HTerm): Probe {
-  return term_force(t) as Probe;
+function probe_of(t: Bend.HTerm): Probe {
+  return Bend.term_force(t) as Probe;
 }
 
 // Term
 // ====
 
-function term_open(t: Of<"Lam">): { p: Probe; b: HTerm } {
+function term_open(t: Of<"Lam">): { p: Probe; b: Bend.HTerm } {
   return memo(OPENS, t, () => {
     const p = probe(t.k);
     return { p, b: t.f(p) };
   });
 }
 
-function term_lets(t: HLet): { ps: Probe[]; b: HTerm } {
+function term_lets(t: HLet): { ps: Probe[]; b: Bend.HTerm } {
   return memo(LOPENS, t, () => {
     const ps = t.k.map(probe);
     return { ps, b: t.f(ps) };
   });
 }
 
-function term_split(t: HLet, j = 0, xs: HTerm[] = []): HTerm {
+function term_split(t: HLet, j = 0, xs: Bend.HTerm[] = []): Bend.HTerm {
   if (j === t.k.length) {
     return t.f(xs);
   }
-  return Let([t.k[j]], [t.i[j]], [t.v[j]],
-    (x: HTerm[]) => term_split(t, j + 1, [...xs, x[0]]), t.s, [t.q[j]]);
+  return Bend.Let([t.k[j]], [t.i[j]], [t.v[j]],
+    (x: Bend.HTerm[]) => term_split(t, j + 1, [...xs, x[0]]), t.s, [t.q[j]]);
 }
 
-function term_spine(cf: Comp, tm: HTerm): Spine {
+function term_spine(cf: Comp, tm: Bend.HTerm): Spine {
   return memo(SPINES, tm, () => {
     const apps: Of<"App">[] = [];
     let h = tm;
-    let c = term_force(tm);
+    let c = Bend.term_force(tm);
     while (c.$ === "Ann" || c.$ === "App") {
       if (c.$ === "App") {
         apps.push(c);
         h = c.f;
       }
-      c = term_force(c.$ === "App" ? c.f : c.x);
+      c = Bend.term_force(c.$ === "App" ? c.f : c.x);
     }
     apps.reverse();
     const tld = c.$ === "Ref" ? cf.book.tlds[c.k] : undefined;
@@ -451,12 +442,12 @@ function term_spine(cf: Comp, tm: HTerm): Spine {
   });
 }
 
-function term_eta(t: HTerm): HTerm {
-  return Lam("x", 0, (y) => App(t, y));
+function term_eta(t: Bend.HTerm): Bend.HTerm {
+  return Bend.Lam("x", 0, (y) => Bend.App(t, y));
 }
 
-function term_kids(cf: Comp, tm: HTerm): HTerm[] {
-  const t = term_force(tm);
+function term_kids(cf: Comp, tm: Bend.HTerm): Bend.HTerm[] {
+  const t = Bend.term_force(tm);
   switch (t.$) {
     case "Ann": return [t.x];
     case "Lam": return [term_open(t).b];
@@ -473,9 +464,9 @@ function term_kids(cf: Comp, tm: HTerm): HTerm[] {
   }
 }
 
-function term_any(cf: Comp, t: HTerm, p: (s: HTerm) => boolean,
-  seen: Set<HTerm> = new Set()): boolean {
-  const s = term_force(t);
+function term_any(cf: Comp, t: Bend.HTerm, p: (s: Bend.HTerm) => boolean,
+  seen: Set<Bend.HTerm> = new Set()): boolean {
+  const s = Bend.term_force(t);
   if (seen.has(s)) {
     return false;
   }
@@ -483,31 +474,31 @@ function term_any(cf: Comp, t: HTerm, p: (s: HTerm) => boolean,
   return p(s) || term_kids(cf, s).some((x) => term_any(cf, x, p, seen));
 }
 
-function term_const(t: HTerm): boolean {
-  const s = term_strip(t);
+function term_const(t: Bend.HTerm): boolean {
+  const s = Bend.term_strip(t);
   return s.$ === "Ctr" && memo(CONSTS, s, () => s.x.every(term_const));
 }
 
 function term_use(u: UMap, p: Probe): number {
-  return pmap_get(u, p.i) ?? 0;
+  return Bend.pmap_get(u, p.i) ?? 0;
 }
 
-function term_uses(cb: Carb, tm: HTerm): UMap {
+function term_uses(cb: Carb, tm: Bend.HTerm): UMap {
   return memo(USES, tm, () => {
-    const t = term_force(tm);
+    const t = Bend.term_force(tm);
     switch (t.$) {
       case "Var": {
         const p = probe_of(t);
-        return p === DUMMY ? USE0 : pmap_set(USE0, p.i, 1);
+        return p === DUMMY ? USE0 : Bend.pmap_set(USE0, p.i, 1);
       }
-      case "Mat": return pmap_union(term_uses(cb, t.h),
+      case "Mat": return Bend.pmap_union(term_uses(cb, t.h),
         term_uses(cb, t.m), Math.max);
       default: {
         const ck = call_kind(cb, t);
         const lent = ck && cb.brw.get(ck.k);
         return term_kids(cb, t).reduce((u, x, j) =>
           lent?.[j - 1] ? u
-            : pmap_union(u, term_uses(cb, x), (a, b) => a + b),
+            : Bend.pmap_union(u, term_uses(cb, x), (a, b) => a + b),
           USE0);
       }
     }
@@ -521,7 +512,7 @@ function live_dom([q]: Dom): boolean {
   return quant_live(q);
 }
 
-function live_doms(c: Comp, tld: Def): Dom[] {
+function live_doms(c: Comp, tld: Bend.Def): Dom[] {
   return def_get_params(c.book, tld).filter(live_dom);
 }
 
@@ -532,19 +523,19 @@ function intr_blk(read: string): (shr: boolean) => string[] {
   return (shr) => [shr ? "blk_cow(e, $0)" : "$0", read];
 }
 
-function intr_of(c: Comp, k: Name): Intr | undefined {
+function intr_of(c: Comp, k: Bend.Name): Intr | undefined {
   return def_own(c.book.tlds[k]) ? INTRINSICS[eff_name(k)] : undefined;
 }
 
 // Call
 // ====
 
-function call_live(book: Book, f: HTerm): boolean {
+function call_live(book: Bend.Book, f: Bend.HTerm): boolean {
   const all = ty_all(book, ty_ann(f));
   return all === null || quant_live(all.q);
 }
 
-function call_kind(c: Comp, t: HTerm): Call | null {
+function call_kind(c: Comp, t: Bend.HTerm): Call | null {
   const m = term_spine(c, t);
   let dyn = m.t.$ === "Var" && m.args.length > 0;
   if (m.t.$ === "Ref" && intr_of(c, m.t.k) === undefined) {
@@ -560,24 +551,24 @@ function call_kind(c: Comp, t: HTerm): Call | null {
   if (!dyn) {
     return null;
   }
-  let f = term_force(t);
+  let f = Bend.term_force(t);
   while (f.$ === "Ann" || (f.$ === "App" && !call_live(c.book, f.f))) {
-    f = term_force(f.$ === "App" ? f.f : f.x);
+    f = Bend.term_force(f.$ === "App" ? f.f : f.x);
   }
   const a = f as Of<"App">;
   return { k: CLO_APPLY, args: [a.f, a.x] };
 }
 
-function call_is(cb: Carb, t: HTerm): boolean {
+function call_is(cb: Carb, t: Bend.HTerm): boolean {
   return call_kind(cb, t) !== null;
 }
 
-function call_has(cb: Carb, t: HTerm): boolean {
+function call_has(cb: Carb, t: Bend.HTerm): boolean {
   return (call_fact(cb, t) & 1) !== 0;
 }
 
-function call_fact(cb: Carb, tm: HTerm): number {
-  const t = term_force(tm);
+function call_fact(cb: Carb, tm: Bend.HTerm): number {
+  const t = Bend.term_force(tm);
   return memo(FACTS, t, () => {
     let f = 0;
     if ((t.$ === "App" || t.$ === "Ref") && call_is(cb, t)) {
@@ -593,7 +584,7 @@ function call_fact(cb: Carb, tm: HTerm): number {
   });
 }
 
-function call_fuse(c: Comp, t: HTerm): Call | null {
+function call_fuse(c: Comp, t: Bend.HTerm): Call | null {
   const ck = call_kind(c, t);
   if (ck === null || fuse_ban(ck) || ck.args.length === 0) {
     return null;
@@ -605,48 +596,50 @@ function call_fuse(c: Comp, t: HTerm): Call | null {
 // Tele
 // ====
 
-function tele_unbind(book: Book, T: HTerm): ReturnType<typeof tele_walk> {
-  return memo(TELES, T, () => tele_walk(book, T));
+function tele_unbind(book: Bend.Book,
+  T: Bend.HTerm): ReturnType<typeof Bend.tele_unbind> {
+  return memo(TELES, T, () => Bend.tele_unbind(book, T));
 }
 
 // Ty
 // ==
 
-function ty_ann(t: HTerm): HTerm | null {
-  const v = term_force(t);
+function ty_ann(t: Bend.HTerm): Bend.HTerm | null {
+  const v = Bend.term_force(t);
   return v.$ === "Ann" ? v.T : null;
 }
 
-function ty_wnf(book: Book, ty: HTerm | null): HTerm | null {
-  return ty && term_wnf(book, ty);
+function ty_wnf(book: Bend.Book, ty: Bend.HTerm | null): Bend.HTerm | null {
+  return ty && Bend.term_wnf(book, ty);
 }
 
-function ty_all(book: Book, ty: HTerm | null): HAll | null {
+function ty_all(book: Bend.Book, ty: Bend.HTerm | null): HAll | null {
   const w = ty_wnf(book, ty);
   return w?.$ === "All" ? w : null;
 }
 
-function ty_tele(book: Book, T: HTerm, args: HTerm[]): HTerm {
+function ty_tele(book: Bend.Book, T: Bend.HTerm,
+  args: Bend.HTerm[]): Bend.HTerm {
   return args.reduce((T2, a) => (ty_all(book, T2) as HAll).B(a), T);
 }
 
-function ty_peel(tm: HTerm,
-  ty: HTerm | null): [HTerm, HTerm | null] {
-  let x = term_force(tm);
+function ty_peel(tm: Bend.HTerm,
+  ty: Bend.HTerm | null): [Bend.HTerm, Bend.HTerm | null] {
+  let x = Bend.term_force(tm);
   while (x.$ === "Ann") {
     ty = x.T;
-    x = term_force(x.x);
+    x = Bend.term_force(x.x);
   }
   return [x, ty];
 }
 
-function ty_w32(book: Book, A: HTerm | null): boolean {
+function ty_w32(book: Bend.Book, A: Bend.HTerm | null): boolean {
   const t = ty_wnf(book, A);
   return t?.$ === "ADT" ? ["U32", "Bool", "Char"].includes(t.k)
     : ty_f32(book, A);
 }
 
-function ty_f32(book: Book, A: HTerm | null): boolean {
+function ty_f32(book: Bend.Book, A: Bend.HTerm | null): boolean {
   const t = ty_wnf(book, A);
   return t?.$ === "Ref" && t.k === "F32";
 }
@@ -655,38 +648,39 @@ function ty_f32(book: Book, A: HTerm | null): boolean {
 // ===
 
 function ctr_adt(fl: File | Js, x: Of<"Ctr">,
-  ty: HTerm | null): [HAdt, number | null] {
+  ty: Bend.HTerm | null): [HAdt, number | null] {
   const ctr = fl.book.ctrs[x.k];
   const T = ty ?? (ctr === undefined ? null : tele_unbind(fl.book, ctr.T).ret);
   const adt = ty_wnf(fl.book, T);
   if (adt?.$ !== "ADT" || (ty === null && adt.x.length > 0)) {
     die(`a constructor at a non-datatype type: ${x.k}`);
   }
-  return [adt, adt.k === "U32" ? u32_from_term(x) : null];
+  return [adt, adt.k === "U32" ? Bend.u32_from_term(x) : null];
 }
 
-function ctr_tail(book: Book, ctr: Ctr): Dom[] {
+function ctr_tail(book: Bend.Book, ctr: Bend.Ctr): Dom[] {
   const doms = tele_unbind(book, ctr.T).doms;
   return doms.slice(doms.length - ctr.n);
 }
 
-function ctr_doms(book: Book, ctr: Ctr): HTerm[] {
+function ctr_doms(book: Bend.Book, ctr: Bend.Ctr): Bend.HTerm[] {
   return ctr_tail(book, ctr).filter(live_dom).map(([, , A]) => A);
 }
 
-function ctr_scalar1(book: Book, k: Name): boolean {
+function ctr_scalar1(book: Bend.Book, k: Bend.Name): boolean {
   const ctr = book.ctrs[k];
   const fields = ctr === undefined ? [] : ctr_doms(book, ctr);
   return fields.length === 1 && ty_w32(book, fields[0]);
 }
 
-function ctr_flds(book: Book, k: Name, xs: HTerm[]): HTerm[] {
+function ctr_flds(book: Bend.Book, k: Bend.Name,
+  xs: Bend.HTerm[]): Bend.HTerm[] {
   const ctr = book.ctrs[k];
   const qs = ctr && ctr_tail(book, ctr).map(([q]) => q);
   return xs.filter((_, j) => qs?.[j] === undefined || quant_live(qs[j]));
 }
 
-function ctr_build(fl: File, k: Name, exprs: string[]): string {
+function ctr_build(fl: File, k: Bend.Name, exprs: string[]): string {
   const cid = cid_reg(fl, k);
   if (exprs.length === 0 || fl.cids.get(k)!.packed) {
     return `term_pak(${cid}, ${exprs[0] ?? 0})`;
@@ -706,14 +700,14 @@ function ctr_build(fl: File, k: Name, exprs: string[]): string {
 // Native
 // ======
 
-function native_of(book: Book, adt: HAdt): Native | undefined {
+function native_of(book: Bend.Book, adt: HAdt): Native | undefined {
   if (adt.k === "U32") {
     die("a structural view of a machine word");
   }
   if (adt.k !== "Array" || ty_w32(book, adt.x[0])) {
     return NATIVES[adt.k];
   }
-  if (["ADT", "All"].includes(term_wnf(book, adt.x[0]).$)) {
+  if (["ADT", "All"].includes(Bend.term_wnf(book, adt.x[0]).$)) {
     return ARR_NATIVE;
   }
   die("an open Array element type");
@@ -722,7 +716,7 @@ function native_of(book: Book, adt: HAdt): Native | undefined {
 // Adt
 // ===
 
-function adt_triv(book: Book, A: HTerm | null): boolean {
+function adt_triv(book: Bend.Book, A: Bend.HTerm | null): boolean {
   const adt = ty_wnf(book, A);
   if (adt?.$ !== "ADT") {
     return ty_f32(book, A);
@@ -738,32 +732,32 @@ function adt_triv(book: Book, A: HTerm | null): boolean {
 // Mat
 // ===
 
-function mat_head(t: HTerm): boolean {
+function mat_head(t: Bend.HTerm): boolean {
   return t.$ === "Mat" || t.$ === "Efq";
 }
 
-function mat_arms(t: HTerm):
-  { arms: [Name, HTerm][]; end: HTerm | null } {
-  const arms: [Name, HTerm][] = [];
+function mat_arms(t: Bend.HTerm):
+  { arms: [Bend.Name, Bend.HTerm][]; end: Bend.HTerm | null } {
+  const arms: [Bend.Name, Bend.HTerm][] = [];
   let cur = t;
-  for (let m = term_strip(cur); m.$ === "Mat"; m = term_strip(cur)) {
+  for (let m = Bend.term_strip(cur); m.$ === "Mat"; m = Bend.term_strip(cur)) {
     arms.push([m.k, m.h]);
     cur = m.m;
   }
-  return { arms, end: term_strip(cur).$ === "Efq" ? null : cur };
+  return { arms, end: Bend.term_strip(cur).$ === "Efq" ? null : cur };
 }
 
 // Quant
 // =====
 
-function quant_live(q: Quant): boolean {
+function quant_live(q: Bend.Quant): boolean {
   return q.$ !== "None";
 }
 
 // Def
 // ===
 
-function def_get_params(book: Book, def: Def): Dom[] {
+function def_get_params(book: Bend.Book, def: Bend.Def): Dom[] {
   const doms = tele_unbind(book, def.T).doms;
   if (doms.length < def.n) {
     die("a def type shorter than its parameters");
@@ -771,32 +765,32 @@ function def_get_params(book: Book, def: Def): Dom[] {
   return doms.slice(0, def.n);
 }
 
-function def_foreign(tld: TLD | undefined): tld is Def {
+function def_foreign(tld: Bend.TLD | undefined): tld is Bend.Def {
   return tld?.$ === "Def" && tld.i !== undefined;
 }
 
-function def_live(c: Comp, tld: Def): number {
+function def_live(c: Comp, tld: Bend.Def): number {
   return live_doms(c, tld).length + Number(def_foreign(tld));
 }
 
-function def_own(tld: TLD | undefined): boolean {
+function def_own(tld: Bend.TLD | undefined): boolean {
   return tld?.$ === "Def" && tld.i === undefined && (tld.b || tld.v === null);
 }
 
 // Eff
 // ===
 
-function eff_name(k: Name): string {
+function eff_name(k: Bend.Name): string {
   return k.toLowerCase().replace(/\./g, "_");
 }
 
 function eff_src(path: string, seen: Set<string>): string {
-  path = realpathSync(path);
+  path = fs.realpathSync(path);
   if (seen.has(path)) {
     return "";
   }
   seen.add(path);
-  const src = readFileSync(path, "utf8");
+  const src = fs.readFileSync(path, "utf8");
   const dir = path.slice(0, path.lastIndexOf("/") + 1);
   let out = "";
   for (const m of src.matchAll(/^\/\/! use (.+)$/gm)) {
@@ -808,17 +802,17 @@ function eff_src(path: string, seen: Set<string>): string {
 // Io
 // ==
 
-function io_base(book: Book, t: HTerm): HTerm[] | null {
+function io_base(book: Bend.Book, t: Bend.HTerm): Bend.HTerm[] | null {
   const io = book.tlds["IO"];
   if (io?.$ !== "Def" || io.b !== true) {
     return null;
   }
   const tlds = { ...book.tlds, IO: { ...io, v: null } };
-  const [h, xs] = term_unapply(term_wnf({ ...book, tlds }, t));
+  const [h, xs] = Bend.term_unapply(Bend.term_wnf({ ...book, tlds }, t));
   return h.$ === "Ref" && h.k === "IO" ? xs : null;
 }
 
-export function io_type(book: Book): HTerm | null {
+export function io_type(book: Bend.Book): Bend.HTerm | null {
   const main = book.tlds["main"];
   if (main?.$ !== "Def") {
     return null;
@@ -833,7 +827,7 @@ export function io_type(book: Book): HTerm | null {
   return xs.length === 1 ? xs[0] : null;
 }
 
-export function io_run(book: Book): number {
+export function io_run(book: Bend.Book): number {
   const src = js_text(book)
     + "\nreturn io_run(" + js_sat("main") + ");";
   return new Function("require", src)(import.meta.require) as number;
@@ -842,16 +836,16 @@ export function io_run(book: Book): number {
 // Mint
 // ====
 
-function mint_lift(t: HTerm): Open {
+function mint_lift(t: Bend.HTerm): Open {
   return (env) => env.get(t) ?? t;
 }
 
 function mint_caps(cs: Capture[], f: Open): Open {
-  return (env) => cs.reduce((c, b) => App(c, env.get(b.p) ?? b.p), f(env));
+  return (env) => cs.reduce((c, b) => Bend.App(c, env.get(b.p) ?? b.p), f(env));
 }
 
-function mint_ret(cb: Carb, t: HTerm): HTerm {
-  const s = term_force(t);
+function mint_ret(cb: Carb, t: Bend.HTerm): Bend.HTerm {
+  const s = Bend.term_force(t);
   if (s.$ === "Ann") {
     return s.T;
   }
@@ -865,7 +859,7 @@ function mint_ret(cb: Carb, t: HTerm): HTerm {
   return ty_tele(cb.book, T, m.all);
 }
 
-function mint(cb: Carb, def: Name, stem: string, scope: Capture[],
+function mint(cb: Carb, def: Bend.Name, stem: string, scope: Capture[],
   seq: boolean, tail: number, build: () => Open, ext = 0): Open {
   cb.kn += 1;
   const name = def + "$" + stem + cb.kn;
@@ -873,37 +867,40 @@ function mint(cb: Carb, def: Name, stem: string, scope: Capture[],
   const bt = body(EMPTY);
   const kept = scope.filter((c, i) => i >= scope.length - tail
     || !quant_live(c.q) || term_use(term_uses(cb, bt), c.p) > 0);
-  const T = kept.reduceRight<HTerm>((R, c, i) => All<HBody>(c.q, c.p.k, i,
+  const T = kept.reduceRight<Bend.HTerm>((R, c, i) =>
+    Bend.All<Bend.HBody>(c.q, c.p.k, i,
     c.A ?? die(`a minted capture without a type: ${name} ${c.p.k}`),
     (_x) => R), mint_ret(cb, bt));
   const lams = kept.reduceRight<Open>((rest, c, i) =>
-    (env) => Lam(c.p.k, i, (x) => rest(new Map(env).set(c.p, x))), body);
+    (env) => Bend.Lam(c.p.k, i, (x) => rest(new Map(env).set(c.p, x))), body);
   const fn = lams(EMPTY);
   cb.book.tlds[name] =
     { $: "Def", n: kept.length + ext, T, v: fn, e: fn };
   cb.mint.set(name, seq);
-  return mint_caps(kept.slice(0, kept.length - tail), mint_lift(Ref(name)));
+  return mint_caps(kept.slice(0, kept.length - tail),
+    mint_lift(Bend.Ref(name)));
 }
 
 // Carb
 // ====
 
-function carb_fresh(cb: Carb, k: Name): TLD | undefined {
+function carb_fresh(cb: Carb, k: Bend.Name): Bend.TLD | undefined {
   const tld = cb.src[k];
   if (!FRESH.has(k)) {
     FRESH.add(k);
     if (tld?.$ === "Def" && tld.e !== undefined) {
-      const e = term_higher(term_lower(tld.e), Emp<HTerm>());
+      const e = Bend.term_higher(Bend.term_lower(tld.e),
+        Bend.Emp<Bend.HTerm>());
       cb.src[k] = { ...tld, e };
     }
   }
   return cb.src[k];
 }
 
-function carb_book(src: Book, roots: Name[]): Carb {
+function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
   [TELES, REFS, FRESH].forEach((m) => m.clear());
   memo_gc();
-  const book: Book = { ...src, tlds: { ...src.tlds } };
+  const book: Bend.Book = { ...src, tlds: { ...src.tlds } };
   const cb: Carb = {
     src: { ...src.tlds },
     book,
@@ -918,7 +915,7 @@ function carb_book(src: Book, roots: Name[]): Carb {
     clo: false,
   };
   while (cb.queue.length > 0) {
-    const d = cb.queue.shift() as Name;
+    const d = cb.queue.shift() as Bend.Name;
     if (cb.done.has(d)) {
       continue;
     }
@@ -928,38 +925,38 @@ function carb_book(src: Book, roots: Name[]): Carb {
     if (!done_live(tld)) {
       continue;
     }
-    let out = tld.e as HTerm;
+    let out = tld.e as Bend.HTerm;
     if (!cb.mint.has(d)) {
       if (out === undefined) {
         die("unelaborated def " + d);
       }
-      const fr = carb_fresh(cb, d) as Def;
+      const fr = carb_fresh(cb, d) as Bend.Def;
       const PASS: Kont = (_c, x) => x;
       function bound(caps: Capture[], l: HLet, v: Open,
-        rest: (caps: Capture[], body: HTerm) => Open,
+        rest: (caps: Capture[], body: Bend.HTerm) => Open,
         cuts = false): Open {
         const bd = { p: term_lets(l).ps[0], q: l.q[0], A: ty_ann(v(EMPTY)) };
         const c2 = [...caps, bd];
         const go = () => rest(c2, term_lets(l).b);
         const body = cuts ? mint(cb, d, "k", c2, true, 1, go) : go();
-        return (env) => Let(l.k, l.i, [v(env)], (x) => cuts
-          ? App(body(env), x[0])
+        return (env) => Bend.Let(l.k, l.i, [v(env)], (x) => cuts
+          ? Bend.App(body(env), x[0])
           : body(new Map(env).set(bd.p, x[0])), l.s, l.q);
       }
-      function apps(caps: Capture[], t: HTerm, k: Kont): Open {
+      function apps(caps: Capture[], t: Bend.HTerm, k: Kont): Open {
         type Fill = (caps: Capture[],
           rb: (f: Open) => Open) => Open;
         const m = term_spine(cb, t);
-        const go = (u: HTerm, k2: Fill): Open => {
-          const s = term_force(u);
+        const go = (u: Bend.HTerm, k2: Fill): Open => {
+          const s = Bend.term_force(u);
           if (s.$ === "Ann") {
             return go(s.x, (c2, rb) => k2(c2, (f) =>
-              (env) => Ann(rb(f)(env), s.T, s.s)));
+              (env) => Bend.Ann(rb(f)(env), s.T, s.s)));
           }
           if (s.$ === "App") {
             const app: Fill = (c2, rb) => expr(c2, s.x, null,
               (c3, x) => k2(c3, (f) =>
-                (env) => App(rb(f)(env), x(env), s.s)));
+                (env) => Bend.App(rb(f)(env), x(env), s.s)));
             if (!call_is(cb, s.f)) {
               return go(s.f, app);
             }
@@ -980,16 +977,16 @@ function carb_book(src: Book, roots: Name[]): Carb {
         };
         return go(caps, 0, []);
       }
-      function func(caps: Capture[], t: HTerm, ty: HTerm | null,
+      function func(caps: Capture[], t: Bend.HTerm, ty: Bend.HTerm | null,
         left: number): Open {
-        const s = term_force(t);
-        const x = term_strip(t);
+        const s = Bend.term_force(t);
+        const x = Bend.term_strip(t);
         if (x.$ !== "Lam" && !mat_head(x)) {
           if (left === 0) {
             return leaf(caps, s);
           }
           const T = ty ?? ty_ann(s) ?? die("an untyped point-free arm");
-          return func(caps, Ann(term_eta(s), T), null, left);
+          return func(caps, Bend.Ann(term_eta(s), T), null, left);
         }
         if (left === 0 && s.$ !== "Ann") {
           return expr(caps, s, ty, PASS);
@@ -997,32 +994,32 @@ function carb_book(src: Book, roots: Name[]): Carb {
         switch (s.$) {
           case "Ann": {
             const g = func(caps, s.x, s.T, left);
-            return (env) => Ann(g(env), s.T, s.s);
+            return (env) => Bend.Ann(g(env), s.T, s.s);
           }
           case "Lam": {
             const all = ty_all(cb.book, ty);
             const { p, b } = term_open(s);
-            const cap = { p, q: all?.q ?? Lone(), A: all?.A ?? null };
+            const cap = { p, q: all?.q ?? Bend.Lone(), A: all?.A ?? null };
             const B = all && all.B(DUMMY);
             const body = func([...caps, cap], b, B,
               left - (quant_live(cap.q) ? 1 : 0));
-            return (env) => Lam(s.k, s.i, (y) => body(new Map(env).set(p, y)),
-              s.s);
+            return (env) => Bend.Lam(s.k, s.i,
+              (y) => body(new Map(env).set(p, y)), s.s);
           }
           case "Mat": {
             const ctr = cb.book.ctrs[s.k];
             const h = func(caps, s.h, null, left - 1
               + (ctr === undefined ? 0 : ctr_doms(cb.book, ctr).length));
             const m = func(caps, s.m, null, left);
-            return (env) => Mat(s.k, h(env), m(env), s.s);
+            return (env) => Bend.Mat(s.k, h(env), m(env), s.s);
           }
           default: {
             return mint_lift(s);
           }
         }
       }
-      function leaf(caps: Capture[], t: HTerm): Open {
-        const s = term_strip(t);
+      function leaf(caps: Capture[], t: Bend.HTerm): Open {
+        const s = Bend.term_strip(t);
         if (s.$ === "Let") {
           if (s.k.length >= 2) {
             if (s.v.every((v) => call_is(cb, v))) {
@@ -1059,7 +1056,7 @@ function carb_book(src: Book, roots: Name[]): Carb {
         const ck = call_kind(cb, jt);
         const h = ck === null ? -1 : ck.args.length - o.ps.length;
         const jc = ck !== null && h >= 0
-          && ck.args.slice(h).every((a, j) => term_strip(a) === o.ps[j])
+          && ck.args.slice(h).every((a, j) => Bend.term_strip(a) === o.ps[j])
           && ck.args.slice(0, h).every((a) => !call_has(cb, a)) ? ck : null;
         return many(caps, n, (c2, j, kx) => apps(c2, s.v[j], kx),
           (c2, vs) => {
@@ -1069,14 +1066,14 @@ function carb_book(src: Book, roots: Name[]): Carb {
               ? leaf(c3, o.b)
               : mint_caps(c3.slice(-n),
                 mint(cb, d, "j", c3, false, n, () => leaf(c3, o.b)));
-            return (env) => Let(s.k, s.i, vs.map((v) => v(env)), (xs) => {
+            return (env) => Bend.Let(s.k, s.i, vs.map((v) => v(env)), (xs) => {
               const e2 = new Map(env);
               xs.forEach((x, j) => e2.set(o.ps[j], x));
               return body(e2);
             }, s.s, s.q);
           });
       }
-      function expr(caps: Capture[], t: HTerm, ty: HTerm | null,
+      function expr(caps: Capture[], t: Bend.HTerm, ty: Bend.HTerm | null,
         k: Kont): Open {
         if (term_const(t)) {
           return k(caps, mint_lift(t));
@@ -1086,16 +1083,16 @@ function carb_book(src: Book, roots: Name[]): Carb {
           if (p != null && caps.some((c) => c.p === p)) {
             return k(caps, mint_lift(p));
           }
-          const l = Let(["s"], [0], [t], (x: HTerm[]) => x[0],
-            undefined, [Many()]) as HLet;
+          const l = Bend.Let(["s"], [0], [t], (x: Bend.HTerm[]) => x[0],
+            undefined, [Bend.Many()]) as HLet;
           SHARE.set(t, term_lets(l).ps[0]);
-          return expr(caps, term_force(t), ty, (c2, v) =>
+          return expr(caps, Bend.term_force(t), ty, (c2, v) =>
             bound(c2, l, v, (c3, b) => k(c3, mint_lift(b))));
         }
-        const s = term_force(t);
+        const s = Bend.term_force(t);
         if (s.$ === "Ann") {
           return expr(caps, s.x, s.T, (c2, x) =>
-            k(c2, (env) => Ann(x(env), s.T, s.s)));
+            k(c2, (env) => Bend.Ann(x(env), s.T, s.s)));
         }
         const got = inl_at(cb, s);
         if (got !== null) {
@@ -1103,9 +1100,10 @@ function carb_book(src: Book, roots: Name[]): Carb {
         }
         if (call_is(cb, s) && call_fuse(cb, s) === null) {
           return apps(caps, s, (c2, c) => {
-            const l = Let(["h"], [0], [s], (x: HTerm[]) => x[0]) as HLet;
+            const l = Bend.Let(["h"], [0], [s],
+              (x: Bend.HTerm[]) => x[0]) as HLet;
             return bound(c2, l,
-              ty === null ? c : (env) => Ann(c(env), ty),
+              ty === null ? c : (env) => Bend.Ann(c(env), ty),
               (c3, b) => k(c3, mint_lift(b)), true);
           });
         }
@@ -1120,7 +1118,7 @@ function carb_book(src: Book, roots: Name[]): Carb {
           case "Ctr": {
             return many(caps, s.x.length,
               (c2, j, kx) => expr(c2, s.x[j], null, kx), (c2, xs) =>
-              k(c2, (env) => Ctr(s.k, xs.map((x) => x(env)), s.s)));
+              k(c2, (env) => Bend.Ctr(s.k, xs.map((x) => x(env)), s.s)));
           }
           case "Lam": {
             const all = ty_all(cb.book, ty)
@@ -1154,17 +1152,17 @@ function carb_book(src: Book, roots: Name[]): Carb {
           case "Efq": {
             const T = ty ?? die("an untyped match value");
             return k(caps, mint(cb, d, "c", caps, false, 0,
-              () => func(caps, Ann(s, T), null, 1), 1));
+              () => func(caps, Bend.Ann(s, T), null, 1), 1));
           }
           default: {
             return k(caps, mint_lift(s));
           }
         }
       }
-      out = func([], fr.e as HTerm, fr.T, live_doms(cb, fr).length)(EMPTY);
+      out = func([], fr.e as Bend.HTerm, fr.T, live_doms(cb, fr).length)(EMPTY);
     }
     book.tlds[d] = { ...tld, e: out };
-    const refs = new Set<Name>();
+    const refs = new Set<Bend.Name>();
     term_any(cb, out, (s) => {
       if (s.$ === "Ref") {
         if (s.b) {
@@ -1186,7 +1184,7 @@ function carb_book(src: Book, roots: Name[]): Carb {
 // Calm
 // ====
 
-function calm_func(cb: Carb, t: HTerm, ty0: HTerm | null): boolean {
+function calm_func(cb: Carb, t: Bend.HTerm, ty0: Bend.HTerm | null): boolean {
   const [s, ty] = ty_peel(t, ty0);
   const all = ty_all(cb.book, ty);
   if (s.$ === "Lam") {
@@ -1202,7 +1200,7 @@ function calm_func(cb: Carb, t: HTerm, ty0: HTerm | null): boolean {
   return !term_any(cb, s, (y) => y.$ === "Lam" || mat_head(y));
 }
 
-function calm_of(cb: Carb, t: HTerm): boolean {
+function calm_of(cb: Carb, t: Bend.HTerm): boolean {
   return calm_func(cb, t, null)
     && !term_any(cb, t, (s) => s.$ === "Let" && s.k.length >= 2);
 }
@@ -1210,7 +1208,7 @@ function calm_of(cb: Carb, t: HTerm): boolean {
 // Inl
 // ===
 
-function inl_calls(cb: Carb, t: HTerm, self?: Name): boolean {
+function inl_calls(cb: Carb, t: Bend.HTerm, self?: Bend.Name): boolean {
   return !term_any(cb, t, (s) => {
     const ck = call_kind(cb, s);
     return ck !== null && (ck.bang === true
@@ -1218,13 +1216,13 @@ function inl_calls(cb: Carb, t: HTerm, self?: Name): boolean {
   });
 }
 
-function inl_fit(cb: Carb, t: HTerm, self?: Name): boolean {
+function inl_fit(cb: Carb, t: Bend.HTerm, self?: Bend.Name): boolean {
   let size = 0;
   term_any(cb, t, (s) => s.$ !== "Ann" && (size += 1) > 128);
   return size <= 128 && calm_of(cb, t) && inl_calls(cb, t, self);
 }
 
-function inl_of(cb: Carb, k: Name): HTerm | null {
+function inl_of(cb: Carb, k: Bend.Name): Bend.HTerm | null {
   const got = cb.inl.get(k);
   if (got !== undefined) {
     return got;
@@ -1240,7 +1238,7 @@ function inl_of(cb: Carb, k: Name): HTerm | null {
   return out;
 }
 
-function inl_at(cb: Carb, t: HTerm): HTerm | null {
+function inl_at(cb: Carb, t: Bend.HTerm): Bend.HTerm | null {
   const m = term_spine(cb, t);
   if (m.t.$ !== "Ref") {
     return null;
@@ -1252,13 +1250,13 @@ function inl_at(cb: Carb, t: HTerm): HTerm | null {
   const live = live_doms(cb, pre).length;
   const intr = intr_of(cb, m.t.k) !== undefined;
   if (m.args.length < (intr ? live : live - 1)) {
-    return Ann(term_eta(t), ty_tele(cb.book, pre.T, m.all));
+    return Bend.Ann(term_eta(t), ty_tele(cb.book, pre.T, m.all));
   }
   if (m.t.b || intr || m.all.length !== pre.n) {
     return null;
   }
   const k = m.t.k;
-  const tld = carb_fresh(cb, k) as Def;
+  const tld = carb_fresh(cb, k) as Bend.Def;
   const raw = tld.e;
   if (raw === undefined || cb.inlrun.has(k)) {
     return null;
@@ -1272,30 +1270,32 @@ function inl_at(cb: Carb, t: HTerm): HTerm | null {
   }
   let fuel = 32;
   const sp = { ...tld, v: raw };
-  const tlds = { get [k](): TLD | undefined {
+  const tlds = { get [k](): Bend.TLD | undefined {
     return (fuel -= 1) >= 0 ? sp : undefined;
-  } } as Book["tlds"];
+  } } as Bend.Book["tlds"];
   const fb = { ...cb.book, tlds };
-  const out = term_wnf(fb, m.all.reduce((f, x) => App(f, x), m.t as HTerm));
-  const [h, hx] = term_unapply(term_strip(out));
+  const out = Bend.term_wnf(fb,
+    m.all.reduce((f, x) => Bend.App(f, x), m.t as Bend.HTerm));
+  const [h, hx] = Bend.term_unapply(Bend.term_strip(out));
   if ((h.$ === "Ref" && h.k === k && hx.length === tld.n)
     || !inl_calls(cb, out) || !calm_of(cb, out)) {
     return null;
   }
   inl_tally(cb, fb, out, new Set());
-  return Ann(out, ty_tele(cb.book, tld.T, m.all));
+  return Bend.Ann(out, ty_tele(cb.book, tld.T, m.all));
 }
 
-function inl_tally(cb: Carb, fb: Book, t: HTerm, seen: Set<HTerm>): void {
+function inl_tally(cb: Carb, fb: Bend.Book, t: Bend.HTerm,
+  seen: Set<Bend.HTerm>): void {
   if (t.$ === "Var" && t.i < 0) {
     if (seen.has(t)) {
       SHARE.set(t, SHARE.get(t) ?? null);
       return;
     }
     seen.add(t);
-    term_wnf(fb, t);
+    Bend.term_wnf(fb, t);
   }
-  const s = term_force(t);
+  const s = Bend.term_force(t);
   if (seen.has(s)) {
     return;
   }
@@ -1308,20 +1308,20 @@ function inl_tally(cb: Carb, fb: Book, t: HTerm, seen: Set<HTerm>): void {
 // Done
 // ====
 
-function done_live(tld: TLD | undefined): tld is Def {
+function done_live(tld: Bend.TLD | undefined): tld is Bend.Def {
   return tld?.$ === "Def" && tld.v !== null;
 }
 
-function done_defs(cb: Carb): [Name, Def][] {
-  return [...cb.done].map((k) => [k, cb.book.tlds[k]] as [Name, Def])
+function done_defs(cb: Carb): [Bend.Name, Bend.Def][] {
+  return [...cb.done].map((k) => [k, cb.book.tlds[k]] as [Bend.Name, Bend.Def])
     .filter((p) => done_live(p[1]));
 }
 
 // Brw
 // ===
 
-function brw_type(cb: Carb, A: HTerm): boolean {
-  const t = term_wnf(cb.book, A);
+function brw_type(cb: Carb, A: Bend.HTerm): boolean {
+  const t = Bend.term_wnf(cb.book, A);
   return t.$ === "ADT" && NATIVES[t.k] === undefined
     && !adt_triv(cb.book, A);
 }
@@ -1333,7 +1333,7 @@ function cid_mac(k: string): string {
   return `CID_${name_clean(k).toUpperCase()}`;
 }
 
-function cid_reg(fl: File, k: Name, abi = 0): string {
+function cid_reg(fl: File, k: Bend.Name, abi = 0): string {
   if (!fl.cids.has(k)) {
     const ctr = fl.book.ctrs[k];
     fl.cids.set(k, { packed: ctr_scalar1(fl.book, k),
@@ -1386,7 +1386,7 @@ function spare_flush(fl: File): void {
 // Bind
 // ====
 
-function bind_pop(fl: File, x: HTerm): string {
+function bind_pop(fl: File, x: Bend.HTerm): string {
   const p = probe_of(x);
   const b = fl.uses.get(p);
   if (b === undefined) {
@@ -1408,8 +1408,8 @@ function bind_pop(fl: File, x: HTerm): string {
   return b.local;
 }
 
-function bind_uses(fl: File, local: string, p: Probe, b: HTerm,
-  ty: HTerm | null, parts?: Parts): HTerm {
+function bind_uses(fl: File, local: string, p: Probe, b: Bend.HTerm,
+  ty: Bend.HTerm | null, parts?: Parts): Bend.HTerm {
   if (parts !== undefined && !parts.w) {
     local = emit_alias(fl, ctr_build(fl, parts.k, parts.vs), p.k);
     parts = undefined;
@@ -1441,7 +1441,7 @@ function seg_new(fl: File, name: string, seq: boolean,
   return seg;
 }
 
-function seg_fid(k: Name): string {
+function seg_fid(k: Bend.Name): string {
   return `FID_${name_clean(k).toUpperCase()}`;
 }
 
@@ -1466,19 +1466,19 @@ function node_fill(fl: File, k: string, alloc: string,
 // Eq
 // ==
 
-function eq_set(fl: File, t: HTerm): { p: Probe; ks: number[] } | null {
-  const st = term_strip(t);
+function eq_set(fl: File, t: Bend.HTerm): { p: Probe; ks: number[] } | null {
+  const st = Bend.term_strip(t);
   if (st.$ === "Let") {
-    const v = term_strip(st.v[0]);
+    const v = Bend.term_strip(st.v[0]);
     return st.k.length === 1 && v.$ === "Var" ? eq_set(fl, st.f([v])) : null;
   }
   const sp = term_spine(fl, t);
   if (sp.t.$ === "Ref" && sp.args.length === 1) {
     const b = inl_of(fl.cb, sp.t.k);
-    const w = b === null ? null : term_strip(b);
+    const w = b === null ? null : Bend.term_strip(b);
     if (w?.$ === "Mat") {
       const bs = Object.fromEntries(mat_arms(w).arms.map(([k2, h2]) =>
-        [k2, u32_from_term(h2)]));
+        [k2, Bend.u32_from_term(h2)]));
       if (bs.False === 0 && bs.True === 1) {
         return eq_set(fl, sp.args[0]);
       }
@@ -1495,10 +1495,10 @@ function eq_set(fl: File, t: HTerm): { p: Probe; ks: number[] } | null {
       ? { p: l.p, ks: [...l.ks, ...r.ks] } : null;
   }
   if (it === INTRINSICS.u32_is_eq) {
-    const vs = sp.args.map((a) => u32_from_term(a));
+    const vs = sp.args.map((a) => Bend.u32_from_term(a));
     for (const i of [0, 1]) {
       const w = vs[1 - i];
-      const xi = term_strip(sp.args[i]);
+      const xi = Bend.term_strip(sp.args[i]);
       if (xi.$ === "Var" && w !== null) {
         return { p: probe_of(xi), ks: [w] };
       }
@@ -1517,8 +1517,8 @@ function eq_mask(ks: number[]): { m: number; K: number } | null {
 // Sel
 // ===
 
-function sel_walk(fl: File, t: HTerm,
-  leaf: (x: HTerm) => boolean): boolean {
+function sel_walk(fl: File, t: Bend.HTerm,
+  leaf: (x: Bend.HTerm) => boolean): boolean {
   const m = term_spine(fl, t);
   if (m.t.$ === "Ref" && intr_of(fl, m.t.k)?.call === false) {
     return m.args.every((a) => sel_walk(fl, a, leaf));
@@ -1526,14 +1526,14 @@ function sel_walk(fl: File, t: HTerm,
   return leaf(t);
 }
 
-function sel_ok(fl: File, t: HTerm): boolean {
+function sel_ok(fl: File, t: Bend.HTerm): boolean {
   return sel_walk(fl, t, (y) => {
-    const x = term_strip(y);
+    const x = Bend.term_strip(y);
     if (x.$ === "Var") {
       const b = fl.uses.get(probe_of(x));
       return b?.triv === true && b.parts === undefined;
     }
-    return u32_from_term(x) !== null;
+    return Bend.u32_from_term(x) !== null;
   });
 }
 
@@ -1544,13 +1544,13 @@ function fuse_ban(ck: Call): boolean {
   return ck.bang === true || ck.k === CLO_APPLY;
 }
 
-function fuse_lends(fl: File, k: Name): boolean {
+function fuse_lends(fl: File, k: Bend.Name): boolean {
   return def_foreign(fl.book.tlds[k])
     || (fl.cb.brw.get(k) ?? []).some(Boolean);
 }
 
-function fuse_ret(fl: File, k: Name):
-  { rec: { k: Name; n: number } | null } | null {
+function fuse_ret(fl: File, k: Bend.Name):
+  { rec: { k: Bend.Name; n: number } | null } | null {
   const tld = fl.book.tlds[k];
   if (tld?.$ !== "Def" || tld.e === undefined) {
     return null;
@@ -1560,17 +1560,17 @@ function fuse_ret(fl: File, k: Name):
     return null;
   }
   const word = adt_triv(fl.book, tele.ret);
-  const adt = term_wnf(fl.book, tele.ret);
+  const adt = Bend.term_wnf(fl.book, tele.ret);
   const rt = adt.$ === "ADT" ? fl.book.tlds[adt.k] : undefined;
   const one = rt?.$ === "ADT" && rt.c.length === 1 ? rt.c[0] : null;
   const doms = one && ctr_doms(fl.book, one);
   const rec = word || doms === null || doms.length < 2 ? null
-    : { k: (one as Ctr).k, n: doms.length };
-  const ok = word || rec !== null || call_has(fl.cb, tld.e as HTerm);
+    : { k: (one as Bend.Ctr).k, n: doms.length };
+  const ok = word || rec !== null || call_has(fl.cb, tld.e as Bend.HTerm);
   return ok ? { rec } : null;
 }
 
-function fuse_lets(fl: File, s: HTerm, k: Name | null): boolean {
+function fuse_lets(fl: File, s: Bend.HTerm, k: Bend.Name | null): boolean {
   return s.$ === "Let" && s.v.some((v) => {
     const c2 = call_kind(fl, v);
     return c2 !== null && (c2.k === k || (call_fuse(fl, v) === null
@@ -1578,7 +1578,8 @@ function fuse_lets(fl: File, s: HTerm, k: Name | null): boolean {
   });
 }
 
-function fuse_deep(fl: File, k: Name, path: Map<Name, boolean>): boolean {
+function fuse_deep(fl: File, k: Bend.Name,
+  path: Map<Bend.Name, boolean>): boolean {
   const got = DEEPS.get(k) ?? path.get(k);
   if (got !== undefined) {
     return got;
@@ -1586,7 +1587,7 @@ function fuse_deep(fl: File, k: Name, path: Map<Name, boolean>): boolean {
   const tld = fl.book.tlds[k];
   path.set(k, false);
   const ok = tld?.$ === "Def" && tld.e !== undefined && !fuse_lends(fl, k)
-    && !term_any(fl, tld.e as HTerm, (s) => {
+    && !term_any(fl, tld.e as Bend.HTerm, (s) => {
       if ((s.$ === "Let" && s.k.length >= 2) || fuse_lets(fl, s, null)) {
         return true;
       }
@@ -1602,7 +1603,7 @@ function fuse_leaf(fl: File, ck: Call, dst: Dst): boolean {
   if (fuse_ban(ck) || inl_of(fl.cb, ck.k) === null) {
     return false;
   }
-  const tld = fl.book.tlds[ck.k] as Def;
+  const tld = fl.book.tlds[ck.k] as Bend.Def;
   const lent = fl.cb.brw.get(ck.k);
   const mine: string[] = [];
   const args: Arg[] = ck.args.map((a, j) => {
@@ -1616,7 +1617,7 @@ function fuse_leaf(fl: File, ck: Call, dst: Dst): boolean {
     }
     return local;
   });
-  emit_func(fl, tld.e as HTerm, tld.T, args, dst);
+  emit_func(fl, tld.e as Bend.HTerm, tld.T, args, dst);
   mine.forEach((l) => fl.brwl.delete(l));
   return true;
 }
@@ -1628,8 +1629,8 @@ function arg_term(fl: File, a: Arg): string {
   return typeof a === "string" ? a : ctr_build(fl, a.k, a.vs);
 }
 
-function arg_local(fl: File, a: HTerm): string {
-  return (fl.uses.get(term_strip(a) as Probe) as Bind).local;
+function arg_local(fl: File, a: Bend.HTerm): string {
+  return (fl.uses.get(Bend.term_strip(a) as Probe) as Bind).local;
 }
 
 function arg_lend(fl: File, ck: Call): string[] {
@@ -1638,8 +1639,8 @@ function arg_lend(fl: File, ck: Call): string[] {
     lent?.[j] ? arg_local(fl, a) : emit_expr(fl, a, null));
 }
 
-function arg_fuse(fl: File, a: HTerm): Arg {
-  const x = term_strip(a);
+function arg_fuse(fl: File, a: Bend.HTerm): Arg {
+  const x = Bend.term_strip(a);
   if (x.$ === "Var") {
     const b = fl.uses.get(probe_of(x));
     if (b?.parts !== undefined) {
@@ -1649,7 +1650,7 @@ function arg_fuse(fl: File, a: HTerm): Arg {
   const m = term_spine(fl, x);
   const it = m.t.$ === "Ref" ? intr_of(fl, m.t.k) : undefined;
   if (it?.parts !== undefined) {
-    const arr = native_of(fl.book, term_wnf(fl.book,
+    const arr = native_of(fl.book, Bend.term_wnf(fl.book,
       ty_ann(m.args[0]) ?? die("an untyped block")) as HAdt)
       === ARR_NATIVE ? "1" : "0";
     const as = emit_exprs(fl, m.args).map((z) => emit_alias(fl, z, "aw"));
@@ -1665,7 +1666,7 @@ function arg_fuse(fl: File, a: HTerm): Arg {
 // Emit
 // ====
 
-function emit_exprs(fl: File, xs: HTerm[]): string[] {
+function emit_exprs(fl: File, xs: Bend.HTerm[]): string[] {
   return xs.map((a) => emit_expr(fl, a, null));
 }
 
@@ -1718,7 +1719,7 @@ function emit_bang(fl: File, ck: Call, args: string[]): void {
   file_push(fl, `return term_tsk(${fid}, ${emit_task(fl, fid, 0, args)});`);
 }
 
-function emit_jump(fl: File, args: string[], k: Name): void {
+function emit_jump(fl: File, args: string[], k: Bend.Name): void {
   if (fl.seg.def !== k) {
     args.forEach((a, i) => file_push(fl, `r${i} = ${a};`));
     return file_push(fl, `WL_JMP(${seg_ref(fl, seg_fid(k))});`);
@@ -1760,7 +1761,7 @@ function emit_put(fl: File, dst: Dst, e: string): void {
   }
 }
 
-function emit_open(fl: File, x: HLet): HTerm {
+function emit_open(fl: File, x: HLet): Bend.HTerm {
   const o = term_lets(x);
   x.k.forEach((k, j) => {
     const name = name_local(fl, k);
@@ -1770,7 +1771,7 @@ function emit_open(fl: File, x: HLet): HTerm {
   return o.b;
 }
 
-function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): string {
+function emit_expr(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null): string {
   const [x, ty] = ty_peel(tm, ty0);
   switch (x.$) {
     case "Var": return bind_pop(fl, x);
@@ -1798,7 +1799,7 @@ function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): string {
         if (tld?.$ === "Def" && tld.v === null && tld.i === undefined) {
           die(`a live call into the assert ${g.k}`);
         }
-        if (m.args.length !== def_live(fl, tld as Def) - 1) {
+        if (m.args.length !== def_live(fl, tld as Bend.Def) - 1) {
           die("an under-applied def value: " + g.k);
         }
         const fid = seg_ref(fl, seg_fid(g.k));
@@ -1836,12 +1837,12 @@ function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): string {
   }
 }
 
-function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
+function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
   args: Arg[], dst: Dst): void {
   const [x, ty] = ty_peel(tm, ty0);
   switch (x.$) {
     case "Lam": {
-      const all = term_wnf(fl.book, ty as HTerm) as HAll;
+      const all = Bend.term_wnf(fl.book, ty as Bend.HTerm) as HAll;
       if (!quant_live(all.q)) {
         return emit_func(fl, x.f(DUMMY), all.B(DUMMY), args, dst);
       }
@@ -1866,9 +1867,9 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
       if (x.$ === "Efq") {
         return emit_stuck(fl);
       }
-      const all = term_wnf(fl.book, ty as HTerm) as HAll;
-      const adt = term_wnf(fl.book, all.A) as HAdt;
-      const total = book_adt(fl.book, adt, Emp()).c.length;
+      const all = Bend.term_wnf(fl.book, ty as Bend.HTerm) as HAll;
+      const adt = Bend.term_wnf(fl.book, all.A) as HAdt;
+      const total = Bend.book_adt(fl.book, adt, Bend.Emp()).c.length;
       if (adt.k === "IO.OP") {
         block(fl, `if (term_aux(${s}) > CID_HALT) {`, () => emit_stuck(fl));
       }
@@ -1890,9 +1891,9 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
         }
       }
       if (adt.k === "Nat" && ty_w32(fl.book, all.B(DUMMY))) {
-        const tab_ok = (t: HTerm): boolean => sel_walk(fl, t, term_const);
-        const ls: HTerm[] = [];
-        let m = term_strip(x);
+        const tab_ok = (t: Bend.HTerm): boolean => sel_walk(fl, t, term_const);
+        const ls: Bend.HTerm[] = [];
+        let m = Bend.term_strip(x);
         while (m.$ === "Mat") {
           const { arms, end } = mat_arms(m);
           const { Zero, Succ } = Object.fromEntries(arms);
@@ -1900,7 +1901,7 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
             break;
           }
           ls.push(Zero);
-          m = term_strip(Succ);
+          m = Bend.term_strip(Succ);
         }
         if (m.$ !== "Mat") {
           ls.push(m.$ === "Lam" ? term_open(m).b : m);
@@ -1922,13 +1923,13 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
       const hs = arms.map(([, h]) => h);
       const emits = arms.map(([k, h]) => () => arm_emit(h, k));
       if (end !== null || arms.length < total) {
-        const last: HTerm = end ?? Efq();
+        const last: Bend.HTerm = end ?? Bend.Efq();
         hs.push(last);
         emits.push(() => fin(last, [s, ...rest]));
       }
       const mx_of = (p: Probe) => hs.reduce((m, h) =>
         Math.max(m, term_use(term_uses(fl.cb, h), p)), 0);
-      function fin(h2: HTerm, args: string[]) {
+      function fin(h2: Bend.HTerm, args: string[]) {
         for (const [p, b] of [...fl.uses]) {
           const use = term_use(term_uses(fl.cb, h2), p);
           if (b.owed !== Infinity && mx_of(p) > use) {
@@ -1944,7 +1945,7 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
         }
         emit_func(fl, h2, null, args, dst);
       }
-      function arm_emit(h: HTerm, k: Name) {
+      function arm_emit(h: Bend.HTerm, k: Bend.Name) {
         let fexprs: string[];
         if (native !== undefined) {
           fexprs = (native.elim?.[k] ?? []).map((t) => tpl(t)([s]));
@@ -1970,7 +1971,7 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
         }
         const fields = emit_hold(fl, fexprs, "f");
         if (brw) {
-          ctr_doms(fl.book, fl.book.ctrs[k] as Ctr).forEach((A, j) => {
+          ctr_doms(fl.book, fl.book.ctrs[k] as Bend.Ctr).forEach((A, j) => {
             if (!adt_triv(fl.book, A)) {
               fl.brwl.add(fields[j]);
             }
@@ -2066,9 +2067,9 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
         if (fr === null) {
           return emit_call(fl, vc, km);
         }
-        const tld = fl.book.tlds[vc.k] as Def;
-        const jt = fl.book.tlds[km.k] as Def;
-        const body = tld.e as HTerm;
+        const tld = fl.book.tlds[vc.k] as Bend.Def;
+        const jt = fl.book.tlds[km.k] as Bend.Def;
+        const body = tld.e as Bend.HTerm;
         const pure = memo(PURES, body, () => !term_any(fl, body, (s) => {
           if (fuse_lets(fl, s, vc.k)) {
             return true;
@@ -2083,7 +2084,7 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
         const rec = fr.rec;
         const sp = term_any(fl, body, (s) => call_kind(fl, s)?.k === vc.k)
           ? emit_hold(fl, emit_exprs(fl, vc.args), "p") : null;
-        const ps = sp ?? vc.args.map((a) => term_strip(a).$ === "Var"
+        const ps = sp ?? vc.args.map((a) => Bend.term_strip(a).$ === "Var"
           ? emit_expr(fl, a, null) : arg_fuse(fl, a));
         const caps = emit_exprs(fl, km.args.slice(0, -1));
         const vs = emit_hold(fl,
@@ -2124,7 +2125,7 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
         } else {
           emit_func(fl, body, tld.T, ps, vs);
         }
-        emit_func(fl, jt.e as HTerm, jt.T,
+        emit_func(fl, jt.e as Bend.HTerm, jt.T,
           [...caps, rec === null ? vs[0] : { k: rec.k, vs, w: true }], dst);
         return;
       }
@@ -2138,14 +2139,14 @@ function emit_func(fl: File, tm: HTerm, ty0: HTerm | null,
         }
         if (!fuse_ban(ck) && !fuse_lends(fl, ck.k)
           && (dst === null || fuse_deep(fl, ck.k, new Map()))) {
-          const tld = fl.book.tlds[ck.k] as Def;
-          const body = tld.e as HTerm;
+          const tld = fl.book.tlds[ck.k] as Bend.Def;
+          const body = tld.e as Bend.HTerm;
           const loop = fl.fusing.has(ck.k)
             || term_any(fl, body, (s) => call_kind(fl, s)?.k === ck.k);
           if (!loop
             && !term_any(fl, body, (s) => s.$ === "Let" && s.k.length >= 2)
             && (dst !== null
-            || (!(term_strip(body).$ === "Mat" && term_const(ck.args[0]))
+            || (!(Bend.term_strip(body).$ === "Mat" && term_const(ck.args[0]))
             && call_has(fl.cb, body)))) {
             const args = ck.args.map((a) => arg_fuse(fl, a));
             fl.fusing.add(ck.k);
@@ -2252,12 +2253,12 @@ function width_fold(text: string, cee: boolean): string {
 // Compile
 // =======
 
-export function compile_book(book: Book): string {
+export function compile_book(book: Bend.Book): string {
   if (io_type(book) === null) {
     die("main must answer IO<T>");
   }
   const cb = carb_book(book, ["main"]);
-  const brw_scan = (k: Name) => {
+  const brw_scan = (k: Bend.Name) => {
     memo_gc();
     const roots = new Map<Probe, Root>();
     let hit = false;
@@ -2271,7 +2272,7 @@ export function compile_book(book: Book): string {
         hit = true;
       }
     };
-    const guard = (t: HTerm) => {
+    const guard = (t: Bend.HTerm) => {
       term_any(cb, t, (s) => {
         if (s.$ === "Var") {
           flip(roots.get(probe_of(s)) ?? null);
@@ -2282,11 +2283,11 @@ export function compile_book(book: Book): string {
         return false;
       });
     };
-    const site = (t: HTerm, ct: HTerm | null) => {
+    const site = (t: Bend.HTerm, ct: Bend.HTerm | null) => {
       const ck = call_kind(cb, t) as Call;
       const lent = cb.brw.get(ck.k);
       ck.args.forEach((a, j) => {
-        const v = term_strip(a);
+        const v = Bend.term_strip(a);
         if (!lent?.[j] || v.$ !== "Var") {
           if (lent?.[j]) {
             flip([ck.k, j]);
@@ -2295,14 +2296,14 @@ export function compile_book(book: Book): string {
         }
         const p = probe_of(v);
         const held = ct !== null
-          && term_spine(cb, ct).args.some((z) => term_strip(z) === p);
+          && term_spine(cb, ct).args.some((z) => Bend.term_strip(z) === p);
         if (!roots.has(p) && !held) {
           flip([ck.k, j]);
         }
       });
     };
-    const leaf = (t: HTerm) => {
-      const x = term_strip(t);
+    const leaf = (t: Bend.HTerm) => {
+      const x = Bend.term_strip(t);
       if (x.$ === "Let") {
         const o = term_lets(x);
         if (x.k.length >= 2) {
@@ -2323,8 +2324,8 @@ export function compile_book(book: Book): string {
       }
       return guard(x);
     };
-    const walk = (t: HTerm, plan: (Root | null)[]) => {
-      const x = term_strip(t);
+    const walk = (t: Bend.HTerm, plan: (Root | null)[]) => {
+      const x = Bend.term_strip(t);
       if (x.$ === "Lam") {
         const o = term_open(x);
         const r = plan[0] ?? null;
@@ -2357,9 +2358,9 @@ export function compile_book(book: Book): string {
         walk(end, plan);
       }
     };
-    const tld = cb.book.tlds[k] as Def;
+    const tld = cb.book.tlds[k] as Bend.Def;
     let i = -1;
-    walk(tld.e as HTerm, def_get_params(cb.book, tld)
+    walk(tld.e as Bend.HTerm, def_get_params(cb.book, tld)
       .map(([q]) => (quant_live(q) && (cb.brw.get(k) as boolean[])[(i += 1)]
         ? [k, i] : null)));
     return hit;
@@ -2374,8 +2375,8 @@ export function compile_book(book: Book): string {
     }
   }
   const keeps = new Set<string>();
-  const sites: (HTerm | null)[] = [];
-  const held = (B: HTerm | null, force = false) => {
+  const sites: (Bend.HTerm | null)[] = [];
+  const held = (B: Bend.HTerm | null, force = false) => {
     const w = ty_wnf(cb.book, B);
     if (w?.$ === "Lam") {
       held(w.f(DUMMY), force);
@@ -2404,7 +2405,7 @@ export function compile_book(book: Book): string {
       }
     }
   };
-  const site = (A: HTerm | null, n: number) => {
+  const site = (A: Bend.HTerm | null, n: number) => {
     sites.push(A);
     const w = ty_wnf(cb.book, A);
     if (n <= 1 || adt_triv(cb.book, A)) {
@@ -2416,7 +2417,7 @@ export function compile_book(book: Book): string {
       cb.clo = true;
     }
   };
-  const scan = (t: HTerm, ty0: HTerm | null): void => {
+  const scan = (t: Bend.HTerm, ty0: Bend.HTerm | null): void => {
     const [s, ty] = ty_peel(t, ty0);
     if (s.$ === "Let") {
       const o = term_lets(s);
@@ -2446,7 +2447,7 @@ export function compile_book(book: Book): string {
   };
   for (const [, tld] of done_defs(cb)) {
     memo_gc();
-    scan(tld.e as HTerm, tld.T);
+    scan(tld.e as Bend.HTerm, tld.T);
   }
   for (let seen = -1; seen < keeps.size + Number(cb.clo);) {
     seen = keeps.size + Number(cb.clo);
@@ -2499,7 +2500,7 @@ export function compile_book(book: Book): string {
       }
       return ty_w32(fl.book, A) ? "u32" : null;
     });
-    emit_func(fl, tld.e as HTerm, tld.T, params, null);
+    emit_func(fl, tld.e as Bend.HTerm, tld.T, params, null);
   }
   const seen = new Set<string>();
   fl.reqs += eff_src(new URL("./effs/sys.c", import.meta.url).pathname, seen);
@@ -2561,10 +2562,10 @@ export function compile_book(book: Book): string {
   };
   table("FID_ARITY_T", entries.map((s) => s.params.length));
   table("FID_BANGS_T", entries.map((s) => Number(cb.bangs.has(s.def))));
-  const nofk = new Set<Name>();
+  const nofk = new Set<Bend.Name>();
   for (const [k, tld] of done_defs(cb)) {
     memo_gc();
-    if (!term_any(cb, tld.e as HTerm, (s) =>
+    if (!term_any(cb, tld.e as Bend.HTerm, (s) =>
       (s.$ === "Let" && s.k.length >= 2
         && s.v.every((v) => call_kind(cb, v) !== null))
         || call_kind(cb, s)?.k === CLO_APPLY)) {
@@ -2645,21 +2646,22 @@ export function compile_book(book: Book): string {
 // Js
 // ==
 
-function js_fresh(fl: Js, k: Name): string {
+function js_fresh(fl: Js, k: Bend.Name): string {
   const n = fl.fresh.get(k) ?? 0;
   fl.fresh.set(k, n + 1);
   return k.replace(/\./g, "$") + "$" + n;
 }
 
-function js_sat(k: Name): string {
+function js_sat(k: Bend.Name): string {
   return "$" + k.replace(/\./g, "$") + "$";
 }
 
-function js_intr(book: Book, k: Name): Gen | null {
+function js_intr(book: Bend.Book, k: Bend.Name): Gen | null {
   return def_own(book.tlds[k]) ? JS_INTRINSICS[eff_name(k)] ?? null : null;
 }
 
-function js_call(fl: Js, k: Name, args: HTerm[], tail: boolean): string {
+function js_call(fl: Js, k: Bend.Name, args: Bend.HTerm[],
+  tail: boolean): string {
   let exprs = args.map((x) => js_expr(fl, x, null));
   if (k === CLO_APPLY) {
     const [f, x] = exprs;
@@ -2697,20 +2699,20 @@ function js_call(fl: Js, k: Name, args: HTerm[], tail: boolean): string {
   return pre + "run_loop(" + js_sat(k) + "(" + all + "))";
 }
 
-function js_open(fl: Js, x: HLet): HTerm {
-  return x.f(x.v.map((v, j): HTerm => {
+function js_open(fl: Js, x: HLet): Bend.HTerm {
+  return x.f(x.v.map((v, j): Bend.HTerm => {
     if (!quant_live(x.q[j])) {
       return v;
     }
     const ck = call_kind(fl.cb, v);
     const e = ck === null ? js_expr(fl, v, null)
       : js_call(fl, ck.k, ck.args, false);
-    return Var(emit_hold(fl, [e], x.k[j])[0], 0);
+    return Bend.Var(emit_hold(fl, [e], x.k[j])[0], 0);
   }));
 }
 
-function js_expr(fl: Js, tm: HTerm,
-  ty0: HTerm | null): string {
+function js_expr(fl: Js, tm: Bend.HTerm,
+  ty0: Bend.HTerm | null): string {
   const [x, ty] = ty_peel(tm, ty0);
   switch (x.$) {
     case "Var": return x.k;
@@ -2755,20 +2757,20 @@ function js_expr(fl: Js, tm: HTerm,
   }
 }
 
-function js_func(fl: Js, tm: HTerm, ty0: HTerm | null,
+function js_func(fl: Js, tm: Bend.HTerm, ty0: Bend.HTerm | null,
   args: string[]): void {
   const [x, ty] = ty_peel(tm, ty0);
   if (x.$ === "Lam") {
     const all = ty_all(fl.book, ty)
       ?? die("a Lam without a function-typed Ann");
     if (!quant_live(all.q)) {
-      const nul: HTerm = Var("null", 0);
+      const nul: Bend.HTerm = Bend.Var("null", 0);
       return js_func(fl, x.f(nul), all.B(nul), args);
     }
     if (args.length === 0) {
       die("a function layer past its arity");
     }
-    const v: HTerm = Var(emit_alias(fl, args[0], x.k), 0);
+    const v: Bend.HTerm = Bend.Var(emit_alias(fl, args[0], x.k), 0);
     return js_func(fl, x.f(v), all.B(v), args.slice(1));
   }
   if (mat_head(x)) {
@@ -2780,20 +2782,20 @@ function js_func(fl: Js, tm: HTerm, ty0: HTerm | null,
     const rest = args.slice(1);
     const all = ty_all(fl.book, ty)
       ?? die("a match without a function-typed Ann");
-    const adt = term_wnf(fl.book, all.A);
+    const adt = Bend.term_wnf(fl.book, all.A);
     if (adt.$ !== "ADT") {
       die("a non-datatype match scrutinee");
     }
     const { arms, end } = mat_arms(x);
-    const total = book_adt(fl.book, adt, Emp()).c.length;
+    const total = Bend.book_adt(fl.book, adt, Bend.Emp()).c.length;
     if (adt.k === "IO.OP") {
       block(fl, "if (" + s + ".$ === \"$FFI\") {", () => {
         file_push(fl, "throw " + s + ";");
       });
     }
-    const last = arms.length === total ? null : end ?? Efq();
+    const last = arms.length === total ? null : end ?? Bend.Efq();
     const native = JS_NATIVES[adt.k];
-    const arm = (h: HTerm, k: Name): void => {
+    const arm = (h: Bend.HTerm, k: Bend.Name): void => {
       const ctr = fl.book.ctrs[k] ?? die("unknown constructor: " + k);
       const live = ctr_doms(fl.book, ctr).length;
       let fields: string[];
@@ -2832,7 +2834,7 @@ function js_func(fl: Js, tm: HTerm, ty0: HTerm | null,
     : js_call(fl, ck.k, ck.args, true)) + ";");
 }
 
-function js_def(fl: Js, k: Name, def: Def): void {
+function js_def(fl: Js, k: Bend.Name, def: Bend.Def): void {
   fl.fresh = new Map();
   if (js_intr(fl.book, k.split("$")[0]) !== null) {
     return;
@@ -2854,8 +2856,8 @@ function js_def(fl: Js, k: Name, def: Def): void {
   file_push(fl, "");
 }
 
-function js_text(book: Book): string {
-  const roots: Name[] = [];
+function js_text(book: Bend.Book): string {
+  const roots: Bend.Name[] = [];
   if (book.tlds["main"] !== undefined) {
     roots.push("main");
   } else {
@@ -2919,7 +2921,7 @@ function js_text(book: Book): string {
   return out;
 }
 
-export function js_book(book: Book): string {
+export function js_book(book: Bend.Book): string {
   return js_text(book) + (book.tlds["main"] === undefined ? ""
     : "\ncli(process.argv.slice(2));\nio_exit(" + js_sat("main") + ");");
 }
@@ -5121,24 +5123,24 @@ function cli(): void {
     cli_fail("too many arguments");
   }
 
-  const book = book_nil();
+  const book = Bend.book_nil();
   try {
-    book_load(book, path, "", new Map());
-    book_valid(book);
+    Bend.book_load(book, path, "", new Map());
+    Bend.book_valid(book);
     if (to !== undefined) {
       const emit = to.endsWith(".c") ? compile_book : js_book;
-      writeFileSync(to, emit(book));
+      fs.writeFileSync(to, emit(book));
     } else if (book.tlds["main"] !== undefined) {
       if (io_type(book) !== null) {
         process.exit(io_run(book));
       } else {
-        const snf = term_snf(book, Ref("main"));
-        console.log(term_show(term_lower(snf)));
+        const snf = Bend.term_snf(book, Bend.Ref("main"));
+        console.log(Bend.term_show(Bend.term_lower(snf)));
       }
     }
   } catch (e) {
-    if (e !== null && typeof e === "object" && (e as Err).$ === "Err") {
-      console.log(err_show(e as Err));
+    if (e !== null && typeof e === "object" && (e as Bend.Err).$ === "Err") {
+      console.log(Bend.err_show(e as Bend.Err));
     } else {
       console.log(String(e));
     }

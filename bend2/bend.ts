@@ -147,8 +147,8 @@
 // subject reduction, progress, weak normalization of closed live
 // terms, no closed live inhabitant of Empty.
 
-import { readFileSync, realpathSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import * as fs from "node:fs";
+import * as url from "node:url";
 
 // Core
 // ====
@@ -944,10 +944,10 @@ export function book_adt(book: Book, tm: Extract<HTerm, { $: "ADT" }>, ctx: Ctx,
   return { $: "ADT", n: tld.n, g: tld.g, T: tld.T, c: tld.c.filter((c) => !tm.r.includes(c.k)) };
 }
 
-const BASE_BEND = realpathSync(fileURLToPath(new URL("./base.bend", import.meta.url)));
+const BASE_BEND = fs.realpathSync(url.fileURLToPath(new URL("./base.bend", import.meta.url)));
 
 export function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>): void {
-  const real = realpathSync(file);
+  const real = fs.realpathSync(file);
   const done = seen.get(real);
   if (done === null) {
     throw Err(book, ctx_nil(), "an acyclic import graph (a cycle reaches " + file + ")");
@@ -960,7 +960,7 @@ export function book_load(book: Book, file: string, ns: string, seen: Map<string
   }
   seen.set(real, null);
   const dir   = file.slice(0, file.lastIndexOf("/") + 1);
-  const lines = readFileSync(file, "utf8").split("\n");
+  const lines = fs.readFileSync(file, "utf8").split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     const m = line.match(/^import(\s.*|)$/);
