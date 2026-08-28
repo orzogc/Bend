@@ -4,6 +4,7 @@
   .title { font-size: 21.8px; font-weight: 600; }
   .value { font-size: 18.1px; }
   .name  { font-size: 16.7px; }
+  .sub   { font-size: 13.8px; }
   .note  { font-size: 27.6px; opacity: 0.9; }
 </style>
 <text x="213" y="31.9" text-anchor="middle" class="title">gameoflife</text>
@@ -20,15 +21,15 @@
 <path d="M 220 257.3 L 220 217.1 Q 220 212.1 225 212.1 L 269 212.1 Q 274 212.1 274 217.1 L 274 257.3 Z" fill="#1a4f8a"/>
 <text x="247" y="201.9" text-anchor="middle" class="value" style="fill: #1a4f8a">5.48s</text>
 <text x="247" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="247" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="247" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 288 257.3 L 288 255.3 Q 288 253.3 290 253.3 L 340 253.3 Q 342 253.3 342 255.3 L 342 257.3 Z" fill="#1a4f8a"/>
 <text x="315" y="243.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.48s</text>
 <text x="315" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="315" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="315" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 356 257.3 L 356 255.8 Q 356 254.3 357.5 254.3 L 408.5 254.3 Q 410 254.3 410 255.8 L 410 257.3 Z" fill="#1a4f8a"/>
 <text x="383" y="244.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.06s</text>
 <text x="383" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="383" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="383" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="651" y="31.9" text-anchor="middle" class="title">nbody</text>
 <line x1="454" y1="257.3" x2="848" y2="257.3" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 454 257.3 L 454 113.7 Q 454 108.7 459 108.7 L 503 108.7 Q 508 108.7 508 113.7 L 508 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -43,15 +44,15 @@
 <path d="M 658 257.3 L 658 125.3 Q 658 120.3 663 120.3 L 707 120.3 Q 712 120.3 712 125.3 L 712 257.3 Z" fill="#1a4f8a"/>
 <text x="685" y="110.1" text-anchor="middle" class="value" style="fill: #1a4f8a">4.96s</text>
 <text x="685" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="685" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="685" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 726 257.3 L 726 249.9 Q 726 244.9 731 244.9 L 775 244.9 Q 780 244.9 780 249.9 L 780 257.3 Z" fill="#1a4f8a"/>
 <text x="753" y="234.8" text-anchor="middle" class="value" style="fill: #1a4f8a">0.45s</text>
 <text x="753" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="753" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="753" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 794 257.3 L 794 255.8 Q 794 254.3 795.5 254.3 L 846.5 254.3 Q 848 254.3 848 255.8 L 848 257.3 Z" fill="#1a4f8a"/>
 <text x="821" y="244.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.06s</text>
 <text x="821" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="821" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="821" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="1089" y="31.9" text-anchor="middle" class="title">merkle</text>
 <line x1="892" y1="257.3" x2="1286" y2="257.3" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 892 257.3 L 892 112.3 Q 892 107.3 897 107.3 L 941 107.3 Q 946 107.3 946 112.3 L 946 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -66,15 +67,15 @@
 <path d="M 1096 257.3 L 1096 173.6 Q 1096 168.6 1101 168.6 L 1145 168.6 Q 1150 168.6 1150 173.6 L 1150 257.3 Z" fill="#1a4f8a"/>
 <text x="1123" y="158.4" text-anchor="middle" class="value" style="fill: #1a4f8a">4.25s</text>
 <text x="1123" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1123" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="1123" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 1164 257.3 L 1164 253 Q 1164 248.7 1168.3 248.7 L 1213.7 248.7 Q 1218 248.7 1218 253 L 1218 257.3 Z" fill="#1a4f8a"/>
 <text x="1191" y="238.5" text-anchor="middle" class="value" style="fill: #1a4f8a">0.41s</text>
 <text x="1191" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1191" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="1191" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 1232 257.3 L 1232 255.8 Q 1232 254.3 1233.5 254.3 L 1284.5 254.3 Q 1286 254.3 1286 255.8 L 1286 257.3 Z" fill="#1a4f8a"/>
 <text x="1259" y="244.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.08s</text>
 <text x="1259" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1259" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="1259" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="1527" y="31.9" text-anchor="middle" class="title">mandelbrot</text>
 <line x1="1330" y1="257.3" x2="1724" y2="257.3" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 1330 257.3 L 1330 147.8 Q 1330 142.8 1335 142.8 L 1379 142.8 Q 1384 142.8 1384 147.8 L 1384 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -89,15 +90,15 @@
 <path d="M 1534 257.3 L 1534 112.3 Q 1534 107.3 1539 107.3 L 1583 107.3 Q 1588 107.3 1588 112.3 L 1588 257.3 Z" fill="#1a4f8a"/>
 <text x="1561" y="97.1" text-anchor="middle" class="value" style="fill: #1a4f8a">4.94s</text>
 <text x="1561" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1561" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="1561" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 1602 257.3 L 1602 249.2 Q 1602 244.2 1607 244.2 L 1651 244.2 Q 1656 244.2 1656 249.2 L 1656 257.3 Z" fill="#1a4f8a"/>
 <text x="1629" y="234.0" text-anchor="middle" class="value" style="fill: #1a4f8a">0.43s</text>
 <text x="1629" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1629" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="1629" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 1670 257.3 L 1670 255.8 Q 1670 254.3 1671.5 254.3 L 1722.5 254.3 Q 1724 254.3 1724 255.8 L 1724 257.3 Z" fill="#1a4f8a"/>
 <text x="1697" y="244.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.08s</text>
 <text x="1697" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1697" y="308.1" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="1697" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="213" y="366.0" text-anchor="middle" class="title">terrain</text>
 <line x1="16" y1="591.45" x2="410" y2="591.45" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 16 591.5 L 16 488.2 Q 16 483.2 21 483.2 L 65 483.2 Q 70 483.2 70 488.2 L 70 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -112,15 +113,15 @@
 <path d="M 220 591.5 L 220 540.7 Q 220 535.7 225 535.7 L 269 535.7 Q 274 535.7 274 540.7 L 274 591.5 Z" fill="#1a4f8a"/>
 <text x="247" y="525.6" text-anchor="middle" class="value" style="fill: #1a4f8a">2.94s</text>
 <text x="247" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="247" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="247" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 288 591.5 L 288 589.0500000000001 Q 288 586.6 290.45 586.6 L 339.55 586.6 Q 342 586.6 342 589.0500000000001 L 342 591.5 Z" fill="#1a4f8a"/>
 <text x="315" y="576.5" text-anchor="middle" class="value" style="fill: #1a4f8a">0.26s</text>
 <text x="315" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="315" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="315" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 356 591.5 L 356 590 Q 356 588.5 357.5 588.5 L 408.5 588.5 Q 410 588.5 410 590 L 410 591.5 Z" fill="#1a4f8a"/>
 <text x="383" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.13s</text>
 <text x="383" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="383" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="383" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="651" y="366.0" text-anchor="middle" class="title">bitonic</text>
 <line x1="454" y1="591.45" x2="848" y2="591.45" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 454 591.5 L 454 446.5 Q 454 441.5 459 441.5 L 503 441.5 Q 508 441.5 508 446.5 L 508 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -135,15 +136,15 @@
 <path d="M 658 591.5 L 658 569.2 Q 658 564.2 663 564.2 L 707 564.2 Q 712 564.2 712 569.2 L 712 591.5 Z" fill="#1a4f8a"/>
 <text x="685" y="554.1" text-anchor="middle" class="value" style="fill: #1a4f8a">5.88s</text>
 <text x="685" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="685" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="685" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 726 591.5 L 726 590 Q 726 588.5 727.5 588.5 L 778.5 588.5 Q 780 588.5 780 590 L 780 591.5 Z" fill="#1a4f8a"/>
 <text x="753" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.59s</text>
 <text x="753" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="753" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="753" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 794 591.5 L 794 590 Q 794 588.5 795.5 588.5 L 846.5 588.5 Q 848 588.5 848 590 L 848 591.5 Z" fill="#1a4f8a"/>
 <text x="821" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.42s</text>
 <text x="821" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="821" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="821" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="1089" y="366.0" text-anchor="middle" class="title">raytrace</text>
 <line x1="892" y1="591.45" x2="1286" y2="591.45" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 892 591.5 L 892 446.5 Q 892 441.5 897 441.5 L 941 441.5 Q 946 441.5 946 446.5 L 946 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -158,15 +159,15 @@
 <path d="M 1096 591.5 L 1096 556.1 Q 1096 551.1 1101 551.1 L 1145 551.1 Q 1150 551.1 1150 556.1 L 1150 591.5 Z" fill="#1a4f8a"/>
 <text x="1123" y="541.0" text-anchor="middle" class="value" style="fill: #1a4f8a">6.17s</text>
 <text x="1123" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1123" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="1123" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 1164 591.5 L 1164 589.75 Q 1164 588 1165.75 588 L 1216.25 588 Q 1218 588 1218 589.75 L 1218 591.5 Z" fill="#1a4f8a"/>
 <text x="1191" y="577.9" text-anchor="middle" class="value" style="fill: #1a4f8a">0.53s</text>
 <text x="1191" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1191" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="1191" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 1232 591.5 L 1232 590 Q 1232 588.5 1233.5 588.5 L 1284.5 588.5 Q 1286 588.5 1286 590 L 1286 591.5 Z" fill="#1a4f8a"/>
 <text x="1259" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.18s</text>
 <text x="1259" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1259" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="1259" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="1527" y="366.0" text-anchor="middle" class="title">kmeans</text>
 <line x1="1330" y1="591.45" x2="1724" y2="591.45" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 1330 591.5 L 1330 446.5 Q 1330 441.5 1335 441.5 L 1379 441.5 Q 1384 441.5 1384 446.5 L 1384 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -181,15 +182,15 @@
 <path d="M 1534 591.5 L 1534 577.3 Q 1534 572.3 1539 572.3 L 1583 572.3 Q 1588 572.3 1588 577.3 L 1588 591.5 Z" fill="#1a4f8a"/>
 <text x="1561" y="562.1" text-anchor="middle" class="value" style="fill: #1a4f8a">2.20s</text>
 <text x="1561" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1561" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="1561" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 1602 591.5 L 1602 590 Q 1602 588.5 1603.5 588.5 L 1654.5 588.5 Q 1656 588.5 1656 590 L 1656 591.5 Z" fill="#1a4f8a"/>
 <text x="1629" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.24s</text>
 <text x="1629" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1629" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="1629" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 1670 591.5 L 1670 590 Q 1670 588.5 1671.5 588.5 L 1722.5 588.5 Q 1724 588.5 1724 590 L 1724 591.5 Z" fill="#1a4f8a"/>
 <text x="1697" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.18s</text>
 <text x="1697" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1697" y="642.2" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="1697" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="213" y="700.2" text-anchor="middle" class="title">matmul</text>
 <line x1="16" y1="925.5999999999999" x2="410" y2="925.5999999999999" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 16 925.6 L 16 780.6 Q 16 775.6 21 775.6 L 65 775.6 Q 70 775.6 70 780.6 L 70 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -204,15 +205,15 @@
 <path d="M 220 925.6 L 220 889.7 Q 220 884.7 225 884.7 L 269 884.7 Q 274 884.7 274 889.7 L 274 925.6 Z" fill="#1a4f8a"/>
 <text x="247" y="874.6" text-anchor="middle" class="value" style="fill: #1a4f8a">3.02s</text>
 <text x="247" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="247" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="247" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 288 925.6 L 288 923.75 Q 288 921.9 289.85 921.9 L 340.15 921.9 Q 342 921.9 342 923.75 L 342 925.6 Z" fill="#1a4f8a"/>
 <text x="315" y="911.8" text-anchor="middle" class="value" style="fill: #1a4f8a">0.27s</text>
 <text x="315" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="315" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="315" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 356 925.6 L 356 924.1 Q 356 922.6 357.5 922.6 L 408.5 922.6 Q 410 922.6 410 924.1 L 410 925.6 Z" fill="#1a4f8a"/>
 <text x="383" y="912.5" text-anchor="middle" class="value" style="fill: #1a4f8a">0.22s</text>
 <text x="383" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="383" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="383" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="651" y="700.2" text-anchor="middle" class="title">symreg</text>
 <line x1="454" y1="925.5999999999999" x2="848" y2="925.5999999999999" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 454 925.6 L 454 780.6 Q 454 775.6 459 775.6 L 503 775.6 Q 508 775.6 508 780.6 L 508 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -227,15 +228,15 @@
 <path d="M 658 925.5999999999999 L 658 845.8 Q 658 840.8 663 840.8 L 707 840.8 Q 712 840.8 712 845.8 L 712 925.5999999999999 Z" fill="#1a4f8a"/>
 <text x="685" y="830.6" text-anchor="middle" class="value" style="fill: #1a4f8a">3.21s</text>
 <text x="685" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="685" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="685" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 726 925.6 L 726 921.9000000000001 Q 726 918.2 729.7 918.2 L 776.3 918.2 Q 780 918.2 780 921.9000000000001 L 780 925.6 Z" fill="#1a4f8a"/>
 <text x="753" y="908.1" text-anchor="middle" class="value" style="fill: #1a4f8a">0.28s</text>
 <text x="753" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="753" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="753" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 794 925.5999999999999 L 794 915.8 Q 794 910.8 799 910.8 L 843 910.8 Q 848 910.8 848 915.8 L 848 925.5999999999999 Z" fill="#1a4f8a"/>
 <text x="821" y="900.6" text-anchor="middle" class="value" style="fill: #1a4f8a">0.56s</text>
 <text x="821" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="821" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="821" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="1089" y="700.2" text-anchor="middle" class="title">radix</text>
 <line x1="892" y1="925.5999999999999" x2="1286" y2="925.5999999999999" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 892 925.6 L 892 816.9 Q 892 811.9 897 811.9 L 941 811.9 Q 946 811.9 946 816.9 L 946 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -250,15 +251,15 @@
 <path d="M 1096 925.6 L 1096 858.5 Q 1096 853.5 1101 853.5 L 1145 853.5 Q 1150 853.5 1150 858.5 L 1150 925.6 Z" fill="#1a4f8a"/>
 <text x="1123" y="843.4" text-anchor="middle" class="value" style="fill: #1a4f8a">3.92s</text>
 <text x="1123" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1123" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="1123" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 1164 925.6 L 1164 922.3 Q 1164 919 1167.3 919 L 1214.7 919 Q 1218 919 1218 922.3 L 1218 925.6 Z" fill="#1a4f8a"/>
 <text x="1191" y="908.9" text-anchor="middle" class="value" style="fill: #1a4f8a">0.36s</text>
 <text x="1191" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1191" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="1191" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 1232 925.6 L 1232 887.9 Q 1232 882.9 1237 882.9 L 1281 882.9 Q 1286 882.9 1286 887.9 L 1286 925.6 Z" fill="#1a4f8a"/>
 <text x="1259" y="872.8" text-anchor="middle" class="value" style="fill: #1a4f8a">2.32s</text>
 <text x="1259" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1259" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="1259" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="1527" y="700.2" text-anchor="middle" class="title">queens</text>
 <line x1="1330" y1="925.5999999999999" x2="1724" y2="925.5999999999999" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 1330 925.6 L 1330 801.1 Q 1330 796.1 1335 796.1 L 1379 796.1 Q 1384 796.1 1384 801.1 L 1384 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
@@ -273,14 +274,14 @@
 <path d="M 1534 925.5999999999999 L 1534 833.3 Q 1534 828.3 1539 828.3 L 1583 828.3 Q 1588 828.3 1588 833.3 L 1588 925.5999999999999 Z" fill="#1a4f8a"/>
 <text x="1561" y="818.1" text-anchor="middle" class="value" style="fill: #1a4f8a">5.26s</text>
 <text x="1561" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1561" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx1</text>
+<text x="1561" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
 <path d="M 1602 925.6 L 1602 921.55 Q 1602 917.5 1606.05 917.5 L 1651.95 917.5 Q 1656 917.5 1656 921.55 L 1656 925.6 Z" fill="#1a4f8a"/>
 <text x="1629" y="907.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.44s</text>
 <text x="1629" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1629" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">CPUx16</text>
+<text x="1629" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
 <path d="M 1670 925.5999999999999 L 1670 905.3 Q 1670 900.3 1675 900.3 L 1719 900.3 Q 1724 900.3 1724 905.3 L 1724 925.5999999999999 Z" fill="#1a4f8a"/>
 <text x="1697" y="890.1" text-anchor="middle" class="value" style="fill: #1a4f8a">1.37s</text>
 <text x="1697" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="1697" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">GPU</text>
+<text x="1697" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="870" y="1045.8" text-anchor="middle" class="note">lower is better · <tspan font-weight="bold">Apple M4 Max</tspan></text>
 </svg>
