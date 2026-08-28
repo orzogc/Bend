@@ -17,7 +17,7 @@ type Seg = {
   refs: Set<string>;
   dead?: boolean;
   spin?: boolean;
-  nopark?: boolean;
+  spark?: boolean;
   unbox?: ("f32" | "u32" | null)[];
 };
 
@@ -1727,7 +1727,7 @@ function emit_bang(fl: File, ck: Call, args: string[]): void {
 function emit_jump(fl: File, args: string[], k: Bend.Name): void {
   if (fl.seg.def !== k) {
     args.forEach((a, i) => file_push(fl, `r${i} = ${a};`));
-    emit_park(fl, seg_fid(k), args.map((_, i) => `r${i}`));
+    emit_park(fl, seg_fid(k), args.map((_, i) => `r${i}`), false);
     return file_push(fl, `WL_JMP(${seg_ref(fl, seg_fid(k))});`);
   }
   fl.seg.spin = true;
@@ -1739,14 +1739,21 @@ function emit_jump(fl: File, args: string[], k: Bend.Name): void {
   emit_park(fl, fl.seg.fid, fl.seg.params.map((p, i) => {
     const u = fl.seg.unbox?.[i];
     return u == null ? p : `${u}_rewrap(${p})`;
-  }));
+  }), true);
   file_push(fl, "WL_AGAIN;");
 }
 
-function emit_park(fl: File, fid: string, xs: string[]): void {
-  if (fl.seg.nopark !== true && xs.length > 0) {
-    file_push(fl, `WL_PARK(${fid}, ${xs.length}, ${xs.join(", ")});`);
+function emit_park(fl: File, fid: string, xs: string[], self: boolean): void {
+  if (xs.length === 0) {
+    return;
   }
+  if (fl.seg.spark === true) {
+    if (self) {
+      file_push(fl, `WL_SPARK(${xs.length}, ${xs.join(", ")});`);
+    }
+    return;
+  }
+  file_push(fl, `WL_PARK(${fid}, ${xs.length}, ${xs.join(", ")});`);
 }
 
 function emit_call(fl: File, ck: Call, km: Call | null): void {
@@ -2111,13 +2118,18 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
           const at = fl.seg.lines.length;
           const seg = fl.seg;
           fl.seg = { ...seg, def: vc.k, params: sp, unbox: undefined,
-            nopark: true };
+            spark: true };
           block(fl, "WL_SPIN", () => {
             emit_func(fl, body, tld.T, sp, vs);
             fl.seg = seg;
             file_push(fl, "break;");
           });
-          const spun = fl.seg.lines.splice(at);
+          const heat = new RegExp("heap_alloc|buf_new|blk_give|task_node"
+            + "|u32_show|term_keep|rfc_seal|rfc_wrap|BLK_ALLOC");
+          const got = fl.seg.lines.splice(at);
+          const hot = got.some((l) => heat.test(l));
+          const spun = hot ? got : got.filter((l) =>
+            !l.includes("WL_SPARK("));
           const off = "  ".repeat(fl.tab - 1);
           const bent = spun.map((l) =>
             "  " + (l.startsWith(off) ? l.slice(off.length) : l));
@@ -2129,11 +2141,26 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
             "    return 1;", "  }"].join("\n"));
           const o = name_local(fl, "o");
           file_push(fl, "#if DEVICE");
-          file_push(fl, `Term ${o}[${vs.length}];`);
-          block(fl, `if (Spin::${name}(${["e", o, ...sp].join(", ")}) == 0) {`,
-            () => {
-            file_push(fl, "return 0;");
-          });
+          file_push(fl, `Term ${o}[${Math.max(vs.length, sp.length)}];`);
+          if (hot) {
+            const rh = name_local(fl, "r");
+            file_push(fl,
+              `Term ${rh} = Spin::${name}(${["e", o, ...sp].join(", ")});`);
+            block(fl, `if (${rh} == 0) {`, () => {
+              file_push(fl, "return 0;");
+            });
+            block(fl, `if (${rh} == REPLY_PARK) {`, () => {
+              emit_frame(fl, caps, seg_fid(km.k));
+              file_push(fl, `return wl_park(e, sp, ${
+                seg_ref(fl, seg_fid(vc.k))}, ${o}, ${sp.length});`);
+            });
+          } else {
+            block(fl,
+              `if (Spin::${name}(${["e", o, ...sp].join(", ")}) == 0) {`,
+              () => {
+              file_push(fl, "return 0;");
+            });
+          }
           vs.forEach((v, j) => file_push(fl, `${v} = ${o}[${j}];`));
           file_push(fl, "#else");
           fl.seg.lines.push(...spun);
@@ -4190,12 +4217,21 @@ OUTLINE Reply wl_park(Env e, Stk sp, Fid fid, THR Term* xs, u32 n) {
   return REPLY_PARK;
 }
 #define WL_PARK(F, N, ...) \
-  if ((++wpoll & 15) == 0 && ALC_AT(e, ALC_PARK)) { \
+  if ((++wpoll & 14) == 0 && ALC_AT(e, ALC_PARK)) { \
     Term wp[] = {__VA_ARGS__}; \
     return wl_park(e, sp, F, wp, N); \
   }
+#define WL_SPARK(N, ...) \
+  if ((++wpoll & 14) == 0 && ALC_AT(e, ALC_PARK)) { \
+    Term wq[] = {__VA_ARGS__}; \
+    for (u32 wj = 0; wj < (N); wj += 1) { \
+      o[wj] = wq[wj]; \
+    } \
+    return REPLY_PARK; \
+  }
 #else
 #define WL_PARK(F, N, ...)
+#define WL_SPARK(N, ...)
 #endif
 
 // Work
