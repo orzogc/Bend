@@ -48,8 +48,9 @@ def no_cloned_items(ts, g):
   # ... this is long. your AI writes that ...
 ```
 
-And that's it. Once that proof lands, your code is correct. Mathematically. The
-property holds, for all possible game states. Assets can't be cloned. Period.
+And that's it. Once that proof lands, your code is correct. Mathematically.
+
+The property holds, for every game state. Assets can't be cloned. Period.
 
 > We must stress what this means. This is not a test. This is not an audit.
 > This is a MATHEMATICAL PROOF. This is hard to believe because it is not a
