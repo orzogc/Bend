@@ -11,73 +11,73 @@
 <text x="179" y="26.9" text-anchor="middle" class="title">generic instantiation · n=3200</text>
 <line x1="16" y1="240.52666666666667" x2="342" y2="240.52666666666667" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 16 240.5 L 16 95.5 Q 16 90.5 21 90.5 L 65 90.5 Q 70 90.5 70 95.5 L 70 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="43" y="81.9" text-anchor="middle" class="value">&gt;900s</text>
+<text x="43" y="81.9" text-anchor="middle" class="value">&gt;12s</text>
 <text x="43" y="111.3" text-anchor="middle" class="name">timeout</text>
 <text x="43" y="265.0" text-anchor="middle" class="name">Isabelle</text>
 <path d="M 84 240.5 L 84 95.5 Q 84 90.5 89 90.5 L 133 90.5 Q 138 90.5 138 95.5 L 138 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="111" y="81.9" text-anchor="middle" class="value">&gt;900s</text>
+<text x="111" y="81.9" text-anchor="middle" class="value">&gt;12s</text>
 <text x="111" y="111.3" text-anchor="middle" class="name">timeout</text>
 <text x="111" y="265.0" text-anchor="middle" class="name">Agda</text>
 <path d="M 152 240.5 L 152 95.5 Q 152 90.5 157 90.5 L 201 90.5 Q 206 90.5 206 95.5 L 206 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="179" y="81.9" text-anchor="middle" class="value">18.2s</text>
+<text x="179" y="81.9" text-anchor="middle" class="value">&gt;12s</text>
 <text x="179" y="265.0" text-anchor="middle" class="name">Lean</text>
-<path d="M 220 240.5 L 220 170.5 Q 220 165.5 225 165.5 L 269 165.5 Q 274 165.5 274 170.5 L 274 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="247" y="156.9" text-anchor="middle" class="value">5.78s</text>
+<path d="M 220 240.5 L 220 173.2 Q 220 168.2 225 168.2 L 269 168.2 Q 274 168.2 274 173.2 L 274 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="247" y="159.6" text-anchor="middle" class="value">5.78s</text>
 <text x="247" y="265.0" text-anchor="middle" class="name">Rocq</text>
-<path d="M 288 240.5 L 288 238.29999999999998 Q 288 236.1 290.2 236.1 L 339.8 236.1 Q 342 236.1 342 238.29999999999998 L 342 240.5 Z" fill="#1a4f8a"/>
-<text x="315" y="227.5" text-anchor="middle" class="value" style="fill: #1a4f8a">0.34s</text>
+<path d="M 288 240.5 L 288 238.35 Q 288 236.2 290.15 236.2 L 339.85 236.2 Q 342 236.2 342 238.35 L 342 240.5 Z" fill="#1a4f8a"/>
+<text x="315" y="227.6" text-anchor="middle" class="value" style="fill: #1a4f8a">0.34s</text>
 <text x="315" y="265.0" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="549" y="26.9" text-anchor="middle" class="title">proof libraries · n=3200</text>
 <line x1="386" y1="240.52666666666667" x2="712" y2="240.52666666666667" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 386 240.5 L 386 95.5 Q 386 90.5 391 90.5 L 435 90.5 Q 440 90.5 440 95.5 L 440 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="413" y="81.9" text-anchor="middle" class="value">&gt;900s</text>
+<text x="413" y="81.9" text-anchor="middle" class="value">&gt;20s</text>
 <text x="413" y="111.3" text-anchor="middle" class="name">timeout</text>
 <text x="413" y="265.0" text-anchor="middle" class="name">Isabelle</text>
 <path d="M 454 240.5 L 454 95.5 Q 454 90.5 459 90.5 L 503 90.5 Q 508 90.5 508 95.5 L 508 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="481" y="81.9" text-anchor="middle" class="value">641s</text>
+<text x="481" y="81.9" text-anchor="middle" class="value">&gt;20s</text>
 <text x="481" y="265.0" text-anchor="middle" class="name">Agda</text>
 <path d="M 522 240.5 L 522 95.5 Q 522 90.5 527 90.5 L 571 90.5 Q 576 90.5 576 95.5 L 576 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="549" y="81.9" text-anchor="middle" class="value">680s</text>
+<text x="549" y="81.9" text-anchor="middle" class="value">&gt;20s</text>
 <text x="549" y="265.0" text-anchor="middle" class="name">Lean</text>
-<path d="M 590 240.5 L 590 170.5 Q 590 165.5 595 165.5 L 639 165.5 Q 644 165.5 644 170.5 L 644 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="617" y="156.9" text-anchor="middle" class="value">9.11s</text>
+<path d="M 590 240.5 L 590 177.2 Q 590 172.2 595 172.2 L 639 172.2 Q 644 172.2 644 177.2 L 644 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="617" y="163.6" text-anchor="middle" class="value">9.11s</text>
 <text x="617" y="265.0" text-anchor="middle" class="name">Rocq</text>
-<path d="M 658 240.5 L 658 237.1 Q 658 233.7 661.4 233.7 L 708.6 233.7 Q 712 233.7 712 237.1 L 712 240.5 Z" fill="#1a4f8a"/>
-<text x="685" y="225.1" text-anchor="middle" class="value" style="fill: #1a4f8a">0.82s</text>
+<path d="M 658 240.5 L 658 237.45000000000002 Q 658 234.4 661.05 234.4 L 708.95 234.4 Q 712 234.4 712 237.45000000000002 L 712 240.5 Z" fill="#1a4f8a"/>
+<text x="685" y="225.8" text-anchor="middle" class="value" style="fill: #1a4f8a">0.82s</text>
 <text x="685" y="265.0" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="919" y="26.9" text-anchor="middle" class="title">plain programs · n=12800</text>
 <line x1="756" y1="240.52666666666667" x2="1082" y2="240.52666666666667" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 756 240.5 L 756 95.5 Q 756 90.5 761 90.5 L 805 90.5 Q 810 90.5 810 95.5 L 810 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="783" y="81.9" text-anchor="middle" class="value">645s</text>
+<text x="783" y="81.9" text-anchor="middle" class="value">&gt;8s</text>
 <text x="783" y="265.0" text-anchor="middle" class="name">Isabelle</text>
 <path d="M 824 240.5 L 824 95.5 Q 824 90.5 829 90.5 L 873 90.5 Q 878 90.5 878 95.5 L 878 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="851" y="81.9" text-anchor="middle" class="value">370s</text>
+<text x="851" y="81.9" text-anchor="middle" class="value">&gt;8s</text>
 <text x="851" y="265.0" text-anchor="middle" class="name">Agda</text>
 <path d="M 892 240.5 L 892 95.5 Q 892 90.5 897 90.5 L 941 90.5 Q 946 90.5 946 95.5 L 946 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="919" y="81.9" text-anchor="middle" class="value">36.0s</text>
+<text x="919" y="81.9" text-anchor="middle" class="value">&gt;8s</text>
 <text x="919" y="265.0" text-anchor="middle" class="name">Lean</text>
-<path d="M 960 240.5 L 960 170.5 Q 960 165.5 965 165.5 L 1009 165.5 Q 1014 165.5 1014 170.5 L 1014 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="987" y="156.9" text-anchor="middle" class="value">3.12s</text>
+<path d="M 960 240.5 L 960 187 Q 960 182 965 182 L 1009 182 Q 1014 182 1014 187 L 1014 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="987" y="173.4" text-anchor="middle" class="value">3.12s</text>
 <text x="987" y="265.0" text-anchor="middle" class="name">Rocq</text>
-<path d="M 1028 240.5 L 1028 236.75 Q 1028 233 1031.75 233 L 1078.25 233 Q 1082 233 1082 236.75 L 1082 240.5 Z" fill="#1a4f8a"/>
-<text x="1055" y="224.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.31s</text>
+<path d="M 1028 240.5 L 1028 237.6 Q 1028 234.7 1030.9 234.7 L 1079.1 234.7 Q 1082 234.7 1082 237.6 L 1082 240.5 Z" fill="#1a4f8a"/>
+<text x="1055" y="226.1" text-anchor="middle" class="value" style="fill: #1a4f8a">0.31s</text>
 <text x="1055" y="265.0" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1289" y="26.9" text-anchor="middle" class="title">evaluation (smalltt trees) · n=400</text>
 <line x1="1126" y1="240.52666666666667" x2="1452" y2="240.52666666666667" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 1126 240.5 L 1126 95.5 Q 1126 90.5 1131 90.5 L 1175 90.5 Q 1180 90.5 1180 95.5 L 1180 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="1153" y="81.9" text-anchor="middle" class="value">8.12s</text>
+<text x="1153" y="81.9" text-anchor="middle" class="value">&gt;4s</text>
 <text x="1153" y="265.0" text-anchor="middle" class="name">Isabelle</text>
-<path d="M 1194 240.5 L 1194 95.5 Q 1194 90.5 1199 90.5 L 1243 90.5 Q 1248 90.5 1248 95.5 L 1248 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
-<text x="1221" y="81.9" text-anchor="middle" class="value">3.22s</text>
+<path d="M 1194 240.5 L 1194 124.7 Q 1194 119.7 1199 119.7 L 1243 119.7 Q 1248 119.7 1248 124.7 L 1248 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1221" y="111.1" text-anchor="middle" class="value">3.22s</text>
 <text x="1221" y="265.0" text-anchor="middle" class="name">Agda</text>
-<path d="M 1262 240.5 L 1262 170.5 Q 1262 165.5 1267 165.5 L 1311 165.5 Q 1316 165.5 1316 170.5 L 1316 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1289" y="156.9" text-anchor="middle" class="value">1.24s</text>
+<path d="M 1262 240.5 L 1262 199 Q 1262 194 1267 194 L 1311 194 Q 1316 194 1316 199 L 1316 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1289" y="185.4" text-anchor="middle" class="value">1.24s</text>
 <text x="1289" y="265.0" text-anchor="middle" class="name">Lean</text>
-<path d="M 1330 240.5 L 1330 163.2 Q 1330 158.2 1335 158.2 L 1379 158.2 Q 1384 158.2 1384 163.2 L 1384 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1357" y="149.6" text-anchor="middle" class="value">1.36s</text>
+<path d="M 1330 240.5 L 1330 194.5 Q 1330 189.5 1335 189.5 L 1379 189.5 Q 1384 189.5 1384 194.5 L 1384 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1357" y="180.9" text-anchor="middle" class="value">1.36s</text>
 <text x="1357" y="265.0" text-anchor="middle" class="name">Rocq</text>
-<path d="M 1398 240.5 L 1398 209.8 Q 1398 204.8 1403 204.8 L 1447 204.8 Q 1452 204.8 1452 209.8 L 1452 240.5 Z" fill="#1a4f8a"/>
-<text x="1425" y="196.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.59s</text>
+<path d="M 1398 240.5 L 1398 223.4 Q 1398 218.4 1403 218.4 L 1447 218.4 Q 1452 218.4 1452 223.4 L 1452 240.5 Z" fill="#1a4f8a"/>
+<text x="1425" y="209.8" text-anchor="middle" class="value" style="fill: #1a4f8a">0.59s</text>
 <text x="1425" y="265.0" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="734" y="323.4" text-anchor="middle" class="note">cold check of one file, lower is better · <tspan font-weight="bold">Apple M4 Max</tspan></text>
 </svg>
