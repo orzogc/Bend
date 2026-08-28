@@ -147,7 +147,8 @@
 // Socket, Array) is Type, never Data; a compiler may drop a copy the
 // source spelled, never add one.
 // every type has a kind Kind(q) over a quantity q : Quant, &1 (Lone) or
-// &2 (Many); Type is Kind(&1), Data is Kind(&2), and term_equal orders
+// &2 (Many); Type is Kind(&1), Data is Kind(&2), and term_compare (LE)
+// orders
 // kinds by the quantity order: Kind(g) fits Kind(h) when h <= g, so
 // Data fits every kind and every kind fits Type, and a meet fits every
 // kind under one of its sides, never else. a binder q x: A needs A to
@@ -167,7 +168,12 @@
 // scrutinee's.
 // equality is intensional; elimination is the J axiom, %e@E : P; f,
 // and a stuck rewrite fires only when its evidence reaches {==}.
-// conversion is up to eta. every live self-call descends on a strict
+// conversion is term_compare LE -- a fits b, a preorder, up to eta:
+// directional only at kinds and ADT residuals (removing more
+// constructors fits removing fewer), a function type compares its
+// domains swapped, and every part that flows both ways (an argument,
+// a parameter, a field, an equation endpoint) compares EQ.
+// every live self-call descends on a strict
 // subterm in its own case tree, live columns compared EQ left to right,
 // erased columns skipped. trusted claims: subject reduction (for
 // by-value reduction), progress, weak normalization of closed live
@@ -617,11 +623,11 @@ export function lhs_ext(lhs: HTerm, k: Name, n: number, xs: HTerm[] = []): HTerm
   }
 }
 
-export function lhs_compare(lhs: LHS, sp: HTerm[]): Cmp {
+export function lhs_descend(lhs: LHS, sp: HTerm[]): Cmp {
   const cols = term_unapply(lhs.t)[1];
   let ord: Cmp = "EQ";
   for (let j = 0; j < cols.length && j < sp.length && ord === "EQ"; j++) {
-    ord = term_compare(lhs.qs[j], sp[j], cols[j]);
+    ord = term_descend(lhs.qs[j], sp[j], cols[j]);
   }
   return ord;
 }
@@ -901,7 +907,7 @@ export function term_lower(term: HTerm, dep: number = 0): LTerm {
   return loop_run(go, [term, dep]);
 }
 
-export function term_compare(q: Quant, arg: HTerm, col: HTerm): Cmp {
+export function term_descend(q: Quant, arg: HTerm, col: HTerm): Cmp {
   switch (q.$) {
     case "None": {
       return "EQ";
@@ -924,7 +930,7 @@ export function term_compare(q: Quant, arg: HTerm, col: HTerm): Cmp {
       if (a.$ === "Ctr" && a.k === p.k && a.x.length === p.x.length) {
         let ord: Cmp = "EQ";
         for (let j = 0; j < a.x.length && ord !== "GT"; j++) {
-          const fld = term_compare(Lone(), a.x[j], p.x[j]);
+          const fld = term_descend(Lone(), a.x[j], p.x[j]);
           ord = fld === "EQ" ? ord : fld;
         }
         if (ord !== "GT") {
@@ -932,7 +938,7 @@ export function term_compare(q: Quant, arg: HTerm, col: HTerm): Cmp {
         }
       }
       for (const q of p.x) {
-        const sub = term_compare(Lone(), a, q);
+        const sub = term_descend(Lone(), a, q);
         if (sub !== "GT") {
           return "LT";
         }
@@ -2733,6 +2739,10 @@ export function body_flatten(b: Body, vars: PVar[], fr: () => number): LTerm {
 // and marks the var -2, so shared work runs once and a type survives
 // the fill; a forcer outside the machine calls term_wnf on the var; a
 // var steps into its value; tree nodes inside a leaf are plain values.
+// a cell lives in the machine's frames and output, NEVER in an input
+// node: the machine does not write into the term it was given, so the
+// checker walks and counts unevaluated source syntax, and a cell it
+// meets (in a goal computed by evaluation) opens by term_force alone.
 // a rewrite demands its evidence and steps to its body on {==}, else
 // sticks as a value.
 
@@ -2769,8 +2779,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
         continue main;
       }
       case "App": {
-        tm.x = term_cell(tm.x);
-        frs.push({ $: "APP", x: tm.x });
+        frs.push({ $: "APP", x: term_cell(tm.x) });
         lhs = null;
         tm = tm.f;
         continue main;
@@ -2898,8 +2907,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
                         lhs = { t: () => lhs_ext(fl.t(), ctr.k, ctr.x.length), n: fl.n - 1 + ctr.x.length };
                       }
                       for (let j = ctr.x.length - 1; j >= 0; j--) {
-                        ctr.x[j] = term_cell(ctr.x[j]);
-                        frs.push({ $: "APP", x: ctr.x[j] });
+                        frs.push({ $: "APP", x: term_cell(ctr.x[j]) });
                       }
                       tm = t.h;
                       continue main;
@@ -3005,10 +3013,21 @@ export function term_snf(book: Book, term: HTerm): HTerm {
   return loop_run(go, term);
 }
 
-// Equal
-// =====
+// Compare
+// =======
+// term_compare(mode, a, b): a fits b. the relation is a preorder, not an
+// equality: mode LE is conversion (check-any's goal meet), directional
+// only at kinds (the quantity order) and ADT residuals (removing more
+// constructors fits removing fewer); a function type compares its
+// domains SWAPPED (the slot's owner picks the argument, so the wanted
+// domain must fit the given one) and its codomain along; every part
+// that flows both ways -- an argument, a parameter, a field, an
+// equation endpoint -- compares EQ, and EQ stays EQ all the way down,
+// so no position is ever visited twice. mode EQ is the symmetric core:
+// same walk, kinds exact, no swap (a swap under EQ is harmless, so
+// the All case swaps unconditionally).
 
-export function term_equal(book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0): boolean {
+export function term_compare(mode: "EQ" | "LE", book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0): boolean {
   if (lhs === rhs) {
     return true;
   }
@@ -3020,7 +3039,7 @@ export function term_equal(book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0):
   if (a.$ === "Lam" || b.$ === "Lam") {
     const k = a.$ === "Lam" ? a.k : (b as Extract<HTerm, { $: "Lam" }>).k;
     const x: HTerm = Var(k, dep);
-    return term_equal(book, term_apply(a, x), term_apply(b, x), dep + 1);
+    return term_compare(mode, book, term_apply(a, x), term_apply(b, x), dep + 1);
   }
   switch (a.$) {
     case "Var": {
@@ -3033,18 +3052,25 @@ export function term_equal(book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0):
       if (b.$ !== "Typ") {
         return false;
       }
+      if (mode === "EQ") {
+        return term_compare("EQ", book, a.g, b.g, dep);
+      }
       const g = term_wnf(book, a.g);
       const h = term_wnf(book, b.g);
       if ((g.$ === "Qua" && g.q.$ === "Many") || (h.$ === "Qua" && h.q.$ !== "Many")) {
         return true;
       }
       if (g.$ === "Min") {
-        return term_equal(book, Typ(g.a), b, dep) && term_equal(book, Typ(g.b), b, dep);
+        const fa = term_compare("LE", book, Typ(g.a), b, dep);
+        const fb = term_compare("LE", book, Typ(g.b), b, dep);
+        return fa && fb;
       }
       if (h.$ === "Min") {
-        return term_equal(book, a, Typ(h.a), dep) || term_equal(book, a, Typ(h.b), dep);
+        const fa = term_compare("LE", book, a, Typ(h.a), dep);
+        const fb = term_compare("LE", book, a, Typ(h.b), dep);
+        return fa || fb;
       }
-      return term_equal(book, g, h, dep);
+      return term_compare("LE", book, g, h, dep);
     }
     case "Qnt": {
       return b.$ === "Qnt";
@@ -3053,47 +3079,57 @@ export function term_equal(book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0):
       return b.$ === "Qua" && a.q.$ === b.q.$;
     }
     case "Min": {
-      return b.$ === "Min" && term_equal(book, a.a, b.a, dep) && term_equal(book, a.b, b.b, dep);
+      return b.$ === "Min"
+          && term_compare("EQ", book, a.a, b.a, dep)
+          && term_compare("EQ", book, a.b, b.b, dep);
     }
     case "All": {
       const x: HTerm = Var(a.k, dep);
       return b.$ === "All" && a.q.$ === b.q.$
-          && term_equal(book, a.A, b.A, dep)
-          && term_equal(book, a.B(x), b.B(x), dep + 1);
+          && term_compare(mode, book, b.A, a.A, dep)
+          && term_compare(mode, book, a.B(x), b.B(x), dep + 1);
     }
     case "App": {
       return b.$ === "App"
-          && term_equal(book, a.f, b.f, dep)
-          && term_equal(book, a.x, b.x, dep);
+          && term_compare("EQ", book, a.f, b.f, dep)
+          && term_compare("EQ", book, a.x, b.x, dep);
     }
-    case "ADT":
+    case "ADT": {
+      if (b.$ !== "ADT" || a.k !== b.k || a.x.length !== b.x.length) {
+        return false;
+      }
+      if (mode === "EQ" && a.r.length !== b.r.length) {
+        return false;
+      }
+      return b.r.every((c) => a.r.includes(c))
+          && a.x.every((x, j) => term_compare("EQ", book, x, b.x[j], dep));
+    }
     case "Ctr": {
-      return (b.$ === "ADT" || b.$ === "Ctr") && b.$ === a.$
-          && a.k === b.k && a.x.length === b.x.length
-          && a.x.every((x, j) => term_equal(book, x, b.x[j], dep));
+      return b.$ === "Ctr" && a.k === b.k && a.x.length === b.x.length
+          && a.x.every((x, j) => term_compare("EQ", book, x, b.x[j], dep));
     }
     case "Mat": {
       return b.$ === "Mat" && a.k === b.k
-          && term_equal(book, a.h, b.h, dep)
-          && term_equal(book, a.m, b.m, dep);
+          && term_compare("EQ", book, a.h, b.h, dep)
+          && term_compare("EQ", book, a.m, b.m, dep);
     }
     case "Efq": {
       return b.$ === "Efq";
     }
     case "Eql": {
       return b.$ === "Eql"
-          && term_equal(book, a.a, b.a, dep)
-          && term_equal(book, a.b, b.b, dep)
-          && term_equal(book, a.T, b.T, dep);
+          && term_compare("EQ", book, a.a, b.a, dep)
+          && term_compare("EQ", book, a.b, b.b, dep)
+          && term_compare("EQ", book, a.T, b.T, dep);
     }
     case "Rfl": {
       return b.$ === "Rfl";
     }
     case "Rwt": {
       return b.$ === "Rwt"
-          && term_equal(book, a.e, b.e, dep)
-          && term_equal(book, a.p, b.p, dep)
-          && term_equal(book, a.f, b.f, dep);
+          && term_compare("EQ", book, a.e, b.e, dep)
+          && term_compare("EQ", book, a.p, b.p, dep)
+          && term_compare("EQ", book, a.f, b.f, dep);
     }
     default: {
       return false;
@@ -3120,21 +3156,20 @@ export function term_equal(book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0):
 // own equation, rebuilt as the tree walks; lhs.qs holds the def's
 // parameter quantities, read off its type once, so descent can skip
 // erased columns. quantities: a binder q x: A checks A against Kind(q),
-// so its type's quantity is at least q under term_equal's order.
+// so its type's quantity is at least q under term_compare's order.
 
 export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx, d: number, sp: HTerm[] = []): Infer {
-  const def = lhs.def;
-  if (tm.$ === "Var" && tm.i < 0) {
-    tm = term_wnf(book, tm);
-  }
   switch (tm.$) {
     // Γ[x] = q A
     // ----------------- infer-var
     // Γ ⊢ x : A ~ {x:q}
     case "Var": {
+      if (tm.i < 0 && tm.v !== undefined) {
+        return term_infer(book, lhs, term_force(tm), qt, ctx, d, sp);
+      }
       const ann = pmap_get(ctx, tm.i);
       if (ann === null) {
-        throw Err(book, ctx, "a bound variable", tm, tm.s, def);
+        throw Err(book, ctx, "a bound variable", tm, tm.s, lhs.def);
       } else {
         return Infer(Var(tm.k, tm.i, tm.s), ann.T, pmap_set(uses_nil(), tm.i, qt));
       }
@@ -3154,27 +3189,27 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     case "Ref": {
       const tld = book.tlds[tm.k];
       if (tld === undefined) {
-        throw Err(book, ctx, "a defined name", tm, tm.s, def);
+        throw Err(book, ctx, "a defined name", tm, tm.s, lhs.def);
       }
       switch (qt.$) {
         case "None": {
           break;
         }
         default: {
-          if (tm.k === def && lhs_compare(lhs, sp) !== "LT") {
-            throw Err(book, ctx, "a decreasing self-call (some live argument must shrink)", tm, tm.s, def);
+          if (tm.k === lhs.def && lhs_descend(lhs, sp) !== "LT") {
+            throw Err(book, ctx, "a decreasing self-call (some live argument must shrink)", tm, tm.s, lhs.def);
           }
-          if (tm.k === def) {
+          if (tm.k === lhs.def) {
             return Infer(Ref(tm.k, tm.s, tm.b), tld.T, uses_nil());
           }
           if (tld.$ === "Def" && tld.v === null && tld.b !== true && !tld.i) {
-            throw Err(book, ctx, "a filled definition (an unfilled assert is a dead claim: live code cannot use it)", tm, tm.s, def);
+            throw Err(book, ctx, "a filled definition (an unfilled assert is a dead claim: live code cannot use it)", tm, tm.s, lhs.def);
           }
           break;
         }
       }
       if (tld.$ === "ADT" && tld.n > 0) {
-        throw Err(book, ctx, "a family instance (write " + tm.k + "<..>)", tm, tm.s, def);
+        throw Err(book, ctx, "a family instance (write " + tm.k + "<..>)", tm, tm.s, lhs.def);
       }
       return Infer(Ref(tm.k, tm.s, tm.b), tld.T, uses_nil());
     }
@@ -3232,7 +3267,7 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
       const f_inf = term_infer(book, lhs, tm.f, qt, ctx, d, [tm.x, ...sp]);
       const f_wnf = term_wnf(book, f_inf.ty);
       if (f_wnf.$ !== "All") {
-        throw Err(book, ctx, "a function type", f_inf.ty, tm.s, def);
+        throw Err(book, ctx, "a function type", f_inf.ty, tm.s, lhs.def);
       }
       const x_chk = term_check(book, lhs, tm.x, quant_dem(f_wnf.q, qt), f_wnf.A, ctx, d);
       return Infer(App(f_inf.tm, x_chk.tm, tm.s), f_wnf.B(tm.x), uses_add(f_inf.us, x_chk.us));
@@ -3243,15 +3278,15 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     // ------------------------------------------------- infer-adt
     // Γ ⊢ k<x1, .., xn> : Kind(G[x..]) ~ u1 + .. + un
     case "ADT": {
-      const adt = book_adt(book, tm, ctx, def);
+      const adt = book_adt(book, tm, ctx, lhs.def);
       if (tm.x.length !== adt.n) {
-        throw Err(book, ctx, tm.k + " with " + String(adt.n) + (adt.n === 1 ? " parameter" : " parameters"), tm, tm.s, def);
+        throw Err(book, ctx, tm.k + " with " + String(adt.n) + (adt.n === 1 ? " parameter" : " parameters"), tm, tm.s, lhs.def);
       }
       const xs: LTerm[] = [];
       let tel: HTerm = adt.T;
       let us = uses_nil();
       for (const x of tm.x) {
-        const t_all = tele_head(book, tel, ctx, def, tm.s);
+        const t_all = tele_head(book, tel, ctx, lhs.def, tm.s);
         const t_dem = quant_dem(t_all.q, qt);
         const x_chk = term_check(book, lhs, x, t_dem, t_all.A, ctx, d);
         xs.push(x_chk.tm);
@@ -3285,19 +3320,22 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     // Γ ⊢ x : ⊥ (a goal is needed)
     default: {
       if (tm.$ === "Ctr" && book_ctr(book, tm.k) === null) {
-        throw Err(book, ctx, "a declared constructor", tm, tm.s, def);
+        throw Err(book, ctx, "a declared constructor", tm, tm.s, lhs.def);
       }
-      throw Err(book, ctx, "an annotated term (cannot infer)", tm, tm.s, def);
+      throw Err(book, ctx, "an annotated term (cannot infer)", tm, tm.s, lhs.def);
     }
   }
 }
 
 export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm, ctx: Ctx, d: number): Check {
-  const def = lhs.def;
-  if (tm.$ === "Var" && tm.i < 0) {
-    tm = term_wnf(book, tm);
-  }
   switch (tm.$) {
+    // a share cell in a goal-checked position: open it, no evaluation
+    case "Var": {
+      if (tm.i < 0 && tm.v !== undefined) {
+        return term_check(book, lhs, term_force(tm), qt, ty, ctx, d);
+      }
+      break;
+    }
     // T == @q x:A -> B
     // Γ , x : qA ⊢ f(x) : B(x) ~ u
     // where u[x] <= q
@@ -3307,7 +3345,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
     case "Lam": {
       const t_wnf = term_wnf(book, ty);
       if (t_wnf.$ !== "All") {
-        throw Err(book, ctx, ty, tm, tm.s, def);
+        throw Err(book, ctx, ty, tm, tm.s, lhs.def);
       }
       const x: HTerm = Var(tm.k, d);
       let f_lhs = lhs;
@@ -3316,7 +3354,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       }
       const f_ctx = ctx_bind(ctx, d, t_wnf.q, tm.k, t_wnf.A);
       const f_chk = term_check(book, f_lhs, tm.f(x), qt, t_wnf.B(x), f_ctx, d+1);
-      quant_used(book, ctx, tm.k, t_wnf.q, uses_get(f_chk.us, d), tm.s, def);
+      quant_used(book, ctx, tm.k, t_wnf.q, uses_get(f_chk.us, d), tm.s, lhs.def);
       return Check(Lam(tm.k, d, f_chk.tm, tm.s), ty, uses_del(f_chk.us, d));
     }
     // Γ ⊢ vj : Aj ~ vuj  (each value in Γ: the binders are parallel)
@@ -3343,7 +3381,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       const f_chk = term_check(book, lhs, tm.f(xs), qt, ty, f_ctx, d + n);
       let fu = f_chk.us;
       for (let j = 0; j < n; j++) {
-        quant_used(book, ctx, tm.k[j], tm.q[j], uses_get(fu, d + j), tm.s, def);
+        quant_used(book, ctx, tm.k[j], tm.q[j], uses_get(fu, d + j), tm.s, lhs.def);
         fu = uses_del(fu, d + j);
       }
       return Check(Let(tm.k, xs.map((_, j) => d + j), vx, f_chk.tm, tm.s, tm.q), ty, uses_add(us, fu));
@@ -3357,24 +3395,24 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
     case "Ctr": {
       const t_wnf = term_wnf(book, ty);
       if (t_wnf.$ !== "ADT") {
-        throw Err(book, ctx, ty, tm, tm.s, def);
+        throw Err(book, ctx, ty, tm, tm.s, lhs.def);
       }
-      const adt = book_adt(book, t_wnf, ctx, def);
+      const adt = book_adt(book, t_wnf, ctx, lhs.def);
       const ctr = ctrs_find(adt.c, tm.k);
       if (ctr === null) {
         if (book_ctr(book, tm.k) === null) {
-          throw Err(book, ctx, "a declared constructor (" + t_wnf.k + " declares " + adt.c.map((c) => c.k).join(", ") + ")", tm, tm.s, def);
+          throw Err(book, ctx, "a declared constructor (" + t_wnf.k + " declares " + adt.c.map((c) => c.k).join(", ") + ")", tm, tm.s, lhs.def);
         }
-        throw Err(book, ctx, ty, tm, tm.s, def);
+        throw Err(book, ctx, ty, tm, tm.s, lhs.def);
       }
       if (tm.x.length !== ctr.n) {
-        throw Err(book, ctx, tm.k + " with " + String(ctr.n) + (ctr.n === 1 ? " field" : " fields"), tm, tm.s, def);
+        throw Err(book, ctx, tm.k + " with " + String(ctr.n) + (ctr.n === 1 ? " field" : " fields"), tm, tm.s, lhs.def);
       }
-      let tel = tele_fill(book, ctr.T, t_wnf.x, ctx, def, tm.s);
+      let tel = tele_fill(book, ctr.T, t_wnf.x, ctx, lhs.def, tm.s);
       const xs: LTerm[] = [];
       let us = uses_nil();
       for (const x of tm.x) {
-        const f_all = tele_head(book, tel, ctx, def, tm.s);
+        const f_all = tele_head(book, tel, ctx, lhs.def, tm.s);
         const f_dem = quant_dem(f_all.q, qt);
         const x_chk = term_check(book, lhs, x, f_dem, f_all.A, ctx, d);
         xs.push(x_chk.tm);
@@ -3404,20 +3442,20 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
     case "Efq": {
       const t_wnf = term_wnf(book, ty);
       if (t_wnf.$ !== "All") {
-        throw Err(book, ctx, ty, tm, tm.s, def);
+        throw Err(book, ctx, ty, tm, tm.s, lhs.def);
       }
       if (qt.$ !== "None" && t_wnf.q.$ === "None") {
-        throw Err(book, ctx, "a live scrutinee (a - scrutinee matches only in a dead region)", undefined, tm.s, def);
+        throw Err(book, ctx, "a live scrutinee (a - scrutinee matches only in a dead region)", undefined, tm.s, lhs.def);
       }
       const a_wnf = term_wnf(book, t_wnf.A);
       if (a_wnf.$ !== "ADT") {
-        throw Err(book, ctx, "a datatype", t_wnf.A, tm.s, def);
+        throw Err(book, ctx, "a datatype", t_wnf.A, tm.s, lhs.def);
       }
-      const rem = book_adt(book, a_wnf, ctx, def).c;
+      const rem = book_adt(book, a_wnf, ctx, lhs.def).c;
       switch (tm.$) {
         case "Efq": {
           if (rem.length !== 0 && !ctx_dead(book, ctx)) {
-            throw Err(book, ctx, "cases for " + rem.map((c) => c.k).join(", "), tm, tm.s, def);
+            throw Err(book, ctx, "cases for " + rem.map((c) => c.k).join(", "), tm, tm.s, lhs.def);
           }
           return Check(Efq(tm.s), ty, uses_nil());
         }
@@ -3426,14 +3464,14 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
           const t_all = t_wnf;
           const ctr   = ctrs_find(rem, tm.k);
           if (ctr === null) {
-            throw Err(book, ctx, "a constructor of " + a_wnf.k + " (missing, or already matched)", tm, tm.s, def);
+            throw Err(book, ctx, "a constructor of " + a_wnf.k + " (missing, or already matched)", tm, tm.s, lhs.def);
           }
-          const tel = tele_fill(book, ctr.T, a_wnf.x, ctx, def, tm.s);
+          const tel = tele_fill(book, ctr.T, a_wnf.x, ctx, lhs.def, tm.s);
           function term_check_mat_goal(cur: HTerm, n: number, xs: HTerm[]): HTerm {
             if (n === 0) {
               return t_all.B(Ctr(b.k, xs, b.s));
             } else {
-              const c_all = tele_head(book, cur, ctx, def, b.s);
+              const c_all = tele_head(book, cur, ctx, lhs.def, b.s);
               const c_dem = quant_mul(c_all.q, t_all.q);
               return All(c_dem, c_all.k, c_all.i, c_all.A, (x: HTerm) => {
                 return term_check_mat_goal(c_all.B(x), n - 1, xs.concat([x]));
@@ -3457,15 +3495,15 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
     case "Rfl": {
       const t_wnf = term_wnf(book, ty);
       if (t_wnf.$ !== "Eql") {
-        throw Err(book, ctx, ty, tm, tm.s, def);
+        throw Err(book, ctx, ty, tm, tm.s, lhs.def);
       }
-      if (!term_equal(book, t_wnf.a, t_wnf.b, d)) {
-        throw Err(book, ctx, t_wnf.a, t_wnf.b, tm.s, def);
+      if (!term_compare("EQ", book, t_wnf.a, t_wnf.b, d)) {
+        throw Err(book, ctx, t_wnf.a, t_wnf.b, tm.s, lhs.def);
       }
       return Check(Rfl(tm.s), ty, uses_nil());
     }
     // Γ ⊢ E : {a == b : A} ~ eu
-    // Γ ⊢ P : @x:A -> @e:{a == x : A} -> Type    P(b, E) == T
+    // Γ ⊢ P : @x:A -> @e:{a == x : A} -> Type    P(b, E) <= T
     // Γ ⊢ f : P(a, {==}) ~ fu
     // where P is dead; this is the J axiom: elimination
     //       specializes both the equation and its second endpoint
@@ -3475,19 +3513,19 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       const e_inf = term_infer(book, lhs, tm.e, qt, ctx, d);
       const e_wnf = term_wnf(book, e_inf.ty);
       if (e_wnf.$ !== "Eql") {
-        throw Err(book, ctx, "an equation {a == b : T}", e_inf.ty, tm.s, def);
+        throw Err(book, ctx, "an equation {a == b : T}", e_inf.ty, tm.s, lhs.def);
       }
       const p_typ = All<HBody>(Lone(), "_", 0, e_wnf.T, (x: HTerm) => All<HBody>(Lone(), "e", 0, Eql(e_wnf.a, x, e_wnf.T), () => Typ(Qua(Lone())), tm.s), tm.s);
       const p_chk = term_check(book, lhs, tm.p, None(), p_typ, ctx, d);
       const b_gol = term_apply(term_apply(tm.p, e_wnf.b), tm.e);
-      if (!term_equal(book, b_gol, ty, d)) {
-        throw Err(book, ctx, ty, b_gol, tm.s, def);
+      if (!term_compare("LE", book, b_gol, ty, d)) {
+        throw Err(book, ctx, ty, b_gol, tm.s, lhs.def);
       }
       const a_gol = term_apply(term_apply(tm.p, e_wnf.a), Rfl<HBody>(tm.s));
       const f_chk = term_check(book, lhs, tm.f, qt, a_gol, ctx, d);
       return Check(Rwt(e_inf.tm, p_chk.tm, f_chk.tm, tm.s), ty, uses_add(e_inf.us, f_chk.us));
     }
-    // Γ ⊢ x : A ~ u    A == T
+    // Γ ⊢ x : A ~ u    A <= T
     // ---------------------- check-any
     // Γ ⊢ x : T ~ u
     default: {
@@ -3495,10 +3533,10 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
     }
   }
   const x_inf = term_infer(book, lhs, tm, qt, ctx, d);
-  if (term_equal(book, x_inf.ty, ty, d)) {
+  if (term_compare("LE", book, x_inf.ty, ty, d)) {
     return { tm: x_inf.tm, us: x_inf.us };
   }
-  throw Err(book, ctx, ty, x_inf.ty, tm.s, def);
+  throw Err(book, ctx, ty, x_inf.ty, tm.s, lhs.def);
 }
 
 // Valid
@@ -3519,7 +3557,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
 // declared kind Kind(G) off the tip, then checks every constructor
 // telescope domain (parameters, then fields) in the real context
 // against one goal: Kind(G) for a live field, Kind(q) for a binder of
-// quantity q otherwise (term_equal's order does the fitting); the tip must
+// quantity q otherwise (term_compare's order does the fitting); the tip must
 // be the family applied to its own parameters, in order. one telescope
 // per declaration: there is no second face, no substitution and no
 // speculative pass.
