@@ -2,7 +2,7 @@
 
 In the post-AGI economy, what still matters for a programming language? Two things:
 
-1. It must be **fast**. Run on CPUs and GPUs at *lightning speed*.
+1. It must be **fast**. Check and run on CPUs and GPUs at *lightning speed*.
 
 2. Its programs must **work**. Agents using it must produce *correct code*.
 
