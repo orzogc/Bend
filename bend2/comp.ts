@@ -29,11 +29,17 @@ type Spine = {
 
 type Comp = Carb | File | Js;
 
+type Def  = Bend.Def & { h?: Bend.HTerm };
+
+type TLD  = Bend.ADT | Def;
+
+type Book = Omit<Bend.Book, "tlds"> & { tlds: Record<Bend.Name, TLD> };
+
 type Capture = { p: Probe; q: Bend.Quant; A: Bend.HTerm | null };
 
 type Carb = {
-  src: Record<Bend.Name, Bend.TLD>;
-  book: Bend.Book;
+  src: Record<Bend.Name, TLD>;
+  book: Book;
   mint: Map<Bend.Name, boolean>;
   kn: number;
   done: Set<Bend.Name>;
@@ -52,7 +58,7 @@ type File = {
   local: Set<string>;
   brwl: Set<string>;
   fusing: Set<Bend.Name>;
-  book: Bend.Book;
+  book: Book;
   segs: Seg[];
   seg: Seg;
   tab: number;
@@ -113,7 +119,7 @@ type Intr = {
 };
 
 type Js = {
-  book:  Bend.Book;
+  book:  Book;
   cb:    Carb;
   seg:   { lines: string[] };
   tab:   number;
@@ -875,7 +881,7 @@ function mint(cb: Carb, def: Bend.Name, stem: string, scope: Capture[],
     (env) => Bend.Lam(c.p.k, i, (x) => rest(new Map(env).set(c.p, x))), body);
   const fn = lams(EMPTY);
   cb.book.tlds[name] =
-    { $: "Def", n: kept.length + ext, T, v: fn, e: fn };
+    { $: "Def", n: kept.length + ext, T, v: fn, h: fn };
   cb.mint.set(name, seq);
   return mint_caps(kept.slice(0, kept.length - tail),
     mint_lift(Bend.Ref(name)));
@@ -884,14 +890,12 @@ function mint(cb: Carb, def: Bend.Name, stem: string, scope: Capture[],
 // Carb
 // ====
 
-function carb_fresh(cb: Carb, k: Bend.Name): Bend.TLD | undefined {
+function carb_fresh(cb: Carb, k: Bend.Name): TLD | undefined {
   const tld = cb.src[k];
   if (!FRESH.has(k)) {
     FRESH.add(k);
     if (tld?.$ === "Def" && tld.e !== undefined) {
-      const e = Bend.term_higher(Bend.term_lower(tld.e),
-        Bend.Emp<Bend.HTerm>());
-      cb.src[k] = { ...tld, e };
+      cb.src[k] = { ...tld, h: Bend.term_higher(tld.e) };
     }
   }
   return cb.src[k];
@@ -900,7 +904,7 @@ function carb_fresh(cb: Carb, k: Bend.Name): Bend.TLD | undefined {
 function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
   [TELES, REFS, FRESH].forEach((m) => m.clear());
   memo_gc();
-  const book: Bend.Book = { ...src, tlds: { ...src.tlds } };
+  const book: Book = { ...src, tlds: { ...src.tlds } };
   const cb: Carb = {
     src: { ...src.tlds },
     book,
@@ -925,12 +929,12 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     if (!done_live(tld)) {
       continue;
     }
-    let out = tld.e as Bend.HTerm;
+    let out = tld.h as Bend.HTerm;
     if (!cb.mint.has(d)) {
-      if (out === undefined) {
+      if (tld.e === undefined) {
         die("unelaborated def " + d);
       }
-      const fr = carb_fresh(cb, d) as Bend.Def;
+      const fr = carb_fresh(cb, d) as Def;
       const PASS: Kont = (_c, x) => x;
       function bound(caps: Capture[], l: HLet, v: Open,
         rest: (caps: Capture[], body: Bend.HTerm) => Open,
@@ -1159,9 +1163,9 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
           }
         }
       }
-      out = func([], fr.e as Bend.HTerm, fr.T, live_doms(cb, fr).length)(EMPTY);
+      out = func([], fr.h as Bend.HTerm, fr.T, live_doms(cb, fr).length)(EMPTY);
     }
-    book.tlds[d] = { ...tld, e: out };
+    book.tlds[d] = { ...tld, h: out };
     const refs = new Set<Bend.Name>();
     term_any(cb, out, (s) => {
       if (s.$ === "Ref") {
@@ -1228,11 +1232,11 @@ function inl_of(cb: Carb, k: Bend.Name): Bend.HTerm | null {
     return got;
   }
   const tld = carb_fresh(cb, k);
-  if (cb.inlrun.has(k) || tld?.$ !== "Def" || tld.e === undefined) {
+  if (cb.inlrun.has(k) || tld?.$ !== "Def" || tld.h === undefined) {
     return null;
   }
   cb.inlrun.add(k);
-  const out = inl_fit(cb, tld.e) ? tld.e : null;
+  const out = inl_fit(cb, tld.h) ? tld.h : null;
   cb.inlrun.delete(k);
   cb.inl.set(k, out);
   return out;
@@ -1256,8 +1260,8 @@ function inl_at(cb: Carb, t: Bend.HTerm): Bend.HTerm | null {
     return null;
   }
   const k = m.t.k;
-  const tld = carb_fresh(cb, k) as Bend.Def;
-  const raw = tld.e;
+  const tld = carb_fresh(cb, k) as Def;
+  const raw = tld.h;
   if (raw === undefined || cb.inlrun.has(k)) {
     return null;
   }
@@ -1312,8 +1316,8 @@ function done_live(tld: Bend.TLD | undefined): tld is Bend.Def {
   return tld?.$ === "Def" && tld.v !== null;
 }
 
-function done_defs(cb: Carb): [Bend.Name, Bend.Def][] {
-  return [...cb.done].map((k) => [k, cb.book.tlds[k]] as [Bend.Name, Bend.Def])
+function done_defs(cb: Carb): [Bend.Name, Def][] {
+  return [...cb.done].map((k) => [k, cb.book.tlds[k]] as [Bend.Name, Def])
     .filter((p) => done_live(p[1]));
 }
 
@@ -1552,7 +1556,7 @@ function fuse_lends(fl: File, k: Bend.Name): boolean {
 function fuse_ret(fl: File, k: Bend.Name):
   { rec: { k: Bend.Name; n: number } | null } | null {
   const tld = fl.book.tlds[k];
-  if (tld?.$ !== "Def" || tld.e === undefined) {
+  if (tld?.$ !== "Def" || tld.h === undefined) {
     return null;
   }
   const tele = tele_unbind(fl.book, tld.T);
@@ -1566,7 +1570,7 @@ function fuse_ret(fl: File, k: Bend.Name):
   const doms = one && ctr_doms(fl.book, one);
   const rec = word || doms === null || doms.length < 2 ? null
     : { k: (one as Bend.Ctr).k, n: doms.length };
-  const ok = word || rec !== null || call_has(fl.cb, tld.e as Bend.HTerm);
+  const ok = word || rec !== null || call_has(fl.cb, tld.h as Bend.HTerm);
   return ok ? { rec } : null;
 }
 
@@ -1586,8 +1590,8 @@ function fuse_deep(fl: File, k: Bend.Name,
   }
   const tld = fl.book.tlds[k];
   path.set(k, false);
-  const ok = tld?.$ === "Def" && tld.e !== undefined && !fuse_lends(fl, k)
-    && !term_any(fl, tld.e as Bend.HTerm, (s) => {
+  const ok = tld?.$ === "Def" && tld.h !== undefined && !fuse_lends(fl, k)
+    && !term_any(fl, tld.h as Bend.HTerm, (s) => {
       if ((s.$ === "Let" && s.k.length >= 2) || fuse_lets(fl, s, null)) {
         return true;
       }
@@ -1603,7 +1607,7 @@ function fuse_leaf(fl: File, ck: Call, dst: Dst): boolean {
   if (fuse_ban(ck) || inl_of(fl.cb, ck.k) === null) {
     return false;
   }
-  const tld = fl.book.tlds[ck.k] as Bend.Def;
+  const tld = fl.book.tlds[ck.k] as Def;
   const lent = fl.cb.brw.get(ck.k);
   const mine: string[] = [];
   const args: Arg[] = ck.args.map((a, j) => {
@@ -1617,7 +1621,7 @@ function fuse_leaf(fl: File, ck: Call, dst: Dst): boolean {
     }
     return local;
   });
-  emit_func(fl, tld.e as Bend.HTerm, tld.T, args, dst);
+  emit_func(fl, tld.h as Bend.HTerm, tld.T, args, dst);
   mine.forEach((l) => fl.brwl.delete(l));
   return true;
 }
@@ -2067,9 +2071,9 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
         if (fr === null) {
           return emit_call(fl, vc, km);
         }
-        const tld = fl.book.tlds[vc.k] as Bend.Def;
-        const jt = fl.book.tlds[km.k] as Bend.Def;
-        const body = tld.e as Bend.HTerm;
+        const tld = fl.book.tlds[vc.k] as Def;
+        const jt = fl.book.tlds[km.k] as Def;
+        const body = tld.h as Bend.HTerm;
         const pure = memo(PURES, body, () => !term_any(fl, body, (s) => {
           if (fuse_lets(fl, s, vc.k)) {
             return true;
@@ -2125,7 +2129,7 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
         } else {
           emit_func(fl, body, tld.T, ps, vs);
         }
-        emit_func(fl, jt.e as Bend.HTerm, jt.T,
+        emit_func(fl, jt.h as Bend.HTerm, jt.T,
           [...caps, rec === null ? vs[0] : { k: rec.k, vs, w: true }], dst);
         return;
       }
@@ -2139,8 +2143,8 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
         }
         if (!fuse_ban(ck) && !fuse_lends(fl, ck.k)
           && (dst === null || fuse_deep(fl, ck.k, new Map()))) {
-          const tld = fl.book.tlds[ck.k] as Bend.Def;
-          const body = tld.e as Bend.HTerm;
+          const tld = fl.book.tlds[ck.k] as Def;
+          const body = tld.h as Bend.HTerm;
           const loop = fl.fusing.has(ck.k)
             || term_any(fl, body, (s) => call_kind(fl, s)?.k === ck.k);
           if (!loop
@@ -2358,9 +2362,9 @@ export function compile_book(book: Bend.Book): string {
         walk(end, plan);
       }
     };
-    const tld = cb.book.tlds[k] as Bend.Def;
+    const tld = cb.book.tlds[k] as Def;
     let i = -1;
-    walk(tld.e as Bend.HTerm, def_get_params(cb.book, tld)
+    walk(tld.h as Bend.HTerm, def_get_params(cb.book, tld)
       .map(([q]) => (quant_live(q) && (cb.brw.get(k) as boolean[])[(i += 1)]
         ? [k, i] : null)));
     return hit;
@@ -2447,7 +2451,7 @@ export function compile_book(book: Bend.Book): string {
   };
   for (const [, tld] of done_defs(cb)) {
     memo_gc();
-    scan(tld.e as Bend.HTerm, tld.T);
+    scan(tld.h as Bend.HTerm, tld.T);
   }
   for (let seen = -1; seen < keeps.size + Number(cb.clo);) {
     seen = keeps.size + Number(cb.clo);
@@ -2500,7 +2504,7 @@ export function compile_book(book: Bend.Book): string {
       }
       return ty_w32(fl.book, A) ? "u32" : null;
     });
-    emit_func(fl, tld.e as Bend.HTerm, tld.T, params, null);
+    emit_func(fl, tld.h as Bend.HTerm, tld.T, params, null);
   }
   const seen = new Set<string>();
   fl.reqs += eff_src(new URL("./effs/sys.c", import.meta.url).pathname, seen);
@@ -2565,7 +2569,7 @@ export function compile_book(book: Bend.Book): string {
   const nofk = new Set<Bend.Name>();
   for (const [k, tld] of done_defs(cb)) {
     memo_gc();
-    if (!term_any(cb, tld.e as Bend.HTerm, (s) =>
+    if (!term_any(cb, tld.h as Bend.HTerm, (s) =>
       (s.$ === "Let" && s.k.length >= 2
         && s.v.every((v) => call_kind(cb, v) !== null))
         || call_kind(cb, s)?.k === CLO_APPLY)) {
@@ -2834,7 +2838,7 @@ function js_func(fl: Js, tm: Bend.HTerm, ty0: Bend.HTerm | null,
     : js_call(fl, ck.k, ck.args, true)) + ";");
 }
 
-function js_def(fl: Js, k: Bend.Name, def: Bend.Def): void {
+function js_def(fl: Js, k: Bend.Name, def: Def): void {
   fl.fresh = new Map();
   if (js_intr(fl.book, k.split("$")[0]) !== null) {
     return;
@@ -2850,7 +2854,7 @@ function js_def(fl: Js, k: Bend.Name, def: Bend.Def): void {
       file_push(fl, "return { $: \"$FFI\", run: () => $0eff." + eff_name(k)
         + "(" + params.join(", ") + "), kont: " + kont[0] + " };");
     } else {
-      js_func(fl, def.e ?? die("unelaborated def " + k), def.T, params);
+      js_func(fl, def.h ?? die("unelaborated def " + k), def.T, params);
     }
   });
   file_push(fl, "");
