@@ -19,7 +19,7 @@
 //   | Ann ::= "{" Term ":" Term "}"
 //   | Typ ::= "Type" | "Data" | "Kind" "(" Term ")"
 //   | Qnt ::= "Quant"
-//   | Qua ::= "&1" | "&2"
+//   | Qua ::= "&0" | "&1" | "&2"
 //   | Min ::= Term "<&>" Term
 //   | All ::= "@" Bind "->" Term
 //   | Lam ::= Name "=>" Body
@@ -68,6 +68,10 @@
 // Fill   | D "<" [A ","?] ">"         | D<&1.., A..>
 // Plus   | "+" D ("<" [A ","?] ">")?  | D<&2.., A..>
 //
+// every word the parser dispatches on is reserved and names nothing:
+// def, type, assert, match, case, do, return, forall, exists, where,
+// is, import, Type, Data, Kind, Quant ("as" reads only on an import
+// line, so it stays free).
 // a bare Bind name is -Name: Quant. Fill and Plus omit a datatype's
 // leading Quant parameters as a block; Plus alone fills a quant-only D.
 // a literal expands to one node per unit, unbounded by design. Arrow is
@@ -146,9 +150,9 @@
 // the compiler is strict); a type with runtime ownership (File,
 // Socket, Array) is Type, never Data; a compiler may drop a copy the
 // source spelled, never add one.
-// every type has a kind Kind(q) over a quantity q : Quant, &1 (Lone) or
-// &2 (Many); Type is Kind(&1), Data is Kind(&2), and term_compare (LE)
-// orders
+// every type has a kind Kind(q) over a quantity q : Quant, &0 (None),
+// &1 (Lone) or &2 (Many); Type is Kind(&1), Data is Kind(&2), and a
+// - binder's domain checks at Kind(&0). term_compare (LE) orders
 // kinds by the quantity order: Kind(g) fits Kind(h) when h <= g, so
 // Data fits every kind and every kind fits Type, and a meet fits every
 // kind under one of its sides, never else. a binder q x: A needs A to
@@ -1454,9 +1458,12 @@ export function err_show(err: Err): string {
 // =====
 
 const KEYWORDS = new Set([
-  "def", "type", "match", "case", "do",
-  "return", "Type", "Data", "Kind", "Quant",
+  "def", "type", "assert", "match", "case", "do", "return",
+  "forall", "exists", "where", "is", "import",
+  "Type", "Data", "Kind", "Quant",
 ]);
+
+const QUAS: Record<string, Quant> = { "0": None(), "1": Lone(), "2": Many() };
 
 export function parse_new(book: Book, dir: string, str: string, ns: string = ""): Parse {
   return { book, dir, str, pos: 0, sc: { stk: [], frs: 0 }, ns };
@@ -1704,9 +1711,11 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
       return parse_term_all(p, false);
     }
     case "&": {
-      if (parse_at(p, "&1") || parse_at(p, "&2")) {
+      const q = QUAS[p.str[p.pos + 1] ?? ""];
+      if (q !== undefined) {
         parse_bump(p);
-        return Qua(parse_bump(p) === "1" ? Lone() : Many(), parse_span(p, beg));
+        parse_bump(p);
+        return Qua(q, parse_span(p, beg));
       }
       return parse_term_all(p, true);
     }
@@ -1934,7 +1943,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
         const k   = parse_reso(p, out.k);
         const tld = p.book.tlds[k];
         if (tld !== undefined && tld.$ === "ADT" && xs.length + tld.g === tld.n) {
-          xs.unshift(...xs.slice(0, tld.g).map((): LTerm => Qua(Lone(), s)));
+          xs.unshift(...Array.from({ length: tld.g }, (): LTerm => Qua(Lone(), s)));
         }
         out = ADT(k, xs, s);
       } else {
@@ -2398,6 +2407,7 @@ export function parse_def_fill(p: Parse, book: Book, k: Name, def: Def): void {
     parse_skip(p);
     parse_take(p, ",");
   }
+  def.n = vars.length;
   parse_eat(p, ":");
   if (parse_at_word(p, "import")) {
     def.i = [];
@@ -2419,7 +2429,6 @@ export function parse_def_fill(p: Parse, book: Book, k: Name, def: Def): void {
   }
   const b = parse_body(p);
   parse_close(p, n0);
-  def.n = vars.length;
   def.v = term_higher(body_flatten(b, vars, () => p.sc.frs++));
   book.order.push(k);
 }
