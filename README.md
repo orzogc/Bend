@@ -2,9 +2,9 @@
 
 In the post-AGI economy, only two things still matter for a programming language.
 
-1. It must be **fast**. Run on CPUs and GPUs at light speed.
+1. It must be **fast**. Run on CPUs and GPUs at *lightning speed*.
 
-2. It must be **correct**. Agents using it must produce bug-free code.
+2. Its programs must **work**. Agents using it must produce *correct code*.
 
 That's it. All else is fluff. Bend is both. And nothing else.
 
@@ -24,7 +24,7 @@ That's it. All else is fluff. Bend is both. And nothing else.
 
 ![Checker benchmarks](docs/assets/checker.svg)
 
-## Bend4 programs are CORRECT
+## Bend4 programs WORK
 
 **Q:** How can I **trust** AI code without **reading** it?
 
