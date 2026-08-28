@@ -6,7 +6,7 @@ In the post-AGI economy, what still matters for a programming language? Two thin
 
 2. Programs must **work**. Agents using it must produce *correct code*.
 
-That's it. All else is fluff. Bend does both. And nothing else.
+That's it. All else is fluff. Bend addresses both. And nothing else.
 
 ## Bend4 runs FAST
 
