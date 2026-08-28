@@ -559,6 +559,15 @@ export function lhs_ext(lhs: HTerm, k: Name, n: number, xs: HTerm[] = []): HTerm
   }
 }
 
+export function lhs_compare(lhs: LHS, sp: HTerm[]): Cmp {
+  const cols = term_unapply(lhs.t)[1];
+  let ord: Cmp = "EQ";
+  for (let j = 0; j < cols.length && j < sp.length && ord === "EQ"; j++) {
+    ord = term_compare(lhs.qs[j], sp[j], cols[j]);
+  }
+  return ord;
+}
+
 // Loop
 // ====
 
@@ -834,7 +843,15 @@ export function term_lower(term: HTerm, dep: number = 0): LTerm {
   return loop_run(go, [term, dep]);
 }
 
-export function term_compare(arg: HTerm, col: HTerm): Cmp {
+export function term_compare(q: Quant, arg: HTerm, col: HTerm): Cmp {
+  switch (q.$) {
+    case "None": {
+      return "EQ";
+    }
+    default: {
+      break;
+    }
+  }
   let a = term_strip(arg);
   while (a.$ === "Var" && a.v !== undefined) {
     a = term_strip(a.v);
@@ -852,7 +869,7 @@ export function term_compare(arg: HTerm, col: HTerm): Cmp {
       if (a.$ === "Ctr" && a.k === p.k && a.x.length === p.x.length) {
         let ord: Cmp = "EQ";
         for (let j = 0; j < a.x.length && ord !== "GT"; j++) {
-          const fld = term_compare(a.x[j], p.x[j]);
+          const fld = term_compare(Lone(), a.x[j], p.x[j]);
           ord = fld === "EQ" ? ord : fld;
         }
         if (ord !== "GT") {
@@ -860,7 +877,7 @@ export function term_compare(arg: HTerm, col: HTerm): Cmp {
         }
       }
       for (const q of p.x) {
-        const sub = term_compare(a, q);
+        const sub = term_compare(Lone(), a, q);
         if (sub !== "GT") {
           return "LT";
         }
@@ -3053,8 +3070,8 @@ export function term_equal(book: Book, lhs: HTerm, rhs: HTerm, dep: number = 0):
 export type HAnn  = Extract<HTerm, { $: "Ann" }>;
 export type Infer = { tm: HTerm; us: Uses };
 
-export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ctx: Ctx, d: number): Infer {
-  const def = lhs?.def;
+export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx, d: number, sp: HTerm[] = []): Infer {
+  const def = lhs.def;
   if (tm.$ === "Var" && tm.i < 0) {
     tm = term_wnf(book, tm);
   }
@@ -3071,8 +3088,11 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
       }
     }
     // Book(k) : T
-    // where k is not the lhs head in a live region
-    //       (a live self-call enters whole, through infer-app)
+    // where a live k that is the lhs head descends: its pending
+    //       arguments sp (the spine above it) compare EQ against the
+    //       lhs columns left to right until one is LT; an erased (-)
+    //       column is skipped; a bare or non-shrinking self-reference
+    //       is an error, so a self-reference never escapes as a value
     //       k has a body in a live region, unless base declared it
     //       (an unfilled assert is a dead claim; base's are native)
     //       k is not a parameterized family: D<..> is the one
@@ -3084,11 +3104,22 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
       if (tld === undefined) {
         throw Err(book, ctx, "a defined name", tm, tm.s, def);
       }
-      if (qt.$ !== "None" && tm.k === def) {
-        throw Err(book, ctx, "a whole, decreasing self-call (a live self-reference cannot escape as a value)", tm, tm.s, def);
-      }
-      if (qt.$ !== "None" && tld.$ === "Def" && tld.v === null && tld.b !== true && !tld.i) {
-        throw Err(book, ctx, "a filled definition (an unfilled assert is a dead claim: live code cannot use it)", tm, tm.s, def);
+      switch (qt.$) {
+        case "None": {
+          break;
+        }
+        default: {
+          if (tm.k === def && lhs_compare(lhs, sp) !== "LT") {
+            throw Err(book, ctx, "a decreasing self-call (some live argument must shrink)", tm, tm.s, def);
+          }
+          if (tm.k === def) {
+            return { tm: Ann(tm, tld.T), us: uses_nil() };
+          }
+          if (tld.$ === "Def" && tld.v === null && tld.b !== true && !tld.i) {
+            throw Err(book, ctx, "a filled definition (an unfilled assert is a dead claim: live code cannot use it)", tm, tm.s, def);
+          }
+          break;
+        }
       }
       if (tld.$ === "ADT" && tld.n > 0) {
         throw Err(book, ctx, "a family instance (write " + tm.k + "<..>)", tm, tm.s, def);
@@ -3135,72 +3166,25 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
     // Γ ⊢ a : A ~ au
     // where a is dead if q is -, and consumed exactly once otherwise
     //       (an argument is never scaled: v1 has no multiplication)
+    //       f infers with a on its pending spine, for infer-ref's descent
     //       a family head is not a function: infer-ref rejects it,
     //       so D(x) is an error and D<x> the one spelling
-    //       a live lhs-headed spine is whole (lhs.n = 0, one argument
-    //       per column) and descends: live columns compare EQ left to
-    //       right until one is LT; an erased (-) column is skipped
-    //       the head is the bare Ref, syntactically: an Ann-wrapped
-    //       head falls to infer-ref, which rejects
-    //       a live head is never a Lam: a beta-redex is unnameable in
-    //       a compiled expression, so it is rejected here (a dead one,
-    //       a type's B(fst) say, reduces)
-    //       the head is never a Mat or Efq, even Ann-wrapped,
-    //       let-bound, or behind a let or rewrite expression: a
-    //       lambda-match application is a banned form
+    //       (x => f)(a) is one beta step: f(a) infers (a substituted
+    //       lambda, a Sigma field type B(fst) say, makes one)
     // --------------------------------------------------------------- infer-app
     // Γ ⊢ f(a) : B(a) ~ fu + au
     case "App": {
-      const [fun, arg] = term_unapply(tm);
-      let fh = term_strip(fun);
-      if (fh.$ === "Lam" && qt.$ === "None") {
-        return term_infer(book, lhs, term_wnf(book, tm), qt, ctx, d);
+      if (tm.f.$ === "Lam") {
+        return term_infer(book, lhs, tm.f.f(tm.x), qt, ctx, d, sp);
       }
-      if (fh.$ === "Lam") {
-        throw Err(book, ctx, "a named function (a lambda application is a beta-redex: bind the argument with a let or give the function its own def)", fun, tm.s, def);
+      const f_inf = term_infer(book, lhs, tm.f, qt, ctx, d, [tm.x, ...sp]);
+      const f_ann = f_inf.tm as HAnn;
+      const f_wnf = term_wnf(book, f_ann.T);
+      if (f_wnf.$ !== "All") {
+        throw Err(book, ctx, "a function type", f_ann.T, tm.s, def);
       }
-      while ((fh.$ === "Var" && fh.v !== undefined) || fh.$ === "Let" || fh.$ === "Rwt") {
-        fh = term_strip(fh.$ === "Var" ? fh.v! : fh.$ === "Let" ? fh.f(fh.v) : fh.f);
-      }
-      if (fh.$ === "Mat" || fh.$ === "Efq") {
-        throw Err(book, ctx, "a named eliminator (a lambda-match application is a banned form: give the match its own def)", tm, tm.s, def);
-      }
-      let f_inf: Infer;
-      if (lhs !== null && qt.$ !== "None" && fun.$ === "Ref" && fun.k === def) {
-        const tld = book.tlds[fun.k];
-        if (tld === undefined) {
-          throw Err(book, ctx, "a defined name", fun, tm.s, def);
-        }
-        const cols = term_unapply(lhs.t)[1];
-        if (lhs.n !== 0 || arg.length < cols.length) {
-          throw Err(book, ctx, "a whole self-call (one argument per parameter, inside the case tree)", tm, tm.s, def);
-        }
-        let ord: Cmp = "EQ";
-        for (let j = 0; j < cols.length && ord === "EQ"; j++) {
-          const q = lhs.qs[j];
-          if (q !== undefined && q.$ === "None") {
-            continue;
-          }
-          ord = term_compare(arg[j], cols[j]);
-        }
-        if (ord !== "LT") {
-          throw Err(book, ctx, "a decreasing self-call (some live argument must shrink)", tm, tm.s, def);
-        }
-        f_inf = { tm: Ann(fun, tld.T), us: uses_nil() };
-      } else {
-        f_inf = term_infer(book, lhs, fun, qt, ctx, d);
-      }
-      for (const x of arg) {
-        const f_ann = f_inf.tm as HAnn;
-        const f_wnf = term_wnf(book, f_ann.T);
-        if (f_wnf.$ !== "All") {
-          throw Err(book, ctx, "a function type", f_ann.T, tm.s, def);
-        }
-        const f_dem = quant_dem(f_wnf.q, qt);
-        const x_chk = term_check(book, lhs, x, f_dem, f_wnf.A, ctx, d);
-        f_inf = { tm: Ann(App(f_inf.tm, x_chk.tm, tm.s), f_wnf.B(x)), us: uses_add(f_inf.us, x_chk.us) };
-      }
-      return f_inf;
+      const x_chk = term_check(book, lhs, tm.x, quant_dem(f_wnf.q, qt), f_wnf.A, ctx, d);
+      return { tm: Ann(App(f_inf.tm, x_chk.tm, tm.s), f_wnf.B(tm.x)), us: uses_add(f_inf.us, x_chk.us) };
     }
     // book[k].T = @q1 p1:K1 -> .. -> Kind(G)
     // Γ ⊢ xi : Ki ~ ui
@@ -3257,8 +3241,8 @@ export function term_infer(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ct
   }
 }
 
-export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty: HTerm, ctx: Ctx, d: number): Infer {
-  const def = lhs?.def;
+export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm, ctx: Ctx, d: number): Infer {
+  const def = lhs.def;
   if (tm.$ === "Var" && tm.i < 0) {
     tm = term_wnf(book, tm);
   }
@@ -3275,7 +3259,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
         throw Err(book, ctx, ty, tm, tm.s, def);
       }
       const x: HTerm = Var(tm.k, d);
-      const f_lhs = (a: HTerm) => lhs !== null && lhs.n > 0 ? { t: term_apply(lhs.t, a), n: lhs.n - 1, def: lhs.def, qs: lhs.qs } : lhs;
+      const f_lhs = (a: HTerm) => lhs.n > 0 ? { t: term_apply(lhs.t, a), n: lhs.n - 1, def: lhs.def, qs: lhs.qs } : lhs;
       const f_ctx = ctx_bind(ctx, d, t_wnf.q, tm.k, t_wnf.A);
       const f_chk = term_check(book, f_lhs(x), tm.f(x), qt, t_wnf.B(x), f_ctx, d+1);
       quant_used(book, ctx, tm.k, t_wnf.q, uses_get(f_chk.us, d), tm.s, def);
@@ -3401,7 +3385,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
           }, b.s);
         }
       }
-      const h_lhs = lhs !== null && lhs.n > 0 ? { t: lhs_ext(lhs.t, tm.k, ctr.n), n: lhs.n - 1 + ctr.n, def: lhs.def, qs: lhs.qs } : lhs;
+      const h_lhs = lhs.n > 0 ? { t: lhs_ext(lhs.t, tm.k, ctr.n), n: lhs.n - 1 + ctr.n, def: lhs.def, qs: lhs.qs } : lhs;
       const h_chk = term_check(book, h_lhs, tm.h, qt, term_check_mat_goal(tel, ctr.n, []), ctx, d);
       const m_gol = All(t_wnf.q, t_wnf.k, t_wnf.i, ADT(a_wnf.k, a_wnf.x, tm.s, a_wnf.r.concat([ctr.k])), t_wnf.B, tm.s);
       const m_chk = term_check(book, lhs, tm.m, qt, m_gol, ctx, d);
@@ -3510,7 +3494,7 @@ export function term_check(book: Book, lhs: LHS | null, tm: HTerm, qt: Quant, ty
 // speculative pass.
 
 export function adt_valid(book: Book, k: Name, adt: ADT): void {
-  term_check(book, null, adt.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
+  term_check(book, { t: Ref(k), n: 0, def: k, qs: [] }, adt.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
   let sig: HTerm = adt.T;
   for (let d = 0; d < adt.n; d++) {
     const s_all = tele_head(book, sig, ctx_nil(), k);
@@ -3545,7 +3529,7 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
 }
 
 export function def_valid(book: Book, k: Name, def: Def): void {
-  term_check(book, null, def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
+  term_check(book, { t: Ref(k), n: 0, def: k, qs: [] }, def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
   if (def.i) {
     let tel = term_strip(def.T);
     while (tel.$ === "All") {
