@@ -1,42 +1,39 @@
 # Bend4
 
-In the post-AGI economy, only two things really matter in a programming language.
+In the post-AGI economy, only two things still matter for a programming language.
 
-1. It must be **fast**.
+1. It must be **fast**. Run on CPUs and GPUs at light speed.
 
-2. It must be **correct**.
+2. It must be **correct**. Agents using it must produce bug-free code.
 
-That's it. All else is fluff.
+That's it. All else is fluff. Bend is both. And nothing else.
 
-## 1. Bend4 is FAST
+## Bend4 runs FAST
 
-### When running
+**Target:** as fast as C on the CPU, as fast as CUDA in the GPU.
 
-Target: as fast as C on the CPU, as fast as CUDA in the GPU. State:
+**State:**
 
 ![Single-core benchmarks](docs/assets/single_core.svg)
 
-Any program not reaching this target is a bug. Please report.
+### Bend4 checks FAST
 
-### When checking
+**Target:** outperform every proof assistant by several OOMs.
 
-Target: outperform every checker by several OOMs. State:
+**State:**
 
 ![Checker benchmarks](docs/assets/checker.svg)
 
-> This is possible due to ... (fill here)
-
 ## 2. Bend4 is CORRECT
 
-**PROBLEM:** How can one **trust** AI code, without having to **read** it?
+**Q:** How can I **trust** AI code without **reading** it?
 
-**SOLUTION:** Just demand **proofs**!
+**A:** Just demand a **proof**.
 
-Proofs are popular in math languages like Lean. Bend brings them to a common
-language. Here's how it works. Imagine you implemented a trading game, and you
-wanted to prevent bugs (like cloning assets). In other languages, you'd write
-tests. But there are infinite sequences of trades and game states. You can't
-test them all. On Bend, you can ask your AI to write a **proof**:
+Here's how it works. SUppose you implemented a trading game, and you wanted to
+prevent bugs like cloning assets. In other languages, you'd write *tests*. But
+there are infinitely many game states. You can't test them all. On Bend, you can
+ask your AI to write a **proof** instead. It will output something like this:
 
 ```python
 # CLAIM: for every game state, for every sequence of trades,
@@ -51,11 +48,14 @@ def no_cloned_items(ts, g):
   # ... this is long. your AI writes that ...
 ```
 
-Once the proof is done, the property holds. Mathematically. Period.
+Once that is done, the property holds. Mathematically. Assets can't be cloned.
 
-> With Bend, the same intelligence that disproved the Jacobian Conjecture will
-> now be proving, mathematically, that your vibe coded SaaS will never display
-> an uncentered div again. And it is beautiful.
+> We must stress what this means. This is not a test. This is not an audit.
+> This is a MATHEMATICAL PROOF. This is hard to believe because it is not a
+> common feature. But that's what it is. Theorem proving is not new, it is just
+> new to a super fast language. With Bend, the same intelligence that disproved
+> the Jacobian Conjecture will now prove mathematically that your vibe coded
+> SaaS never displays an uncentered div again. And that's beautiful.
 
 **tl;dr with proofs, "make no mistakes" becomes enforceable**
 
