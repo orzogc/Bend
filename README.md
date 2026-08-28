@@ -32,8 +32,8 @@ That's it. All else is fluff. Bend addresses both. And nothing else.
 
 Here's how it works. Suppose you implemented a trading game, and you wanted to
 prevent bugs like cloning assets. In other languages, you'd write *tests*. But
-there are infinitely many game states. You can't test them all. On Bend, you can
-ask your AI to write a **proof** instead. It will output something like this:
+there are infinitely many game states. You can't test them all. On Bend, you ask
+your agent: "before stopping, **prove that your code is correct**". It outputs:
 
 ```python
 # CLAIM: for every game state, for every sequence of trades,
@@ -48,7 +48,8 @@ def no_cloned_items(ts, g):
   # ... this is long. your AI writes that ...
 ```
 
-Once that is done, the property holds. Mathematically. Assets can't be cloned.
+And that's it. Once that proof lands, your code is correct. Mathematically. The
+property holds, for all possible game states. Assets can't be cloned. Period.
 
 > We must stress what this means. This is not a test. This is not an audit.
 > This is a MATHEMATICAL PROOF. This is hard to believe because it is not a
