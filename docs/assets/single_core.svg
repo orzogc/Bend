@@ -10,278 +10,278 @@
 <text x="213" y="31.9" text-anchor="middle" class="title">gameoflife</text>
 <line x1="16" y1="257.3" x2="410" y2="257.3" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 16 257.3 L 16 112.3 Q 16 107.3 21 107.3 L 65 107.3 Q 70 107.3 70 112.3 L 70 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="43" y="97.1" text-anchor="middle" class="value">18.2s</text>
+<text x="43" y="97.1" text-anchor="middle" class="value">18.1s</text>
 <text x="43" y="286.3" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 84 257.3 L 84 119.2 Q 84 114.2 89 114.2 L 133 114.2 Q 138 114.2 138 119.2 L 138 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="111" y="104.0" text-anchor="middle" class="value">13.5s</text>
+<path d="M 84 257.3 L 84 149.3 Q 84 144.3 89 144.3 L 133 144.3 Q 138 144.3 138 149.3 L 138 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="111" y="134.2" text-anchor="middle" class="value">13.7s</text>
 <text x="111" y="286.3" text-anchor="middle" class="name">Lean</text>
-<path d="M 152 257.3 L 152 135 Q 152 130 157 130 L 201 130 Q 206 130 206 135 L 206 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="179" y="119.8" text-anchor="middle" class="value">6.89s</text>
+<path d="M 152 257.3 L 152 204.8 Q 152 199.8 157 199.8 L 201 199.8 Q 206 199.8 206 204.8 L 206 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="179" y="189.7" text-anchor="middle" class="value">6.95s</text>
 <text x="179" y="286.3" text-anchor="middle" class="name">C</text>
-<path d="M 220 257.3 L 220 140.4 Q 220 135.4 225 135.4 L 269 135.4 Q 274 135.4 274 140.4 L 274 257.3 Z" fill="#1a4f8a"/>
-<text x="247" y="125.3" text-anchor="middle" class="value" style="fill: #1a4f8a">5.48s</text>
+<path d="M 220 257.3 L 220 217.3 Q 220 212.3 225 212.3 L 269 212.3 Q 274 212.3 274 217.3 L 274 257.3 Z" fill="#1a4f8a"/>
+<text x="247" y="202.2" text-anchor="middle" class="value" style="fill: #1a4f8a">5.44s</text>
 <text x="247" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="247" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 288 257.3 L 288 197.4 Q 288 192.4 293 192.4 L 337 192.4 Q 342 192.4 342 197.4 L 342 257.3 Z" fill="#1a4f8a"/>
-<text x="315" y="182.3" text-anchor="middle" class="value" style="fill: #1a4f8a">0.48s</text>
+<path d="M 288 257.3 L 288 255.3 Q 288 253.3 290 253.3 L 340 253.3 Q 342 253.3 342 255.3 L 342 257.3 Z" fill="#1a4f8a"/>
+<text x="315" y="243.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.48s</text>
 <text x="315" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="315" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 356 257.3 L 356 246.1 Q 356 241.1 361 241.1 L 405 241.1 Q 410 241.1 410 246.1 L 410 257.3 Z" fill="#1a4f8a"/>
-<text x="383" y="230.9" text-anchor="middle" class="value" style="fill: #1a4f8a">0.06s</text>
+<path d="M 356 257.3 L 356 255.8 Q 356 254.3 357.5 254.3 L 408.5 254.3 Q 410 254.3 410 255.8 L 410 257.3 Z" fill="#1a4f8a"/>
+<text x="383" y="244.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.06s</text>
 <text x="383" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="383" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="651" y="31.9" text-anchor="middle" class="title">nbody</text>
 <line x1="454" y1="257.3" x2="848" y2="257.3" stroke="#818b98" stroke-opacity="0.3"/>
-<path d="M 454 257.29999999999995 L 454 112.6 Q 454 107.6 459 107.6 L 503 107.6 Q 508 107.6 508 112.6 L 508 257.29999999999995 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="481" y="97.4" text-anchor="middle" class="value">5.38s</text>
+<path d="M 454 257.3 L 454 114.8 Q 454 109.8 459 109.8 L 503 109.8 Q 508 109.8 508 114.8 L 508 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="481" y="99.6" text-anchor="middle" class="value">5.34s</text>
 <text x="481" y="286.3" text-anchor="middle" class="name">TypeScript</text>
 <path d="M 522 257.3 L 522 112.3 Q 522 107.3 527 107.3 L 571 107.3 Q 576 107.3 576 112.3 L 576 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
 <text x="549" y="97.1" text-anchor="middle" class="value">5.43s</text>
 <text x="549" y="286.3" text-anchor="middle" class="name">Lean</text>
-<path d="M 590 257.3 L 590 113.5 Q 590 108.5 595 108.5 L 639 108.5 Q 644 108.5 644 113.5 L 644 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="617" y="98.3" text-anchor="middle" class="value">5.21s</text>
+<path d="M 590 257.3 L 590 119.8 Q 590 114.8 595 114.8 L 639 114.8 Q 644 114.8 644 119.8 L 644 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="617" y="104.6" text-anchor="middle" class="value">5.16s</text>
 <text x="617" y="286.3" text-anchor="middle" class="name">C</text>
-<path d="M 658 257.3 L 658 114.9 Q 658 109.9 663 109.9 L 707 109.9 Q 712 109.9 712 114.9 L 712 257.3 Z" fill="#1a4f8a"/>
-<text x="685" y="99.8" text-anchor="middle" class="value" style="fill: #1a4f8a">4.96s</text>
+<path d="M 658 257.3 L 658 124.5 Q 658 119.5 663 119.5 L 707 119.5 Q 712 119.5 712 124.5 L 712 257.3 Z" fill="#1a4f8a"/>
+<text x="685" y="109.3" text-anchor="middle" class="value" style="fill: #1a4f8a">4.99s</text>
 <text x="685" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="685" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 726 257.29999999999995 L 726 184.2 Q 726 179.2 731 179.2 L 775 179.2 Q 780 179.2 780 184.2 L 780 257.29999999999995 Z" fill="#1a4f8a"/>
-<text x="753" y="169.0" text-anchor="middle" class="value" style="fill: #1a4f8a">0.45s</text>
+<path d="M 726 257.3 L 726 250.4 Q 726 245.4 731 245.4 L 775 245.4 Q 780 245.4 780 250.4 L 780 257.3 Z" fill="#1a4f8a"/>
+<text x="753" y="235.3" text-anchor="middle" class="value" style="fill: #1a4f8a">0.43s</text>
 <text x="753" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="753" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 794 257.3 L 794 242.3 Q 794 237.3 799 237.3 L 843 237.3 Q 848 237.3 848 242.3 L 848 257.3 Z" fill="#1a4f8a"/>
-<text x="821" y="227.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.06s</text>
+<path d="M 794 257.3 L 794 255.8 Q 794 254.3 795.5 254.3 L 846.5 254.3 Q 848 254.3 848 255.8 L 848 257.3 Z" fill="#1a4f8a"/>
+<text x="821" y="244.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.06s</text>
 <text x="821" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="821" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="1089" y="31.9" text-anchor="middle" class="title">merkle</text>
 <line x1="892" y1="257.3" x2="1286" y2="257.3" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 892 257.3 L 892 112.3 Q 892 107.3 897 107.3 L 941 107.3 Q 946 107.3 946 112.3 L 946 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="919" y="97.1" text-anchor="middle" class="value">7.19s</text>
+<text x="919" y="97.1" text-anchor="middle" class="value">7.17s</text>
 <text x="919" y="286.3" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 960 257.3 L 960 118 Q 960 113 965 113 L 1009 113 Q 1014 113 1014 118 L 1014 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="987" y="102.8" text-anchor="middle" class="value">5.91s</text>
+<path d="M 960 257.3 L 960 138.5 Q 960 133.5 965 133.5 L 1009 133.5 Q 1014 133.5 1014 138.5 L 1014 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="987" y="123.3" text-anchor="middle" class="value">5.92s</text>
 <text x="987" y="286.3" text-anchor="middle" class="name">Lean</text>
-<path d="M 1028 257.3 L 1028 124.2 Q 1028 119.2 1033 119.2 L 1077 119.2 Q 1082 119.2 1082 124.2 L 1082 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1055" y="109.0" text-anchor="middle" class="value">4.77s</text>
+<path d="M 1028 257.3 L 1028 163.6 Q 1028 158.6 1033 158.6 L 1077 158.6 Q 1082 158.6 1082 163.6 L 1082 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1055" y="148.4" text-anchor="middle" class="value">4.72s</text>
 <text x="1055" y="286.3" text-anchor="middle" class="name">C</text>
-<path d="M 1096 257.3 L 1096 127.5 Q 1096 122.5 1101 122.5 L 1145 122.5 Q 1150 122.5 1150 127.5 L 1150 257.3 Z" fill="#1a4f8a"/>
-<text x="1123" y="112.3" text-anchor="middle" class="value" style="fill: #1a4f8a">4.25s</text>
+<path d="M 1096 257.3 L 1096 172.1 Q 1096 167.1 1101 167.1 L 1145 167.1 Q 1150 167.1 1150 172.1 L 1150 257.3 Z" fill="#1a4f8a"/>
+<text x="1123" y="156.9" text-anchor="middle" class="value" style="fill: #1a4f8a">4.31s</text>
 <text x="1123" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1123" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 1164 257.3 L 1164 195.1 Q 1164 190.1 1169 190.1 L 1213 190.1 Q 1218 190.1 1218 195.1 L 1218 257.3 Z" fill="#1a4f8a"/>
-<text x="1191" y="179.9" text-anchor="middle" class="value" style="fill: #1a4f8a">0.41s</text>
+<path d="M 1164 257.3 L 1164 253.2 Q 1164 249.1 1168.1 249.1 L 1213.9 249.1 Q 1218 249.1 1218 253.2 L 1218 257.3 Z" fill="#1a4f8a"/>
+<text x="1191" y="238.9" text-anchor="middle" class="value" style="fill: #1a4f8a">0.39s</text>
 <text x="1191" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1191" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 1232 257.3 L 1232 242.3 Q 1232 237.3 1237 237.3 L 1281 237.3 Q 1286 237.3 1286 242.3 L 1286 257.3 Z" fill="#1a4f8a"/>
-<text x="1259" y="227.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.08s</text>
+<path d="M 1232 257.3 L 1232 255.8 Q 1232 254.3 1233.5 254.3 L 1284.5 254.3 Q 1286 254.3 1286 255.8 L 1286 257.3 Z" fill="#1a4f8a"/>
+<text x="1259" y="244.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.08s</text>
 <text x="1259" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1259" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="1527" y="31.9" text-anchor="middle" class="title">mandelbrot</text>
 <line x1="1330" y1="257.3" x2="1724" y2="257.3" stroke="#818b98" stroke-opacity="0.3"/>
-<path d="M 1330 257.3 L 1330 120.7 Q 1330 115.7 1335 115.7 L 1379 115.7 Q 1384 115.7 1384 120.7 L 1384 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1357" y="105.5" text-anchor="middle" class="value">3.77s</text>
+<path d="M 1330 257.3 L 1330 148.4 Q 1330 143.4 1335 143.4 L 1379 143.4 Q 1384 143.4 1384 148.4 L 1384 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1357" y="133.3" text-anchor="middle" class="value">3.76s</text>
 <text x="1357" y="286.3" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 1398 257.3 L 1398 114.7 Q 1398 109.7 1403 109.7 L 1447 109.7 Q 1452 109.7 1452 114.7 L 1452 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1425" y="99.5" text-anchor="middle" class="value">4.57s</text>
+<path d="M 1398 257.3 L 1398 123.8 Q 1398 118.8 1403 118.8 L 1447 118.8 Q 1452 118.8 1452 123.8 L 1452 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1425" y="108.6" text-anchor="middle" class="value">4.57s</text>
 <text x="1425" y="286.3" text-anchor="middle" class="name">Lean</text>
-<path d="M 1466 257.3 L 1466 116.2 Q 1466 111.2 1471 111.2 L 1515 111.2 Q 1520 111.2 1520 116.2 L 1520 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1493" y="101.0" text-anchor="middle" class="value">4.36s</text>
+<path d="M 1466 257.3 L 1466 130.8 Q 1466 125.8 1471 125.8 L 1515 125.8 Q 1520 125.8 1520 130.8 L 1520 257.3 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1493" y="115.6" text-anchor="middle" class="value">4.34s</text>
 <text x="1493" y="286.3" text-anchor="middle" class="name">C</text>
 <path d="M 1534 257.3 L 1534 112.3 Q 1534 107.3 1539 107.3 L 1583 107.3 Q 1588 107.3 1588 112.3 L 1588 257.3 Z" fill="#1a4f8a"/>
-<text x="1561" y="97.1" text-anchor="middle" class="value" style="fill: #1a4f8a">4.94s</text>
+<text x="1561" y="97.1" text-anchor="middle" class="value" style="fill: #1a4f8a">4.95s</text>
 <text x="1561" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1561" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 1602 257.3 L 1602 188.3 Q 1602 183.3 1607 183.3 L 1651 183.3 Q 1656 183.3 1656 188.3 L 1656 257.3 Z" fill="#1a4f8a"/>
-<text x="1629" y="173.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.43s</text>
+<path d="M 1602 257.3 L 1602 249.3 Q 1602 244.3 1607 244.3 L 1651 244.3 Q 1656 244.3 1656 249.3 L 1656 257.3 Z" fill="#1a4f8a"/>
+<text x="1629" y="234.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.43s</text>
 <text x="1629" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1629" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 1670 257.3 L 1670 240.7 Q 1670 235.7 1675 235.7 L 1719 235.7 Q 1724 235.7 1724 240.7 L 1724 257.3 Z" fill="#1a4f8a"/>
-<text x="1697" y="225.5" text-anchor="middle" class="value" style="fill: #1a4f8a">0.08s</text>
+<path d="M 1670 257.3 L 1670 255.8 Q 1670 254.3 1671.5 254.3 L 1722.5 254.3 Q 1724 254.3 1724 255.8 L 1724 257.3 Z" fill="#1a4f8a"/>
+<text x="1697" y="244.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.08s</text>
 <text x="1697" y="286.3" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1697" y="308.1" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="213" y="366.0" text-anchor="middle" class="title">terrain</text>
 <line x1="16" y1="591.45" x2="410" y2="591.45" stroke="#818b98" stroke-opacity="0.3"/>
-<path d="M 16 591.5 L 16 456.7 Q 16 451.7 21 451.7 L 65 451.7 Q 70 451.7 70 456.7 L 70 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="43" y="441.6" text-anchor="middle" class="value">5.71s</text>
+<path d="M 16 591.5 L 16 489.6 Q 16 484.6 21 484.6 L 65 484.6 Q 70 484.6 70 489.6 L 70 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="43" y="474.5" text-anchor="middle" class="value">5.60s</text>
 <text x="43" y="620.5" text-anchor="middle" class="name">TypeScript</text>
 <path d="M 84 591.5 L 84 446.5 Q 84 441.5 89 441.5 L 133 441.5 Q 138 441.5 138 446.5 L 138 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="111" y="431.4" text-anchor="middle" class="value">7.91s</text>
+<text x="111" y="431.4" text-anchor="middle" class="value">7.86s</text>
 <text x="111" y="620.5" text-anchor="middle" class="name">Lean</text>
-<path d="M 152 591.5 L 152 471 Q 152 466 157 466 L 201 466 Q 206 466 206 471 L 206 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="179" y="455.9" text-anchor="middle" class="value">3.61s</text>
+<path d="M 152 591.5 L 152 527.6 Q 152 522.6 157 522.6 L 201 522.6 Q 206 522.6 206 527.6 L 206 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="179" y="512.5" text-anchor="middle" class="value">3.61s</text>
 <text x="179" y="620.5" text-anchor="middle" class="name">C</text>
-<path d="M 220 591.5 L 220 477.4 Q 220 472.4 225 472.4 L 269 472.4 Q 274 472.4 274 477.4 L 274 591.5 Z" fill="#1a4f8a"/>
-<text x="247" y="462.3" text-anchor="middle" class="value" style="fill: #1a4f8a">2.94s</text>
+<path d="M 220 591.5 L 220 541.2 Q 220 536.2 225 536.2 L 269 536.2 Q 274 536.2 274 541.2 L 274 591.5 Z" fill="#1a4f8a"/>
+<text x="247" y="526.1" text-anchor="middle" class="value" style="fill: #1a4f8a">2.90s</text>
 <text x="247" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="247" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 288 591.5 L 288 553.2 Q 288 548.2 293 548.2 L 337 548.2 Q 342 548.2 342 553.2 L 342 591.5 Z" fill="#1a4f8a"/>
-<text x="315" y="538.1" text-anchor="middle" class="value" style="fill: #1a4f8a">0.26s</text>
+<path d="M 288 591.5 L 288 589 Q 288 586.5 290.5 586.5 L 339.5 586.5 Q 342 586.5 342 589 L 342 591.5 Z" fill="#1a4f8a"/>
+<text x="315" y="576.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.26s</text>
 <text x="315" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="315" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 356 591.5 L 356 574.8 Q 356 569.8 361 569.8 L 405 569.8 Q 410 569.8 410 574.8 L 410 591.5 Z" fill="#1a4f8a"/>
-<text x="383" y="559.6" text-anchor="middle" class="value" style="fill: #1a4f8a">0.13s</text>
+<path d="M 356 591.5 L 356 590 Q 356 588.5 357.5 588.5 L 408.5 588.5 Q 410 588.5 410 590 L 410 591.5 Z" fill="#1a4f8a"/>
+<text x="383" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.13s</text>
 <text x="383" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="383" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="651" y="366.0" text-anchor="middle" class="title">bitonic</text>
 <line x1="454" y1="591.45" x2="848" y2="591.45" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 454 591.5 L 454 446.5 Q 454 441.5 459 441.5 L 503 441.5 Q 508 441.5 508 446.5 L 508 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="481" y="431.4" text-anchor="middle" class="value">32.3s</text>
+<text x="481" y="431.4" text-anchor="middle" class="value">32.4s</text>
 <text x="481" y="620.5" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 522 591.5 L 522 454 Q 522 449 527 449 L 571 449 Q 576 449 576 454 L 576 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="549" y="438.9" text-anchor="middle" class="value">25.1s</text>
+<path d="M 522 591.5 L 522 479.5 Q 522 474.5 527 474.5 L 571 474.5 Q 576 474.5 576 479.5 L 576 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="549" y="464.4" text-anchor="middle" class="value">25.2s</text>
 <text x="549" y="620.5" text-anchor="middle" class="name">Lean</text>
-<path d="M 590 591.5 L 590 481.1 Q 590 476.1 595 476.1 L 639 476.1 Q 644 476.1 644 481.1 L 644 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="617" y="466.0" text-anchor="middle" class="value">10.1s</text>
+<path d="M 590 591.5 L 590 550.3 Q 590 545.3 595 545.3 L 639 545.3 Q 644 545.3 644 550.3 L 644 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="617" y="535.1" text-anchor="middle" class="value">9.96s</text>
 <text x="617" y="620.5" text-anchor="middle" class="name">C</text>
-<path d="M 658 591.5 L 658 497.2 Q 658 492.2 663 492.2 L 707 492.2 Q 712 492.2 712 497.2 L 712 591.5 Z" fill="#1a4f8a"/>
-<text x="685" y="482.1" text-anchor="middle" class="value" style="fill: #1a4f8a">5.88s</text>
+<path d="M 658 591.5 L 658 569.7 Q 658 564.7 663 564.7 L 707 564.7 Q 712 564.7 712 569.7 L 712 591.5 Z" fill="#1a4f8a"/>
+<text x="685" y="554.6" text-anchor="middle" class="value" style="fill: #1a4f8a">5.79s</text>
 <text x="685" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="685" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 726 591.5 L 726 565.7 Q 726 560.7 731 560.7 L 775 560.7 Q 780 560.7 780 565.7 L 780 591.5 Z" fill="#1a4f8a"/>
-<text x="753" y="550.6" text-anchor="middle" class="value" style="fill: #1a4f8a">0.59s</text>
+<path d="M 726 591.5 L 726 590 Q 726 588.5 727.5 588.5 L 778.5 588.5 Q 780 588.5 780 590 L 780 591.5 Z" fill="#1a4f8a"/>
+<text x="753" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.59s</text>
 <text x="753" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="753" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 794 591.5 L 794 575.9 Q 794 570.9 799 570.9 L 843 570.9 Q 848 570.9 848 575.9 L 848 591.5 Z" fill="#1a4f8a"/>
-<text x="821" y="560.8" text-anchor="middle" class="value" style="fill: #1a4f8a">0.42s</text>
+<path d="M 794 591.5 L 794 590 Q 794 588.5 795.5 588.5 L 846.5 588.5 Q 848 588.5 848 590 L 848 591.5 Z" fill="#1a4f8a"/>
+<text x="821" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.42s</text>
 <text x="821" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="821" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
-<text x="1089" y="366.0" text-anchor="middle" class="title">raytrace</text>
+<text x="1089" y="366.0" text-anchor="middle" class="title">kmeans</text>
 <line x1="892" y1="591.45" x2="1286" y2="591.45" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 892 591.5 L 892 446.5 Q 892 441.5 897 441.5 L 941 441.5 Q 946 441.5 946 446.5 L 946 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="919" y="431.4" text-anchor="middle" class="value">22.9s</text>
+<text x="919" y="431.4" text-anchor="middle" class="value">17.0s</text>
 <text x="919" y="620.5" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 960 591.5 L 960 466.3 Q 960 461.3 965 461.3 L 1009 461.3 Q 1014 461.3 1014 466.3 L 1014 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="987" y="451.2" text-anchor="middle" class="value">11.0s</text>
+<path d="M 960 591.5 L 960 545.9 Q 960 540.9 965 540.9 L 1009 540.9 Q 1014 540.9 1014 545.9 L 1014 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="987" y="530.8" text-anchor="middle" class="value">5.73s</text>
 <text x="987" y="620.5" text-anchor="middle" class="name">Lean</text>
-<path d="M 1028 591.5 L 1028 489.2 Q 1028 484.2 1033 484.2 L 1077 484.2 Q 1082 484.2 1082 489.2 L 1082 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1055" y="474.1" text-anchor="middle" class="value">4.74s</text>
+<path d="M 1028 591.5 L 1028 564.5 Q 1028 559.5 1033 559.5 L 1077 559.5 Q 1082 559.5 1082 564.5 L 1082 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1055" y="549.4" text-anchor="middle" class="value">3.63s</text>
 <text x="1055" y="620.5" text-anchor="middle" class="name">C</text>
-<path d="M 1096 591.5 L 1096 482 Q 1096 477 1101 477 L 1145 477 Q 1150 477 1150 482 L 1150 591.5 Z" fill="#1a4f8a"/>
-<text x="1123" y="466.9" text-anchor="middle" class="value" style="fill: #1a4f8a">6.17s</text>
+<path d="M 1096 591.5 L 1096 577.1 Q 1096 572.1 1101 572.1 L 1145 572.1 Q 1150 572.1 1150 577.1 L 1150 591.5 Z" fill="#1a4f8a"/>
+<text x="1123" y="562.0" text-anchor="middle" class="value" style="fill: #1a4f8a">2.20s</text>
 <text x="1123" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1123" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 1164 591.5 L 1164 548.5 Q 1164 543.5 1169 543.5 L 1213 543.5 Q 1218 543.5 1218 548.5 L 1218 591.5 Z" fill="#1a4f8a"/>
-<text x="1191" y="533.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.53s</text>
+<path d="M 1164 591.5 L 1164 590 Q 1164 588.5 1165.5 588.5 L 1216.5 588.5 Q 1218 588.5 1218 590 L 1218 591.5 Z" fill="#1a4f8a"/>
+<text x="1191" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.24s</text>
 <text x="1191" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1191" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 1232 591.5 L 1232 577.7 Q 1232 572.7 1237 572.7 L 1281 572.7 Q 1286 572.7 1286 577.7 L 1286 591.5 Z" fill="#1a4f8a"/>
-<text x="1259" y="562.6" text-anchor="middle" class="value" style="fill: #1a4f8a">0.18s</text>
+<path d="M 1232 591.5 L 1232 590 Q 1232 588.5 1233.5 588.5 L 1284.5 588.5 Q 1286 588.5 1286 590 L 1286 591.5 Z" fill="#1a4f8a"/>
+<text x="1259" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.18s</text>
 <text x="1259" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1259" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
-<text x="1527" y="366.0" text-anchor="middle" class="title">kmeans</text>
+<text x="1527" y="366.0" text-anchor="middle" class="title">raytrace</text>
 <line x1="1330" y1="591.45" x2="1724" y2="591.45" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 1330 591.5 L 1330 446.5 Q 1330 441.5 1335 441.5 L 1379 441.5 Q 1384 441.5 1384 446.5 L 1384 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1357" y="431.4" text-anchor="middle" class="value">17.2s</text>
+<text x="1357" y="431.4" text-anchor="middle" class="value">22.5s</text>
 <text x="1357" y="620.5" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 1398 591.5 L 1398 478 Q 1398 473 1403 473 L 1447 473 Q 1452 473 1452 478 L 1452 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1425" y="462.9" text-anchor="middle" class="value">5.71s</text>
+<path d="M 1398 591.5 L 1398 523.2 Q 1398 518.2 1403 518.2 L 1447 518.2 Q 1452 518.2 1452 523.2 L 1452 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1425" y="508.1" text-anchor="middle" class="value">11.0s</text>
 <text x="1425" y="620.5" text-anchor="middle" class="name">Lean</text>
-<path d="M 1466 591.5 L 1466 490.8 Q 1466 485.8 1471 485.8 L 1515 485.8 Q 1520 485.8 1520 490.8 L 1520 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1493" y="475.7" text-anchor="middle" class="value">3.64s</text>
+<path d="M 1466 591.5 L 1466 564.8 Q 1466 559.8 1471 559.8 L 1515 559.8 Q 1520 559.8 1520 564.8 L 1520 591.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1493" y="549.6" text-anchor="middle" class="value">4.75s</text>
 <text x="1493" y="620.5" text-anchor="middle" class="name">C</text>
-<path d="M 1534 591.5 L 1534 505.2 Q 1534 500.2 1539 500.2 L 1583 500.2 Q 1588 500.2 1588 505.2 L 1588 591.5 Z" fill="#1a4f8a"/>
-<text x="1561" y="490.1" text-anchor="middle" class="value" style="fill: #1a4f8a">2.20s</text>
+<path d="M 1534 591.5 L 1534 555.5 Q 1534 550.5 1539 550.5 L 1583 550.5 Q 1588 550.5 1588 555.5 L 1588 591.5 Z" fill="#1a4f8a"/>
+<text x="1561" y="540.4" text-anchor="middle" class="value" style="fill: #1a4f8a">6.15s</text>
 <text x="1561" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1561" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 1602 591.5 L 1602 568.5 Q 1602 563.5 1607 563.5 L 1651 563.5 Q 1656 563.5 1656 568.5 L 1656 591.5 Z" fill="#1a4f8a"/>
-<text x="1629" y="553.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.24s</text>
+<path d="M 1602 591.5 L 1602 589.75 Q 1602 588 1603.75 588 L 1654.25 588 Q 1656 588 1656 589.75 L 1656 591.5 Z" fill="#1a4f8a"/>
+<text x="1629" y="577.9" text-anchor="middle" class="value" style="fill: #1a4f8a">0.53s</text>
 <text x="1629" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1629" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 1670 591.5 L 1670 576.7 Q 1670 571.7 1675 571.7 L 1719 571.7 Q 1724 571.7 1724 576.7 L 1724 591.5 Z" fill="#1a4f8a"/>
-<text x="1697" y="561.6" text-anchor="middle" class="value" style="fill: #1a4f8a">0.18s</text>
+<path d="M 1670 591.5 L 1670 590 Q 1670 588.5 1671.5 588.5 L 1722.5 588.5 Q 1724 588.5 1724 590 L 1724 591.5 Z" fill="#1a4f8a"/>
+<text x="1697" y="578.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.19s</text>
 <text x="1697" y="620.5" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1697" y="642.2" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="213" y="700.2" text-anchor="middle" class="title">matmul</text>
 <line x1="16" y1="925.5999999999999" x2="410" y2="925.5999999999999" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 16 925.6 L 16 780.6 Q 16 775.6 21 775.6 L 65 775.6 Q 70 775.6 70 780.6 L 70 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="43" y="765.5" text-anchor="middle" class="value">11.1s</text>
+<text x="43" y="765.5" text-anchor="middle" class="value">10.8s</text>
 <text x="43" y="954.6" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 84 925.6 L 84 790.7 Q 84 785.7 89 785.7 L 133 785.7 Q 138 785.7 138 790.7 L 138 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="111" y="775.6" text-anchor="middle" class="value">8.12s</text>
+<path d="M 84 925.6 L 84 817.5 Q 84 812.5 89 812.5 L 133 812.5 Q 138 812.5 138 817.5 L 138 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="111" y="802.4" text-anchor="middle" class="value">8.17s</text>
 <text x="111" y="954.6" text-anchor="middle" class="name">Lean</text>
-<path d="M 152 925.6 L 152 817.4 Q 152 812.4 157 812.4 L 201 812.4 Q 206 812.4 206 817.4 L 206 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="179" y="802.3" text-anchor="middle" class="value">3.57s</text>
+<path d="M 152 925.6 L 152 880.9 Q 152 875.9 157 875.9 L 201 875.9 Q 206 875.9 206 880.9 L 206 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="179" y="865.8" text-anchor="middle" class="value">3.59s</text>
 <text x="179" y="954.6" text-anchor="middle" class="name">C</text>
-<path d="M 220 925.6 L 220 822.9 Q 220 817.9 225 817.9 L 269 817.9 Q 274 817.9 274 822.9 L 274 925.6 Z" fill="#1a4f8a"/>
-<text x="247" y="807.8" text-anchor="middle" class="value" style="fill: #1a4f8a">3.02s</text>
+<path d="M 220 925.6 L 220 888.7 Q 220 883.7 225 883.7 L 269 883.7 Q 274 883.7 274 888.7 L 274 925.6 Z" fill="#1a4f8a"/>
+<text x="247" y="873.6" text-anchor="middle" class="value" style="fill: #1a4f8a">3.03s</text>
 <text x="247" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="247" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 288 925.6 L 288 901.4 Q 288 896.4 293 896.4 L 337 896.4 Q 342 896.4 342 901.4 L 342 925.6 Z" fill="#1a4f8a"/>
-<text x="315" y="886.3" text-anchor="middle" class="value" style="fill: #1a4f8a">0.27s</text>
+<path d="M 288 925.6 L 288 923.6500000000001 Q 288 921.7 289.95 921.7 L 340.05 921.7 Q 342 921.7 342 923.6500000000001 L 342 925.6 Z" fill="#1a4f8a"/>
+<text x="315" y="911.6" text-anchor="middle" class="value" style="fill: #1a4f8a">0.28s</text>
 <text x="315" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="315" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 356 925.6 L 356 908.1 Q 356 903.1 361 903.1 L 405 903.1 Q 410 903.1 410 908.1 L 410 925.6 Z" fill="#1a4f8a"/>
-<text x="383" y="893.0" text-anchor="middle" class="value" style="fill: #1a4f8a">0.22s</text>
+<path d="M 356 925.6 L 356 924.1 Q 356 922.6 357.5 922.6 L 408.5 922.6 Q 410 922.6 410 924.1 L 410 925.6 Z" fill="#1a4f8a"/>
+<text x="383" y="912.5" text-anchor="middle" class="value" style="fill: #1a4f8a">0.22s</text>
 <text x="383" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="383" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
 <text x="651" y="700.2" text-anchor="middle" class="title">symreg</text>
 <line x1="454" y1="925.5999999999999" x2="848" y2="925.5999999999999" stroke="#818b98" stroke-opacity="0.3"/>
 <path d="M 454 925.6 L 454 780.6 Q 454 775.6 459 775.6 L 503 775.6 Q 508 775.6 508 780.6 L 508 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="481" y="765.5" text-anchor="middle" class="value">5.68s</text>
+<text x="481" y="765.5" text-anchor="middle" class="value">5.76s</text>
 <text x="481" y="954.6" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 522 925.6 L 522 813.7 Q 522 808.7 527 808.7 L 571 808.7 Q 576 808.7 576 813.7 L 576 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="549" y="798.6" text-anchor="middle" class="value">2.51s</text>
+<path d="M 522 925.5999999999999 L 522 866.8 Q 522 861.8 527 861.8 L 571 861.8 Q 576 861.8 576 866.8 L 576 925.5999999999999 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="549" y="851.6" text-anchor="middle" class="value">2.45s</text>
 <text x="549" y="954.6" text-anchor="middle" class="name">Lean</text>
-<path d="M 590 925.6 L 590 813.5 Q 590 808.5 595 808.5 L 639 808.5 Q 644 808.5 644 813.5 L 644 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="617" y="798.4" text-anchor="middle" class="value">2.52s</text>
+<path d="M 590 925.6 L 590 865.2 Q 590 860.2 595 860.2 L 639 860.2 Q 644 860.2 644 865.2 L 644 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="617" y="850.1" text-anchor="middle" class="value">2.51s</text>
 <text x="617" y="954.6" text-anchor="middle" class="name">C</text>
-<path d="M 658 925.6 L 658 803.7 Q 658 798.7 663 798.7 L 707 798.7 Q 712 798.7 712 803.7 L 712 925.6 Z" fill="#1a4f8a"/>
-<text x="685" y="788.6" text-anchor="middle" class="value" style="fill: #1a4f8a">3.21s</text>
+<path d="M 658 925.6 L 658 848.6 Q 658 843.6 663 843.6 L 707 843.6 Q 712 843.6 712 848.6 L 712 925.6 Z" fill="#1a4f8a"/>
+<text x="685" y="833.5" text-anchor="middle" class="value" style="fill: #1a4f8a">3.15s</text>
 <text x="685" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="685" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 726 925.6 L 726 902.5 Q 726 897.5 731 897.5 L 775 897.5 Q 780 897.5 780 902.5 L 780 925.6 Z" fill="#1a4f8a"/>
-<text x="753" y="887.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.28s</text>
+<path d="M 726 925.5999999999999 L 726 921.9499999999999 Q 726 918.3 729.65 918.3 L 776.35 918.3 Q 780 918.3 780 921.9499999999999 L 780 925.5999999999999 Z" fill="#1a4f8a"/>
+<text x="753" y="908.1" text-anchor="middle" class="value" style="fill: #1a4f8a">0.28s</text>
 <text x="753" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="753" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 794 925.6 L 794 874.4 Q 794 869.4 799 869.4 L 843 869.4 Q 848 869.4 848 874.4 L 848 925.6 Z" fill="#1a4f8a"/>
-<text x="821" y="859.3" text-anchor="middle" class="value" style="fill: #1a4f8a">0.56s</text>
+<path d="M 794 925.5999999999999 L 794 916.3 Q 794 911.3 799 911.3 L 843 911.3 Q 848 911.3 848 916.3 L 848 925.5999999999999 Z" fill="#1a4f8a"/>
+<text x="821" y="901.1" text-anchor="middle" class="value" style="fill: #1a4f8a">0.55s</text>
 <text x="821" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="821" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
-<text x="1089" y="700.2" text-anchor="middle" class="title">radix</text>
+<text x="1089" y="700.2" text-anchor="middle" class="title">queens</text>
 <line x1="892" y1="925.5999999999999" x2="1286" y2="925.5999999999999" stroke="#818b98" stroke-opacity="0.3"/>
-<path d="M 892 925.6 L 892 791.5 Q 892 786.5 897 786.5 L 941 786.5 Q 946 786.5 946 791.5 L 946 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="919" y="776.4" text-anchor="middle" class="value">6.18s</text>
+<path d="M 892 925.5999999999999 L 892 801.8 Q 892 796.8 897 796.8 L 941 796.8 Q 946 796.8 946 801.8 L 946 925.5999999999999 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="919" y="786.6" text-anchor="middle" class="value">6.94s</text>
 <text x="919" y="954.6" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 960 925.5999999999999 L 960 789.4 Q 960 784.4 965 784.4 L 1009 784.4 Q 1014 784.4 1014 789.4 L 1014 925.5999999999999 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="987" y="774.3" text-anchor="middle" class="value">6.51s</text>
+<path d="M 960 925.6 L 960 780.6 Q 960 775.6 965 775.6 L 1009 775.6 Q 1014 775.6 1014 780.6 L 1014 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="987" y="765.5" text-anchor="middle" class="value">8.08s</text>
 <text x="987" y="954.6" text-anchor="middle" class="name">Lean</text>
-<path d="M 1028 925.6 L 1028 780.6 Q 1028 775.6 1033 775.6 L 1077 775.6 Q 1082 775.6 1082 780.6 L 1082 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1055" y="765.5" text-anchor="middle" class="value">8.15s</text>
+<path d="M 1028 925.5999999999999 L 1028 864.3 Q 1028 859.3 1033 859.3 L 1077 859.3 Q 1082 859.3 1082 864.3 L 1082 925.5999999999999 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1055" y="849.1" text-anchor="middle" class="value">3.57s</text>
 <text x="1055" y="954.6" text-anchor="middle" class="name">C</text>
-<path d="M 1096 925.6 L 1096 809.4 Q 1096 804.4 1101 804.4 L 1145 804.4 Q 1150 804.4 1150 809.4 L 1150 925.6 Z" fill="#1a4f8a"/>
-<text x="1123" y="794.3" text-anchor="middle" class="value" style="fill: #1a4f8a">3.92s</text>
+<path d="M 1096 925.5999999999999 L 1096 833.3 Q 1096 828.3 1101 828.3 L 1145 828.3 Q 1150 828.3 1150 833.3 L 1150 925.5999999999999 Z" fill="#1a4f8a"/>
+<text x="1123" y="818.1" text-anchor="middle" class="value" style="fill: #1a4f8a">5.24s</text>
 <text x="1123" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1123" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 1164 925.5999999999999 L 1164 903.3 Q 1164 898.3 1169 898.3 L 1213 898.3 Q 1218 898.3 1218 903.3 L 1218 925.5999999999999 Z" fill="#1a4f8a"/>
-<text x="1191" y="888.1" text-anchor="middle" class="value" style="fill: #1a4f8a">0.36s</text>
+<path d="M 1164 925.6 L 1164 921.4000000000001 Q 1164 917.2 1168.2 917.2 L 1213.8 917.2 Q 1218 917.2 1218 921.4000000000001 L 1218 925.6 Z" fill="#1a4f8a"/>
+<text x="1191" y="907.1" text-anchor="middle" class="value" style="fill: #1a4f8a">0.45s</text>
 <text x="1191" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1191" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 1232 925.6 L 1232 830 Q 1232 825 1237 825 L 1281 825 Q 1286 825 1286 830 L 1286 925.6 Z" fill="#1a4f8a"/>
-<text x="1259" y="814.9" text-anchor="middle" class="value" style="fill: #1a4f8a">2.32s</text>
+<path d="M 1232 925.6 L 1232 906.1 Q 1232 901.1 1237 901.1 L 1281 901.1 Q 1286 901.1 1286 906.1 L 1286 925.6 Z" fill="#1a4f8a"/>
+<text x="1259" y="891.0" text-anchor="middle" class="value" style="fill: #1a4f8a">1.32s</text>
 <text x="1259" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1259" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
-<text x="1527" y="700.2" text-anchor="middle" class="title">queens</text>
+<text x="1527" y="700.2" text-anchor="middle" class="title">radix</text>
 <line x1="1330" y1="925.5999999999999" x2="1724" y2="925.5999999999999" stroke="#818b98" stroke-opacity="0.3"/>
-<path d="M 1330 925.6 L 1330 786.7 Q 1330 781.7 1335 781.7 L 1379 781.7 Q 1384 781.7 1384 786.7 L 1384 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1357" y="771.6" text-anchor="middle" class="value">7.00s</text>
+<path d="M 1330 925.6 L 1330 815.4 Q 1330 810.4 1335 810.4 L 1379 810.4 Q 1384 810.4 1384 815.4 L 1384 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1357" y="800.3" text-anchor="middle" class="value">6.09s</text>
 <text x="1357" y="954.6" text-anchor="middle" class="name">TypeScript</text>
-<path d="M 1398 925.6 L 1398 780.6 Q 1398 775.6 1403 775.6 L 1447 775.6 Q 1452 775.6 1452 780.6 L 1452 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1425" y="765.5" text-anchor="middle" class="value">8.11s</text>
+<path d="M 1398 925.6 L 1398 809.2 Q 1398 804.2 1403 804.2 L 1447 804.2 Q 1452 804.2 1452 809.2 L 1452 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1425" y="794.1" text-anchor="middle" class="value">6.42s</text>
 <text x="1425" y="954.6" text-anchor="middle" class="name">Lean</text>
-<path d="M 1466 925.6 L 1466 814.1 Q 1466 809.1 1471 809.1 L 1515 809.1 Q 1520 809.1 1520 814.1 L 1520 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1493" y="799.0" text-anchor="middle" class="value">3.62s</text>
+<path d="M 1466 925.6 L 1466 780.6 Q 1466 775.6 1471 775.6 L 1515 775.6 Q 1520 775.6 1520 780.6 L 1520 925.6 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1493" y="765.5" text-anchor="middle" class="value">7.93s</text>
 <text x="1493" y="954.6" text-anchor="middle" class="name">C</text>
-<path d="M 1534 925.6 L 1534 798.6 Q 1534 793.6 1539 793.6 L 1583 793.6 Q 1588 793.6 1588 798.6 L 1588 925.6 Z" fill="#1a4f8a"/>
-<text x="1561" y="783.5" text-anchor="middle" class="value" style="fill: #1a4f8a">5.26s</text>
+<path d="M 1534 925.6 L 1534 856.5 Q 1534 851.5 1539 851.5 L 1583 851.5 Q 1588 851.5 1588 856.5 L 1588 925.6 Z" fill="#1a4f8a"/>
+<text x="1561" y="841.4" text-anchor="middle" class="value" style="fill: #1a4f8a">3.92s</text>
 <text x="1561" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1561" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">1-Core</text>
-<path d="M 1602 925.5999999999999 L 1602 901.8 Q 1602 896.8 1607 896.8 L 1651 896.8 Q 1656 896.8 1656 901.8 L 1656 925.5999999999999 Z" fill="#1a4f8a"/>
-<text x="1629" y="886.6" text-anchor="middle" class="value" style="fill: #1a4f8a">0.44s</text>
+<path d="M 1602 925.5999999999999 L 1602 922.1999999999999 Q 1602 918.8 1605.4 918.8 L 1652.6 918.8 Q 1656 918.8 1656 922.1999999999999 L 1656 925.5999999999999 Z" fill="#1a4f8a"/>
+<text x="1629" y="908.6" text-anchor="middle" class="value" style="fill: #1a4f8a">0.36s</text>
 <text x="1629" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1629" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">16-Cores</text>
-<path d="M 1670 925.6 L 1670 854.5 Q 1670 849.5 1675 849.5 L 1719 849.5 Q 1724 849.5 1724 854.5 L 1724 925.6 Z" fill="#1a4f8a"/>
-<text x="1697" y="839.4" text-anchor="middle" class="value" style="fill: #1a4f8a">1.37s</text>
+<path d="M 1670 925.6 L 1670 875 Q 1670 870 1675 870 L 1719 870 Q 1724 870 1724 875 L 1724 925.6 Z" fill="#1a4f8a"/>
+<text x="1697" y="859.9" text-anchor="middle" class="value" style="fill: #1a4f8a">2.94s</text>
 <text x="1697" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1697" y="976.3" text-anchor="middle" class="sub" style="fill: #1a4f8a">GPU</text>
-<text x="870" y="1045.8" text-anchor="middle" class="note">lower is better · log scale · <tspan font-weight="bold">Apple M4 Max</tspan></text>
+<text x="870" y="1045.8" text-anchor="middle" class="note">lower is better · <tspan font-weight="bold">Apple M4 Max</tspan></text>
 </svg>
