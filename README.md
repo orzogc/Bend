@@ -16,7 +16,7 @@ That's it. All else is fluff. Bend is both. And nothing else.
 
 ![Single-core benchmarks](docs/assets/single_core.svg)
 
-### Bend4 checks FAST
+## Bend4 checks FAST
 
 **Target:** outperform every proof assistant by several OOMs.
 
@@ -24,7 +24,7 @@ That's it. All else is fluff. Bend is both. And nothing else.
 
 ![Checker benchmarks](docs/assets/checker.svg)
 
-## 2. Bend4 is CORRECT
+## Bend4 programs are CORRECT
 
 **Q:** How can I **trust** AI code without **reading** it?
 
@@ -139,12 +139,6 @@ To learn more, read:
 - [GUIDE.md](docs/GUIDE.md): a complete guide.
 
 
-## 5. Formalization
-
-- Bend's theory is [formalized in Lean](bend2/bend.lean). Read the paper: [BendTT: A Linear Dependent Type Theory](docs/BendTT.pdf).
-
-- The runtime is also documented. Read the paper: [BendRT: A Parallel Runtime for CPUs and GPUs](docs/BendRT.pdf)
-
 # Get Started
 
 ### 1. Install:
@@ -180,3 +174,9 @@ cc -std=c11 -O3 hello.c -o hello -lpthread
 ### 4. Read the Guide:
 
 Everything else you need is in [Bend's GUIDE.md](docs/GUIDE.md). Read it!
+
+## Formalization
+
+- Bend's theory is [formalized in Lean](bend2/bend.lean). Read the paper: [BendTT: A Linear Dependent Type Theory](docs/BendTT.pdf).
+
+- The runtime is also documented. Read the paper: [BendRT: A Parallel Runtime for CPUs and GPUs](docs/BendRT.pdf)
