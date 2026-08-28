@@ -53,11 +53,11 @@ And that's it. Once that proof lands, your code is correct. Mathematically.
 The property holds, for every game state. Assets can't be cloned. Period.
 
 > We must stress what this means. This is not a test. This is not an audit.
-> This is a MATHEMATICAL PROOF. This is hard to believe because it is not a
-> common feature. But that's what it is. Theorem proving is not new, it is just
-> new to a super fast language. With Bend, the same intelligence that disproved
-> the Jacobian Conjecture will now prove that your vibe coded SaaS never
-> displays an uncentered div again. And that's beautiful.
+> This is a MATHEMATICAL PROOF. This is hard to grasp because it is not a common
+> feature. But that's what it is. Theorem proving is not new, it is just new to
+> a super fast language. With Bend, the same intelligence that disproved the
+> Jacobian Conjecture will now prove that your vibe coded SaaS never displays an
+> uncentered div again. And that's beautiful.
 
 **tl;dr with proofs, "make no mistakes" becomes enforceable**
 
