@@ -1,0 +1,71 @@
+import * as fs from "node:fs";
+
+import * as Bend from "./bend.ts";
+import * as Comp from "./comp.ts";
+
+// Main
+// ====
+
+// Constants
+// =========
+
+const USAGE = "usage: bend <file.bend> [--to <out.c|out.js>]";
+
+// CLI
+// ===
+
+function cli(): void {
+  const [path, flag, to] = process.argv.slice(2);
+  if (path === undefined || path === "--help") {
+    console.log(USAGE);
+    process.exit(path === undefined ? 1 : 0);
+  }
+  if (path.startsWith("--")) {
+    cli_fail("unknown option " + path);
+  }
+  if (flag !== undefined && flag !== "--to") {
+    cli_fail("unknown option " + flag);
+  }
+  if (flag === "--to" && to === undefined) {
+    cli_fail("--to needs an output file");
+  }
+  if (to !== undefined && !to.endsWith(".c") && !to.endsWith(".js")) {
+    cli_fail("--to expects a .c or a .js file, not " + to);
+  }
+  if (process.argv.length > 5) {
+    cli_fail("too many arguments");
+  }
+
+  const book = Bend.book_nil();
+  try {
+    Bend.book_load(book, path, "", new Map());
+    Bend.book_valid(book);
+    if (to !== undefined) {
+      const emit = to.endsWith(".c") ? Comp.compile_book : Comp.js_book;
+      fs.writeFileSync(to, emit(book));
+    } else if (book.tlds["main"] !== undefined) {
+      if (Comp.io_type(book) !== null) {
+        process.exit(Comp.io_run(book));
+      } else {
+        const snf = Bend.term_snf(book, Bend.Ref("main"));
+        console.log(Bend.term_show(Bend.term_lower(snf)));
+      }
+    }
+  } catch (e) {
+    if (e !== null && typeof e === "object" && (e as Bend.Err).$ === "Err") {
+      console.log(Bend.err_show(e as Bend.Err));
+    } else {
+      console.log(String(e));
+    }
+    process.exit(1);
+  }
+}
+
+function cli_fail(msg: string): never {
+  console.error("bend: " + msg + "\n" + USAGE);
+  process.exit(1);
+}
+
+if (import.meta.main) {
+  cli();
+}
