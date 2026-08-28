@@ -16,6 +16,11 @@ That's it. All else is fluff. Bend addresses both. And nothing else.
 
 ![Single-core benchmarks](docs/assets/single_core.svg)
 
+A Bend program running much slower than a well-written C equivalent is a
+reportable bug. If you come across one, please, open an issue. Bend is still
+new, so, this *will* happen. Yet, in theory, Bend is inherently *optimal*, so,
+any such instance can and will be addressed.
+
 ## Bend4 checks FAST
 
 **Target:** outperform every proof assistant by several OOMs.
