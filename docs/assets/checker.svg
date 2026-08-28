@@ -1,11 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1468" height="370" viewBox="0 0 1468 370">
+<svg xmlns="http://www.w3.org/2000/svg" width="1468" height="343" viewBox="0 0 1468 343">
 <style>
   text { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; fill: #818b98; }
   .title { font-size: 18.4px; font-weight: 600; }
   .value { font-size: 15.3px; }
   .name  { font-size: 14.1px; }
   .note  { font-size: 23.2px; opacity: 0.9; }
-  .fine  { font-size: 15.3px; opacity: 0.8; }
 </style>
 <pattern id="hatch" width="7" height="7" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="7" stroke="#818b98" stroke-opacity="0.45" stroke-width="2.5"/></pattern>
 <text x="179" y="26.9" text-anchor="middle" class="title">generic instantiation · n=3200</text>
@@ -79,6 +78,5 @@
 <path d="M 1398 240.5 L 1398 214.1 Q 1398 209.1 1403 209.1 L 1447 209.1 Q 1452 209.1 1452 214.1 L 1452 240.5 Z" fill="#1a4f8a"/>
 <text x="1425" y="200.5" text-anchor="middle" class="value" style="fill: #1a4f8a">0.59s</text>
 <text x="1425" y="265.0" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="734" y="323.5" text-anchor="middle" class="note">cold check of one file, lower is better · log scale · <tspan font-weight="bold">Apple M4</tspan></text>
-<text x="734" y="355.3" text-anchor="middle" class="fine">every bar measured live by .devs/scripts/gen_charts.ts, 2026-08-28, commit 44ecb9d, one machine</text>
+<text x="734" y="323.4" text-anchor="middle" class="note">cold check of one file, lower is better · log scale · <tspan font-weight="bold">Apple M4 Max</tspan></text>
 </svg>

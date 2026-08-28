@@ -1,11 +1,10 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1740" height="1101" viewBox="0 0 1740 1101">
+<svg xmlns="http://www.w3.org/2000/svg" width="1740" height="1069" viewBox="0 0 1740 1069">
 <style>
   text { font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif; fill: #818b98; }
   .title { font-size: 21.8px; font-weight: 600; }
   .value { font-size: 18.1px; }
   .name  { font-size: 16.7px; }
   .note  { font-size: 27.6px; opacity: 0.9; }
-  .fine  { font-size: 18.1px; opacity: 0.8; }
 </style>
 <text x="213" y="31.9" text-anchor="middle" class="title">gameoflife</text>
 <line x1="16" y1="257.3" x2="410" y2="257.3" stroke="#818b98" stroke-opacity="0.3"/>
@@ -271,6 +270,5 @@
 <text x="1697" y="890.1" text-anchor="middle" class="value" style="fill: #1a4f8a">1.37s</text>
 <text x="1697" y="954.6" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1697" y="976.3" text-anchor="middle" class="name" style="fill: #1a4f8a">P-GPU</text>
-<text x="870" y="1045.9" text-anchor="middle" class="note">lower is better · P-CPU = 16 threads · P-GPU = GPU · <tspan font-weight="bold">Apple M4</tspan></text>
-<text x="870" y="1083.6" text-anchor="middle" class="fine">every bar measured live by .devs/scripts/gen_charts.ts, 2026-08-28, commit 44ecb9d, one machine</text>
+<text x="870" y="1045.8" text-anchor="middle" class="note">lower is better · P-CPU = 16 threads · P-GPU = GPU · <tspan font-weight="bold">Apple M4 Max</tspan></text>
 </svg>
