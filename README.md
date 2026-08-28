@@ -28,9 +28,9 @@ That's it. All else is fluff. Bend addresses both. And nothing else.
 
 **Q:** How can I **trust** AI code without **reading** it?
 
-**A:** Just demand a **proof**.
+**A:** Just ask your AI to write a **proof**.
 
-Here's how it works. SUppose you implemented a trading game, and you wanted to
+Here's how it works. Suppose you implemented a trading game, and you wanted to
 prevent bugs like cloning assets. In other languages, you'd write *tests*. But
 there are infinitely many game states. You can't test them all. On Bend, you can
 ask your AI to write a **proof** instead. It will output something like this:
