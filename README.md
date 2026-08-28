@@ -1,6 +1,6 @@
 # Bend4
 
-In the post-AGI economy, only two things still matter for a programming language.
+In the post-AGI economy, what still matters for a programming language? Two things:
 
 1. It must be **fast**. Run on CPUs and GPUs at *lightning speed*.
 
