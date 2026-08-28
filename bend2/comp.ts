@@ -271,6 +271,9 @@ const SPINES: Map<Bend.HTerm, Spine> = new Map();
 
 const PURES: Map<Bend.HTerm, boolean> = new Map();
 
+const HEAT = new RegExp("heap_alloc|buf_new|blk_give|task_node"
+  + "|u32_show|term_keep|rfc_seal|rfc_wrap|BLK_ALLOC");
+
 const CONSTS: Map<Bend.HTerm, boolean> = new Map();
 
 const EMPTY = new Map<Bend.HTerm, Bend.HTerm>();
@@ -2124,10 +2127,8 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
             fl.seg = seg;
             file_push(fl, "break;");
           });
-          const heat = new RegExp("heap_alloc|buf_new|blk_give|task_node"
-            + "|u32_show|term_keep|rfc_seal|rfc_wrap|BLK_ALLOC");
           const got = fl.seg.lines.splice(at);
-          const hot = got.some((l) => heat.test(l));
+          const hot = got.some((l) => HEAT.test(l));
           const spun = hot ? got : got.filter((l) =>
             !l.includes("WL_SPARK("));
           const off = "  ".repeat(fl.tab - 1);
@@ -2651,6 +2652,9 @@ export function compile_book(book: Bend.Book): string {
       "&&L_" + (s.dead ? "FID_EXIT" : s.fid))
       .join(", ")}, &&L_FID_EXIT`);
   const segs = fl.segs.filter((s) => !s.dead).map((seg) => {
+    if (!seg.lines.some((l) => HEAT.test(l))) {
+      seg.lines = seg.lines.filter((l) => !l.includes("WL_PARK("));
+    }
     const out: string[] = [`  WL_CASE(${seg.fid})`, "  {"];
     const fr = seg.frame;
     if (fr !== null && fr.pop > 0) {
