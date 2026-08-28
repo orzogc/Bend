@@ -18,14 +18,14 @@
 <text x="111" y="81.9" text-anchor="middle" class="value">&gt;900s</text>
 <text x="111" y="111.3" text-anchor="middle" class="name">timeout</text>
 <text x="111" y="265.0" text-anchor="middle" class="name">Agda</text>
-<path d="M 152 240.5 L 152 163.8 Q 152 158.8 157 158.8 L 201 158.8 Q 206 158.8 206 163.8 L 206 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="179" y="150.2" text-anchor="middle" class="value">18.2s</text>
+<path d="M 152 240.5 L 152 95.5 Q 152 90.5 157 90.5 L 201 90.5 Q 206 90.5 206 95.5 L 206 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
+<text x="179" y="81.9" text-anchor="middle" class="value">18.2s</text>
 <text x="179" y="265.0" text-anchor="middle" class="name">Lean</text>
-<path d="M 220 240.5 L 220 183.8 Q 220 178.8 225 178.8 L 269 178.8 Q 274 178.8 274 183.8 L 274 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="247" y="170.2" text-anchor="middle" class="value">5.78s</text>
+<path d="M 220 240.5 L 220 170.5 Q 220 165.5 225 165.5 L 269 165.5 Q 274 165.5 274 170.5 L 274 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="247" y="156.9" text-anchor="middle" class="value">5.78s</text>
 <text x="247" y="265.0" text-anchor="middle" class="name">Rocq</text>
-<path d="M 288 240.5 L 288 233.4 Q 288 228.4 293 228.4 L 337 228.4 Q 342 228.4 342 233.4 L 342 240.5 Z" fill="#1a4f8a"/>
-<text x="315" y="219.8" text-anchor="middle" class="value" style="fill: #1a4f8a">0.34s</text>
+<path d="M 288 240.5 L 288 238.29999999999998 Q 288 236.1 290.2 236.1 L 339.8 236.1 Q 342 236.1 342 238.29999999999998 L 342 240.5 Z" fill="#1a4f8a"/>
+<text x="315" y="227.5" text-anchor="middle" class="value" style="fill: #1a4f8a">0.34s</text>
 <text x="315" y="265.0" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="549" y="26.9" text-anchor="middle" class="title">proof libraries · n=3200</text>
 <line x1="386" y1="240.52666666666667" x2="712" y2="240.52666666666667" stroke="#818b98" stroke-opacity="0.3"/>
@@ -33,51 +33,51 @@
 <text x="413" y="81.9" text-anchor="middle" class="value">&gt;900s</text>
 <text x="413" y="111.3" text-anchor="middle" class="name">timeout</text>
 <text x="413" y="265.0" text-anchor="middle" class="name">Isabelle</text>
-<path d="M 454 240.5 L 454 102.1 Q 454 97.1 459 97.1 L 503 97.1 Q 508 97.1 508 102.1 L 508 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="481" y="88.5" text-anchor="middle" class="value">641s</text>
+<path d="M 454 240.5 L 454 95.5 Q 454 90.5 459 90.5 L 503 90.5 Q 508 90.5 508 95.5 L 508 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
+<text x="481" y="81.9" text-anchor="middle" class="value">641s</text>
 <text x="481" y="265.0" text-anchor="middle" class="name">Agda</text>
-<path d="M 522 240.5 L 522 101 Q 522 96 527 96 L 571 96 Q 576 96 576 101 L 576 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="549" y="87.4" text-anchor="middle" class="value">680s</text>
+<path d="M 522 240.5 L 522 95.5 Q 522 90.5 527 90.5 L 571 90.5 Q 576 90.5 576 95.5 L 576 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
+<text x="549" y="81.9" text-anchor="middle" class="value">680s</text>
 <text x="549" y="265.0" text-anchor="middle" class="name">Lean</text>
-<path d="M 590 240.5 L 590 185 Q 590 180 595 180 L 639 180 Q 644 180 644 185 L 644 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="617" y="171.4" text-anchor="middle" class="value">9.11s</text>
+<path d="M 590 240.5 L 590 170.5 Q 590 165.5 595 165.5 L 639 165.5 Q 644 165.5 644 170.5 L 644 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="617" y="156.9" text-anchor="middle" class="value">9.11s</text>
 <text x="617" y="265.0" text-anchor="middle" class="name">Rocq</text>
-<path d="M 658 240.5 L 658 232 Q 658 227 663 227 L 707 227 Q 712 227 712 232 L 712 240.5 Z" fill="#1a4f8a"/>
-<text x="685" y="218.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.82s</text>
+<path d="M 658 240.5 L 658 237.1 Q 658 233.7 661.4 233.7 L 708.6 233.7 Q 712 233.7 712 237.1 L 712 240.5 Z" fill="#1a4f8a"/>
+<text x="685" y="225.1" text-anchor="middle" class="value" style="fill: #1a4f8a">0.82s</text>
 <text x="685" y="265.0" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="919" y="26.9" text-anchor="middle" class="title">plain programs · n=12800</text>
 <line x1="756" y1="240.52666666666667" x2="1082" y2="240.52666666666667" stroke="#818b98" stroke-opacity="0.3"/>
-<path d="M 756 240.5 L 756 95.5 Q 756 90.5 761 90.5 L 805 90.5 Q 810 90.5 810 95.5 L 810 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<path d="M 756 240.5 L 756 95.5 Q 756 90.5 761 90.5 L 805 90.5 Q 810 90.5 810 95.5 L 810 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
 <text x="783" y="81.9" text-anchor="middle" class="value">645s</text>
 <text x="783" y="265.0" text-anchor="middle" class="name">Isabelle</text>
-<path d="M 824 240.5 L 824 105.5 Q 824 100.5 829 100.5 L 873 100.5 Q 878 100.5 878 105.5 L 878 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="851" y="91.9" text-anchor="middle" class="value">370s</text>
+<path d="M 824 240.5 L 824 95.5 Q 824 90.5 829 90.5 L 873 90.5 Q 878 90.5 878 95.5 L 878 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
+<text x="851" y="81.9" text-anchor="middle" class="value">370s</text>
 <text x="851" y="265.0" text-anchor="middle" class="name">Agda</text>
-<path d="M 892 240.5 L 892 147.4 Q 892 142.4 897 142.4 L 941 142.4 Q 946 142.4 946 147.4 L 946 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="919" y="133.8" text-anchor="middle" class="value">36.0s</text>
+<path d="M 892 240.5 L 892 95.5 Q 892 90.5 897 90.5 L 941 90.5 Q 946 90.5 946 95.5 L 946 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
+<text x="919" y="81.9" text-anchor="middle" class="value">36.0s</text>
 <text x="919" y="265.0" text-anchor="middle" class="name">Lean</text>
-<path d="M 960 240.5 L 960 191.5 Q 960 186.5 965 186.5 L 1009 186.5 Q 1014 186.5 1014 191.5 L 1014 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="987" y="177.9" text-anchor="middle" class="value">3.12s</text>
+<path d="M 960 240.5 L 960 170.5 Q 960 165.5 965 165.5 L 1009 165.5 Q 1014 165.5 1014 170.5 L 1014 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="987" y="156.9" text-anchor="middle" class="value">3.12s</text>
 <text x="987" y="265.0" text-anchor="middle" class="name">Rocq</text>
-<path d="M 1028 240.5 L 1028 233 Q 1028 228 1033 228 L 1077 228 Q 1082 228 1082 233 L 1082 240.5 Z" fill="#1a4f8a"/>
-<text x="1055" y="219.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.31s</text>
+<path d="M 1028 240.5 L 1028 236.75 Q 1028 233 1031.75 233 L 1078.25 233 Q 1082 233 1082 236.75 L 1082 240.5 Z" fill="#1a4f8a"/>
+<text x="1055" y="224.4" text-anchor="middle" class="value" style="fill: #1a4f8a">0.31s</text>
 <text x="1055" y="265.0" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
 <text x="1289" y="26.9" text-anchor="middle" class="title">evaluation (smalltt trees) · n=400</text>
 <line x1="1126" y1="240.52666666666667" x2="1452" y2="240.52666666666667" stroke="#818b98" stroke-opacity="0.3"/>
-<path d="M 1126 240.5 L 1126 95.5 Q 1126 90.5 1131 90.5 L 1175 90.5 Q 1180 90.5 1180 95.5 L 1180 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<path d="M 1126 240.5 L 1126 95.5 Q 1126 90.5 1131 90.5 L 1175 90.5 Q 1180 90.5 1180 95.5 L 1180 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
 <text x="1153" y="81.9" text-anchor="middle" class="value">8.12s</text>
 <text x="1153" y="265.0" text-anchor="middle" class="name">Isabelle</text>
-<path d="M 1194 240.5 L 1194 137.4 Q 1194 132.4 1199 132.4 L 1243 132.4 Q 1248 132.4 1248 137.4 L 1248 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1221" y="123.8" text-anchor="middle" class="value">3.22s</text>
+<path d="M 1194 240.5 L 1194 95.5 Q 1194 90.5 1199 90.5 L 1243 90.5 Q 1248 90.5 1248 95.5 L 1248 240.5 Z" fill="url(#hatch)" stroke="#818b98" stroke-opacity="0.5" stroke-dasharray="4 3"/>
+<text x="1221" y="81.9" text-anchor="middle" class="value">3.22s</text>
 <text x="1221" y="265.0" text-anchor="middle" class="name">Agda</text>
-<path d="M 1262 240.5 L 1262 180.5 Q 1262 175.5 1267 175.5 L 1311 175.5 Q 1316 175.5 1316 180.5 L 1316 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1289" y="166.9" text-anchor="middle" class="value">1.24s</text>
+<path d="M 1262 240.5 L 1262 170.5 Q 1262 165.5 1267 165.5 L 1311 165.5 Q 1316 165.5 1316 170.5 L 1316 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1289" y="156.9" text-anchor="middle" class="value">1.24s</text>
 <text x="1289" y="265.0" text-anchor="middle" class="name">Lean</text>
-<path d="M 1330 240.5 L 1330 176.4 Q 1330 171.4 1335 171.4 L 1379 171.4 Q 1384 171.4 1384 176.4 L 1384 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
-<text x="1357" y="162.8" text-anchor="middle" class="value">1.36s</text>
+<path d="M 1330 240.5 L 1330 163.2 Q 1330 158.2 1335 158.2 L 1379 158.2 Q 1384 158.2 1384 163.2 L 1384 240.5 Z" fill="#818b98" fill-opacity="0.4"/>
+<text x="1357" y="149.6" text-anchor="middle" class="value">1.36s</text>
 <text x="1357" y="265.0" text-anchor="middle" class="name">Rocq</text>
-<path d="M 1398 240.5 L 1398 214.1 Q 1398 209.1 1403 209.1 L 1447 209.1 Q 1452 209.1 1452 214.1 L 1452 240.5 Z" fill="#1a4f8a"/>
-<text x="1425" y="200.5" text-anchor="middle" class="value" style="fill: #1a4f8a">0.59s</text>
+<path d="M 1398 240.5 L 1398 209.8 Q 1398 204.8 1403 204.8 L 1447 204.8 Q 1452 204.8 1452 209.8 L 1452 240.5 Z" fill="#1a4f8a"/>
+<text x="1425" y="196.2" text-anchor="middle" class="value" style="fill: #1a4f8a">0.59s</text>
 <text x="1425" y="265.0" text-anchor="middle" class="name" style="fill: #1a4f8a">Bend</text>
-<text x="734" y="323.4" text-anchor="middle" class="note">cold check of one file, lower is better · log scale · <tspan font-weight="bold">Apple M4 Max</tspan></text>
+<text x="734" y="323.4" text-anchor="middle" class="note">cold check of one file, lower is better · <tspan font-weight="bold">Apple M4 Max</tspan></text>
 </svg>
