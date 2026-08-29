@@ -64,7 +64,7 @@
 // F32    | NUMBER "." NUMBER          | F32.make(m, d)
 // Chr    | "'" CHAR "'"               | Chr{U32}
 // Str    | "\"" [CHAR] "\""           | SCon{Chr, ..SNil{}}
-// Index  | x "[" i "]" ("<-" v)?      | Array.get(x, i), Array.set(..)
+// Index  | x "[" i "]" ("<-" v)?      | Array.get(U32, x, i), ..set(..)
 // Fill   | D "<" [A ","?] ">"         | D<&1.., A..>
 // Plus   | "+" D ("<" [A ","?] ">")?  | D<&2.., A..>
 //
@@ -1919,9 +1919,11 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
       parse_skip(p);
       if (!parse_nl(p) && parse_take(p, "<-")) {
         const v = parse_term(p, 2);
-        out = App(App(App(Ref("Array.set", s), out, s), ix, s), v, s);
+        out = App(App(App(App(Ref("Array.set", s), Ref("U32", s), s),
+          out, s), ix, s), v, s);
       } else {
-        out = App(App(Ref("Array.get", s), out, s), ix, s);
+        out = App(App(App(Ref("Array.get", s), Ref("U32", s), s),
+          out, s), ix, s);
       }
       continue;
     }

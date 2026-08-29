@@ -19,10 +19,10 @@ import Base
 # compiler. The sweep's memory-bound GPU profile is the honest result.
 #
 # Port deviations from the Bend3 source (semantics preserved exactly):
-# - `h[i]` reads become Array.get(h, i), `h[i] <- v` writes become
+# - `h[i]` reads become Array.get(U32, h, i), `h[i] <- v` writes become
 #   Array.swap(U32, h, i, v); both hand the array back.
 # - Bend3's flat literal `![4095:0, _:0; 4096]` becomes
-#   Array.new(12n, 0) (the C backend lays it flat in one block).
+#   Array.new(U32, 12n, 0) (the C backend lays it flat in one block).
 # - Cell, sweep and depth counters are Nats (no U32 match in Bend4);
 #   the pass salt `1+p` reads back as U32.inc(U32.from_nat(p)).
 # - `(xc > 0)` as a 0/1 word becomes b2u(U32.is_gt(xc, 0)).
@@ -139,7 +139,7 @@ assert erode.f4:
 
 def erode.f4(i, p, zc, hc, hl, hr, r):
   (h4, hu) = r
-  erode.f5(i, p, hc, hl, hr, hu, Array.get(h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
+  erode.f5(i, p, hc, hl, hr, hu, Array.get(U32, h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
 
 assert erode.f3:
   forall +i: U32
@@ -152,7 +152,7 @@ assert erode.f3:
 
 def erode.f3(i, p, zc, hc, hl, r):
   (h3, hr) = r
-  erode.f4(i, p, zc, hc, hl, hr, Array.get(h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
+  erode.f4(i, p, zc, hc, hl, hr, Array.get(U32, h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
 
 assert erode.f2:
   forall +i: U32
@@ -165,7 +165,7 @@ assert erode.f2:
 
 def erode.f2(i, p, xc, zc, hc, r):
   (h2, hl) = r
-  erode.f3(i, p, zc, hc, hl, Array.get(h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
+  erode.f3(i, p, zc, hc, hl, Array.get(U32, h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
 
 assert erode.f1:
   forall +i: U32
@@ -177,7 +177,7 @@ def erode.f1(i, p, r):
   (h1, hc) = r
   +xc = U32.and(i, 63)
   +zc = U32.shrn(i, 6n)
-  erode.f2(i, p, xc, zc, hc, Array.get(h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
+  erode.f2(i, p, xc, zc, hc, Array.get(U32, h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
 
 assert erode.f0:
   forall +i: U32
@@ -187,7 +187,7 @@ assert erode.f0:
 
 def erode.f0(i, p, r):
   (h0, old) = r
-  erode.f1(i, p, Array.get(h0, i))
+  erode.f1(i, p, Array.get(U32, h0, i))
 
 assert erode.d5:
   forall +i: U32
@@ -217,7 +217,7 @@ assert erode.d4:
 
 def erode.d4(i, p, zc, hc, hl, hr, r):
   (h4, hu) = r
-  erode.d5(i, p, hc, hl, hr, hu, Array.get(h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
+  erode.d5(i, p, hc, hl, hr, hu, Array.get(U32, h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
 
 assert erode.d3:
   forall +i: U32
@@ -230,7 +230,7 @@ assert erode.d3:
 
 def erode.d3(i, p, zc, hc, hl, r):
   (h3, hr) = r
-  erode.d4(i, p, zc, hc, hl, hr, Array.get(h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
+  erode.d4(i, p, zc, hc, hl, hr, Array.get(U32, h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
 
 assert erode.d2:
   forall +i: U32
@@ -243,7 +243,7 @@ assert erode.d2:
 
 def erode.d2(i, p, xc, zc, hc, r):
   (h2, hl) = r
-  erode.d3(i, p, zc, hc, hl, Array.get(h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
+  erode.d3(i, p, zc, hc, hl, Array.get(U32, h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
 
 assert erode.d1:
   forall +i: U32
@@ -255,7 +255,7 @@ def erode.d1(i, p, r):
   (h1, hc) = r
   +xc = U32.and(i, 63)
   +zc = U32.shrn(i, 6n)
-  erode.d2(i, p, xc, zc, hc, Array.get(h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
+  erode.d2(i, p, xc, zc, hc, Array.get(U32, h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
 
 assert erode.d0:
   forall +i: U32
@@ -265,7 +265,7 @@ assert erode.d0:
 
 def erode.d0(i, p, r):
   (h0, old) = r
-  erode.d1(i, p, Array.get(h0, i))
+  erode.d1(i, p, Array.get(U32, h0, i))
 
 assert erode.b5:
   forall +i: U32
@@ -295,7 +295,7 @@ assert erode.b4:
 
 def erode.b4(i, p, zc, hc, hl, hr, r):
   (h4, hu) = r
-  erode.b5(i, p, hc, hl, hr, hu, Array.get(h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
+  erode.b5(i, p, hc, hl, hr, hu, Array.get(U32, h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
 
 assert erode.b3:
   forall +i: U32
@@ -308,7 +308,7 @@ assert erode.b3:
 
 def erode.b3(i, p, zc, hc, hl, r):
   (h3, hr) = r
-  erode.b4(i, p, zc, hc, hl, hr, Array.get(h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
+  erode.b4(i, p, zc, hc, hl, hr, Array.get(U32, h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
 
 assert erode.b2:
   forall +i: U32
@@ -321,7 +321,7 @@ assert erode.b2:
 
 def erode.b2(i, p, xc, zc, hc, r):
   (h2, hl) = r
-  erode.b3(i, p, zc, hc, hl, Array.get(h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
+  erode.b3(i, p, zc, hc, hl, Array.get(U32, h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
 
 assert erode.b1:
   forall +i: U32
@@ -333,7 +333,7 @@ def erode.b1(i, p, r):
   (h1, hc) = r
   +xc = U32.and(i, 63)
   +zc = U32.shrn(i, 6n)
-  erode.b2(i, p, xc, zc, hc, Array.get(h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
+  erode.b2(i, p, xc, zc, hc, Array.get(U32, h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
 
 assert erode.b0:
   forall +i: U32
@@ -343,7 +343,7 @@ assert erode.b0:
 
 def erode.b0(i, p, r):
   (h0, old) = r
-  erode.b1(i, p, Array.get(h0, i))
+  erode.b1(i, p, Array.get(U32, h0, i))
 
 assert erode.a5:
   forall +i: U32
@@ -373,7 +373,7 @@ assert erode.a4:
 
 def erode.a4(i, p, zc, hc, hl, hr, r):
   (h4, hu) = r
-  erode.a5(i, p, hc, hl, hr, hu, Array.get(h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
+  erode.a5(i, p, hc, hl, hr, hu, Array.get(U32, h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
 
 assert erode.a3:
   forall +i: U32
@@ -386,7 +386,7 @@ assert erode.a3:
 
 def erode.a3(i, p, zc, hc, hl, r):
   (h3, hr) = r
-  erode.a4(i, p, zc, hc, hl, hr, Array.get(h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
+  erode.a4(i, p, zc, hc, hl, hr, Array.get(U32, h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
 
 assert erode.a2:
   forall +i: U32
@@ -399,7 +399,7 @@ assert erode.a2:
 
 def erode.a2(i, p, xc, zc, hc, r):
   (h2, hl) = r
-  erode.a3(i, p, zc, hc, hl, Array.get(h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
+  erode.a3(i, p, zc, hc, hl, Array.get(U32, h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
 
 assert erode.a1:
   forall +i: U32
@@ -411,7 +411,7 @@ def erode.a1(i, p, r):
   (h1, hc) = r
   +xc = U32.and(i, 63)
   +zc = U32.shrn(i, 6n)
-  erode.a2(i, p, xc, zc, hc, Array.get(h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
+  erode.a2(i, p, xc, zc, hc, Array.get(U32, h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
 
 assert erode.go:
   forall +i: U32
@@ -420,7 +420,7 @@ assert erode.go:
   Array<U32> & U32
 
 def erode.go(i, p, h):
-  erode.a1(i, p, Array.get(h, i))
+  erode.a1(i, p, Array.get(U32, h, i))
 
 # one Gauss-Seidel sweep over the tile, ascending scan order, four
 # cells per turn (j counts quads); the quad's final write pair rides
@@ -470,7 +470,7 @@ def gfold(j, r, acc):
     case 1n+q:
       (g2, c) = r
       +i = U32.sub(63, U32.from_nat(q))
-      gfold(q, Array.get(g2, U32.inc(i)), U32.xor(U32.mul(acc, 2654435761), U32.mul(c, U32.add(i, 3))))
+      gfold(q, Array.get(U32, g2, U32.inc(i)), U32.xor(U32.mul(acc, 2654435761), U32.mul(c, U32.add(i, 3))))
 
 # bucket increment: the (array, count) read pair arrives as a
 # parameter and the bumped bucket's write pair is handed back
@@ -497,14 +497,14 @@ def hist(j, r, rg, acc):
   match j:
     case 0n:
       (g, z) = rg
-      gfold(64n, Array.get(g, 0), acc)
+      gfold(64n, Array.get(U32, g, 0), acc)
     case 1n+q:
       (h2, v0) = r
       (g, z) = rg
       +i = U32.sub(4095, U32.from_nat(q))
       +v = v0
       +b = U32.and(U32.shrn(v, 2n), 63)
-      hist(q, Array.get(h2, U32.inc(i)), hist.bump(b, Array.get(g, b)),
+      hist(q, Array.get(U32, h2, U32.inc(i)), hist.bump(b, Array.get(U32, g, b)),
         U32.add(U32.mul(acc, 2654435761), U32.mul(v, U32.inc(i))))
 
 # one tile: fill, EPASS relaxation sweeps, histogram + fold
@@ -514,11 +514,11 @@ assert tile:
   U32
 
 def tile(t, e):
-  a = Array.new(12n, 0)
+  a = Array.new(U32, 12n, 0)
   h0 = fill(4096n, U32.shln(U32.and(t, 255), 6n), U32.shln(U32.shrn(t, 8n), 6n), (a, 0))
   h1 = smooth(e, h0)
-  b = Array.new(6n, 0)
-  hist(4096n, Array.get(h1, 0), (b, 0), U32.inc(t))
+  b = Array.new(U32, 6n, 0)
+  hist(4096n, Array.get(U32, h1, 0), (b, 0), U32.inc(t))
 
 assert batch:
   forall +d: Nat

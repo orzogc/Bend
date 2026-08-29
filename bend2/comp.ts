@@ -114,7 +114,8 @@ type Arg = string | Parts;
 type Intr = {
   e?: Gen;
   call?: boolean;
-  parts?: (shr: boolean) => string[];
+  flg?: number;
+  parts?: string[];
   js: Gen;
 };
 
@@ -151,22 +152,14 @@ const NATIVES: Record<Bend.Name, Native> = Object.setPrototypeOf({
     elim: { Succ: ["($0 - 1)"] },
     cond: { Zero: "$0 == 0", Succ: "$0 != 0" },
   },
-  Bool: {
-    intr: { False: "0", True: "1" },
-    cond: { False: "$0 == 0", True: "$0 != 0" },
-  },
-  Cmp: {
-    intr: { LT: "0", EQ: "1", GT: "2" },
-    cond: { LT: "$0 == 0", EQ: "$0 == 1", GT: "$0 == 2" },
-  },
   Array: {
     intr: {
-      ALeaf: "buf_new(e, 0, $0)",
+      ALeaf: "buf_new(e, 0, 0, $0)",
       ANode: "blk_node(e, $0, $1)",
     },
     elim: {
       ALeaf: ["blk_take(e, $0)"],
-      ANode: ["blk_half(e, $0, 0)", "blk_rest(e, $0)"],
+      ANode: ["blk_half(e, $0, 0)", "blk_half(e, $0, 1)"],
     },
     cond: {
       ALeaf: "term_aux($0) == 0",
@@ -176,7 +169,7 @@ const NATIVES: Record<Bend.Name, Native> = Object.setPrototypeOf({
 }, null);
 
 const ARR_NATIVE = { ...NATIVES.Array,
-  intr: { ...NATIVES.Array.intr, ALeaf: "blk_leaf(e, $0)" } };
+  intr: { ...NATIVES.Array.intr, ALeaf: "buf_new(e, 1, 0, $0)" } };
 
 const CMPS = [["eq", "=="], ["ne", "!="], ["lt", "<"],
   ["le", "<="], ["gt", ">"], ["ge", ">="]];
@@ -185,18 +178,42 @@ const FOPS = [["add", "+"], ["sub", "-"], ["mul", "*"], ["div", "/"]];
 
 export const INTRINSICS: Record<string, Intr> = Object.setPrototypeOf({
   u32_show: { e: "u32_show(e, $0)", js: "String($0)" },
-  array_new: { e: "buf_new(e, $0, $1)", js: "array_new($0, $1)" },
+  array_new: { e: "buf_new(e, $2, $0, $1)", flg: 1,
+    js: "array_new($0, $1)" },
   array_get: {
-    parts: intr_blk("buf_read(e, $3, $1)"),
+    parts: ["$0", "blk_get(e, $2, $3, $1)"], flg: 0,
     js: "array_get($0, $1)",
   },
   array_swap: {
-    parts: intr_blk("blk_give(e, $3, $4, $1, $2)"),
+    parts: ["$0", "blk_give(e, $3, $4, $1, $2)"], flg: 0,
     js: "array_swap($0, $1, $2)",
   },
+  array_set: { e: "blk_set(e, $3, $0, $1, $2)", flg: 0,
+    js: "array_set($0, $1, $2)" },
+  array_size: {
+    parts: ["$0", "(1ull << blk_cls(e, $2))"],
+    js: "array_size($0)",
+  },
   array_clone: {
-    parts: () => ["term_keep(e, $0)", "$2"],
+    parts: ["blk_copy(e, $0)", "$0"],
     js: ([a]: string[]) => "{$: \"Tuple\", $0: " + a + ", $1: " + a + "}",
+  },
+  nat_add:    { e: "nat_add(e, $0, $1)", call: false,
+    js: "nat_chk($0 + $1)" },
+  nat_sub:    { e: "nat_sub($0, $1)", call: false,
+    js: "($0 < $1 ? 0n : $0 - $1)" },
+  nat_mul:    { e: "nat_mul(e, $0, $1)", call: false,
+    js: "nat_chk($0 * $1)" },
+  nat_double: { e: "nat_dbl(e, $0)", call: false,
+    js: "nat_chk($0 << 1n)" },
+  nat_cmp:    { e: "nat_cmp($0, $1)", call: false, js: "cmp_new($0, $1)" },
+  nat_is_lt:  { e: "nat_is_lt($0, $1)", call: false, js: "($0 < $1)" },
+  nat_divmod: {
+    parts: ["nat_div($0, $1)", "nat_mod($0, $1)"],
+    js: ([a, b]: string[]) => "(" + b + " === 0n"
+      + " ? {$: \"Tuple\", $0: 0n, $1: " + a + "}"
+      + " : {$: \"Tuple\", $0: " + a + " / " + b
+      + ", $1: " + a + " % " + b + "})",
   },
   ...Object.fromEntries(CMPS.flatMap(([c, o]) => {
     const js = "($0 " + ("=!".includes(o[0]) ? o + "=" : o) + " $1)";
@@ -266,6 +283,8 @@ const SHARE: Map<Bend.HTerm, Probe | null> = new Map();
 
 const DEEPS: Map<Bend.Name, boolean> = new Map();
 
+const NULLS: Map<Bend.Name, Native | undefined> = new Map();
+
 const SPINES: Map<Bend.HTerm, Spine> = new Map();
 
 const PURES: Map<Bend.HTerm, boolean> = new Map();
@@ -275,16 +294,6 @@ const CONSTS: Map<Bend.HTerm, boolean> = new Map();
 const EMPTY = new Map<Bend.HTerm, Bend.HTerm>();
 
 export const JS_INTRINSICS: Record<string, Gen> = Object.setPrototypeOf({
-  nat_double:    "($0 << 1n)",
-  nat_add:       "($0 + $1)",
-  nat_sub:       "($0 < $1 ? 0n : $0 - $1)",
-  nat_mul:       "($0 * $1)",
-  nat_divmod:    ([a, b]: string[]) => "(" + b + " === 0n"
-    + " ? {$: \"Tuple\", $0: 0n, $1: " + a + "}"
-    + " : {$: \"Tuple\", $0: " + a + " / " + b
-    + ", $1: " + a + " % " + b + "})",
-  nat_cmp:       "cmp_new($0, $1)",
-  nat_is_lt:     "($0 < $1)",
   string_append: "($0 + $1)",
   ...Object.fromEntries(Object.entries(INTRINSICS).map(([k, it]) =>
     [k, it.js])),
@@ -296,7 +305,7 @@ const JS_NATIVES: Record<Bend.Name, Native> = {
       Zero: "0n",
       Succ: ([p]) => /^\d+n$/.test(p)
         ? (BigInt(p.slice(0, -1)) + 1n) + "n"
-        : "(" + p + " + 1n)",
+        : "nat_chk(" + p + " + 1n)",
     },
     elim: { Succ: ["($0 - 1n)"] },
     cond: { Zero: "$0 === 0n", Succ: "$0 !== 0n" },
@@ -525,10 +534,6 @@ function live_doms(c: Comp, tld: Bend.Def): Dom[] {
 // Intr
 // ====
 
-function intr_blk(read: string): (shr: boolean) => string[] {
-  return (shr) => [shr ? "blk_cow(e, $0)" : "$0", read];
-}
-
 function intr_of(c: Comp, k: Bend.Name): Intr | undefined {
   return def_own(c.book.tlds[k]) ? INTRINSICS[eff_name(k)] : undefined;
 }
@@ -641,13 +646,35 @@ function ty_peel(tm: Bend.HTerm,
 
 function ty_w32(book: Bend.Book, A: Bend.HTerm | null): boolean {
   const t = ty_wnf(book, A);
-  return t?.$ === "ADT" ? ["U32", "Bool", "Char"].includes(t.k)
-    : ty_f32(book, A);
+  if (t?.$ !== "ADT") {
+    return ty_f32(book, A);
+  }
+  return t.k === "U32" || t.k === "Char"
+    || native_nullary(book, t.k) !== undefined;
 }
 
 function ty_f32(book: Bend.Book, A: Bend.HTerm | null): boolean {
   const t = ty_wnf(book, A);
   return t?.$ === "Ref" && t.k === "F32";
+}
+
+// Arr
+// ===
+
+function arr_elem(book: Bend.Book, A: Bend.HTerm): Bend.HTerm {
+  const w = ty_wnf(book, A);
+  return w?.$ === "ADT" && w.k === "Array" ? w.x[0] : A;
+}
+
+function arr_flag(book: Bend.Book, el: Bend.HTerm): boolean {
+  if (ty_w32(book, el)) {
+    return false;
+  }
+  const w = ty_wnf(book, el);
+  if (w?.$ === "ADT" || w?.$ === "All") {
+    return true;
+  }
+  die("an open Array element type");
 }
 
 // Ctr
@@ -706,17 +733,28 @@ function ctr_build(fl: File, k: Bend.Name, exprs: string[]): string {
 // Native
 // ======
 
+function native_nullary(book: Bend.Book, k: Bend.Name): Native | undefined {
+  return memo(NULLS, k, () => {
+    const tld = book.tlds[k];
+    if (tld?.$ !== "ADT" || tld.c.length === 0
+      || !tld.c.every((c) => ctr_doms(book, c).length === 0)) {
+      return undefined;
+    }
+    return {
+      intr: Object.fromEntries(tld.c.map((c, i) => [c.k, String(i)])),
+      cond: Object.fromEntries(tld.c.map((c, i) => [c.k, `$0 == ${i}`])),
+    };
+  });
+}
+
 function native_of(book: Bend.Book, adt: HAdt): Native | undefined {
   if (adt.k === "U32") {
     die("a structural view of a machine word");
   }
-  if (adt.k !== "Array" || ty_w32(book, adt.x[0])) {
-    return NATIVES[adt.k];
-  }
-  if (["ADT", "All"].includes(Bend.term_wnf(book, adt.x[0]).$)) {
+  if (adt.k === "Array" && arr_flag(book, adt.x[0])) {
     return ARR_NATIVE;
   }
-  die("an open Array element type");
+  return NATIVES[adt.k] ?? native_nullary(book, adt.k);
 }
 
 // Adt
@@ -902,7 +940,7 @@ function carb_fresh(cb: Carb, k: Bend.Name): TLD | undefined {
 }
 
 function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
-  [TELES, REFS, FRESH].forEach((m) => m.clear());
+  [TELES, REFS, FRESH, NULLS].forEach((m) => m.clear());
   memo_gc();
   const book: Book = { ...src, tlds: { ...src.tlds } };
   const cb: Carb = {
@@ -1643,6 +1681,11 @@ function arg_lend(fl: File, ck: Call): string[] {
     lent?.[j] ? arg_local(fl, a) : emit_expr(fl, a, null));
 }
 
+function arg_arr(fl: File, a: Bend.HTerm): string {
+  const el = arr_elem(fl.book, ty_ann(a) ?? die("an untyped block"));
+  return arr_flag(fl.book, el) ? "1" : "0";
+}
+
 function arg_fuse(fl: File, a: Bend.HTerm): Arg {
   const x = Bend.term_strip(a);
   if (x.$ === "Var") {
@@ -1654,12 +1697,10 @@ function arg_fuse(fl: File, a: Bend.HTerm): Arg {
   const m = term_spine(fl, x);
   const it = m.t.$ === "Ref" ? intr_of(fl, m.t.k) : undefined;
   if (it?.parts !== undefined) {
-    const arr = native_of(fl.book, Bend.term_wnf(fl.book,
-      ty_ann(m.args[0]) ?? die("an untyped block")) as HAdt)
-      === ARR_NATIVE ? "1" : "0";
+    const arr = it.flg === undefined ? "0" : arg_arr(fl, m.args[it.flg]);
     const as = emit_exprs(fl, m.args).map((z) => emit_alias(fl, z, "aw"));
     const vs: string[] = [];
-    for (const p of it.parts(fl.shr.has("t:Array"))) {
+    for (const p of it.parts) {
       vs.push(emit_alias(fl, tpl(p)([...as, arr, ...vs]), "aw"));
     }
     return { k: "Tuple", vs, w: false };
@@ -1815,7 +1856,11 @@ function emit_expr(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null): string {
       if (intr.parts !== undefined) {
         return arg_term(fl, arg_fuse(fl, x));
       }
-      return tpl_run(intr.e!, emit_exprs(fl, m.args));
+      const exprs = emit_exprs(fl, m.args);
+      if (intr.flg !== undefined) {
+        exprs.push(arg_arr(fl, m.args[intr.flg]));
+      }
+      return tpl_run(intr.e!, exprs);
     }
     case "Ctr": {
       const [adt, u] = ctr_adt(fl, x, ty);
@@ -1866,7 +1911,7 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
         return emit_func(fl, arms[0][1], null,
           [...a0.vs, ...args.slice(1)], dst);
       }
-      let s = emit_alias(fl, arg_term(fl, args[0]), "s");
+      const s = emit_alias(fl, arg_term(fl, args[0]), "s");
       const rest = args.slice(1).map((a) => arg_term(fl, a));
       if (x.$ === "Efq") {
         return emit_stuck(fl);
@@ -1921,9 +1966,6 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
       const native = native_of(fl.book, adt);
       const sharable = fl.shr.has("t:" + adt.k);
       const brw = fl.brwl.has(s);
-      if (adt.k === "Array" && sharable && !brw) {
-        s = emit_alias(fl, `blk_cow(e, ${s})`, "s");
-      }
       const hs = arms.map(([, h]) => h);
       const emits = arms.map(([k, h]) => () => arm_emit(h, k));
       if (end !== null || arms.length < total) {
@@ -2392,8 +2434,7 @@ export function compile_book(book: Bend.Book): string {
       return;
     }
     const tk = "t:" + w.k;
-    const hot = force || keeps.has(tk)
-      || (w.k === "Array" && !ty_w32(cb.book, w.x[0]));
+    const hot = force || keeps.has(tk);
     w.x.forEach((x) => held(x, hot));
     if (!hot || keeps.has(tk)) {
       return;
@@ -2442,8 +2483,16 @@ export function compile_book(book: Bend.Book): string {
       }
       return scan(body, all.B(p));
     }
-    if (s.$ === "Ref" && intr_of(cb, s.k) === INTRINSICS.array_clone) {
-      keeps.add("t:Array");
+    if (s.$ === "App") {
+      const m = term_spine(cb, s);
+      const it = m.t.$ === "Ref" ? intr_of(cb, m.t.k) : undefined;
+      if (it === INTRINSICS.array_get || it === INTRINSICS.array_new) {
+        const A = ty_ann(m.args[it.flg as number]);
+        const el = A === null ? null : arr_elem(cb.book, A);
+        if (el !== null && !ty_w32(cb.book, el)) {
+          held(el, true);
+        }
+      }
     }
     for (const kid of term_kids(cb, s)) {
       scan(kid, null);
@@ -3648,7 +3697,8 @@ INLINE Term rfc_wrap(Env e, Term t, u32 cnt) {
 }
 
 INLINE Term rfc_seal(Env e, Term t) {
-  if (term_triv(t) || term_rfc(t)) {
+  if (term_triv(t) || term_rfc(t)
+    || term_tag(t) == TAG_BUF || term_tag(t) == TAG_ARR) {
     return t;
   }
   return rfc_wrap(e, t, 1);
@@ -3756,24 +3806,6 @@ INLINE Cls blk_span(Env e, Term t) {
 
 INLINE void blk_free(Env e, Term t) {
   heap_free(e, blk_span(e, t), term_loc(t));
-}
-
-OUTLINE Term rfc_open(Env e, Term t) {
-  Corpus H = e.mem;
-  u32 cls  = blk_span(e, t);
-  u64 span = 1ull << cls;
-  Loc r    = term_loc(t);
-  u64 cell = rfc_view(e, r);
-  if ((cell & RFC_CNT) == 1) {
-    return rfc_sole(e, t);
-  }
-  Loc src = cell >> 24;
-  BLK_ALLOC(dst, cls)
-  for (u64 j = 0; j < span; j += 1) {
-    H[dst + j] = H[src + j];
-  }
-  span_fade(e, t, src, term_tag(t) == TAG_ARR ? (u32)span : 0);
-  return (t & ~(RFC_BIT | LOC_MASK)) | dst;
 }
 
 static void term_drop(Env e, Term t) {
@@ -3938,6 +3970,46 @@ INLINE Nat nat_succ(Env e, Nat n) {
   return n + 1;
 }
 
+INLINE Nat nat_add(Env e, Nat a, Nat b) {
+  if (a + b > NAT_IMM) {
+    err_post(e.mem, ERR_NATS);
+    return NAT_IMM;
+  }
+  return a + b;
+}
+
+INLINE Nat nat_dbl(Env e, Nat n) {
+  return nat_add(e, n, n);
+}
+
+INLINE Nat nat_mul(Env e, Nat a, Nat b) {
+  if (b != 0 && a > NAT_IMM / b) {
+    err_post(e.mem, ERR_NATS);
+    return NAT_IMM;
+  }
+  return a * b;
+}
+
+INLINE Nat nat_sub(Nat a, Nat b) {
+  return a < b ? 0 : a - b;
+}
+
+INLINE Nat nat_div(Nat a, Nat b) {
+  return b == 0 ? 0 : a / b;
+}
+
+INLINE Nat nat_mod(Nat a, Nat b) {
+  return b == 0 ? a : a % b;
+}
+
+INLINE Nat nat_cmp(Nat a, Nat b) {
+  return (Nat)(a > b) + (Nat)(a >= b);
+}
+
+INLINE Nat nat_is_lt(Nat a, Nat b) {
+  return (Nat)(a < b);
+}
+
 // Blk
 // ===
 
@@ -3964,30 +4036,44 @@ INLINE u32 blk_at(Env e, Term a, U32 i) {
   return (u32)i & (u32)((1ull << blk_cls(e, a)) - 1);
 }
 
-INLINE Term blk_cow(Env e, Term a) {
-  return term_rfc(a) ? rfc_open(e, a) : a;
-}
-
-INLINE Term blk_leaf(Env e, Term v) {
-  Loc loc = heap_alloc(e, 0);
-  e.mem[loc] = rfc_seal(e, v);
-  return term_blk(1, 0, loc);
+OUTLINE Term blk_copy(Env e, Term a) {
+  Corpus H = e.mem;
+  Cls cls = blk_span(e, a);
+  Loc src = term_loc(a);
+  BLK_ALLOC(dst, cls)
+  for (u64 j = 0; j < (1ull << cls); j += 1) {
+    H[dst + j] = H[src + j];
+  }
+  return (a & ~LOC_MASK) | dst;
 }
 
 INLINE Term blk_node(Env e, Term l, Term r) {
   Corpus H = e.mem;
-  l = blk_cow(e, l);
-  r = blk_cow(e, r);
   bool arr = term_tag(l) == TAG_ARR;
   Cls c = blk_cls(e, l);
   if (c != blk_cls(e, r) || c > 30) {
     err_post(H, ERR_TAGS);
     return l;
   }
-  BLK_ALLOC(n, c + arr)
-  for (u32 w = 0; w < (1u << c); w += 1) {
-    blk_write(H, arr, n, 2 * w, blk_read(H, arr, term_loc(l), w));
-    blk_write(H, arr, n, 2 * w + 1, blk_read(H, arr, term_loc(r), w));
+  Loc pl = term_loc(l);
+  Loc pr = term_loc(r);
+  Cls ps = arr ? c + 1 : c;
+  u64 cw = 0;
+  if (arr || c != 0) {
+    cw = 1ull << (arr ? c : c - 1);
+  }
+  if (cw != 0 && pr == pl + cw
+    && (ps < NCLS || ((pl - HEAP_OFF) & ((1u << PAGE_BITS) - 1)) == 0)) {
+    return term_blk(arr, c + 1, pl);
+  }
+  BLK_ALLOC(n, ps)
+  if (cw == 0) {
+    H[n] = (u64)*blk_ptr(H, pl, 0) | ((u64)*blk_ptr(H, pr, 0) << 32);
+  } else {
+    for (u64 w = 0; w < cw; w += 1) {
+      H[n + w]      = H[pl + w];
+      H[n + cw + w] = H[pr + w];
+    }
   }
   blk_free(e, l);
   blk_free(e, r);
@@ -4004,17 +4090,20 @@ INLINE Term blk_half(Env e, Term a, u32 hi) {
   }
   c -= 1;
   Loc pa = term_loc(a);
-  BLK_ALLOC(n, arr ? c : buf_wcls(c))
-  for (u32 i = 0; i < (1u << c); i += 1) {
-    blk_write(H, arr, n, i, blk_read(H, arr, pa, 2 * i + hi));
+  if (!arr && c == 0) {
+    u64 v = (u64)*blk_ptr(H, pa, hi);
+    if (hi) {
+      heap_free(e, 0, pa);
+    }
+    BLK_ALLOC(n, 0)
+    H[n] = v;
+    return term_buf(0, n);
   }
-  return term_blk(arr, c, n);
-}
-
-INLINE Term blk_rest(Env e, Term a) {
-  Term r = blk_half(e, a, 1);
-  blk_free(e, a);
-  return r;
+  Loc off = 0;
+  if (hi) {
+    off = 1ull << (arr ? c : c - 1);
+  }
+  return term_blk(arr, c, pa + off);
 }
 
 INLINE Term blk_take(Env e, Term a) {
@@ -4025,32 +4114,64 @@ INLINE Term blk_take(Env e, Term a) {
 
 INLINE Term blk_give(Env e, bool arr, Term a, U32 i, Term v) {
   u32 at = blk_at(e, a, i);
-  if (arr) {
-    v = rfc_seal(e, v);
-  }
   Term old = blk_read(e.mem, arr, term_loc(a), at);
   blk_write(e.mem, arr, term_loc(a), at, v);
   return old;
 }
 
+INLINE Term blk_set(Env e, bool arr, Term a, U32 i, Term v) {
+  Term old = blk_give(e, arr, a, i, v);
+  if (arr) {
+    term_sink(e, old);
+  }
+  return a;
+}
+
+HOT Term blk_get(Env e, bool arr, Term a, U32 i) {
+  Corpus H = e.mem;
+  u32 at = blk_at(e, a, i);
+  Term v = blk_read(H, arr, term_loc(a), at);
+  if (arr) {
+    v = term_keep(e, v);
+    blk_write(H, arr, term_loc(a), at, v);
+  }
+  return v;
+}
+
 // Buf
 // ===
 
-INLINE Term buf_new(Env e, Nat d, Term v) {
+INLINE Term buf_new(Env e, bool arr, Nat d, Term v) {
+  Corpus H = e.mem;
   if (d > 31) {
-    err_post(e.mem, ERR_NATS);
+    err_post(H, ERR_NATS);
     d = 0;
   }
   Cls c = (u32)d;
-  BLK_ALLOC(n, buf_wcls(c))
-  for (u64 i = 0; i < (1ull << buf_wcls(c)); i += 1) {
-    e.mem[n + i] = (u64)(u32)v * 0x100000001ull;
+  BLK_ALLOC(n, arr ? c : buf_wcls(c))
+  if (!arr) {
+    for (u64 i = 0; i < (1ull << buf_wcls(c)); i += 1) {
+      H[n + i] = (u64)(u32)v * 0x100000001ull;
+    }
+    return term_buf(c, n);
   }
-  return term_buf(c, n);
-}
-
-INLINE Term buf_read(Env e, Term a, U32 i) {
-  return blk_read(e.mem, 0, term_loc(a), blk_at(e, a, i));
+  if (c > 0 && !term_triv(v)) {
+    if (c >= 24) {
+      err_post(H, ERR_RFCS);
+    } else if (term_rfc(v)) {
+      u32 k = (1u << c) - 1;
+      u32 w = a32_add(a32_at(H, term_loc(v)), k);
+      if ((w & RFC_CNT) >= RFC_CNT - k) {
+        err_post(H, ERR_RFCS);
+      }
+    } else {
+      v = rfc_wrap(e, v, 1u << c);
+    }
+  }
+  for (u64 i = 0; i < (1ull << c); i += 1) {
+    H[n + i] = v;
+  }
+  return term_blk(1, c, n);
 }
 
 // Ring
@@ -4301,40 +4422,40 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
 // Monk
 // ====
 
-INLINE bool monk_run(Env e, Stk stk, Term t, bool seq, u32 base,
+INLINE u32 monk_run(Env e, Stk stk, Term t, bool seq, u32 base,
   u32 stride, Cursor cur) {
   u32 spin = 0;
   for (;;) {
     Reply r = work_loop(e, stk, t, seq);
     if (r == 0) {
-      return false;
+      return 2;
     }
     if (task_runs(e.mem, r)) {
       if (err_spun(e.mem, &spin, ERR_TICK)) {
-        return false;
+        return 2;
       }
-      if (DEVICE && stride != 0) {
+      if (stride != 0) {
         ring_push(e.mem, ring_pick(base, stride, cur), r);
-        return false;
+        return 2;
       }
       t   = r;
       seq = false;
       continue;
     }
     task_deal(e.mem, r, base, stride, cur);
-    return true;
+    return 1;
   }
 }
 
-INLINE bool monk_grow(Env e, Stk stk, Ring rg, u32 put0, u32 base, u32 stride,
+INLINE u32 monk_grow(Env e, Stk stk, Ring rg, u32 put0, u32 base, u32 stride,
   Cursor cur) {
   Corpus H = e.mem;
   if (*ring_get(H, rg) == put0) {
-    return false;
+    return 0;
   }
   Term t = ring_head(H, rg);
   if (t == 0 || fid_nofk((u32)term_aux(t))) {
-    return false;
+    return 0;
   }
   ring_skip(H, rg);
   return monk_run(e, stk, t, false, base, stride, cur);
@@ -4404,7 +4525,7 @@ extern "C" __global__ void grow_dev(Corpus H) {
     }
     seen_has = has;
     if (monk_grow(e, (Stk)(H + STAK_OFF + rg), rg, put0, row << 7, stride,
-      &tg_cur)) {
+      &tg_cur) == 1) {
       g32_add(&tg_grew, 1);
     }
     BARD();
@@ -4455,9 +4576,11 @@ static void row_grow(Env e, Stk stk, u32 base, u32 stride) {
       return;
     }
     u32 grew = 0;
-    for (u32 i = 0; i < CUBE_SIDE; i += 1) {
+    u32 ran  = 0;
+    for (u32 i = 0; i < CUBE_SIDE && ran != 2; i += 1) {
       Ring rg = base + stride * i;
-      grew += monk_grow(e, stk, rg, put0[i], base, stride, &cur);
+      ran     = monk_grow(e, stk, rg, put0[i], base, stride, &cur);
+      grew += ran == 1;
     }
     if (grew == 0) {
       return;
@@ -5108,6 +5231,16 @@ function cmp_new(a, b) {
   return {$: "GT"};
 }
 
+// Nat
+// ===
+
+function nat_chk(n) {
+  if (n > 281474976710655n) {
+    throw new Error("nat: " + n + " is past the largest immediate 2^48-1");
+  }
+  return n;
+}
+
 // U32
 // ===
 
@@ -5132,11 +5265,30 @@ function char_new(code) {
 // Array
 // =====
 
+function array_len(a) {
+  let n = 1;
+  for (let x = a; x.$ === "ANode"; x = x.$0) {
+    n *= 2;
+  }
+  return n;
+}
+
+function array_size(a) {
+  return {$: "Tuple", $0: a, $1: array_len(a)};
+}
+
 function array_get(a, i) {
+  let n = array_len(a);
+  i = (i >>> 0) % n;
   let x = a;
   while (x.$ === "ANode") {
-    x = (i & 1) === 0 ? x.$0 : x.$1;
-    i = i >>> 1;
+    n /= 2;
+    if (i < n) {
+      x = x.$0;
+    } else {
+      x = x.$1;
+      i -= n;
+    }
   }
   return {$: "Tuple", $0: a, $1: x.$0};
 }
@@ -5152,16 +5304,26 @@ function array_new(d, v) {
   return a;
 }
 
-function array_swap(a, i, v) {
+function array_swap_go(a, n, i, v) {
   if (a.$ === "ALeaf") {
     return {$: "Tuple", $0: {$: "ALeaf", $0: v}, $1: a.$0};
   }
-  if ((i & 1) === 0) {
-    const r = array_swap(a.$0, i >>> 1, v);
+  n /= 2;
+  if (i < n) {
+    const r = array_swap_go(a.$0, n, i, v);
     return {$: "Tuple", $0: {$: "ANode", $0: r.$0, $1: a.$1}, $1: r.$1};
   }
-  const r = array_swap(a.$1, i >>> 1, v);
+  const r = array_swap_go(a.$1, n, i - n, v);
   return {$: "Tuple", $0: {$: "ANode", $0: a.$0, $1: r.$0}, $1: r.$1};
+}
+
+function array_swap(a, i, v) {
+  const n = array_len(a);
+  return array_swap_go(a, n, (i >>> 0) % n, v);
+}
+
+function array_set(a, i, v) {
+  return array_swap(a, i, v).$0;
 }
 
 // Cli

@@ -949,6 +949,17 @@ assert U32.read:
 # Array
 # -----
 
+assert Array.size.node:
+  forall -T: Type
+  forall ys: Array<T>
+  forall r: Array<T> & U32
+  Array<T> & U32
+
+assert Array.size:
+  forall -T: Type
+  forall a: Array<T>
+  Array<T> & U32
+
 assert Array.swap.lo:
   forall -T: Type
   forall ys: Array<T>
@@ -965,9 +976,25 @@ assert Array.swap.if:
   forall -T: Type
   forall xs: Array<T>
   forall ys: Array<T>
-  forall i2: U32
+  forall +h: U32
+  forall i: U32
   forall v: T
   forall z: Bool
+  Array<T> & T
+
+assert Array.swap.go:
+  forall -T: Type
+  forall a: Array<T>
+  forall n: U32
+  forall +i: U32
+  forall v: T
+  Array<T> & T
+
+assert Array.swap.at:
+  forall -T: Type
+  forall i: U32
+  forall v: T
+  forall an: Array<T> & U32
   Array<T> & T
 
 assert Array.swap:
@@ -986,46 +1013,51 @@ assert Array.clone:
   forall a: Array<U32>
   Array<U32> & Array<U32>
 
-assert Array.new.node:
-  forall lr: Array<U32> & Array<U32>
-  Array<U32>
-
 assert Array.new:
-  forall d: Nat
-  forall v: U32
-  Array<U32>
+  forall -T: Data
+  forall +d: Nat
+  forall +v: T
+  Array<T>
 
 assert Array.set.fin:
-  forall r: Array<U32> & U32
-  Array<U32>
+  forall -T: Type
+  forall r: Array<T> & T
+  Array<T>
 
 assert Array.set:
-  forall a: Array<U32>
+  forall -T: Type
+  forall a: Array<T>
   forall i: U32
-  forall v: U32
-  Array<U32>
-
-assert Array.get.lo:
-  forall ys: Array<U32>
-  forall r: Array<U32> & U32
-  Array<U32> & U32
-
-assert Array.get.hi:
-  forall xs: Array<U32>
-  forall r: Array<U32> & U32
-  Array<U32> & U32
+  forall v: T
+  Array<T>
 
 assert Array.get.if:
-  forall xs: Array<U32>
-  forall ys: Array<U32>
-  forall i2: U32
+  forall -T: Data
+  forall xs: Array<T>
+  forall ys: Array<T>
+  forall +h: U32
+  forall i: U32
   forall z: Bool
-  Array<U32> & U32
+  Array<T> & T
+
+assert Array.get.go:
+  forall -T: Data
+  forall a: Array<T>
+  forall n: U32
+  forall +i: U32
+  Array<T> & T
+
+assert Array.get.at:
+  forall -T: Data
+  forall i: U32
+  forall an: Array<T> & U32
+  Array<T> & T
 
 assert Array.get:
-  forall a: Array<U32>
+  forall -T: Data
+  forall a: Array<T>
   forall +i: U32
-  Array<U32> & U32
+  Array<T> & T
 
 # Map
 # ---
@@ -2358,6 +2390,17 @@ def U32.read(s):
 # Array
 # -----
 
+def Array.size.node(T, ys, r):
+  (xs2, n) = r
+  (ANode{xs2, ys}, U32.shl(n))
+
+def Array.size(T, a):
+  match a:
+    case ALeaf{x}:
+      (ALeaf{x}, 1)
+    case ANode{xs, ys}:
+      Array.size.node(T, ys, Array.size(T, xs))
+
 def Array.swap.lo(T, ys, r):
   (nxs, old) = r
   (ANode{nxs, ys}, old)
@@ -2366,19 +2409,28 @@ def Array.swap.hi(T, xs, r):
   (nys, old) = r
   (ANode{xs, nys}, old)
 
-def Array.swap.if(T, xs, ys, i2, v, z):
+def Array.swap.if(T, xs, ys, h, i, v, z):
   match z:
     case True{}:
-      Array.swap.lo(T, ys, Array.swap(T, xs, U32.shr(i2), v))
+      Array.swap.lo(T, ys, Array.swap.go(T, xs, h, i, v))
     case False{}:
-      Array.swap.hi(T, xs, Array.swap(T, ys, U32.shr(i2), v))
+      Array.swap.hi(T, xs, Array.swap.go(T, ys, h, U32.sub(i, h), v))
 
-def Array.swap(T, a, i, v):
+def Array.swap.go(T, a, n, i, v):
   match a:
     case ALeaf{x}:
       (ALeaf{v}, x)
     case ANode{xs, ys}:
-      Array.swap.if(T, xs, ys, i, v, U32.is_zero(U32.and(i, U32.one())))
+      +h = U32.shr(n)
+      Array.swap.if(T, xs, ys, h, i, v, U32.is_lt(i, h))
+
+def Array.swap.at(T, i, v, an):
+  (a, n) = an
+  +m = n
+  Array.swap.go(T, a, m, U32.and(i, U32.sub(m, 1)), v)
+
+def Array.swap(T, a, i, v):
+  Array.swap.at(T, i, v, Array.size(T, a))
 
 def Array.clone.node(cx, cy):
   (xa, xb) = cx
@@ -2393,46 +2445,43 @@ def Array.clone(a):
     case ANode{xs, ys}:
       Array.clone.node(Array.clone(xs), Array.clone(ys))
 
-def Array.new.node(lr):
-  (l, r) = lr
-  ANode{l, r}
-
-def Array.new(d, v):
+def Array.new(T, d, v):
   match d:
     case 0n:
       ALeaf{v}
     case 1n+p:
-      Array.new.node(Array.clone(Array.new(p, v)))
+      ANode{Array.new(T, p, v), Array.new(T, p, v)}
 
-def Array.set.fin(r):
+def Array.set.fin(T, r):
   (na, old) = r
   na
 
-def Array.set(a, i, v):
-  Array.set.fin(Array.swap(U32, a, i, v))
+def Array.set(T, a, i, v):
+  Array.set.fin(T, Array.swap(T, a, i, v))
 
-def Array.get.lo(ys, r):
-  (nxs, x) = r
-  (ANode{nxs, ys}, x)
-
-def Array.get.hi(xs, r):
-  (nys, x) = r
-  (ANode{xs, nys}, x)
-
-def Array.get.if(xs, ys, i2, z):
+def Array.get.if(T, xs, ys, h, i, z):
   match z:
     case True{}:
-      Array.get.lo(ys, Array.get(xs, U32.shr(i2)))
+      Array.swap.lo(T, ys, Array.get.go(T, xs, h, i))
     case False{}:
-      Array.get.hi(xs, Array.get(ys, U32.shr(i2)))
+      Array.swap.hi(T, xs, Array.get.go(T, ys, h, U32.sub(i, h)))
 
-def Array.get(a, i):
+def Array.get.go(T, a, n, i):
   match a:
     case ALeaf{x}:
       +x2 = x
       (ALeaf{x2}, x2)
     case ANode{xs, ys}:
-      Array.get.if(xs, ys, i, U32.is_zero(U32.and(i, U32.one())))
+      +h = U32.shr(n)
+      Array.get.if(T, xs, ys, h, i, U32.is_lt(i, h))
+
+def Array.get.at(T, i, an):
+  (a, n) = an
+  +m = n
+  Array.get.go(T, a, m, U32.and(i, U32.sub(m, 1)))
+
+def Array.get(T, a, i):
+  Array.get.at(T, i, Array.size(T, a))
 
 # Map
 # ---

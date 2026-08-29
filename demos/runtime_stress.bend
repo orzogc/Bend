@@ -126,7 +126,7 @@ assert Rt.write:
   Array<U32>
 
 def Rt.write(b, i, v):
-  Array.set.fin(Array.swap(U32, b, i, v))
+  Array.set.fin(U32, Array.swap(U32, b, i, v))
 
 assert Rt.swap:
   forall b: Array<U32>
