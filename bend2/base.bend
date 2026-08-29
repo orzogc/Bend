@@ -58,6 +58,9 @@ type Word.Con<-p: Nat> is Data:
 type U32 is Data:
   U32{data: Word(32n)}
 
+type F32 is Data:
+  F32{data: Word(32n)}
+
 type Char is Data:
   Chr{code: U32}
 
@@ -746,9 +749,6 @@ assert U32.mod:
 # F32
 # ---
 
-assert F32:
-  Data
-
 assert U32.to_f32:
   forall a: U32
   F32
@@ -777,7 +777,94 @@ assert F32.div:
   forall b: F32
   F32
 
+assert F32.mod:
+  forall a: F32
+  forall b: F32
+  F32
+
+assert F32.pow:
+  forall a: F32
+  forall b: F32
+  F32
+
+assert F32.atan2:
+  forall a: F32
+  forall b: F32
+  F32
+
+assert F32.neg:
+  forall a: F32
+  F32
+
+assert F32.abs:
+  forall a: F32
+  F32
+
 assert F32.sqrt:
+  forall a: F32
+  F32
+
+assert F32.exp:
+  forall a: F32
+  F32
+
+assert F32.log:
+  forall a: F32
+  F32
+
+assert F32.log2:
+  forall a: F32
+  F32
+
+assert F32.log10:
+  forall a: F32
+  F32
+
+assert F32.sin:
+  forall a: F32
+  F32
+
+assert F32.cos:
+  forall a: F32
+  F32
+
+assert F32.tan:
+  forall a: F32
+  F32
+
+assert F32.asin:
+  forall a: F32
+  F32
+
+assert F32.acos:
+  forall a: F32
+  F32
+
+assert F32.atan:
+  forall a: F32
+  F32
+
+assert F32.sinh:
+  forall a: F32
+  F32
+
+assert F32.cosh:
+  forall a: F32
+  F32
+
+assert F32.tanh:
+  forall a: F32
+  F32
+
+assert F32.floor:
+  forall a: F32
+  F32
+
+assert F32.ceil:
+  forall a: F32
+  F32
+
+assert F32.trunc:
   forall a: F32
   F32
 
@@ -811,10 +898,13 @@ assert F32.is_ge:
   forall b: F32
   Bool
 
-assert F32.make:
-  forall m: U32
-  forall s: U32
-  F32
+assert F32.show:
+  forall +a: F32
+  String
+
+assert F32.read:
+  forall s: String
+  Maybe<&2, F32>
 
 # Char
 # ----
@@ -2220,12 +2310,6 @@ def U32.mod.if(aw, b, z):
 def U32.mod(a, b):
   U32{aw} = a
   U32.mod.if(aw, b, U32.is_zero(b))
-
-# F32
-# ---
-
-def F32.make(m, s):
-  F32.div(U32.to_f32(m), U32.to_f32(s))
 
 # Char
 # ----

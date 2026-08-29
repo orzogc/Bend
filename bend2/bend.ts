@@ -61,7 +61,7 @@
 // List   | "[" [A ","?] "]", A "<>" B | Con{A, ..Nil{}}, Con{A, B}
 // Nat    | NUMBER "n" ("+" T)?        | Succ{..Zero{}}, Succ{..T}
 // U32    | NUMBER                     | U32{WCon{b, ..WNil{}}}
-// F32    | NUMBER "." NUMBER          | F32.make(m, d)
+// F32    | NUMBER "." NUMBER [EXP]    | F32{WCon{b, ..WNil{}}}
 // Chr    | "'" CHAR "'"               | Chr{U32}
 // Str    | "\"" [CHAR] "\""           | SCon{Chr, ..SNil{}}
 // Index  | x "[" i "]" ("<-" v)?      | Array.get(U32, x, i), ..set(..)
@@ -1130,21 +1130,28 @@ export function nat_to_term(n: U32, end: LTerm, s?: Span): LTerm {
   return out;
 }
 
-// U32
-// ===
+// Word
+// ====
 
-export function u32_to_term(n: U32, s?: Span): LTerm {
+export function word_to_term(n: U32, s?: Span): LTerm {
   let out: LTerm = Ctr("WNil", [], s);
   for (let i = 31; i >= 0; i--) {
     const bit = (n >>> i) & 1;
     out = Ctr("WCon", [Ctr(bit === 1 ? "True" : "False", [], s), out], s);
   }
-  return Ctr("U32", [out], s);
+  return out;
 }
 
-export function u32_from_term<X>(tm: TermOf<X>): number | null {
+// U32
+// ===
+
+export function u32_to_term(n: U32, s?: Span): LTerm {
+  return Ctr("U32", [word_to_term(n, s)], s);
+}
+
+export function u32_from_term<X>(tm: TermOf<X>, k: Name = "U32"): number | null {
   const w0 = term_strip(tm);
-  if (w0.$ !== "Ctr" || w0.k !== "U32" || w0.x.length !== 1) {
+  if (w0.$ !== "Ctr" || w0.k !== k || w0.x.length !== 1) {
     return null;
   }
   let n = 0;
@@ -1165,6 +1172,25 @@ export function u32_from_term<X>(tm: TermOf<X>): number | null {
     return null;
   }
   return n;
+}
+
+// F32
+// ===
+
+const F32_VIEW = new DataView(new ArrayBuffer(4));
+
+export function f32_to_bits(v: number): U32 {
+  F32_VIEW.setFloat32(0, v);
+  return F32_VIEW.getUint32(0);
+}
+
+export function f32_from_bits(n: U32): number {
+  F32_VIEW.setUint32(0, n);
+  return F32_VIEW.getFloat32(0);
+}
+
+export function f32_to_term(v: number, s?: Span): LTerm {
+  return Ctr("F32", [word_to_term(f32_to_bits(v), s)], s);
 }
 
 // Show
@@ -1826,6 +1852,7 @@ const INFIX_OPS: Array<[string, number, Bool, Name]> = [
   ["-.",  10, false, "F32.sub"],
   ["*.",  11, false, "F32.mul"],
   ["/.",  11, false, "F32.div"],
+  ["%.",  11, false, "F32.mod"],
   ["||",   2, false, "Bool.or"],
   ["&&",   3, false, "Bool.and"],
   ["<=",   4, false, "U32.is_le"],
@@ -1842,6 +1869,7 @@ const INFIX_OPS: Array<[string, number, Bool, Name]> = [
   ["-",   10, false, "U32.sub"],
   ["*",   11, false, "U32.mul"],
   ["/",   11, false, "U32.div"],
+  ["%",   11, false, "U32.mod"],
 ];
 
 export function parse_infx_find(p: Parse): [string, number, Bool, Name] | null {
@@ -1857,6 +1885,9 @@ export function parse_infx_find(p: Parse): [string, number, Bool, Name] | null {
       continue;
     }
     if (op[0][0] === ">" && !/\s/.test(p.str[p.pos - 1] ?? " ")) {
+      continue;
+    }
+    if (op[0] === "%" && !/\s/.test(nx)) {
       continue;
     }
     return op;
@@ -2132,18 +2163,21 @@ export function parse_term_num(p: Parse): LTerm {
   }
   if (!parse_take(p, "n")) {
     if (parse_at(p, ".") && /[0-9]/.test(p.str[p.pos + 1] ?? "")) {
-      parse_bump(p);
-      let fr = "";
+      let txt = s + parse_bump(p);
       while (/[0-9]/.test(parse_peek(p))) {
-        fr += parse_bump(p);
+        txt += parse_bump(p);
       }
-      const m = Number(s + fr);
-      const d = Math.pow(10, fr.length);
-      if (m > 0xffffffff || d > 0xffffffff) {
-        parse_fail(p, "a float literal with digits and scale under 2^32 (got " + s + "." + fr + ")");
+      if (/[eE]/.test(parse_peek(p)) && /[0-9+-]/.test(p.str[p.pos + 1] ?? "")) {
+        txt += parse_bump(p) + (/[+-]/.test(parse_peek(p)) ? parse_bump(p) : "");
+        while (/[0-9]/.test(parse_peek(p))) {
+          txt += parse_bump(p);
+        }
       }
-      const spn = parse_span(p, beg);
-      return App(App(Ref("F32.make", spn), u32_to_term(m, spn), spn), u32_to_term(d, spn), spn);
+      const v = Math.fround(Number(txt));
+      if (!isFinite(v)) {
+        parse_fail(p, "a float literal with a finite f32 value (got " + txt + ")");
+      }
+      return f32_to_term(v, parse_span(p, beg));
     }
     if (char_is_name(parse_peek(p))) {
       parse_fail(p, "a numeric literal (NUMBER is U32, NUMBER n is Nat)");

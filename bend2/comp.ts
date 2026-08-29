@@ -147,7 +147,7 @@ const NATIVES: Record<Bend.Name, Native> = Object.setPrototypeOf({
       Zero: "0",
       Succ: ([p]: string[]) => /^\d+(?:ull)?$/.test(p)
         ? (BigInt(p.replace("ull", "")) + 1n) + "ull"
-        : `nat_succ(e, ${p})`,
+        : `nat_chk(e, ${p} + 1)`,
     },
     elim: { Succ: ["($0 - 1)"] },
     cond: { Zero: "$0 == 0", Succ: "$0 != 0" },
@@ -176,45 +176,32 @@ const CMPS = [["eq", "=="], ["ne", "!="], ["lt", "<"],
 
 const FOPS = [["add", "+"], ["sub", "-"], ["mul", "*"], ["div", "/"]];
 
+const MATH1 = "sqrt exp log log2 log10 sin cos tan asin acos atan".split(" ")
+  .concat("sinh cosh tanh floor ceil trunc".split(" "));
+
+const MATH2 = ["pow", "atan2"];
+
+const EXACT = " sqrt exp log log2 log10 sin cos tan pow ";
+
+const SHIMS = [...MATH1, ...MATH2, "fabs", "fmod"].map((n) =>
+  "#define " + (n + "f").padEnd(7) + " "
+    + (EXACT.includes(` ${n} `) ? "precise::" : "") + n).join("\n");
+
 export const INTRINSICS: Record<string, Intr> = Object.setPrototypeOf({
-  u32_show: { e: "u32_show(e, $0)", js: "String($0)" },
   array_new: { e: "buf_new(e, $2, $0, $1)", flg: 1,
     js: "array_new($0, $1)" },
-  array_get: {
-    parts: ["$0", "blk_get(e, $2, $3, $1)"], flg: 0,
-    js: "array_get($0, $1)",
-  },
-  array_swap: {
-    parts: ["$0", "blk_give(e, $3, $4, $1, $2)"], flg: 0,
-    js: "array_swap($0, $1, $2)",
-  },
+  array_get: { parts: ["$0", "blk_get(e, $2, $3, $1)"], flg: 0,
+    js: "array_get($0, $1)" },
+  array_swap: { parts: ["$0", "blk_give(e, $3, $4, $1, $2)"], flg: 0,
+    js: "array_swap($0, $1, $2)" },
   array_set: { e: "blk_set(e, $3, $0, $1, $2)", flg: 0,
     js: "array_set($0, $1, $2)" },
-  array_size: {
-    parts: ["$0", "(1ull << blk_cls(e, $2))"],
-    js: "array_size($0)",
-  },
-  array_clone: {
-    parts: ["blk_copy(e, $0)", "$0"],
-    js: ([a]: string[]) => "{$: \"Tuple\", $0: " + a + ", $1: " + a + "}",
-  },
-  nat_add:    { e: "nat_add(e, $0, $1)", call: false,
-    js: "nat_chk($0 + $1)" },
-  nat_sub:    { e: "nat_sub($0, $1)", call: false,
-    js: "($0 < $1 ? 0n : $0 - $1)" },
-  nat_mul:    { e: "nat_mul(e, $0, $1)", call: false,
-    js: "nat_chk($0 * $1)" },
-  nat_double: { e: "nat_dbl(e, $0)", call: false,
-    js: "nat_chk($0 << 1n)" },
-  nat_cmp:    { e: "nat_cmp($0, $1)", call: false, js: "cmp_new($0, $1)" },
-  nat_is_lt:  { e: "nat_is_lt($0, $1)", call: false, js: "($0 < $1)" },
-  nat_divmod: {
-    parts: ["nat_div($0, $1)", "nat_mod($0, $1)"],
-    js: ([a, b]: string[]) => "(" + b + " === 0n"
-      + " ? {$: \"Tuple\", $0: 0n, $1: " + a + "}"
-      + " : {$: \"Tuple\", $0: " + a + " / " + b
-      + ", $1: " + a + " % " + b + "})",
-  },
+  array_size: { parts: ["$0", "(1ull << blk_cls(e, $2))"],
+    js: "array_size($0)" },
+  array_clone: { parts: ["blk_copy(e, $0)", "$0"],
+    js: "array_clone($0)" },
+  nat_divmod: { parts: ["($1 == 0 ? 0 : $0 / $1)", "($1 == 0 ? $0 : $0 % $1)"],
+    js: "nat_divmod($0, $1)" },
   ...Object.fromEntries(CMPS.flatMap(([c, o]) => {
     const js = "($0 " + ("=!".includes(o[0]) ? o + "=" : o) + " $1)";
     return [
@@ -222,18 +209,16 @@ export const INTRINSICS: Record<string, Intr> = Object.setPrototypeOf({
       [`u32_is_${c}`, { e: `U32_BIN($0, ${o}, $1)`, call: false, js }],
     ];
   })),
-  ...Object.fromEntries(Object.entries({
-    u32_div:    "($1 === 0 ? 0 : ($0 / $1) >>> 0)",
-    u32_mod:    "($1 === 0 ? $0 : $0 % $1)",
-    u32_shln:   "($1 >= 32n ? 0 : ($0 << Number($1)) >>> 0)",
-    u32_shrn:   "($1 >= 32n ? 0 : $0 >>> Number($1))",
-    f32_to_u32: "($0 >= 1 && $0 < 4294967296 ? Math.floor($0) : 0)",
-  }).map(([k, js]) =>
-    [k, { e: (xs: string[]) => `${k}(${xs.join(", ")})`, js }])),
-  f32_sqrt: {
-    e: "f32_rewrap(sqrtf(f32_unbox($0)))",
-    js: "Math.fround(Math.sqrt($0))",
-  },
+  f32_to_u32: { e: "f32_to_u32($0)", call: false,
+    js: "($0 >= 1 && $0 < 4294967296 ? Math.floor($0) : 0)" },
+  f32_show: { e: "f32_show(e, $0)", js: "String(Number(($0).toPrecision(6)))" },
+  f32_read: { e: "f32_read(e, $0)", js: "f32_read($0)" },
+  ...Object.fromEntries(MATH1.map((n) =>
+    [`f32_${n}`, { e: `f32_rewrap(${n}f(f32_unbox($0)))`, call: false,
+      js: `Math.fround(Math.${n}($0))` }])),
+  ...Object.fromEntries(MATH2.map((n) =>
+    [`f32_${n}`, { e: `f32_rewrap(${n}f(f32_unbox($0), f32_unbox($1)))`,
+      call: false, js: `Math.fround(Math.${n}($0, $1))` }])),
   ...Object.fromEntries([...FOPS.slice(0, 3),
     ["and", "&"], ["or", "|"], ["xor", "^"]].map(([c, o]) =>
     [`u32_${c}`, { e: `U32_BIN($0, ${o}, $1)`, call: false,
@@ -248,16 +233,158 @@ export const INTRINSICS: Record<string, Intr> = Object.setPrototypeOf({
     u32_shr:      ["U32_BIN($0, >>, 1)", "($0 >>> 1)"],
     u32_is_zero:  ["U32_BIN($0, ==, 0)", "($0 === 0)"],
     u32_not:      ["u32_rewrap(~u32_unbox($0))", "(~$0 >>> 0)"],
+    u32_div:      ["(u32_unbox($1) == 0 ? 0 : U32_BIN($0, /, $1))",
+      "($1 === 0 ? 0 : ($0 / $1) >>> 0)"],
+    u32_mod:      ["(u32_unbox($1) == 0 ? $0 : U32_BIN($0, %, $1))",
+      "($1 === 0 ? $0 : $0 % $1)"],
+    u32_shln:     ["($1 >= 32 ? 0 : U32_BIN($0, <<, $1))",
+      "($1 >= 32n ? 0 : ($0 << Number($1)) >>> 0)"],
+    u32_shrn:     ["($1 >= 32 ? 0 : U32_BIN($0, >>, $1))",
+      "($1 >= 32n ? 0 : $0 >>> Number($1))"],
+    nat_add:      ["nat_chk(e, $0 + $1)", "nat_chk($0 + $1)"],
+    nat_mul:      ["nat_mul(e, $0, $1)", "nat_chk($0 * $1)"],
+    nat_double:   ["nat_chk(e, $0 + $0)", "nat_chk($0 << 1n)"],
+    nat_sub:      ["($0 < $1 ? 0 : $0 - $1)", "($0 < $1 ? 0n : $0 - $1)"],
+    nat_cmp:      ["(($0 > $1) + ($0 >= $1))", "cmp_new($0, $1)"],
+    nat_is_lt:    ["($0 < $1)", "($0 < $1)"],
+    f32_neg:      ["f32_rewrap(-f32_unbox($0))", "(-$0)"],
+    f32_abs:      ["f32_rewrap(fabsf(f32_unbox($0)))", "Math.abs($0)"],
+    f32_mod:      ["f32_rewrap(fmodf(f32_unbox($0), f32_unbox($1)))",
+      "Math.fround($0 % $1)"],
     u32_to_f32:   ["f32_rewrap((f32)u32_unbox($0))", "Math.fround($0)"],
-    u32_to_nat:   ["u32_rewrap(u32_unbox($0))", "BigInt($0)"],
-    u32_from_nat: ["u32_rewrap(u32_unbox($0))",
-      "Number($0 & 0xFFFFFFFFn)"],
+    u32_to_nat:   ["$0", "BigInt($0)"],
+    u32_from_nat: ["u32_rewrap(u32_unbox($0))", "Number($0 & 0xFFFFFFFFn)"],
     u32_cmp:      ["(U32_BIN($0, >, $1) + U32_BIN($0, >=, $1))",
       "cmp_new($0, $1)"],
     bool_or:      ["(($0) | ($1))", "($0 || $1)"],
     bool_xor:     ["(($0) ^ ($1))", "($0 !== $1)"],
   }).map(([k, [t, js]]) => [k, { e: t, call: false, js }])),
 }, null);
+
+const NATIVE_C = String.raw`
+#ifdef __METAL_VERSION__
+${SHIMS}
+#endif
+
+#define f32_unbox(x)  __builtin_bit_cast(f32, (u32)(x))
+#define u32_unbox(x)  ((u32)(x))
+#define f32_rewrap(x) ((u64)__builtin_bit_cast(u32, (f32)(x)))
+#define u32_rewrap(x) ((u64)(x))
+
+#define U32_BIN(a, o, b) u32_rewrap(u32_unbox(a) o u32_unbox(b))
+#define F32_BIN(a, o, b) f32_rewrap(f32_unbox(a) o f32_unbox(b))
+#define F32_CMP(a, o, b) u32_rewrap(f32_unbox(a) o f32_unbox(b))
+
+static void err_post(Corpus H, Err code);
+
+INLINE U32 f32_to_u32(U32 a) {
+  f32 v = f32_unbox(a);
+  return v >= 0.0f && v < 4294967296.0f ? (u32)v : 0;
+}
+
+INLINE Nat nat_chk(Env e, Nat n) {
+  if (n > NAT_IMM) {
+    err_post(e.mem, ERR_NATS);
+    return NAT_IMM;
+  }
+  return n;
+}
+
+INLINE Nat nat_mul(Env e, Nat a, Nat b) {
+  return nat_chk(e, b != 0 && a > NAT_IMM / b ? NAT_IMM + 1 : a * b);
+}
+
+#if DEVICE
+
+#define f32_show(e, x) (err_post(e.mem, ERR_FIDS), 0)
+#define f32_read(e, s) (err_post(e.mem, ERR_FIDS), 0)
+
+#else
+
+static Term f32_show(Env e, Term x);
+static Term f32_read(Env e, Term s);
+
+#endif
+`.slice(1);
+
+const NATIVE_IO = String.raw`
+static Term f32_show(Env e, Term x) {
+  char buf[32];
+  return io_str(e, buf, snprintf(buf, 32, "%g", (double)f32_unbox(x)));
+}
+
+static Term f32_read(Env e, Term s) {
+  u64 n = 0;
+  char* text = io_cstr(e, s, &n);
+  char* end;
+  f32 v = strtof(text, &end);
+  Term out = term_pak(CID_NONE, 0);
+  if (n > 0 && *end == 0) {
+    Loc l = heap_alloc(e, 0);
+    e.mem[l] = f32_rewrap(v);
+    out = term_ctr(CID_SOME, l);
+  }
+  free(text);
+  return out;
+}
+`;
+
+const NATIVE_JS = String.raw`
+function word_to_u32(w) {
+  let x = 0;
+  for (let i = 0; w.$ === "WCon"; i++) {
+    x |= (w.$0 ? 1 : 0) << i;
+    w = w.$1;
+  }
+  return x >>> 0;
+}
+
+function u32_to_word(x) {
+  let w = {$: "WNil"};
+  for (let i = 31; i >= 0; i--) {
+    w = {$: "WCon", $0: ((x >>> i) & 1) === 1, $1: w};
+  }
+  return w;
+}
+
+function cmp_new(a, b) {
+  if (a < b) {
+    return {$: "LT"};
+  }
+  if (a === b) {
+    return {$: "EQ"};
+  }
+  return {$: "GT"};
+}
+
+function nat_divmod(a, b) {
+  const q = b === 0n ? 0n : a / b;
+  return {$: "Tuple", $0: q, $1: b === 0n ? a : a % b};
+}
+
+function array_clone(a) {
+  return {$: "Tuple", $0: a, $1: a};
+}
+
+function nat_chk(n) {
+  if (n > 281474976710655n) {
+    throw new Error("nat: " + n + " is past the largest immediate 2^48-1");
+  }
+  return n;
+}
+
+function f32_read(s) {
+  const v = s === "" ? NaN : Number(s);
+  return Number.isNaN(v) ? {$: "None"} : {$: "Some", $0: Math.fround(v)};
+}
+
+function char_new(code) {
+  if (code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF)) {
+    throw new Error("char_new: " + code + " is not a Unicode scalar value");
+  }
+  return String.fromCodePoint(code);
+}
+`.slice(1);
 
 let PIDN = 0;
 
@@ -318,6 +445,7 @@ const JS_NATIVES: Record<Bend.Name, Native> = {
     intr: { U32: "word_to_u32($0)" },
     elim: { U32: ["u32_to_word($0)"] },
   },
+  F32: { intr: {} },
   Char: {
     intr: {
       Chr: ([c]) => {
@@ -378,6 +506,12 @@ function tpl(t: string): (xs: string[]) => string {
 
 function tpl_run(t: Gen, xs: string[]): string {
   return typeof t === "string" ? tpl(t)(xs) : t(xs);
+}
+
+function tpl_dup(t: Gen): boolean {
+  const ps = typeof t === "string"
+    ? t.split(/\$(\d)/).filter((_, i) => i % 2 === 1) : [];
+  return new Set(ps).size !== ps.length;
 }
 
 // Memo
@@ -647,15 +781,15 @@ function ty_peel(tm: Bend.HTerm,
 function ty_w32(book: Bend.Book, A: Bend.HTerm | null): boolean {
   const t = ty_wnf(book, A);
   if (t?.$ !== "ADT") {
-    return ty_f32(book, A);
+    return false;
   }
-  return t.k === "U32" || t.k === "Char"
+  return t.k === "U32" || t.k === "F32" || t.k === "Char"
     || native_nullary(book, t.k) !== undefined;
 }
 
 function ty_f32(book: Bend.Book, A: Bend.HTerm | null): boolean {
   const t = ty_wnf(book, A);
-  return t?.$ === "Ref" && t.k === "F32";
+  return t?.$ === "ADT" && t.k === "F32";
 }
 
 // Arr
@@ -688,7 +822,8 @@ function ctr_adt(fl: File | Js, x: Of<"Ctr">,
   if (adt?.$ !== "ADT" || (ty === null && adt.x.length > 0)) {
     die(`a constructor at a non-datatype type: ${x.k}`);
   }
-  return [adt, adt.k === "U32" ? Bend.u32_from_term(x) : null];
+  const word = adt.k === "U32" || adt.k === "F32";
+  return [adt, word ? Bend.u32_from_term(x, adt.k) : null];
 }
 
 function ctr_tail(book: Bend.Book, ctr: Bend.Ctr): Dom[] {
@@ -748,7 +883,7 @@ function native_nullary(book: Bend.Book, k: Bend.Name): Native | undefined {
 }
 
 function native_of(book: Bend.Book, adt: HAdt): Native | undefined {
-  if (adt.k === "U32") {
+  if (adt.k === "U32" || adt.k === "F32") {
     die("a structural view of a machine word");
   }
   if (adt.k === "Array" && arr_flag(book, adt.x[0])) {
@@ -763,9 +898,9 @@ function native_of(book: Bend.Book, adt: HAdt): Native | undefined {
 function adt_triv(book: Bend.Book, A: Bend.HTerm | null): boolean {
   const adt = ty_wnf(book, A);
   if (adt?.$ !== "ADT") {
-    return ty_f32(book, A);
+    return false;
   }
-  if (["U32", "Char", "Nat"].includes(adt.k)) {
+  if (["U32", "F32", "Char", "Nat"].includes(adt.k)) {
     return true;
   }
   const tld = book.tlds[adt.k];
@@ -1856,7 +1991,9 @@ function emit_expr(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null): string {
       if (intr.parts !== undefined) {
         return arg_term(fl, arg_fuse(fl, x));
       }
-      const exprs = emit_exprs(fl, m.args);
+      const args = emit_exprs(fl, m.args);
+      const exprs = tpl_dup(intr.e!)
+        ? args.map((a) => emit_alias(fl, a, "a")) : args;
       if (intr.flg !== undefined) {
         exprs.push(arg_arr(fl, m.args[intr.flg]));
       }
@@ -2527,7 +2664,7 @@ export function compile_book(book: Bend.Book): string {
     fusing: new Set(),
   };
   for (const k of ("Tuple SNil SCon Chr Unit Emit Halt Fail Done File"
-    + " Socket Listener").split(" ")) {
+    + " Socket Listener None Some").split(" ")) {
     cid_reg(fl, k);
   }
   for (const [k, tld] of done_defs(cb)) {
@@ -2557,6 +2694,7 @@ export function compile_book(book: Bend.Book): string {
   }
   const seen = new Set<string>();
   fl.reqs += eff_src(new URL("./effs/sys.c", import.meta.url).pathname, seen);
+  fl.reqs += NATIVE_IO;
   fl.spares = [];
   for (const k of cb.done) {
     const tld = cb.book.tlds[k];
@@ -2709,6 +2847,11 @@ function js_sat(k: Bend.Name): string {
   return "$" + k.replace(/\./g, "$") + "$";
 }
 
+function js_f32(bits: number): string {
+  const v = Bend.f32_from_bits(bits);
+  return Object.is(v, -0) ? "-0" : String(v);
+}
+
 function js_intr(book: Bend.Book, k: Bend.Name): Gen | null {
   return def_own(book.tlds[k]) ? JS_INTRINSICS[eff_name(k)] ?? null : null;
 }
@@ -2783,7 +2926,7 @@ function js_expr(fl: Js, tm: Bend.HTerm,
     case "Ctr": {
       const [adt, u] = ctr_adt(fl, x, ty);
       if (u !== null) {
-        return String(u);
+        return adt.k === "F32" ? js_f32(u) : String(u);
       }
       if (fl.book.ctrs[x.k] === undefined) {
         die("unknown constructor: " + x.k);
@@ -3148,15 +3291,6 @@ typedef float    f32;
 typedef u64 Loc;
 #define LOC_MASK ((1ull << 40) - 1)
 
-#define f32_unbox(x)  __builtin_bit_cast(f32, (u32)(x))
-#define u32_unbox(x)  ((u32)(x))
-#define f32_rewrap(x) ((u64)__builtin_bit_cast(u32, (f32)(x)))
-#define u32_rewrap(x) ((u64)(x))
-
-#define U32_BIN(a, o, b) u32_rewrap(u32_unbox(a) o u32_unbox(b))
-#define F32_BIN(a, o, b) f32_rewrap(f32_unbox(a) o f32_unbox(b))
-#define F32_CMP(a, o, b) u32_rewrap(f32_unbox(a) o f32_unbox(b))
-
 typedef u32 Cls;
 typedef u32 Fid;
 typedef u32 Cid;
@@ -3323,6 +3457,7 @@ static const char* CLI_HELP =
 
 #endif
 
+${NATIVE_C}
 // Tables
 // ======
 
@@ -3892,122 +4027,6 @@ HOT void term_sink(Env e, Term t) {
   if (!term_triv(t)) {
     term_drop(e, t);
   }
-}
-
-// U32
-// ===
-
-OUTLINE Term u32_show(Env e, u32 v) {
-  Term s = term_pak(CID_SNIL, 0);
-  do {
-    Loc l = heap_alloc(e, 1);
-    e.mem[l] = term_pak(CID_CHR, '0' + v % 10);
-    e.mem[l + 1] = IO_HOTS & 1 ? rfc_seal(e, s) : s;
-    s = term_ctr(CID_SCON, l);
-    v /= 10;
-  } while (v);
-  return s;
-}
-
-INLINE U32 u32_div(U32 a, U32 b) {
-  if ((u32)b == 0) {
-    return 0;
-  }
-  return (u32)a / (u32)b;
-}
-
-INLINE U32 u32_mod(U32 a, U32 b) {
-  if ((u32)b == 0) {
-    return (u32)a;
-  }
-  return (u32)a % (u32)b;
-}
-
-INLINE U32 u32_shln(U32 a, U32 n) {
-  if (n >= 32) {
-    return 0;
-  }
-  return (u32)a << n;
-}
-
-INLINE U32 u32_shrn(U32 a, U32 n) {
-  if (n >= 32) {
-    return 0;
-  }
-  return (u32)a >> n;
-}
-
-// F32
-// ===
-
-#ifdef __METAL_VERSION__
-#define sqrtf precise::sqrt
-#endif
-
-INLINE u32 f32_to_u32(u32 b) {
-  if ((b >> 31) != 0) {
-    return 0;
-  }
-  u32 e = (b >> 23) & 0xff;
-  if (e < 127 || e >= 159) {
-    return 0;
-  }
-  u32 m = (b & 0x7fffff) | 0x800000;
-  if (e >= 150) {
-    return m << (e - 150);
-  }
-  return m >> (150 - e);
-}
-
-// Nat
-// ===
-
-INLINE Nat nat_succ(Env e, Nat n) {
-  if (n + 1 > NAT_IMM) {
-    err_post(e.mem, ERR_NATS);
-    return NAT_IMM;
-  }
-  return n + 1;
-}
-
-INLINE Nat nat_add(Env e, Nat a, Nat b) {
-  if (a + b > NAT_IMM) {
-    err_post(e.mem, ERR_NATS);
-    return NAT_IMM;
-  }
-  return a + b;
-}
-
-INLINE Nat nat_dbl(Env e, Nat n) {
-  return nat_add(e, n, n);
-}
-
-INLINE Nat nat_mul(Env e, Nat a, Nat b) {
-  if (b != 0 && a > NAT_IMM / b) {
-    err_post(e.mem, ERR_NATS);
-    return NAT_IMM;
-  }
-  return a * b;
-}
-
-INLINE Nat nat_sub(Nat a, Nat b) {
-  return a < b ? 0 : a - b;
-}
-
-INLINE Nat nat_div(Nat a, Nat b) {
-  return b == 0 ? 0 : a / b;
-}
-
-INLINE Nat nat_mod(Nat a, Nat b) {
-  return b == 0 ? a : a % b;
-}
-
-INLINE Nat nat_cmp(Nat a, Nat b) {
-  return (Nat)(a > b) + (Nat)(a >= b);
-}
-
-INLINE Nat nat_is_lt(Nat a, Nat b) {
-  return (Nat)(a < b);
 }
 
 // Blk
@@ -4934,6 +4953,7 @@ static void gpu_round(Corpus H, u32 f) {
   }
   if (ec) {
     err_fail(ec, ec == ERR_DEEP ? "device stack exceeded"
+      : ec == ERR_FIDS ? "a host call on the device"
       : ec == ERR_HEAP ? "out of memory: run again with a bigger span,"
         " as in --gpu-memory 8GB" : "device error");
   }
@@ -5206,62 +5226,7 @@ int main(int argc, char** argv) {
 // =========
 
 const RUNTIME: string = String.raw`
-// Word
-// ====
-
-function word_to_u32(w) {
-  let x = 0;
-  for (let i = 0; w.$ === "WCon"; i++) {
-    x |= (w.$0 ? 1 : 0) << i;
-    w = w.$1;
-  }
-  return x >>> 0;
-}
-
-// Cmp
-// ===
-
-function cmp_new(a, b) {
-  if (a < b) {
-    return {$: "LT"};
-  }
-  if (a === b) {
-    return {$: "EQ"};
-  }
-  return {$: "GT"};
-}
-
-// Nat
-// ===
-
-function nat_chk(n) {
-  if (n > 281474976710655n) {
-    throw new Error("nat: " + n + " is past the largest immediate 2^48-1");
-  }
-  return n;
-}
-
-// U32
-// ===
-
-function u32_to_word(x) {
-  let w = {$: "WNil"};
-  for (let i = 31; i >= 0; i--) {
-    w = {$: "WCon", $0: ((x >>> i) & 1) === 1, $1: w};
-  }
-  return w;
-}
-
-// Char
-// ====
-
-function char_new(code) {
-  if (code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF)) {
-    throw new Error("char_new: " + code + " is not a Unicode scalar value");
-  }
-  return String.fromCodePoint(code);
-}
-
+${NATIVE_JS}
 // Array
 // =====
 
