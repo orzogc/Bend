@@ -17,7 +17,6 @@ type Seg = {
   refs: Set<string>;
   dead?: boolean;
   spin?: boolean;
-  spark?: boolean;
   unbox?: ("f32" | "u32" | null)[];
 };
 
@@ -270,9 +269,6 @@ const DEEPS: Map<Bend.Name, boolean> = new Map();
 const SPINES: Map<Bend.HTerm, Spine> = new Map();
 
 const PURES: Map<Bend.HTerm, boolean> = new Map();
-
-const HEAT = new RegExp("heap_alloc|buf_new|blk_give|task_node"
-  + "|u32_show|term_keep|rfc_seal|rfc_wrap|BLK_ALLOC");
 
 const CONSTS: Map<Bend.HTerm, boolean> = new Map();
 
@@ -1730,7 +1726,6 @@ function emit_bang(fl: File, ck: Call, args: string[]): void {
 function emit_jump(fl: File, args: string[], k: Bend.Name): void {
   if (fl.seg.def !== k) {
     args.forEach((a, i) => file_push(fl, `r${i} = ${a};`));
-    emit_park(fl, seg_fid(k), args.map((_, i) => `r${i}`), false);
     return file_push(fl, `WL_JMP(${seg_ref(fl, seg_fid(k))});`);
   }
   fl.seg.spin = true;
@@ -1739,24 +1734,7 @@ function emit_jump(fl: File, args: string[], k: Bend.Name): void {
     file_push(fl,
       `${fl.seg.params[i]} = ${u == null ? j : `${u}_unbox(${j})`};`);
   });
-  emit_park(fl, fl.seg.fid, fl.seg.params.map((p, i) => {
-    const u = fl.seg.unbox?.[i];
-    return u == null ? p : `${u}_rewrap(${p})`;
-  }), true);
   file_push(fl, "WL_AGAIN;");
-}
-
-function emit_park(fl: File, fid: string, xs: string[], self: boolean): void {
-  if (xs.length === 0) {
-    return;
-  }
-  if (fl.seg.spark === true) {
-    if (self) {
-      file_push(fl, `WL_SPARK(${xs.length}, ${xs.join(", ")});`);
-    }
-    return;
-  }
-  file_push(fl, `WL_PARK(${fid}, ${xs.length}, ${xs.join(", ")});`);
 }
 
 function emit_call(fl: File, ck: Call, km: Call | null): void {
@@ -2120,17 +2098,13 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
           fl.spares = [];
           const at = fl.seg.lines.length;
           const seg = fl.seg;
-          fl.seg = { ...seg, def: vc.k, params: sp, unbox: undefined,
-            spark: true };
+          fl.seg = { ...seg, def: vc.k, params: sp, unbox: undefined };
           block(fl, "WL_SPIN", () => {
             emit_func(fl, body, tld.T, sp, vs);
             fl.seg = seg;
             file_push(fl, "break;");
           });
-          const got = fl.seg.lines.splice(at);
-          const hot = got.some((l) => HEAT.test(l));
-          const spun = hot ? got : got.filter((l) =>
-            !l.includes("WL_SPARK("));
+          const spun = fl.seg.lines.splice(at);
           const off = "  ".repeat(fl.tab - 1);
           const bent = spun.map((l) =>
             "  " + (l.startsWith(off) ? l.slice(off.length) : l));
@@ -2143,25 +2117,10 @@ function emit_func(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null,
           const o = name_local(fl, "o");
           file_push(fl, "#if DEVICE");
           file_push(fl, `Term ${o}[${Math.max(vs.length, sp.length)}];`);
-          if (hot) {
-            const rh = name_local(fl, "r");
-            file_push(fl,
-              `Term ${rh} = Spin::${name}(${["e", o, ...sp].join(", ")});`);
-            block(fl, `if (${rh} == 0) {`, () => {
-              file_push(fl, "return 0;");
-            });
-            block(fl, `if (${rh} == REPLY_PARK) {`, () => {
-              emit_frame(fl, caps, seg_fid(km.k));
-              file_push(fl, `return wl_park(e, sp, ${
-                seg_ref(fl, seg_fid(vc.k))}, ${o}, ${sp.length});`);
-            });
-          } else {
-            block(fl,
-              `if (Spin::${name}(${["e", o, ...sp].join(", ")}) == 0) {`,
-              () => {
-              file_push(fl, "return 0;");
-            });
-          }
+          block(fl,
+            `if (Spin::${name}(${["e", o, ...sp].join(", ")}) == 0) {`, () => {
+            file_push(fl, "return 0;");
+          });
           vs.forEach((v, j) => file_push(fl, `${v} = ${o}[${j}];`));
           file_push(fl, "#else");
           fl.seg.lines.push(...spun);
@@ -2652,9 +2611,6 @@ export function compile_book(book: Bend.Book): string {
       "&&L_" + (s.dead ? "FID_EXIT" : s.fid))
       .join(", ")}, &&L_FID_EXIT`);
   const segs = fl.segs.filter((s) => !s.dead).map((seg) => {
-    if (!seg.lines.some((l) => HEAT.test(l))) {
-      seg.lines = seg.lines.filter((l) => !l.includes("WL_PARK("));
-    }
     const out: string[] = [`  WL_CASE(${seg.fid})`, "  {"];
     const fr = seg.frame;
     if (fr !== null && fr.pop > 0) {
@@ -2680,7 +2636,7 @@ export function compile_book(book: Bend.Book): string {
     return out.join("\n");
   }).join("\n\n");
   const spins = fl.spins.length === 0 ? "" :
-    "#ifdef __METAL_VERSION__\nstruct Spin {\n"
+    "#if DEVICE\nstruct Spin {\n"
     + fl.spins.join("\n\n") + "\n};\n#endif\n\n";
   return width_fold(TEMPLATE
     .replace(/^\/\/ Tables\n\/\/ ======$/m,
@@ -2987,7 +2943,10 @@ const TEMPLATE = String.raw`
 #ifdef __METAL_VERSION__
 #include <metal_stdlib>
 using namespace metal;
-#else
+#elif !defined(__CUDACC_RTC__)
+#ifndef __APPLE__
+#define _GNU_SOURCE
+#endif
 #include <stdint.h>
 #include <stdbool.h>
 #include <math.h>
@@ -3003,6 +2962,10 @@ using namespace metal;
 #if BEND_METAL
 #import <Metal/Metal.h>
 #import <Foundation/Foundation.h>
+#elif BEND_CUDA
+#include <cuda.h>
+#include <nvrtc.h>
+#include <sys/stat.h>
 #endif
 #endif
 
@@ -3011,7 +2974,10 @@ using namespace metal;
 
 #ifdef __METAL_VERSION__
 #define DEV     device
+#define DEVL    device
 #define GRP     threadgroup
+#define GRPV    threadgroup
+#define GA32    threadgroup atomic_uint
 #define THR     thread
 #define INLINE  inline
 #define HOT     inline
@@ -3021,8 +2987,36 @@ using namespace metal;
 #define A32(p)  ((DEV atomic_uint*)(p))
 #define RLX     memory_order_relaxed
 #define FENCE() atomic_thread_fence(mem_flags::mem_device, memory_order_seq_cst)
+#define BAR()   threadgroup_barrier(mem_flags::mem_threadgroup)
+#define BARD()  threadgroup_barrier(mem_flags::mem_device \
+  | mem_flags::mem_threadgroup)
+
+#define g32_ini(p)    atomic_store_explicit(p, 0, RLX)
+#define g32_add(p, v) atomic_fetch_add_explicit(p, v, RLX)
+#define g32_get(p)    atomic_load_explicit(p, RLX)
+#elif defined(__CUDACC_RTC__)
+#define DEV     volatile
+#define DEVL
+#define GRP
+#define GRPV    __shared__
+#define GA32    __shared__ u32
+#define THR
+#define INLINE  static inline
+#define HOT     static inline
+#define OUTLINE static __attribute__((noinline))
+#define CONSTV  static const
+#define DEVICE  1
+#define FENCE() __threadfence()
+#define BAR()   __syncthreads()
+#define BARD()  \
+  { __threadfence(); __syncthreads(); }
+
+#define g32_ini(p)    (*(p) = 0)
+#define g32_add(p, v) atomicAdd(p, v)
+#define g32_get(p)    (*(p))
 #else
 #define DEV
+#define DEVL
 #define THR
 #define INLINE  static inline
 #define HOT     static inline __attribute__((always_inline))
@@ -3030,9 +3024,11 @@ using namespace metal;
 #define CONSTV  static const
 #define DEVICE  0
 #define FENCE() __atomic_thread_fence(__ATOMIC_SEQ_CST)
+
+#define BEND_GPU (BEND_METAL || BEND_CUDA)
 #endif
 
-#ifdef __METAL_VERSION__
+#if DEVICE
 #define WL_CASE(F) case F:
 #define WL_JMP(F)  { fid = (F); break; }
 #define WL_DYN     WL_JMP
@@ -3052,7 +3048,7 @@ using namespace metal;
 #define WL_AGAIN   continue
 #define WL_POP()   { sp -= LANE_STEP; WL_DYN((Fid)STK(0)); }
 
-#ifdef __METAL_VERSION__
+#if DEVICE
 #define LANE_STEP CUBE
 #else
 #define LANE_STEP 1
@@ -3087,6 +3083,12 @@ typedef ulong u64;
 typedef uint  u32;
 typedef uchar u8;
 typedef float f32;
+#elif defined(__CUDACC_RTC__)
+typedef unsigned long long u64;
+typedef long long          int64_t;
+typedef unsigned int       u32;
+typedef unsigned char      u8;
+typedef float              f32;
 #else
 typedef uint64_t u64;
 typedef uint32_t u32;
@@ -3131,7 +3133,6 @@ typedef u64 Term;
 #define RFC_CNT  ((1u << 24) - 1)
 
 typedef Term Reply;
-#define REPLY_PARK ((Reply)2)
 
 typedef u32 Err;
 #define ERR_FAIL 1
@@ -3154,7 +3155,6 @@ typedef u32 Monk;
 #define M_HEAD             2
 #define M_HUGE             (2 + 2 * NCLS)
 #define M_SNAP             (3 + 2 * NCLS)
-#define M_PARK             (4 + 2 * NCLS)
 #define monk_word(H, m, w) ((H) + MONK_OFF + (u64)(w) * CUBE + (m))
 
 typedef u32 Ring;
@@ -3170,7 +3170,6 @@ typedef u32 Ring;
 #define H_ROOT_DONE  57ull
 #define H_CURSOR     58ull
 #define H_ERROR_CODE 64ull
-#define H_TOME_WIRED 65ull
 
 #define HEAP_OFF  (STAK_OFF + CUBE * STAK_LEN)
 
@@ -3179,19 +3178,19 @@ typedef DEV u64* Corpus;
 typedef struct {
   Corpus   mem;
   Monk     mnk;
-#ifdef __METAL_VERSION__
+#if DEVICE
   GRP u64* alc;
 #endif
 } Env;
 
-typedef DEV Term* Stk;
+typedef DEVL Term* Stk;
 
 typedef Term Nat;
 #define NAT_IMM ((1ull << 48) - 1)
 
 typedef Term U32;
 
-#ifdef __METAL_VERSION__
+#if DEVICE
 typedef u32 u32a;
 #else
 typedef u32 __attribute__((may_alias)) u32a;
@@ -3200,6 +3199,9 @@ typedef u32 __attribute__((may_alias)) u32a;
 #ifdef __METAL_VERSION__
 typedef threadgroup atomic_uint* Cursor;
 #define CUR_STEP(c) atomic_fetch_add_explicit(c, 1, RLX)
+#elif defined(__CUDACC_RTC__)
+typedef u32* Cursor;
+#define CUR_STEP(c) atomicAdd(c, 1)
 #else
 typedef u32* Cursor;
 #define CUR_STEP(c) ((*(c))++)
@@ -3210,7 +3212,6 @@ typedef u32* Cursor;
 
 #define PAGE_BITS    7
 #define QUANTUM_BITS (DEVICE ? PAGE_BITS : 12)
-#define DOOM_WORDS   (1ull << NCLS)
 #define CUBE_SIDE    128
 #define CUBE         (1ull << 14)
 #define RING_LEN     (1ull << 10)
@@ -3219,13 +3220,11 @@ typedef u32* Cursor;
 #define NCLS         9
 #define HUGE_CLS     (32 - NCLS)
 #define ALC_WORDS    (2 * NCLS)
-#define ALC_PARK     ALC_WORDS
-#define TOME_PAGES   (1u << 18)
 
 // Globals
 // =======
 
-#ifndef __METAL_VERSION__
+#if !DEVICE
 
 typedef _Atomic u32     au32;
 typedef _Atomic u64     au64;
@@ -3233,6 +3232,7 @@ typedef pthread_mutex_t lock;
 typedef pthread_cond_t  cond;
 
 static Corpus CORPUS;
+static u64    CORPUS_SIZE;
 
 static u32  pool_size;
 static au32 pool_row;
@@ -3249,13 +3249,19 @@ static id<MTLLibrary>              gpu_lib;
 static id<MTLComputePipelineState> gpu_grow_pso;
 static id<MTLComputePipelineState> gpu_work_pso;
 static id<MTLBuffer>               gpu_buf;
-static u64                         gpu_wired;
-static u64                         gpu_cap;
+#elif BEND_CUDA
+static CUdevice   gpu_dev;
+static CUmodule   gpu_lib;
+static CUfunction gpu_grow_pso;
+static CUfunction gpu_work_pso;
+#endif
+#if BEND_GPU
+static u64 gpu_cap;
 #endif
 
 static u64 ALC[CUBE_SIDE][ALC_WORDS];
 
-static bool io_metal;
+static bool io_gpu;
 static Stk  io_stk;
 
 static const char* CLI_HELP =
@@ -3263,6 +3269,7 @@ static const char* CLI_HELP =
   "  --threads N        worker threads, up to 128 (default: the CPU count)\n"
   "  --parallel on|off  off means one thread and no GPU (default: on)\n"
   "  --gpu on|off       send ! calls to the GPU (default: on if present)\n"
+  "  --gpu-memory 4GB   device span, in MB or GB (default: 2GB on Metal)\n"
   "  --help             show this text\n";
 
 #endif
@@ -3301,18 +3308,39 @@ INLINE u32 cid_arity(Cid cid) {
 
 #ifdef __METAL_VERSION__
 
-#define a32_load(p)         atomic_load_explicit(A32(p), RLX)
-#define a32_store(p, v)     atomic_store_explicit(A32(p), v, RLX)
-#define a32_add(p, v)       atomic_fetch_add_explicit(A32(p), v, RLX)
+#define a32_load(p)      atomic_load_explicit(A32(p), RLX)
+#define a32_store(p, v)  atomic_store_explicit(A32(p), v, RLX)
+#define a32_add(p, v)    atomic_fetch_add_explicit(A32(p), v, RLX)
+#define a32_sub(p, v)    atomic_fetch_sub_explicit(A32(p), v, RLX)
+#define a32_swp(p, e, v) \
+  atomic_compare_exchange_weak_explicit(A32(p), e, v, RLX, RLX)
+
+#elif defined(__CUDACC_RTC__)
+
+#define a32_load(p)     (*(p))
+#define a32_store(p, v) (*(p) = (v))
+#define a32_add(p, v)   atomicAdd((u32*)(p), v)
+#define a32_sub(p, v)   atomicSub((u32*)(p), v)
+
+INLINE bool a32_swp(DEV u32* p, u32* e, u32 v) {
+  u32 old = atomicCAS((u32*)p, *e, v);
+  bool ok = old == *e;
+  *e = old;
+  return ok;
+}
+
+#endif
+
+#if DEVICE
 
 INLINE u32 a32_sub_rel(DEV u32* p, u32 v) {
   FENCE();
-  return atomic_fetch_sub_explicit(A32(p), v, RLX);
+  return a32_sub(p, v);
 }
 
 INLINE void a32_store_rel(DEV u32* p, u32 v) {
   FENCE();
-  atomic_store_explicit(A32(p), v, RLX);
+  a32_store(p, v);
 }
 
 INLINE u32 a32_load_acq(DEV u32* p) {
@@ -3323,9 +3351,9 @@ INLINE u32 a32_load_acq(DEV u32* p) {
 
 #define a32_acq(p) FENCE()
 
-INLINE bool a32_cas(DEV u32* p, thread u32* e, u32 v) {
+INLINE bool a32_cas(DEV u32* p, THR u32* e, u32 v) {
   FENCE();
-  bool ok = atomic_compare_exchange_weak_explicit(A32(p), e, v, RLX, RLX);
+  bool ok = a32_swp(p, e, v);
   if (ok) {
     FENCE();
   }
@@ -3354,7 +3382,7 @@ INLINE bool a32_cas(u32* p, u32* e, u32 v) {
 // Err
 // ===
 
-#ifdef __METAL_VERSION__
+#if DEVICE
 
 INLINE void err_post(Corpus H, Err code) {
   u32 seen = 0;
@@ -3373,7 +3401,7 @@ static void err_fail(Err code, const char* msg) {
 }
 
 static void err_post(Corpus H, Err code) {
-  err_fail(code, "runtime fail-stop");
+  err_fail(code, code == ERR_HEAP ? "out of memory" : "runtime fail-stop");
 }
 
 static void err_trap(int sig) {
@@ -3408,47 +3436,21 @@ INLINE Cls cls_fit(u32 words) {
 #define page_loc(p) (HEAP_OFF + ((u64)(p) << PAGE_BITS))
 
 INLINE Page page_claim(Corpus H, u32 span) {
-  Page p = DEVICE && err_seen(H) ? 0
+  Page cap = a32_load(a32_at(H, H_PAGE_CAP));
+  Page p   = DEVICE && err_seen(H) ? cap
     : a32_add(a32_at(H, H_PAGE_BUMP), span);
-  if ((u64)p + span > a32_load(a32_at(H, DEVICE ? H_TOME_WIRED : H_PAGE_CAP))) {
+  if ((u64)p + span > cap) {
     err_post(H, ERR_HEAP);
     p = 0;
   }
   return p;
 }
 
-#define loc_doomed(loc) (DEVICE && (loc) == HEAP_OFF)
-
 #define BLK_ALLOC(n, w) \
   Loc n = heap_alloc(e, w); \
-  if (loc_doomed(n)) { \
+  if (DEVICE && err_seen(e.mem)) { \
     return term_buf(0, n); \
   }
-
-#if DEVICE
-
-INLINE bool page_tight(Corpus H, u32 tomes) {
-  u32 wired = a32_load(a32_at(H, H_TOME_WIRED));
-  u32 bump  = a32_load(a32_at(H, H_PAGE_BUMP));
-  return bump + tomes * TOME_PAGES >= wired
-    && bump >= (tomes - 1) * TOME_PAGES
-    && wired < a32_load(a32_at(H, H_PAGE_CAP));
-}
-
-INLINE bool page_park(Env e) {
-  if (page_tight(e.mem, 1)) {
-    a32_add(a32_at(e.mem, H_CURSOR), 1);
-    return true;
-  }
-  return false;
-}
-
-#else
-
-#define page_tight(H, tomes) false
-#define page_park(e)         false
-
-#endif
 
 INLINE Page page_stack_pop(Corpus H, DEV u32* head) {
   for (;;) {
@@ -3487,14 +3489,13 @@ INLINE void page_stack_push(Corpus H, Cls cls, Loc loc) {
 // Alc
 // ===
 
-#ifdef __METAL_VERSION__
+#if DEVICE
 #define ALC_AT(e, i) (e).alc[(i) * CUBE_SIDE]
 
 INLINE void alc_open(Env e) {
   for (u32 i = 0; i < ALC_WORDS; i += 1) {
     ALC_AT(e, i) = *monk_word(e.mem, e.mnk, M_HEAD + i);
   }
-  ALC_AT(e, ALC_PARK) = 0;
 }
 INLINE void alc_close(Env e) {
   for (u32 i = 0; i < ALC_WORDS; i += 1) {
@@ -3530,16 +3531,6 @@ HOT void heap_free_huge(Env e, Cls cls, Loc loc) {
   }
 }
 
-INLINE void heap_flag(Env e) {
-#ifdef __METAL_VERSION__
-  if (page_tight(e.mem, 1)) {
-    ALC_AT(e, ALC_PARK) = 1;
-  }
-#else
-  (void)e;
-#endif
-}
-
 OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   Corpus H = e.mem;
   if (cls >= NCLS) {
@@ -3556,15 +3547,9 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
     if (got != PAGE_NIL) {
       return page_loc(got);
     }
-    Page big = page_claim(H, 1u << (cls - PAGE_BITS));
-    heap_flag(e);
-    return page_loc(big);
+    return page_loc(page_claim(H, 1u << (cls - PAGE_BITS)));
   }
   Page p = page_claim(H, cls_quantum(cls) >> PAGE_BITS);
-  heap_flag(e);
-  if (p == 0) {
-    return page_loc(0);
-  }
   alc_store(e, 1, cls, ((u64)(1u << cls) << 32) | (p + 1));
   return page_loc(p);
 }
@@ -4194,7 +4179,7 @@ static Term root_take(Corpus H) {
 // Stack
 // =====
 
-#ifdef __METAL_VERSION__
+#if DEVICE
 #define WL_ROOM(N) \
   if (sp + (N) * CUBE > e.mem + STAK_OFF + e.mnk + CUBE * STAK_LEN) { \
     err_post(e.mem, ERR_DEEP); \
@@ -4204,44 +4189,10 @@ static Term root_take(Corpus H) {
 #define WL_ROOM(N)
 #endif
 
-// Park
-// ====
-
-#ifdef __METAL_VERSION__
-OUTLINE Reply wl_park(Env e, Stk sp, Fid fid, THR Term* xs, u32 n) {
-  Stk base = e.mem + STAK_OFF + e.mnk;
-  Loc t = heap_alloc(e, cls_fit(n + 2));
-  for (u32 i = 0; i < n; i += 1) {
-    e.mem[t + i] = xs[i];
-  }
-  e.mem[t + n]     = (u64)(sp - base);
-  e.mem[t + n + 1] = 0;
-  *monk_word(e.mem, e.mnk, M_PARK) = term_tsk(fid, t);
-  a32_add(a32_at(e.mem, H_CURSOR), 1);
-  return REPLY_PARK;
-}
-#define WL_PARK(F, N, ...) \
-  if ((++wpoll & 14) == 0 && ALC_AT(e, ALC_PARK)) { \
-    Term wp[] = {__VA_ARGS__}; \
-    return wl_park(e, sp, F, wp, N); \
-  }
-#define WL_SPARK(N, ...) \
-  if ((++wpoll & 14) == 0 && ALC_AT(e, ALC_PARK)) { \
-    Term wq[] = {__VA_ARGS__}; \
-    for (u32 wj = 0; wj < (N); wj += 1) { \
-      o[wj] = wq[wj]; \
-    } \
-    return REPLY_PARK; \
-  }
-#else
-#define WL_PARK(F, N, ...)
-#define WL_SPARK(N, ...)
-#endif
-
 // Work
 // ====
 
-static Reply work_loop(Env e, Stk sp, Term t, bool seq, bool warm) {
+static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
   Fid  fid;
   Term res = 0;
   WL_BANK
@@ -4249,22 +4200,16 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq, bool warm) {
   fid = (u32)term_aux(t);
   Loc a   = term_loc(t);
   u32 war = fid_arity(fid);
-  if (warm) {
-    sp += e.mem[a + war];
-    seq = true;
-    WL_LOAD
+  WL_FRAME(t)
+  if (fid_seqk(fid)) {
+    res = e.mem[a + war - 1];
+    WL_ARGS(a, war)
   } else {
-    WL_FRAME(t)
-    if (fid_seqk(fid)) {
-      res = e.mem[a + war - 1];
-      WL_ARGS(a, war)
-    } else {
-      WL_LOAD
-    }
+    WL_LOAD
   }
   heap_free(e, cls_fit(war + 2), a);
   }
-#ifdef __METAL_VERSION__
+#if DEVICE
   u32 wpoll = 0;
   for (;;) {
   if (err_spun(e.mem, &wpoll, 255)) {
@@ -4328,7 +4273,7 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq, bool warm) {
     sp -= 2 * LANE_STEP;
     Term cont = STK(0);
     u32  idx  = (u32)STK(1);
-    if (cont != TERM_HOLE && fid_seqk((u32)term_aux(cont)) && !page_park(e)) {
+    if (cont != TERM_HOLE && fid_seqk((u32)term_aux(cont))) {
       Fid wf = (u32)term_aux(cont);
       Loc wa = term_loc(cont);
       u32 wn = fid_arity(wf);
@@ -4340,7 +4285,7 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq, bool warm) {
     return task_deliver(e.mem, cont, idx, res);
   }
 
-#ifdef __METAL_VERSION__
+#if DEVICE
   default: {
     err_post(e.mem, ERR_FIDS);
     return 0;
@@ -4356,20 +4301,19 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq, bool warm) {
 // Monk
 // ====
 
-INLINE bool monk_run(Env e, Stk stk, Term t, bool seq, bool warm, u32 base,
+INLINE bool monk_run(Env e, Stk stk, Term t, bool seq, u32 base,
   u32 stride, Cursor cur) {
   u32 spin = 0;
   for (;;) {
-    Reply r = work_loop(e, stk, t, seq, warm);
-    warm = false;
-    if (r == 0 || (DEVICE && r == REPLY_PARK)) {
+    Reply r = work_loop(e, stk, t, seq);
+    if (r == 0) {
       return false;
     }
     if (task_runs(e.mem, r)) {
       if (err_spun(e.mem, &spin, ERR_TICK)) {
         return false;
       }
-      if ((DEVICE && stride != 0) || page_park(e)) {
+      if (DEVICE && stride != 0) {
         ring_push(e.mem, ring_pick(base, stride, cur), r);
         return false;
       }
@@ -4389,36 +4333,22 @@ INLINE bool monk_grow(Env e, Stk stk, Ring rg, u32 put0, u32 base, u32 stride,
     return false;
   }
   Term t = ring_head(H, rg);
-  if (t == 0 || fid_nofk((u32)term_aux(t)) || page_park(e)) {
+  if (t == 0 || fid_nofk((u32)term_aux(t))) {
     return false;
   }
-#ifdef __METAL_VERSION__
-  if (*monk_word(H, e.mnk, M_PARK) != 0) {
-    return false;
-  }
-#endif
   ring_skip(H, rg);
-  return monk_run(e, stk, t, false, false, base, stride, cur);
+  return monk_run(e, stk, t, false, base, stride, cur);
 }
 
 static void monk_work(Env e, Stk stk, Monk m) {
   Corpus H = e.mem;
-#ifdef __METAL_VERSION__
-  DEV u64* park = monk_word(H, e.mnk, M_PARK);
-  if (*park != 0) {
-    Term pt = *park;
-    *park   = 0;
-    if (err_seen(H)) {
-      return;
-    }
-    monk_run(e, stk, pt, true, true, m, 0, (Cursor)0);
-  }
+#if DEVICE
   u32 put0 = a32_load(ring_put(H, m));
 #else
   u32 put0 = (u32)*monk_word(H, m, M_SNAP);
 #endif
   while (*ring_get(H, m) != put0) {
-    if (err_seen(H) || page_park(e)) {
+    if (err_seen(H)) {
       return;
     }
     Term t = ring_head(H, m);
@@ -4426,31 +4356,38 @@ static void monk_work(Env e, Stk stk, Monk m) {
       continue;
     }
     ring_skip(H, m);
-    monk_run(e, stk, t, !page_tight(H, 2), false, m, 0, (Cursor)0);
+    monk_run(e, stk, t, true, m, 0, (Cursor)0);
   }
 }
 
 // Dev
 // ===
 
-#ifdef __METAL_VERSION__
+#if DEVICE
 
+#ifdef __METAL_VERSION__
 kernel void grow_dev(Corpus H [[buffer(0)]],
   u32 grids [[threadgroups_per_grid]],
   u32 row [[threadgroup_position_in_grid]],
   u32 lane [[thread_position_in_threadgroup]]) {
+#else
+extern "C" __global__ void grow_dev(Corpus H) {
+  u32 grids = gridDim.x;
+  u32 row   = blockIdx.x;
+  u32 lane  = threadIdx.x;
+#endif
   u32  stride = grids == 1 ? CUBE_SIDE : 1;
   Ring rg  = (row << 7) + stride * lane;
-  threadgroup u64 tg_alc[CUBE_SIDE * (ALC_WORDS + 1)];
+  GRPV u64 tg_alc[CUBE_SIDE * ALC_WORDS];
   Env  e   = { H, rg, tg_alc + lane };
   alc_open(e);
-  threadgroup atomic_uint tg_cur;
-  threadgroup atomic_uint tg_grew;
-  threadgroup atomic_uint tg_has;
-  atomic_store_explicit(&tg_cur, 0, RLX);
-  atomic_store_explicit(&tg_grew, 0, RLX);
-  atomic_store_explicit(&tg_has, 0, RLX);
-  threadgroup_barrier(mem_flags::mem_threadgroup);
+  GA32 tg_cur;
+  GA32 tg_grew;
+  GA32 tg_has;
+  g32_ini(&tg_cur);
+  g32_ini(&tg_grew);
+  g32_ini(&tg_has);
+  BAR();
   u32 seen_has  = 0;
   u32 seen_grew = 0;
   for (;;) {
@@ -4459,18 +4396,19 @@ kernel void grow_dev(Corpus H [[buffer(0)]],
     if (lane == 0 && (err_seen(H) || root_done(H))) {
       vote = CUBE_SIDE;
     }
-    atomic_fetch_add_explicit(&tg_has, vote, RLX);
-    threadgroup_barrier(mem_flags::mem_threadgroup);
-    u32 has = atomic_load_explicit(&tg_has, RLX);
+    g32_add(&tg_has, vote);
+    BAR();
+    u32 has = g32_get(&tg_has);
     if (has - seen_has >= CUBE_SIDE) {
       break;
     }
     seen_has = has;
-    if (monk_grow(e, H + STAK_OFF + rg, rg, put0, row << 7, stride, &tg_cur)) {
-      atomic_fetch_add_explicit(&tg_grew, 1, RLX);
+    if (monk_grow(e, (Stk)(H + STAK_OFF + rg), rg, put0, row << 7, stride,
+      &tg_cur)) {
+      g32_add(&tg_grew, 1);
     }
-    threadgroup_barrier(mem_flags::mem_device | mem_flags::mem_threadgroup);
-    u32 grew = atomic_load_explicit(&tg_grew, RLX);
+    BARD();
+    u32 grew = g32_get(&tg_grew);
     if (grew == seen_grew) {
       break;
     }
@@ -4479,19 +4417,25 @@ kernel void grow_dev(Corpus H [[buffer(0)]],
   alc_close(e);
 }
 
+#ifdef __METAL_VERSION__
 kernel void work_dev(Corpus H [[buffer(0)]],
   u32 tid [[thread_position_in_grid]],
   u32 lane [[thread_position_in_threadgroup]]) {
-  threadgroup u64 tg_alc[CUBE_SIDE * (ALC_WORDS + 1)];
+#else
+extern "C" __global__ void work_dev(Corpus H) {
+  u32 lane = threadIdx.x;
+  u32 tid  = blockIdx.x * CUBE_SIDE + lane;
+#endif
+  GRPV u64 tg_alc[CUBE_SIDE * ALC_WORDS];
   Env e = { H, tid, tg_alc + lane };
   alc_open(e);
-  monk_work(e, H + STAK_OFF + tid, ring_flip(tid));
+  monk_work(e, (Stk)(H + STAK_OFF + tid), ring_flip(tid));
   alc_close(e);
 }
 
 #endif
 
-#ifndef __METAL_VERSION__
+#if !DEVICE
 
 // Row
 // ===
@@ -4612,6 +4556,10 @@ OUTLINE void pool_turn(bool grow) {
 // Gpu
 // ===
 
+#if !BEND_CUDA
+#define gpu_map corpus_mmap
+#endif
+
 #if BEND_METAL
 
 static bool gpu_probe(void) {
@@ -4636,36 +4584,21 @@ static id<MTLComputePipelineState> gpu_pipe(const char* name) {
   return pso;
 }
 
-static void gpu_feed(Corpus H) {
-  u64 need = gpu_wired == 0 ? 2 * TOME_PAGES
-    : ((u64)a32_load(a32_at(H, H_PAGE_BUMP)) / TOME_PAGES + 3) * TOME_PAGES;
-  if (need <= gpu_wired) {
-    return;
-  }
-  u64 want = 2 * gpu_wired > need ? 2 * gpu_wired : need;
-  want = want > gpu_cap ? gpu_cap : want;
-  if (want <= gpu_wired) {
-    return;
-  }
-  gpu_buf = [gpu_dev
-    newBufferWithBytesNoCopy:CORPUS
-    length:(page_loc(want) * 8 + 16383) & ~16383ull
-    options:MTLResourceStorageModeShared
-      | MTLResourceHazardTrackingModeUntracked deallocator:nil];
-  if (!gpu_buf) {
-    err_fail(ERR_HEAP, "wiring failed");
-  }
-  gpu_wired = want;
-  a32_store(a32_at(H, H_PAGE_CAP), (u32)gpu_cap);
-  a32_store(a32_at(H, H_TOME_WIRED), (u32)want);
-}
+#define MEM_DFLT (2ull << 30)
 
-static u64 gpu_reserve(void) {
+static u64 gpu_span(void) {
   u64 span = [gpu_dev recommendedMaxWorkingSetSize];
   u64 most = [gpu_dev maxBufferLength];
   span = span < most ? span : most;
-  if (span < page_loc(2 * TOME_PAGES) * 8) {
-    err_fail(ERR_HEAP, "device too small");
+  return span < MEM_DFLT ? span : MEM_DFLT;
+}
+
+static void gpu_load(u64 bytes) {
+  gpu_buf = [gpu_dev newBufferWithBytesNoCopy:CORPUS length:bytes
+    options:MTLResourceStorageModeShared
+      | MTLResourceHazardTrackingModeUntracked deallocator:nil];
+  if (!gpu_buf) {
+    err_fail(ERR_HEAP, "--gpu-memory is more than the device has");
   }
   @autoreleasepool {
     gpu_que = [gpu_dev newCommandQueue];
@@ -4684,7 +4617,6 @@ static u64 gpu_reserve(void) {
     gpu_grow_pso = gpu_pipe("grow_dev");
     gpu_work_pso = gpu_pipe("work_dev");
   }
-  return span / 8;
 }
 
 static void gpu_kernel(id<MTLComputeCommandEncoder> enc,
@@ -4696,8 +4628,7 @@ static void gpu_kernel(id<MTLComputeCommandEncoder> enc,
   [enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
 }
 
-static void gpu_round(Corpus H, u32 f) {
-  gpu_feed(H);
+static void gpu_pass(u32 f) {
   @autoreleasepool {
     id<MTLCommandBuffer> cb = [gpu_que commandBuffer];
     id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
@@ -4715,24 +4646,188 @@ static void gpu_round(Corpus H, u32 f) {
       err_fail(ERR_FAIL, [[[cb error] localizedDescription] UTF8String]);
     }
   }
+}
+
+#elif BEND_CUDA
+
+static bool gpu_probe(void) {
+  int       managed = 0;
+  CUcontext ctx;
+  if (cuInit(0) == CUDA_SUCCESS && cuDeviceGet(&gpu_dev, 0) == CUDA_SUCCESS) {
+    cuDeviceGetAttribute(&managed,
+      CU_DEVICE_ATTRIBUTE_CONCURRENT_MANAGED_ACCESS, gpu_dev);
+  }
+  return managed != 0
+    && cuDevicePrimaryCtxRetain(&ctx, gpu_dev) == CUDA_SUCCESS
+    && cuCtxSetCurrent(ctx) == CUDA_SUCCESS;
+}
+
+static CUfunction gpu_pipe(const char* name) {
+  CUfunction pso;
+  if (cuModuleGetFunction(&pso, gpu_lib, name) != CUDA_SUCCESS) {
+    err_fail(ERR_FAIL, name);
+  }
+  return pso;
+}
+
+static Corpus gpu_map(u64 bytes) {
+  CUdeviceptr p = 0;
+  if (cuMemAllocManaged(&p, bytes, CU_MEM_ATTACH_GLOBAL) != CUDA_SUCCESS) {
+    err_fail(ERR_HEAP, "corpus reservation failed");
+  }
+  cuMemAdvise(p, bytes, CU_MEM_ADVISE_SET_PREFERRED_LOCATION, gpu_dev);
+  return (Corpus)(uintptr_t)p;
+}
+
+static char* gpu_slurp(const char* path, long* len) {
+  FILE* f = fopen(path, "rb");
+  *len = f != NULL && fseek(f, 0, SEEK_END) == 0 ? ftell(f) : -1;
+  char* buf = *len > 0 ? calloc((u64)*len + 1, 1) : NULL;
+  bool  ok = buf != NULL && fseek(f, 0, SEEK_SET) == 0
+    && fread(buf, 1, (u64)*len, f) == (u64)*len;
+  if (f != NULL) {
+    fclose(f);
+  }
+  if (!ok) {
+    free(buf);
+  }
+  return ok ? buf : NULL;
+}
+
+static void gpu_stash(const char* path, const char* bin, size_t len) {
+  FILE* out = fopen(path, "wb");
+  if (out != NULL) {
+    fwrite(bin, 1, len, out);
+    fclose(out);
+  }
+}
+
+static char* gpu_nvrtc(const char* text, const char* arch, size_t* len) {
+  const char* opts[] = { arch, "--fmad=false", "-default-device" };
+  nvrtcProgram prog;
+  if (nvrtcCreateProgram(&prog, text, "bend.cu", 0, NULL, NULL)
+    != NVRTC_SUCCESS) {
+    err_fail(ERR_FAIL, "cannot compile the CUDA library");
+  }
+  if (nvrtcCompileProgram(prog, 3, opts) != NVRTC_SUCCESS) {
+    size_t n = 0;
+    nvrtcGetProgramLogSize(prog, &n);
+    char* log = calloc(n + 1, 1);
+    if (log != NULL && nvrtcGetProgramLog(prog, log) == NVRTC_SUCCESS) {
+      fprintf(stderr, "%s\n", log);
+    }
+    err_fail(ERR_FAIL, "cannot compile the CUDA library");
+  }
+  nvrtcGetCUBINSize(prog, len);
+  char* bin = malloc(*len);
+  if (bin == NULL || nvrtcGetCUBIN(prog, bin) != NVRTC_SUCCESS) {
+    err_fail(ERR_FAIL, "cannot load the CUDA library");
+  }
+  nvrtcDestroyProgram(&prog);
+  return bin;
+}
+
+static u64 gpu_span(void) {
+  size_t span = 0;
+  cuDeviceTotalMem(&span, gpu_dev);
+  return span;
+}
+
+static void gpu_load(u64 bytes) {
+  (void)bytes;
+  long  len = 0;
+  char* text = gpu_slurp(__FILE__, &len);
+  if (text == NULL) {
+    err_fail(ERR_FAIL, "cannot read own source");
+  }
+  int cc[2] = {0, 0};
+  cuDeviceGetAttribute(cc,
+    CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, gpu_dev);
+  cuDeviceGetAttribute(cc + 1,
+    CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, gpu_dev);
+  char arch[40];
+  snprintf(arch, sizeof arch, "--gpu-architecture=sm_%d%d", cc[0], cc[1]);
+  u64 key = 14695981039346656037ull;
+  for (long i = 0; i < len; i += 1) {
+    key = (key ^ (u8)text[i]) * 1099511628211ull;
+  }
+  const char* home = getenv("HOME") != NULL ? getenv("HOME") : ".";
+  char path[4096];
+  snprintf(path, sizeof path, "%s/.cache", home);
+  mkdir(path, 0755);
+  snprintf(path, sizeof path, "%s/.cache/bend", home);
+  mkdir(path, 0755);
+  snprintf(path, sizeof path, "%s/.cache/bend/%016llx_sm_%d%d.cubin",
+    home, (unsigned long long)key, cc[0], cc[1]);
+  long  bin_len = 0;
+  char* bin = gpu_slurp(path, &bin_len);
+  bool  hit = bin != NULL
+    && cuModuleLoadDataEx(&gpu_lib, bin, 0, NULL, NULL) == CUDA_SUCCESS;
+  if (!hit) {
+    free(bin);
+    size_t made = 0;
+    bin = gpu_nvrtc(text, arch, &made);
+    gpu_stash(path, bin, made);
+    if (cuModuleLoadDataEx(&gpu_lib, bin, 0, NULL, NULL) != CUDA_SUCCESS) {
+      err_fail(ERR_FAIL, "cannot load the CUDA library");
+    }
+  }
+  free(text);
+  free(bin);
+  gpu_grow_pso = gpu_pipe("grow_dev");
+  gpu_work_pso = gpu_pipe("work_dev");
+}
+
+static void gpu_kernel(CUfunction pso, u32 groups) {
+  void* args[] = { &CORPUS };
+  if (cuLaunchKernel(pso, groups, 1, 1, CUBE_SIDE, 1, 1, 0, NULL, args, NULL)
+    != CUDA_SUCCESS) {
+    err_fail(ERR_FAIL, "device launch failed");
+  }
+}
+
+static void gpu_pass(u32 f) {
+  if (f < CUBE_SIDE) {
+    gpu_kernel(gpu_grow_pso, 1);
+  }
+  if (f < CUBE) {
+    gpu_kernel(gpu_grow_pso, CUBE_SIDE);
+  }
+  gpu_kernel(gpu_work_pso, CUBE_SIDE);
+  if (cuCtxSynchronize() != CUDA_SUCCESS) {
+    err_fail(ERR_FAIL, "device fault");
+  }
+}
+
+#endif
+
+#if BEND_GPU
+
+static void gpu_round(Corpus H, u32 f) {
+  gpu_pass(f);
   u32 ec = a32_load(a32_at(H, H_ERROR_CODE));
+  if (ec > ERR_DEEP || (u64)a32_load(a32_at(H, H_PAGE_BUMP)) > gpu_cap) {
+    ec = ERR_HEAP;
+  }
   if (ec) {
     err_fail(ec, ec == ERR_DEEP ? "device stack exceeded"
-      : ec == ERR_HEAP ? "device out of memory" : "device error");
+      : ec == ERR_HEAP ? "out of memory: run again with a bigger span,"
+        " as in --gpu-memory 8GB" : "device error");
   }
 }
 
 #else
 
-#define gpu_probe()   false
-#define gpu_reserve() 0
+#define gpu_probe() false
+#define gpu_span()  0
+#define gpu_load(b)
 
 #endif
 
 // Cube
 // ====
 
-static void cube_run(Corpus H, bool metal) {
+static void cube_run(Corpus H, bool gpu) {
   for (;;) {
     u32 f = a32_load(a32_at(H, H_CURSOR));
     a32_store(a32_at(H, H_CURSOR), 0);
@@ -4742,8 +4837,8 @@ static void cube_run(Corpus H, bool metal) {
     if (f == 0) {
       err_fail(ERR_LEAK, "frontier drained without a result");
     }
-    if (metal) {
-      #if BEND_METAL
+    if (gpu) {
+      #if BEND_GPU
       gpu_round(H, f);
       #endif
     } else {
@@ -4761,31 +4856,44 @@ static void cube_run(Corpus H, bool metal) {
 // Corpus
 // ======
 
-static void corpus_seed(Corpus H) {
-  u64 doom = term_ctr(0, HEAP_OFF);
-  u64 lone = PAGE_NIL;
-  memset_pattern8(H + HEAP_OFF, &doom, DOOM_WORDS * 8);
-  memset_pattern8(H + H_HUGE_FREE, &lone, HUGE_CLS * 8);
-  H[H_PAGE_BUMP] = DOOM_WORDS >> PAGE_BITS;
-}
-
-static Corpus corpus_setup(bool metal, long threads) {
-  u64 span = metal ? gpu_reserve() : 1ull << 40;
-  CORPUS = mmap(NULL, span * 8, PROT_READ | PROT_WRITE,
+static Corpus corpus_mmap(u64 bytes) {
+  Corpus H = mmap(NULL, bytes, PROT_READ | PROT_WRITE,
     MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0);
-  if (CORPUS == MAP_FAILED) {
+  if (H == MAP_FAILED) {
     err_fail(ERR_HEAP, "corpus reservation failed");
   }
+  return H;
+}
+
+static void corpus_seed(Corpus H) {
+  for (u64 i = 0; i < HUGE_CLS; i += 1) {
+    H[H_HUGE_FREE + i] = PAGE_NIL;
+  }
+}
+
+static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
+  u64 dflt = gpu ? gpu_span() : 1ull << 43;
+  u64 want = gpu ? bytes : 0;
+  CORPUS_SIZE = (want != 0 ? want : dflt) & ~16383ull;
+  u64 span = CORPUS_SIZE / 8;
+  u64 room = span > HEAP_OFF ? (span - HEAP_OFF) >> PAGE_BITS : 0;
+  u64 cap  = room < PAGE_NIL ? room : PAGE_NIL;
+  if (cap == 0) {
+    char text[80];
+    snprintf(text, sizeof text, "--gpu-memory is under the %lluMB of lane"
+      " stacks and rings", (unsigned long long)(HEAP_OFF >> 17) + 1);
+    err_fail(ERR_HEAP, text);
+  }
+  CORPUS = gpu ? gpu_map(CORPUS_SIZE) : corpus_mmap(CORPUS_SIZE);
   Corpus H = CORPUS;
   corpus_seed(H);
-  u64 cap = (span - HEAP_OFF) >> PAGE_BITS;
-  if (cap > PAGE_NIL) {
-    cap = PAGE_NIL;
-  }
   a32_store(a32_at(H, H_PAGE_CAP), (u32)cap);
-#if BEND_METAL
+#if BEND_GPU
   gpu_cap = cap;
 #endif
+  if (gpu) {
+    gpu_load(CORPUS_SIZE);
+  }
   pool_size = (u32)(threads < CUBE_SIDE ? threads : CUBE_SIDE);
   return H;
 }
@@ -4793,7 +4901,7 @@ static Corpus corpus_setup(bool metal, long threads) {
 OUTLINE Term corpus_eval(Corpus H, Term t) {
   Env e = { H, 0 };
   for (;;) {
-    Reply r = work_loop(e, io_stk, t, false, false);
+    Reply r = work_loop(e, io_stk, t, false);
     if (r == 0) {
       if (root_done(H)) {
         break;
@@ -4802,7 +4910,7 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
     }
     if (task_runs(H, r)) {
       t = r;
-      if (io_metal && fid_bangs((u32)term_aux(t))) {
+      if (io_gpu && fid_bangs((u32)term_aux(t))) {
         Loc  tl   = task_tail(t);
         Term cont = H[tl];
         u32  idx  = (u32)(H[tl + 1] >> 32);
@@ -4836,12 +4944,11 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
 // Io
 // ==
 
-OUTLINE int io_loop(Corpus H, bool metal, Fid fid) {
+OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
   Env e = { H, 0 };
-  io_metal = metal;
+  io_gpu = gpu;
   io_stk = pool_stack();
-  Term op = corpus_eval(H,
-    term_tsk(fid, task_node(e, fid, TERM_HOLE, 0, 0)));
+  Term op = corpus_eval(H, term_tsk(fid, task_node(e, fid, TERM_HOLE, 0, 0)));
   Term x = term_clo(FID_IO_EMIT, 0);
   for (;;) {
     Term fs[256];
@@ -4896,6 +5003,18 @@ static void cli_fail(const char* msg, const char* arg) {
   exit(1);
 }
 
+static u64 cli_size(const char* val) {
+  char*  end = NULL;
+  double n   = val != NULL ? strtod(val, &end) : 0;
+  u64    mul = end == NULL ? 0
+    : strcmp(end, "GB") == 0 ? 1ull << 30
+    : strcmp(end, "MB") == 0 ? 1ull << 20 : 0;
+  if (mul == 0 || n <= 0) {
+    cli_fail("expected a size like 4GB or 512MB after ", "--gpu-memory");
+  }
+  return (u64)(n * (double)mul);
+}
+
 static bool cli_flag(const char* name, const char* val) {
   bool on = val != NULL && strcmp(val, "on") == 0;
   if (!on && (val == NULL || strcmp(val, "off") != 0)) {
@@ -4911,6 +5030,7 @@ int main(int argc, char** argv) {
   long thr = 0;
   int  par = -1;
   int  gpu = -1;
+  u64  mem = 0;
   for (int i = 1; i < argc; i += 1) {
     const char* a = argv[i];
     const char* v = i + 1 < argc ? argv[i + 1] : NULL;
@@ -4930,6 +5050,9 @@ int main(int argc, char** argv) {
     } else if (strcmp(a, "--gpu") == 0) {
       gpu = cli_flag("--gpu", v);
       i += 1;
+    } else if (strcmp(a, "--gpu-memory") == 0) {
+      mem = cli_size(v);
+      i += 1;
     } else {
       cli_fail("unknown option ", a);
     }
@@ -4941,14 +5064,14 @@ int main(int argc, char** argv) {
     thr = 1;
     gpu = 0;
   }
-  bool metal = gpu != 0 && gpu_probe();
-  if (gpu == 1 && !metal) {
-    cli_fail("--gpu on, but this binary found no Metal device", NULL);
+  bool dev = gpu != 0 && gpu_probe();
+  if (gpu == 1 && !dev) {
+    cli_fail("--gpu on, but this binary found no GPU device", NULL);
   }
   long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
   long dflt = ncpu > 0 ? ncpu : 1;
-  Corpus H  = corpus_setup(metal, thr > 0 ? thr : dflt);
-  int code  = io_loop(H, metal, FID_MAIN);
+  Corpus H  = corpus_setup(dev, thr > 0 ? thr : dflt, mem);
+  int code  = io_loop(H, dev, FID_MAIN);
   io_sync();
   return code;
 }
@@ -5059,12 +5182,20 @@ function cli_flag(name, val) {
   return false;
 }
 
+function cli_size(val) {
+  const txt = val !== null ? val.replace(/^[ \t\n\v\f\r]*\+?/, "") : "";
+  if (!/^(\d+\.?\d*|\.\d+)(GB|MB)$/.test(txt) || Number.parseFloat(txt) <= 0) {
+    cli_fail("expected a size like 4GB or 512MB after --gpu-memory");
+  }
+}
+
 function cli_help() {
   const text = [
     "usage: " + process.argv[1] + " [options]",
     "  --threads N        worker threads: a JS program runs one",
     "  --parallel on|off  off means one thread and no GPU (default: on)",
     "  --gpu on|off       send ! calls to the GPU (default: on if present)",
+    "  --gpu-memory 4GB   device span: a JS program uses the JS heap",
     "  --help             show this text",
     "",
   ].join("\n");
@@ -5093,6 +5224,9 @@ function cli(argv) {
     } else if (a === "--gpu") {
       gpu = cli_flag("--gpu", v) ? 1 : 0;
       i += 1;
+    } else if (a === "--gpu-memory") {
+      cli_size(v);
+      i += 1;
     } else {
       cli_fail("unknown option " + a);
     }
@@ -5101,7 +5235,7 @@ function cli(argv) {
     cli_fail("--parallel off means --threads 1 with --gpu off");
   }
   if (gpu === 1) {
-    cli_fail("--gpu on, but this binary found no Metal device");
+    cli_fail("--gpu on, but this binary found no GPU device");
   }
   if (thr > 1) {
     cli_fail("--threads over 1, but a JS program runs one thread");

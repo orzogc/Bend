@@ -500,8 +500,8 @@ stacks, and the heap. A term crosses the CPU/GPU seam unchanged,
 in $O(1)$: no serialization, no copy, no pointer rewriting, and
 heap locations are stable for the whole run. The heap is carved
 into 128-word pages taken off a single global bump cursor, checked
-against a limit: the wired edge on the device, the memory cap on
-the host. There are $2^14$ lanes, a 128 by 128 grid, on every
+against one cap, fixed before the first dispatch and the same on
+both processors. There are $2^14$ lanes, a 128 by 128 grid, on every
 target; #co[--parallel off] runs the same machinery at width one,
 a single thread serving the grid, with no GPU.
 
@@ -520,18 +520,15 @@ per-lane state rides in the monk scratch, whichever executor next
 serves a lane adopts its piles wholesale, and freed memory
 recycles with no cross-thread free list on the allocation path.
 
-Exhaustion is fail-stop by construction. A claim past the limit
-posts a numbered error into the header, once, and yields the
-_doomed page_: page zero, pre-filled with self-pointing
-constructors, so device threads chasing pointers after an
-out-of-memory stay inside it until the error poll drains the
-kernel; no thread waits, parks mid-allocation, or grows memory
-itself. On the device the story continues in @sec:gpu-mem: the
-host grows the wired window between dispatches and restarts the
-run whole, which a pure program cannot observe. Near the wired
-edge a lane instead _parks_: it hands its runnable work back to
-its ring and ends its round, so the host can wire a larger window
-before the next one.
+Exhaustion is fail-stop by construction. A claim past the cap
+posts a numbered error into the header, once, and yields page
+zero, because a device thread cannot be killed and the allocator
+must still answer an address. Nothing is reserved for this: since
+the span never moves there is no unmapped edge to overshoot, so a
+doomed write lands in the program's own memory, which the poll is
+about to abandon anyway; no thread waits, parks mid-allocation, or
+grows memory itself. The host reads the error after the dispatch
+and stops, naming the flag that raises the cap.
 
 = Ownership at Run Time <sec:ownership>
 
@@ -697,10 +694,8 @@ machine cannot finish, its answer must wait on other lanes'
 deliveries, its continuation returns to the cube as a task,
 claimed by one global increment, which fills the first rows; the
 flip then spreads those rows into columns for the next turn. A
-lane that is growing dangerously close to the wired edge, or that
-is parked by the memory protocol of @sec:heap, pushes its runnable
-work back to its ring and stops, and memory is grown between
-phases, never inside one. This is the bulk-synchronous rhythm
+lane that is growing pushes its runnable work back to its ring and
+stops. This is the bulk-synchronous rhythm
 @valiant1990: bursts of exponential fork, then deep sequential
 focus, then the next wave. The driver reads and clears the push
 cursor each round and stops when the root has delivered; an empty
@@ -792,42 +787,40 @@ A device cannot abort, so failure is a protocol: the first failing
 lane compare-and-swaps its numbered error into a header word,
 once; every unbounded device loop polls that word and drains; and
 the host reads it after the dispatch, prints one line, and exits.
-Genuine memory exhaustion inside a kernel follows @sec:heap: the
-doomed page keeps every wandering lane harmlessly inside one page
-until the poll fires, so a dispatch that cannot progress
-fail-stops instead of hanging.
+Genuine memory exhaustion inside a kernel follows @sec:heap: a
+wandering lane writes inside the mapped span until the poll fires,
+so a dispatch that cannot progress fail-stops instead of
+hanging.
 
 == Memory Discipline <sec:gpu-mem>
 
 The corpus is one shape on both processors: the same host
 #co[mmap] wrapped, zero-copy, in a Metal buffer at the same
 addresses. Address space is nearly free, but every byte a kernel
-may touch must be _wired_ first, a real per-gigabyte cost, so the
-window is wired in _tomes_ of 256 MB: at least two from the
-start, and before every round the host wires ahead of use, three
-tomes past the allocation cursor and at least doubling, never
-during a dispatch. The arena itself is sized from the device's
-own limits at reserve time.
+may touch must be _mapped_ first, a real per-gigabyte cost
+(about 14 ms per gigabyte on an M4 Max), and a map cannot be
+widened while a kernel runs: the request queues behind the running
+dispatch and deadlocks. So the span is decided once, before the
+first dispatch — a #co[--gpu-memory] size, else two gigabytes
+on Metal, where the mapping is charged — and mapped whole. Every address under the cap is present
+for the entire run, so no kernel can reach a word the device has
+not got, and the per-gigabyte price is paid once, at the size the
+program asks for.
 
-When a kernel still runs out, the wait-and-resume protocol of an
-earlier design is replaced by something simpler: the error drains
-the dispatch, and the host _re-feeds and restarts_, rewiring a
-larger window, resetting the scheduling regions, reseeding the
-heap, and rerunning the program's root from scratch. A pure
-program cannot observe the retry, and the retry is legal only
-before any effect has run (@sec:io); when the device is truly out
-of memory, the restart fails loud with the same numbered error.
-This trades a bounded amount of recomputation for the absence of
-an entire in-flight parking protocol, and it is the reason no
-device thread ever waits on memory.
+When a kernel still runs out, that is genuine exhaustion, not a
+window too small: the error drains the dispatch and the host stops
+with one line naming #co[--gpu-memory]. Nothing waits, nothing parks,
+nothing re-runs. The managed CUDA span behaves the same way with
+no mapping cost at all, since its pages fault in on demand, and so
+takes the whole card by default; one protocol serves both.
 
 == Whole Phases as Dispatches
 
 The GPU driver never round-trips per step. A seed is one dispatch
 of one threadgroup; a grow is one dispatch of 128 groups; a work
 pass is one dispatch of one thread per lane; between dispatches
-the host's whole job is to read the phase counters, wire ahead,
-and pick the next phase. Results never copy, since host and device
+the host's whole job is to read the phase counters and pick the
+next phase. Results never copy, since host and device
 share the corpus, and the per-lane state that must survive a
 dispatch boundary, allocator words, counters, is exactly what the
 monk scratch persists. The CPU and GPU evaluators interoperate
