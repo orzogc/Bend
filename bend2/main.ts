@@ -9,7 +9,7 @@ import * as Comp from "./comp.ts";
 // Constants
 // =========
 
-const USAGE = "usage: bend <file.bend> [--to <out.c|out.js>]";
+const USAGE = "usage: bend <file.bend> [--check | --to <out.c|out.js>]";
 
 // CLI
 // ===
@@ -23,11 +23,14 @@ function cli(): void {
   if (path.startsWith("--")) {
     cli_fail("unknown option " + path);
   }
-  if (flag !== undefined && flag !== "--to") {
+  if (flag !== undefined && flag !== "--to" && flag !== "--check") {
     cli_fail("unknown option " + flag);
   }
   if (flag === "--to" && to === undefined) {
     cli_fail("--to needs an output file");
+  }
+  if (flag === "--check" && to !== undefined) {
+    cli_fail("too many arguments");
   }
   if (to !== undefined && !to.endsWith(".c") && !to.endsWith(".js")) {
     cli_fail("--to expects a .c or a .js file, not " + to);
@@ -43,7 +46,7 @@ function cli(): void {
     if (to !== undefined) {
       const emit = to.endsWith(".c") ? Comp.compile_book : Comp.js_book;
       fs.writeFileSync(to, emit(book));
-    } else if (book.tlds["main"] !== undefined) {
+    } else if (flag !== "--check" && book.tlds["main"] !== undefined) {
       if (Comp.io_type(book) !== null) {
         process.exit(Comp.io_run(book));
       } else {
