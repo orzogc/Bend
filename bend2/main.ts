@@ -80,7 +80,7 @@ function cli_report(book: Bend.Book): void {
     console.log(all + ", with " + uns + " annotated as unsafe.");
     console.log("The code is well-typed, but may contain logical paradoxes.");
   } else {
-    console.log(all + ". VALID.");
+    console.log(all + ".");
   }
 }
 
