@@ -39,37 +39,37 @@ def http_body(s):
 
 assert fetch_tail:
   forall head: String
-  forall rm: Socket & Result<&1, &1, U32 & String, String>
+  forall rest: Socket & Result<&1, &1, U32 & String, String>
   IO(String)
 
-def fetch_tail(head, rm):
-  (s, r) = rm
+def fetch_tail(head, rest):
+  (s, r) = rest
   do IO<String>:
     tail : String <- IO.pass(String, r)
-    u : Unit <- Socket.close(s)
+    ok   : Unit <- Socket.close(s)
     return head ++ tail
 
 assert fetch_head:
-  forall rm: Socket & Result<&1, &1, U32 & String, String>
+  forall read: Socket & Result<&1, &1, U32 & String, String>
   IO(String)
 
-def fetch_head(rm):
-  (s, r) = rm
+def fetch_head(read):
+  (s, r) = read
   do IO<String>:
     head : String <- IO.pass(String, r)
-    rm2 : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(s, 8192)
-    fetch_tail(head, rm2)
+    rest : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(s, 8192)
+    fetch_tail(head, rest)
 
 assert fetch_sent:
-  forall sm: Socket & Result<&1, &1, U32 & String, Unit>
+  forall sent: Socket & Result<&1, &1, U32 & String, Unit>
   IO(String)
 
-def fetch_sent(sm):
-  (s, r) = sm
+def fetch_sent(sent):
+  (s, r) = sent
   do IO<String>:
-    u : Unit <- IO.pass(Unit, r)
-    rm : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(s, 8192)
-    fetch_head(rm)
+    ok   : Unit <- IO.pass(Unit, r)
+    read : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(s, 8192)
+    fetch_head(read)
 
 assert main:
   IO(U32)
@@ -78,8 +78,8 @@ def main():
   ra = {"GET /line/?fields=status,country,city,query HTTP/1.1\r\n" : String}
   rb = {"Host: ip-api.com\r\nConnection: close\r\n\r\n" : String}
   do IO<U32>:
-    c : Socket <- IO.try(Socket, TCP.connect("208.95.112.1", 80))
-    sm : Socket & Result<&1, &1, U32 & String, Unit> <- TCP.send(c, ra ++ rb)
-    resp : String <- fetch_sent(sm)
-    u : Unit <- IO.print(http_body(resp))
+    c    : Socket <- IO.try(Socket, TCP.connect("208.95.112.1", 80))
+    sent : Socket & Result<&1, &1, U32 & String, Unit> <- TCP.send(c, ra ++ rb)
+    resp : String <- fetch_sent(sent)
+    ok   : Unit <- IO.print(http_body(resp))
     return 0

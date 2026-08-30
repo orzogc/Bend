@@ -125,14 +125,14 @@ assert IO:
 
 assert IO.pure:
   forall -A: Type
-  forall x: A
+  forall  x: A
   IO(A)
 
 assert IO.bind:
   forall -A: Type
   forall -B: Type
-  forall m: IO(A)
-  forall f: A -> IO(B)
+  forall  m: IO(A)
+  forall  f: A -> IO(B)
   IO(B)
 
 assert IO.print:
@@ -152,19 +152,19 @@ assert IO.get_env:
   IO(Result<&1, &1, U32 & String, String>)
 
 assert IO.die:
-  forall -A: Type
-  forall code: U32
-  forall message: String
+  forall -A   : Type
+  forall code : U32
+  forall msg  : String
   IO(A)
 
 assert IO.pass:
   forall -A: Type
-  forall r: Result<&1, &1, U32 & String, A>
+  forall  r: Result<&1, &1, U32 & String, A>
   IO(A)
 
 assert IO.try:
-  forall -A: Type
-  forall action: IO(Result<&1, &1, U32 & String, A>)
+  forall -A  : Type
+  forall act : IO(Result<&1, &1, U32 & String, A>)
   IO(A)
 
 assert File.open:
@@ -173,8 +173,8 @@ assert File.open:
   IO(Result<&1, &1, U32 & String, File>)
 
 assert File.read:
-  forall file: File
-  forall max: U32
+  forall file : File
+  forall max  : U32
   IO(File & Result<&1, &1, U32 & String, String>)
 
 assert File.write:
@@ -200,13 +200,13 @@ assert TCP.connect:
   IO(Result<&1, &1, U32 & String, Socket>)
 
 assert TCP.send:
-  forall socket: Socket
+  forall sock: Socket
   forall data: String
   IO(Socket & Result<&1, &1, U32 & String, Unit>)
 
 assert TCP.recv:
-  forall socket: Socket
-  forall max: U32
+  forall sock : Socket
+  forall max  : U32
   IO(Socket & Result<&1, &1, U32 & String, String>)
 
 assert UDP.bind:
@@ -214,15 +214,15 @@ assert UDP.bind:
   IO(Result<&1, &1, U32 & String, Socket>)
 
 assert UDP.send_to:
-  forall socket: Socket
+  forall sock: Socket
   forall host: String
   forall port: U32
   forall data: String
   IO(Socket & Result<&1, &1, U32 & String, Unit>)
 
 assert UDP.recv_from:
-  forall socket: Socket
-  forall max: U32
+  forall sock : Socket
+  forall max  : U32
   IO(Socket & Result<&1, &1, U32 & String, String & U32 & String>)
 
 assert Socket.close:
@@ -242,23 +242,23 @@ assert Equal.cong:
   forall -f: A -> B
   forall -a: A
   forall -b: A
-  forall e: {a == b : A}
+  forall  e: {a == b : A}
   {f(a) == f(b) : B}
 
 assert Equal.sym:
   forall -A: Type
   forall -a: A
   forall -b: A
-  forall e: {a == b : A}
+  forall  e: {a == b : A}
   {b == a : A}
 
 assert Equal.trans:
-  forall -A: Type
-  forall -a: A
-  forall -b: A
-  forall -c: A
-  forall ab: {a == b : A}
-  forall bc: {b == c : A}
+  forall -A : Type
+  forall -a : A
+  forall -b : A
+  forall -c : A
+  forall ab : {a == b : A}
+  forall bc : {b == c : A}
   {a == c : A}
 
 # Empty
@@ -266,7 +266,7 @@ assert Equal.trans:
 
 assert Empty.absurd:
   forall -A: Type
-  forall e: Empty
+  forall  e: Empty
   A
 
 # Bool
@@ -343,7 +343,7 @@ assert Nat.sub:
   Nat
 
 assert Nat.mul:
-  forall a: Nat
+  forall  a: Nat
   forall +b: Nat
   Nat
 
@@ -375,15 +375,15 @@ assert Nat.is_lt:
 assert Maybe.pure:
   forall -a: Quant
   forall -A: Kind(a)
-  forall x: A
+  forall  x: A
   Maybe<a, A>
 
 assert Maybe.bind:
   forall -a: Quant
   forall -A: Kind(a)
   forall -B: Kind(a)
-  forall m: Maybe<a, A>
-  forall f: A -> Maybe<a, B>
+  forall  m: Maybe<a, A>
+  forall  f: A -> Maybe<a, B>
   Maybe<a, B>
 
 # Result
@@ -394,7 +394,7 @@ assert Result.pure:
   forall -b: Quant
   forall -E: Kind(a)
   forall -A: Kind(b)
-  forall x: A
+  forall  x: A
   Result<a, b, E, A>
 
 assert Result.fail:
@@ -402,7 +402,7 @@ assert Result.fail:
   forall -b: Quant
   forall -E: Kind(a)
   forall -A: Kind(b)
-  forall e: E
+  forall  e: E
   Result<a, b, E, A>
 
 assert Result.bind:
@@ -411,8 +411,8 @@ assert Result.bind:
   forall -E: Kind(a)
   forall -A: Kind(b)
   forall -B: Kind(b)
-  forall r: Result<a, b, E, A>
-  forall f: A -> Result<a, b, E, B>
+  forall  r: Result<a, b, E, A>
+  forall  f: A -> Result<a, b, E, B>
   Result<a, b, E, B>
 
 # Word
@@ -421,8 +421,8 @@ assert Result.bind:
 assert Word.cast:
   forall -m: Nat
   forall -n: Nat
-  forall e: {m == n : Nat}
-  forall w: Word(m)
+  forall  e: {m == n : Nat}
+  forall  w: Word(m)
   Word(n)
 
 assert Word.zero:
@@ -465,8 +465,8 @@ assert Word.shl:
 
 assert Word.shl.out.con:
   forall -p: Nat
-  forall c: Bool
-  forall r: Bool & Word(p)
+  forall  c: Bool
+  forall  r: Bool & Word(p)
   Bool & Word(1n+p)
 
 assert Word.shl.out:
@@ -486,9 +486,9 @@ assert Word.shr:
   Word(n)
 
 assert Word.cmp.fin:
-  forall ab: Bool
-  forall bb: Bool
-  forall t: Cmp
+  forall ab : Bool
+  forall bb : Bool
+  forall t  : Cmp
   Cmp
 
 assert Word.cmp:
@@ -503,11 +503,11 @@ assert Word.inc:
   Word(n)
 
 assert Word.adc.con:
-  forall p: Nat
-  forall at: Word(p)
-  forall bt: Word(p)
-  forall f: Bool
-  forall sk: Bool & Bool
+  forall p  : Nat
+  forall at : Word(p)
+  forall bt : Word(p)
+  forall f  : Bool
+  forall sk : Bool & Bool
   Word(1n+p)
 
 assert Word.adc:
@@ -531,11 +531,11 @@ assert Word.sub:
   Word(n)
 
 assert Word.add_comm.arm:
-  forall p: Nat
-  forall -h: Bool
-  forall at: Word(p)
-  forall bt: Word(p)
-  forall k: Bool
+  forall p  : Nat
+  forall -h : Bool
+  forall at : Word(p)
+  forall bt : Word(p)
+  forall k  : Bool
   {WCon{h, Word.adc(p, at, bt, False{}, k)}
     == WCon{h, Word.adc(p, bt, at, False{}, k)} : Word.Con<p>}
 
@@ -558,17 +558,17 @@ assert Word.to_nat:
   Nat
 
 assert Word.mul.go:
-  forall +n: Nat
-  forall m: Nat
-  forall a: Word(m)
-  forall b: Word(n)
-  forall acc: Word(n)
+  forall +n  : Nat
+  forall m   : Nat
+  forall a   : Word(m)
+  forall b   : Word(n)
+  forall acc : Word(n)
   Word(n)
 
 assert Word.mul:
   forall +n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
+  forall  a: Word(n)
+  forall  b: Word(n)
   Word(n)
 
 # U32
@@ -690,29 +690,29 @@ assert U32.from_nat:
 
 assert U32.divmod.go.fin:
   forall -p: Nat
-  forall q: Word(p)
-  forall s: U32
-  forall b: U32
-  forall g: Bool
+  forall  q: Word(p)
+  forall  s: U32
+  forall  b: U32
+  forall  g: Bool
   Word(1n+p) & U32
 
 assert U32.divmod.go.shl:
-  forall -p: Nat
-  forall q: Word(p)
-  forall +b: U32
-  forall ts: Bool & Word(32n)
+  forall -p : Nat
+  forall q  : Word(p)
+  forall +b : U32
+  forall ts : Bool & Word(32n)
   Word(1n+p) & U32
 
 assert U32.divmod.go.rec:
-  forall -p: Nat
-  forall a0: Bool
-  forall +b: U32
-  forall qr: Word(p) & U32
+  forall -p : Nat
+  forall a0 : Bool
+  forall +b : U32
+  forall qr : Word(p) & U32
   Word(1n+p) & U32
 
 assert U32.divmod.go:
-  forall m: Nat
-  forall a: Word(m)
+  forall  m: Nat
+  forall  a: Word(m)
   forall +b: U32
   Word(m) & U32
 
@@ -721,13 +721,13 @@ assert U32.div.fin:
   U32
 
 assert U32.div.if:
-  forall aw: Word(32n)
-  forall b: U32
-  forall z: Bool
+  forall aw : Word(32n)
+  forall b  : U32
+  forall z  : Bool
   U32
 
 assert U32.div:
-  forall a: U32
+  forall  a: U32
   forall +b: U32
   U32
 
@@ -736,13 +736,13 @@ assert U32.mod.fin:
   U32
 
 assert U32.mod.if:
-  forall aw: Word(32n)
-  forall b: U32
-  forall z: Bool
+  forall aw : Word(32n)
+  forall b  : U32
+  forall z  : Bool
   U32
 
 assert U32.mod:
-  forall a: U32
+  forall  a: U32
   forall +b: U32
   U32
 
@@ -923,9 +923,9 @@ assert String.append:
   String
 
 assert String.cmp.rec:
-  forall h1b: Char
-  forall h2b: Char
-  forall rr: (String & String) & Cmp
+  forall h1b : Char
+  forall h2b : Char
+  forall rr  : (String & String) & Cmp
   (String & String) & Cmp
 
 assert String.cmp.fin:
@@ -952,8 +952,8 @@ assert String.eq:
 # ----
 
 assert U32.read.dig.if:
-  forall x: U32
-  forall ok: Bool
+  forall x  : U32
+  forall ok : Bool
   Maybe<&2, U32>
 
 assert U32.read.dig:
@@ -969,15 +969,15 @@ assert Nat.show.step:
   Char & Nat
 
 assert Nat.show.fin:
-  forall g: Nat
-  forall acc: String
-  forall dq: Char & Nat
+  forall g   : Nat
+  forall acc : String
+  forall dq  : Char & Nat
   String
 
 assert Nat.show.go:
-  forall f: Nat
-  forall n: Nat
-  forall acc: String
+  forall f   : Nat
+  forall n   : Nat
+  forall acc : String
   String
 
 assert Nat.show:
@@ -985,14 +985,14 @@ assert Nat.show:
   String
 
 assert Nat.read.fin:
-  forall t: String
-  forall acc: Nat
-  forall d: Maybe<&2, U32>
+  forall t   : String
+  forall acc : Nat
+  forall d   : Maybe<&2, U32>
   Maybe<&2, Nat>
 
 assert Nat.read.go:
-  forall s: String
-  forall acc: Nat
+  forall s   : String
+  forall acc : Nat
   Maybe<&2, Nat>
 
 assert Nat.read:
@@ -1000,16 +1000,16 @@ assert Nat.read:
   Maybe<&2, Nat>
 
 assert U32.show.fin:
-  forall g: Nat
-  forall acc: String
-  forall +n: U32
-  forall z: Bool
+  forall g   : Nat
+  forall acc : String
+  forall +n  : U32
+  forall z   : Bool
   String
 
 assert U32.show.go:
-  forall f: Nat
-  forall +n: U32
-  forall acc: String
+  forall f   : Nat
+  forall +n  : U32
+  forall acc : String
   String
 
 assert U32.show.if:
@@ -1022,14 +1022,14 @@ assert U32.show:
   String
 
 assert U32.read.fin:
-  forall t: String
-  forall acc: U32
-  forall d: Maybe<&2, U32>
+  forall t   : String
+  forall acc : U32
+  forall d   : Maybe<&2, U32>
   Maybe<&2, U32>
 
 assert U32.read.go:
-  forall s: String
-  forall acc: U32
+  forall s   : String
+  forall acc : U32
   Maybe<&2, U32>
 
 assert U32.read:
@@ -1040,58 +1040,58 @@ assert U32.read:
 # -----
 
 assert Array.size.node:
-  forall -T: Type
-  forall ys: Array<T>
-  forall r: Array<T> & U32
+  forall -T : Type
+  forall ys : Array<T>
+  forall r  : Array<T> & U32
   Array<T> & U32
 
 assert Array.size:
   forall -T: Type
-  forall a: Array<T>
+  forall  a: Array<T>
   Array<T> & U32
 
 assert Array.swap.lo:
-  forall -T: Type
-  forall ys: Array<T>
-  forall r: Array<T> & T
+  forall -T : Type
+  forall ys : Array<T>
+  forall r  : Array<T> & T
   Array<T> & T
 
 assert Array.swap.hi:
-  forall -T: Type
-  forall xs: Array<T>
-  forall r: Array<T> & T
+  forall -T : Type
+  forall xs : Array<T>
+  forall r  : Array<T> & T
   Array<T> & T
 
 assert Array.swap.if:
-  forall -T: Type
-  forall xs: Array<T>
-  forall ys: Array<T>
-  forall +h: U32
-  forall i: U32
-  forall v: T
-  forall z: Bool
+  forall -T : Type
+  forall xs : Array<T>
+  forall ys : Array<T>
+  forall +h : U32
+  forall i  : U32
+  forall v  : T
+  forall z  : Bool
   Array<T> & T
 
 assert Array.swap.go:
   forall -T: Type
-  forall a: Array<T>
-  forall n: U32
+  forall  a: Array<T>
+  forall  n: U32
   forall +i: U32
-  forall v: T
+  forall  v: T
   Array<T> & T
 
 assert Array.swap.at:
-  forall -T: Type
-  forall i: U32
-  forall v: T
-  forall an: Array<T> & U32
+  forall -T : Type
+  forall i  : U32
+  forall v  : T
+  forall an : Array<T> & U32
   Array<T> & T
 
 assert Array.swap:
   forall -T: Type
-  forall a: Array<T>
+  forall  a: Array<T>
   forall +i: U32
-  forall v: T
+  forall  v: T
   Array<T> & T
 
 assert Array.clone.node:
@@ -1111,41 +1111,41 @@ assert Array.new:
 
 assert Array.set.fin:
   forall -T: Type
-  forall r: Array<T> & T
+  forall  r: Array<T> & T
   Array<T>
 
 assert Array.set:
   forall -T: Type
-  forall a: Array<T>
-  forall i: U32
-  forall v: T
+  forall  a: Array<T>
+  forall  i: U32
+  forall  v: T
   Array<T>
 
 assert Array.get.if:
-  forall -T: Data
-  forall xs: Array<T>
-  forall ys: Array<T>
-  forall +h: U32
-  forall i: U32
-  forall z: Bool
+  forall -T : Data
+  forall xs : Array<T>
+  forall ys : Array<T>
+  forall +h : U32
+  forall i  : U32
+  forall z  : Bool
   Array<T> & T
 
 assert Array.get.go:
   forall -T: Data
-  forall a: Array<T>
-  forall n: U32
+  forall  a: Array<T>
+  forall  n: U32
   forall +i: U32
   Array<T> & T
 
 assert Array.get.at:
-  forall -T: Data
-  forall i: U32
-  forall an: Array<T> & U32
+  forall -T : Data
+  forall i  : U32
+  forall an : Array<T> & U32
   Array<T> & T
 
 assert Array.get:
   forall -T: Data
-  forall a: Array<T>
+  forall  a: Array<T>
   forall +i: U32
   Array<T> & T
 
@@ -1158,8 +1158,8 @@ assert Map.bit.u:
   Bool
 
 assert Map.bit.chr:
-  forall c: Char
-  forall off: Nat
+  forall c   : Char
+  forall off : Nat
   Char & Bool
 
 assert Map.bit.go.chr:
@@ -1173,14 +1173,14 @@ assert Map.bit.go.rec:
   String & Bool
 
 assert Map.bit.go:
-  forall key: String
-  forall ci: Nat
-  forall off: Nat
+  forall key : String
+  forall ci  : Nat
+  forall off : Nat
   String & Bool
 
 assert Map.bit.at:
-  forall key: String
-  forall co: Nat & Nat
+  forall key : String
+  forall co  : Nat & Nat
   String & Bool
 
 assert Map.bit:
@@ -1189,9 +1189,9 @@ assert Map.bit:
   String & Bool
 
 assert Map.msb.u.if:
-  forall p: Nat
-  forall x2: U32
-  forall z: Bool
+  forall p  : Nat
+  forall x2 : U32
+  forall z  : Bool
   Nat
 
 assert Map.msb.u:
@@ -1225,336 +1225,336 @@ assert Map.new:
   Map<a, V>
 
 assert Map.put.bit:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall x: V
-  forall p2: Nat
-  forall lo: Map<a, V>
-  forall hi: Map<a, V>
-  forall kb: String & Bool
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall x  : V
+  forall p2 : Nat
+  forall lo : Map<a, V>
+  forall hi : Map<a, V>
+  forall kb : String & Bool
   Map<a, V>
 
 assert Map.put:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall key: String
-  forall x: V
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
+  forall x   : V
   Map<a, V>
 
 assert Map.ins.splice.bit:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall x: V
-  forall rest: Map<a, V>
-  forall pb: Nat
-  forall kb: String & Bool
+  forall -a   : Quant
+  forall -V   : Kind(a)
+  forall x    : V
+  forall rest : Map<a, V>
+  forall pb   : Nat
+  forall kb   : String & Bool
   Map<a, V>
 
 assert Map.ins.splice:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall +p: Nat
-  forall key: String
-  forall x: V
-  forall rest: Map<a, V>
+  forall -a   : Quant
+  forall -V   : Kind(a)
+  forall +p   : Nat
+  forall key  : String
+  forall x    : V
+  forall rest : Map<a, V>
   Map<a, V>
 
 assert Map.ins.deep:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall x: V
-  forall lo: Map<a, V>
-  forall hi: Map<a, V>
-  forall pb: Nat
-  forall qb: Nat
-  forall kb: String & Bool
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall x  : V
+  forall lo : Map<a, V>
+  forall hi : Map<a, V>
+  forall pb : Nat
+  forall qb : Nat
+  forall kb : String & Bool
   Map<a, V>
 
 assert Map.ins.if:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall key: String
-  forall x: V
-  forall lo: Map<a, V>
-  forall hi: Map<a, V>
-  forall +pos2: Nat
-  forall pb: Nat
-  forall t: Bool
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall key : String
+  forall x   : V
+  forall lo  : Map<a, V>
+  forall hi  : Map<a, V>
+  forall +p2 : Nat
+  forall pb  : Nat
+  forall t   : Bool
   Map<a, V>
 
 assert Map.ins:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall key: String
-  forall x: V
-  forall +p: Nat
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
+  forall x   : V
+  forall +p  : Nat
   Map<a, V>
 
 assert Map.seek.lo:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall p2: Nat
-  forall hi: Map<a, V>
-  forall r0: (Map<a, V> & String) & Maybe<&2, String>
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall p2 : Nat
+  forall hi : Map<a, V>
+  forall r0 : (Map<a, V> & String) & Maybe<&2, String>
   (Map<a, V> & String) & Maybe<&2, String>
 
 assert Map.seek.hi:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall p2: Nat
-  forall lo: Map<a, V>
-  forall r0: (Map<a, V> & String) & Maybe<&2, String>
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall p2 : Nat
+  forall lo : Map<a, V>
+  forall r0 : (Map<a, V> & String) & Maybe<&2, String>
   (Map<a, V> & String) & Maybe<&2, String>
 
 assert Map.seek.bit:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall lo: Map<a, V>
-  forall hi: Map<a, V>
-  forall p2: Nat
-  forall kb: String & Bool
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall lo : Map<a, V>
+  forall hi : Map<a, V>
+  forall p2 : Nat
+  forall kb : String & Bool
   (Map<a, V> & String) & Maybe<&2, String>
 
 assert Map.seek:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall key: String
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
   (Map<a, V> & String) & Maybe<&2, String>
 
 assert Map.set.fin.go:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall key: String
-  forall x: V
-  forall r: (String & String) & Cmp
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
+  forall x   : V
+  forall r   : (String & String) & Cmp
   Map<a, V>
 
 assert Map.set.fin:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall key: String
-  forall x: V
-  forall keyb: String
-  forall k: String
+  forall -a   : Quant
+  forall -V   : Kind(a)
+  forall m    : Map<a, V>
+  forall key  : String
+  forall x    : V
+  forall keyb : String
+  forall k    : String
   Map<a, V>
 
 assert Map.set.go:
   forall -a: Quant
   forall -V: Kind(a)
-  forall x: V
-  forall r: (Map<a, V> & String) & Maybe<&2, String>
+  forall  x: V
+  forall  r: (Map<a, V> & String) & Maybe<&2, String>
   Map<a, V>
 
 assert Map.set:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall key: String
-  forall x: V
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
+  forall x   : V
   Map<a, V>
 
 assert Map.set.kv:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall kv: Sigma<&2, a, String, _ => V>
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall m  : Map<a, V>
+  forall kv : Sigma<&2, a, String, _ => V>
   Map<a, V>
 
 assert Map.has.leaf:
   forall -a: Quant
   forall -V: Kind(a)
-  forall v: V
-  forall r: (String & String) & Cmp
+  forall  v: V
+  forall  r: (String & String) & Cmp
   Map<a, V> & Bool
 
 assert Map.has.lo:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall p2: Nat
-  forall hi: Map<a, V>
-  forall r0: Map<a, V> & Bool
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall p2 : Nat
+  forall hi : Map<a, V>
+  forall r0 : Map<a, V> & Bool
   Map<a, V> & Bool
 
 assert Map.has.hi:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall p2: Nat
-  forall lo: Map<a, V>
-  forall r0: Map<a, V> & Bool
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall p2 : Nat
+  forall lo : Map<a, V>
+  forall r0 : Map<a, V> & Bool
   Map<a, V> & Bool
 
 assert Map.has.bit:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall lo: Map<a, V>
-  forall hi: Map<a, V>
-  forall p2: Nat
-  forall kb: String & Bool
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall lo : Map<a, V>
+  forall hi : Map<a, V>
+  forall p2 : Nat
+  forall kb : String & Bool
   Map<a, V> & Bool
 
 assert Map.has:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall key: String
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
   Map<a, V> & Bool
 
 assert Map.get.leaf:
   forall -V: Data
-  forall d: V
-  forall v: V
-  forall r: (String & String) & Cmp
+  forall  d: V
+  forall  v: V
+  forall  r: (String & String) & Cmp
   Map<&2, V> & V
 
 assert Map.get.lo:
-  forall -V: Data
-  forall p2: Nat
-  forall hi: Map<&2, V>
-  forall r0: Map<&2, V> & V
+  forall -V : Data
+  forall p2 : Nat
+  forall hi : Map<&2, V>
+  forall r0 : Map<&2, V> & V
   Map<&2, V> & V
 
 assert Map.get.hi:
-  forall -V: Data
-  forall p2: Nat
-  forall lo: Map<&2, V>
-  forall r0: Map<&2, V> & V
+  forall -V : Data
+  forall p2 : Nat
+  forall lo : Map<&2, V>
+  forall r0 : Map<&2, V> & V
   Map<&2, V> & V
 
 assert Map.get.bit:
-  forall -V: Data
-  forall d: V
-  forall lo: Map<&2, V>
-  forall hi: Map<&2, V>
-  forall p2: Nat
-  forall kb: String & Bool
+  forall -V : Data
+  forall d  : V
+  forall lo : Map<&2, V>
+  forall hi : Map<&2, V>
+  forall p2 : Nat
+  forall kb : String & Bool
   Map<&2, V> & V
 
 assert Map.get:
-  forall -V: Data
-  forall d: V
-  forall m: Map<&2, V>
-  forall key: String
+  forall -V  : Data
+  forall d   : V
+  forall m   : Map<&2, V>
+  forall key : String
   Map<&2, V> & V
 
 assert Map.pop.lo:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall pos: Nat
-  forall lo: Map<a, V>
-  forall hi: Map<a, V>
-  forall r: Maybe<a, V>
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall pos : Nat
+  forall lo  : Map<a, V>
+  forall hi  : Map<a, V>
+  forall r   : Maybe<a, V>
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.hi:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall pos: Nat
-  forall lo: Map<a, V>
-  forall hi: Map<a, V>
-  forall r: Maybe<a, V>
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall pos : Nat
+  forall lo  : Map<a, V>
+  forall hi  : Map<a, V>
+  forall r   : Maybe<a, V>
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.leaf:
   forall -a: Quant
   forall -V: Kind(a)
-  forall v: V
-  forall r: (String & String) & Cmp
+  forall  v: V
+  forall  r: (String & String) & Cmp
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.golo:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall p2: Nat
-  forall hi: Map<a, V>
-  forall r0: Map<a, V> & Maybe<a, V>
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall p2 : Nat
+  forall hi : Map<a, V>
+  forall r0 : Map<a, V> & Maybe<a, V>
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.gohi:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall p2: Nat
-  forall lo: Map<a, V>
-  forall r0: Map<a, V> & Maybe<a, V>
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall p2 : Nat
+  forall lo : Map<a, V>
+  forall r0 : Map<a, V> & Maybe<a, V>
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop.bit:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall lo: Map<a, V>
-  forall hi: Map<a, V>
-  forall p2: Nat
-  forall kb: String & Bool
+  forall -a : Quant
+  forall -V : Kind(a)
+  forall lo : Map<a, V>
+  forall hi : Map<a, V>
+  forall p2 : Nat
+  forall kb : String & Bool
   Map<a, V> & Maybe<a, V>
 
 assert Map.pop:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall key: String
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
   Map<a, V> & Maybe<a, V>
 
 assert Map.del.fin:
   forall -a: Quant
   forall -V: Kind(a)
-  forall r: Map<a, V> & Maybe<a, V>
+  forall  r: Map<a, V> & Maybe<a, V>
   Map<a, V>
 
 assert Map.del:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall key: String
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
   Map<a, V>
 
 assert Map.to_list.go:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall acc: List<a, Sigma<&2, a, String, _ => V>>
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall acc : List<a, Sigma<&2, a, String, _ => V>>
   List<a, Sigma<&2, a, String, _ => V>>
 
 assert Map.to_list:
   forall -a: Quant
   forall -V: Kind(a)
-  forall m: Map<a, V>
+  forall  m: Map<a, V>
   List<a, Sigma<&2, a, String, _ => V>>
 
 assert Map.keys.go:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall acc: List<&2, String>
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall acc : List<&2, String>
   List<&2, String>
 
 assert Map.keys:
   forall -a: Quant
   forall -V: Kind(a)
-  forall m: Map<a, V>
+  forall  m: Map<a, V>
   List<&2, String>
 
 assert Map.from_list.go:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall kvs: List<a, Sigma<&2, a, String, _ => V>>
-  forall m: Map<a, V>
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall kvs : List<a, Sigma<&2, a, String, _ => V>>
+  forall m   : Map<a, V>
   Map<a, V>
 
 assert Map.from_list:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall kvs: List<a, Sigma<&2, a, String, _ => V>>
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall kvs : List<a, Sigma<&2, a, String, _ => V>>
   Map<a, V>
 
 assert Map.union:
   forall -a: Quant
   forall -V: Kind(a)
-  forall m: Map<a, V>
-  forall n: Map<a, V>
+  forall  m: Map<a, V>
+  forall  n: Map<a, V>
   Map<a, V>
 
 # Set
@@ -1567,18 +1567,18 @@ assert Set.new:
   Set()
 
 assert Set.add:
-  forall s: Set()
-  forall key: String
+  forall s   : Set()
+  forall key : String
   Set()
 
 assert Set.has:
-  forall s: Set()
-  forall key: String
+  forall s   : Set()
+  forall key : String
   Set() & Bool
 
 assert Set.del:
-  forall s: Set()
-  forall key: String
+  forall s   : Set()
+  forall key : String
   Set()
 
 assert Set.union:
@@ -1641,8 +1641,8 @@ def IO.get_env(name):
   import "./effs/get_env.c"
   import "./effs/get_env.js"
 
-def IO.die(A, code, message):
-  R => k => Halt{code, message}
+def IO.die(A, code, msg):
+  R => k => Halt{code, msg}
 
 def IO.pass(A, r):
   match r:
@@ -1651,8 +1651,8 @@ def IO.pass(A, r):
     case Fail{(code, message)}:
       IO.die(A, code, message)
 
-def IO.try(A, action):
-  IO.bind(Result<&1, &1, U32 & String, A>, A, action, IO.pass(A))
+def IO.try(A, act):
+  IO.bind(Result<&1, &1, U32 & String, A>, A, act, IO.pass(A))
 
 def File.open(path, mode):
   import "./effs/file_open.c"
@@ -1682,11 +1682,11 @@ def TCP.connect(host, port):
   import "./effs/tcp_connect.c"
   import "./effs/tcp_connect.js"
 
-def TCP.send(socket, data):
+def TCP.send(sock, data):
   import "./effs/tcp_send.c"
   import "./effs/tcp_send.js"
 
-def TCP.recv(socket, max):
+def TCP.recv(sock, max):
   import "./effs/tcp_recv.c"
   import "./effs/tcp_recv.js"
 
@@ -1694,11 +1694,11 @@ def UDP.bind(port):
   import "./effs/udp_bind.c"
   import "./effs/udp_bind.js"
 
-def UDP.send_to(socket, host, port, data):
+def UDP.send_to(sock, host, port, data):
   import "./effs/udp_send_to.c"
   import "./effs/udp_send_to.js"
 
-def UDP.recv_from(socket, max):
+def UDP.recv_from(sock, max):
   import "./effs/udp_recv_from.c"
   import "./effs/udp_recv_from.js"
 
@@ -2693,12 +2693,12 @@ def Map.ins.deep(a, V, x, lo, hi, pb, qb, kb):
     case True{}:
       MNode{qb, lo, Map.ins(a, V, hi, key2, x, pb)}
 
-def Map.ins.if(a, V, key, x, lo, hi, pos2, pb, t):
+def Map.ins.if(a, V, key, x, lo, hi, p2, pb, t):
   match t:
     case False{}:
-      Map.ins.splice(a, V, pb, key, x, MNode{pos2, lo, hi})
+      Map.ins.splice(a, V, pb, key, x, MNode{p2, lo, hi})
     case True{}:
-      Map.ins.deep(a, V, x, lo, hi, pb, pos2, Map.bit(key, pos2))
+      Map.ins.deep(a, V, x, lo, hi, pb, p2, Map.bit(key, p2))
 
 def Map.ins(a, V, m, key, x, p):
   match m:

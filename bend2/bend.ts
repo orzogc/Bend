@@ -31,6 +31,7 @@
 //   | Eql ::= "{" Term "==" Term ":" Term "}"
 //   | Rfl ::= "{" "==" "}"
 //   | Rwt ::= "%" (Name "@")? Term ":" Term ";"? Body
+//   | Hol ::= "?" Name
 //   | Grp ::= "(" Body ")"
 //
 // Case   ::= "case" [Term] ":" Body
@@ -42,7 +43,7 @@
 // ADT    ::= "type" Name ("<" [Bind ","?] ">")? "is" Term ":" [Ctr]
 // Clause ::= ("forall" Quant | "exists") Name ":" Term ("where" Term)?
 // Assert ::= "assert" Name ":" [Clause] Term
-// Def    ::= "def" Name "(" [Name ","?] ")" ":" (Body | ["import" STRING]+)
+// Def    ::= ("@unsafe")? "def" Name "(" [Name ","?] ")" ":" (Body | ["import" STRING]+)
 // TLD    ::= ADT | Assert | Def
 // Import ::= "import" "Base" | "import" Path "as" Name
 // Book   ::= [Import] [TLD]
@@ -182,6 +183,11 @@
 // erased columns skipped. trusted claims: subject reduction (for
 // by-value reduction), progress, weak normalization of closed live
 // terms, no closed live inhabitant of Empty.
+// an @unsafe def opts out of the wall: its self-calls skip descent
+// and its binder domains form + at any kind, so the claims above do
+// not cover a book that uses one. a hole ?name fails every check,
+// shown against the goal; ?TODO alone checks at any goal and marks
+// the book incomplete.
 
 import * as fs from "node:fs";
 import * as url from "node:url";
@@ -237,6 +243,7 @@ export type TermOf<B> = (
   | { $: "Eql"; a: TermOf<B>; b: TermOf<B>; T: TermOf<B> }                         // {a == b : T}
   | { $: "Rfl" }                                                                   // {==}
   | { $: "Rwt"; e: TermOf<B>; p: TermOf<B>; f: TermOf<B> }                         // %e@E : P; f (p = _ => e => P)
+  | { $: "Hol"; k: Name }                                                          // ?name
   | { $: "Ann"; x: TermOf<B>; T: TermOf<B> }                                       // {x : T}
 ) & { s?: Span };
 
@@ -255,9 +262,9 @@ export type Fill = HTerm | ((vs: Vars) => HTerm);
 export type Ctr  = { k: Name; n: number; T: HTerm }
 export type Ctrs = Array<Ctr>;
 export type ADT  = { $: "ADT"; n: number; g: number; T: HTerm; c: Ctrs; };
-export type Def  = { $: "Def"; n: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; i?: string[]; };
+export type Def  = { $: "Def"; n: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; };
 export type TLD  = ADT | Def;
-export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; };
+export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; };
 
 // Context
 export type Ann = { q: Quant; k: Name; T: HTerm };
@@ -281,7 +288,7 @@ export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope;
 export type Span  = { src: string; beg: Loc; end: Loc; };
 
 // Machine
-export type LHS   = { t: HTerm; n: number; def: Name; qs: Quant[] };
+export type LHS   = { t: HTerm; n: number; def: Name; qs: Quant[]; u?: Bool };
 export type Frame =
   | { $: "APP"; x: HTerm } // _(x)
   | { $: "MAT"; t: Extract<HTerm, { $: "Mat" }>; e: HTerm; lhs: { t: () => HTerm; n: number } | null } // \{c:h;m}(_)
@@ -375,6 +382,10 @@ export function Rfl<X>(s?: Span): TermOf<X> {
 
 export function Rwt<X>(e: TermOf<X>, p: TermOf<X>, f: TermOf<X>, s?: Span): TermOf<X> {
   return { $: "Rwt", e, p, f, s };
+}
+
+export function Hol<X>(k: Name, s?: Span): TermOf<X> {
+  return { $: "Hol", k, s };
 }
 
 export function Ann<X>(x: TermOf<X>, T: TermOf<X>, s?: Span): TermOf<X> {
@@ -627,6 +638,10 @@ export function lhs_ext(lhs: HTerm, k: Name, n: number, xs: HTerm[] = []): HTerm
   }
 }
 
+export function lhs_kind(lhs: LHS, q: Quant): Quant {
+  return lhs.u === true && q.$ === "Many" ? Lone() : q;
+}
+
 export function lhs_descend(lhs: LHS, sp: HTerm[]): Cmp {
   const cols = term_unapply(lhs.t)[1];
   let ord: Cmp = "EQ";
@@ -822,6 +837,9 @@ export function term_higher(tm: LTerm, env: Env = Emp<HTerm>()): HTerm {
       case "Rwt": {
         return mk([go(t.e), go(t.p), go(t.f)], (ys) => Rwt(ys[0], ys[1], ys[2], t.s));
       }
+      case "Hol": {
+        return Hol(t.k, t.s);
+      }
       case "Ann": {
         return mk([go(t.x), go(t.T)], (ys) => Ann(ys[0], ys[1], t.s));
       }
@@ -902,6 +920,9 @@ export function term_lower(term: HTerm, dep: number = 0): LTerm {
       }
       case "Rwt": {
         return Rwt(yield [tm.e, d], yield [tm.p, d], yield [tm.f, d], tm.s);
+      }
+      case "Hol": {
+        return Hol(tm.k, tm.s);
       }
       case "Ann": {
         return Ann(yield [tm.x, d], yield [tm.T, d], tm.s);
@@ -1008,7 +1029,7 @@ export function ctrs_find(cs: Ctrs, k: Name): Ctr | null {
 // ====
 
 export function book_nil(): Book {
-  return { tlds: Object.create(null), ctrs: Object.create(null), order: [] };
+  return { tlds: Object.create(null), ctrs: Object.create(null), order: [], hols: 0 };
 }
 
 export function book_ctr(book: Book, k: Name): Ctr | null {
@@ -1404,6 +1425,9 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
       case "Rfl": {
         return "{==}";
       }
+      case "Hol": {
+        return "?" + tm.k;
+      }
       case "Rwt": {
         const e  = yield [tm.e, 1];
         const mp = term_strip(tm.p);
@@ -1792,6 +1816,14 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
     }
     case '"': {
       return parse_term_str(p);
+    }
+    case "?": {
+      parse_bump(p);
+      const k = parse_name(p);
+      if (k === "TODO") {
+        p.book.hols += 1;
+      }
+      return Hol(k, parse_span(p, beg));
     }
     default: {
       parse_fail(p, "a term");
@@ -2417,11 +2449,14 @@ export function parse_fresh(p: Parse, k: Name): void {
   }
 }
 
-export function parse_def(p: Parse, book: Book): void {
+export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   parse_word(p, "def");
   const k   = parse_qual(p, parse_name(p));
   const tld = book.tlds[k];
   if (tld !== undefined && tld.$ === "Def" && tld.v === null && tld.b !== true) {
+    if (u) {
+      tld.u = true;
+    }
     parse_def_fill(p, book, k, tld);
     return;
   }
@@ -2556,6 +2591,17 @@ export function parse_book(book: Book, dir: string, src: string, ns: string = ""
       return book;
     }
     p.sc = { stk: [], frs: 0 };
+    if (parse_take(p, "@")) {
+      if (!parse_word(p, "unsafe")) {
+        parse_fail(p, "'unsafe' (the one decorator)");
+      }
+      parse_skip(p);
+      if (!parse_at_word(p, "def")) {
+        parse_fail(p, "'def' (@unsafe marks the def below it)");
+      }
+      parse_def(p, book, true);
+      continue;
+    }
     if (parse_at_word(p, "def")) {
       parse_def(p, book);
       continue;
@@ -3053,6 +3099,9 @@ export function term_snf(book: Book, term: HTerm): HTerm {
       case "Rwt": {
         return Rwt(yield tm.e, yield tm.p, yield tm.f, tm.s);
       }
+      case "Hol": {
+        return Hol(tm.k, tm.s);
+      }
     }
   }
   return loop_run(go, term);
@@ -3170,6 +3219,9 @@ export function term_compare(mode: "EQ" | "LE", book: Book, lhs: HTerm, rhs: HTe
     case "Rfl": {
       return b.$ === "Rfl";
     }
+    case "Hol": {
+      return b.$ === "Hol" && a.k === b.k;
+    }
     case "Rwt": {
       return b.$ === "Rwt"
           && term_compare("EQ", book, a.e, b.e, dep)
@@ -3241,7 +3293,7 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
           break;
         }
         default: {
-          if (tm.k === lhs.def && lhs_descend(lhs, sp) !== "LT") {
+          if (tm.k === lhs.def && lhs.u !== true && lhs_descend(lhs, sp) !== "LT") {
             throw Err(book, ctx, "a decreasing self-call (some live argument must shrink)", tm, tm.s, lhs.def);
           }
           if (tm.k === lhs.def) {
@@ -3290,7 +3342,7 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     // Γ ⊢ @q x:A -> B : Type
     case "All": {
       const B_ctx = ctx_bind(ctx, d, tm.q, tm.k, tm.A);
-      const A_chk = term_check(book, lhs, tm.A, None(), Typ(Qua(tm.q), tm.s), ctx, d);
+      const A_chk = term_check(book, lhs, tm.A, None(), Typ(Qua(lhs_kind(lhs, tm.q)), tm.s), ctx, d);
       const B_chk = term_check(book, lhs, tm.B(Var(tm.k, d)), None(), Typ(Qua(Lone()), tm.s), B_ctx, d+1);
       return Infer(All(tm.q, tm.k, d, A_chk.tm, B_chk.tm, tm.s), Typ(Qua(Lone()), tm.s), uses_nil());
     }
@@ -3360,7 +3412,7 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
       const x_chk = term_check(book, lhs, tm.x, qt, tm.T, ctx, d);
       return { tm: x_chk.tm, ty: tm.T, us: x_chk.us };
     }
-    // x is a Lam, Let, Ctr, Mat, Efq, Rfl or Rwt
+    // x is a Lam, Let, Ctr, Mat, Efq, Rfl, Rwt or Hol
     // ------------------------------------------- infer-err
     // Γ ⊢ x : ⊥ (a goal is needed)
     default: {
@@ -3417,7 +3469,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       for (let j = 0; j < n; j++) {
         const v_dem = quant_dem(tm.q[j], qt);
         const v_inf = term_infer(book, lhs, tm.v[j], v_dem, ctx, d);
-        term_check(book, lhs, v_inf.ty, None(), Typ(Qua(tm.q[j]), tm.s), ctx, d);
+        term_check(book, lhs, v_inf.ty, None(), Typ(Qua(lhs_kind(lhs, tm.q[j])), tm.s), ctx, d);
         vx.push(v_inf.tm);
         us = uses_add(us, v_inf.us);
         f_ctx = ctx_bind(f_ctx, d + j, tm.q[j], tm.k[j], v_inf.ty);
@@ -3547,6 +3599,15 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       }
       return Check(Rfl(tm.s), ty, uses_nil());
     }
+    // T
+    // ------------------- check-hol
+    // Γ ⊢ ?TODO : T ~ {}
+    case "Hol": {
+      if (tm.k === "TODO") {
+        return Check(Hol(tm.k, tm.s), ty, uses_nil());
+      }
+      throw Err(book, ctx, ty, tm, tm.s, lhs.def);
+    }
     // Γ ⊢ E : {a == b : A} ~ eu
     // Γ ⊢ P : @x:A -> @e:{a == x : A} -> Type    P(b, E) <= T
     // Γ ⊢ f : P(a, {==}) ~ fu
@@ -3641,7 +3702,7 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
 }
 
 export function def_valid(book: Book, k: Name, def: Def): void {
-  term_check(book, { t: Ref(k), n: 0, def: k, qs: [] }, def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
+  term_check(book, { t: Ref(k), n: 0, def: k, qs: [], u: def.u }, def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
   if (def.i) {
     let tel = term_strip(def.T);
     for (let d = 0; tel.$ === "All"; d++) {
@@ -3658,7 +3719,7 @@ export function def_valid(book: Book, k: Name, def: Def): void {
     while (qs.length < def.n) {
       qs.push(Lone());
     }
-    def.e = term_check(book, { t: Ref(k), n: def.n, def: k, qs }, def.v, Lone(), def.T, ctx_nil(), 0).tm;
+    def.e = term_check(book, { t: Ref(k), n: def.n, def: k, qs, u: def.u }, def.v, Lone(), def.T, ctx_nil(), 0).tm;
   }
 }
 
@@ -3681,7 +3742,7 @@ export function book_valid(book: Book, done: number = 0): void {
       }
       continue;
     }
-    const dec: Def = { $: "Def", n: tld.n, T: tld.T, v: null, b: tld.b };
+    const dec: Def = { $: "Def", n: tld.n, T: tld.T, v: null, b: tld.b, u: tld.u };
     const fin = last.get(k) === i;
     if (fin && tld.v === null && tld.b !== true && !tld.i) {
       throw Err(book, ctx_nil(), "a filled definition for '" + k + "' (an unfilled assert is an error outside base)");

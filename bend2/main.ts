@@ -44,14 +44,21 @@ function cli(): void {
     Bend.book_load(book, path, "", new Map());
     Bend.book_valid(book);
     if (to !== undefined) {
+      if (book.hols > 0) {
+        console.log("Error: the book has TODOs and cannot compile");
+        process.exit(1);
+      }
       const emit = to.endsWith(".c") ? Comp.compile_book : Comp.js_book;
       fs.writeFileSync(to, emit(book));
-    } else if (flag !== "--check" && book.tlds["main"] !== undefined) {
-      if (Comp.io_type(book) !== null) {
-        process.exit(Comp.io_run(book));
-      } else {
-        const snf = Bend.term_snf(book, Bend.Ref("main"));
-        console.log(Bend.term_show(Bend.term_lower(snf)));
+    } else if (flag !== "--check") {
+      cli_report(book);
+      if (book.tlds["main"] !== undefined) {
+        if (Comp.io_type(book) !== null) {
+          process.exit(Comp.io_run(book));
+        } else {
+          const snf = Bend.term_snf(book, Bend.Ref("main"));
+          console.log(Bend.term_show(Bend.term_lower(snf)));
+        }
       }
     }
   } catch (e) {
@@ -61,6 +68,22 @@ function cli(): void {
       console.log(String(e));
     }
     process.exit(1);
+  }
+}
+
+function cli_report(book: Bend.Book): void {
+  const tlds = Object.values(book.tlds);
+  const uns  = tlds.filter((t) => t.$ === "Def" && t.u === true).length;
+  const all  = "All " + tlds.length + " definitions check";
+  if (book.hols > 0) {
+    const s = book.hols === 1 ? " TODO" : " TODOs";
+    console.log(all + ", with " + book.hols + s + " found.");
+    console.log("The code is incomplete, and not a valid proof yet.");
+  } else if (uns > 0) {
+    console.log(all + ", with " + uns + " annotated as unsafe.");
+    console.log("The code is well-typed, but may contain logical paradoxes.");
+  } else {
+    console.log(all + ".");
   }
 }
 

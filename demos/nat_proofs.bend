@@ -32,9 +32,9 @@ import Base
 # what proofs actually spend.
 
 assert copy2:
-  forall n: Nat
+  forall  n: Nat
   forall -P: Type
-  forall f: @a: Nat -> @ea: {a == n : Nat} -> @b: Nat -> @eb: {b == n : Nat} -> @eab: {b == a : Nat} -> P
+  forall  f: @a: Nat -> @ea: {a == n : Nat} -> @b: Nat -> @eb: {b == n : Nat} -> @eab: {b == a : Nat} -> P
   P
 
 def copy2(n, P, f):
@@ -46,7 +46,7 @@ def copy2(n, P, f):
         f(1n+a, %ea : {1n+a == 1n+_ : Nat}; {==}, 1n+b, %eb : {1n+b == 1n+_ : Nat}; {==}, %eab : {1n+b == 1n+_ : Nat}; {==}))
 
 assert copy2_spec:
-  forall n: Nat
+  forall  n: Nat
   forall -P: Type
   forall -f: @a: Nat -> @ea: {a == n : Nat} -> @b: Nat -> @eb: {b == n : Nat} -> @eab: {b == a : Nat} -> P
   {f(n, {==}, n, {==}, {==}) == copy2(n, P, f) : P}
@@ -68,7 +68,7 @@ assert eqcopy2:
   forall -b: Nat
   forall +e: {a == b : Nat}
   forall -P: Type
-  forall f: @e1: {a == b : Nat} -> @e2: {a == b : Nat} -> P
+  forall  f: @e1: {a == b : Nat} -> @e2: {a == b : Nat} -> P
   P
 
 def eqcopy2(a, b, e, P, f):
@@ -106,7 +106,7 @@ def mul(a, b):
 
 assert mul_unfold:
   forall -p: Nat
-  forall b: Nat
+  forall  b: Nat
   {add(b, mul(p, b)) == mul(1n+p, b) : Nat}
 
 def mul_unfold(p, b):
@@ -128,7 +128,7 @@ def add_zero(a):
       {==}
 
 assert add_succ:
-  forall a: Nat
+  forall  a: Nat
   forall -b: Nat
   {1n+add(a, b) == add(a, 1n+b) : Nat}
 
@@ -141,7 +141,7 @@ def add_succ(a, b):
       {==}
 
 assert add_assoc:
-  forall a: Nat
+  forall  a: Nat
   forall -b: Nat
   forall -c: Nat
   {add(a, add(b, c)) == add(add(a, b), c) : Nat}
@@ -177,8 +177,8 @@ def add_comm(a, b):
         {==})
 
 assert add_swap:
-  forall a: Nat
-  forall b: Nat
+  forall  a: Nat
+  forall  b: Nat
   forall -c: Nat
   {add(b, add(a, c)) == add(a, add(b, c)) : Nat}
 
@@ -228,10 +228,10 @@ def mul_one(a):
 # public theorem passes a continuation that drops the replicas.
 
 assert mul_succ.go:
-  forall a: Nat
-  forall b: Nat
+  forall  a: Nat
+  forall  b: Nat
   forall -P: Type
-  forall f: @r1: Nat -> @u: {r1 == a : Nat} -> @r2: Nat -> @v: {r2 == a : Nat} -> @w: {add(a, mul(a, b)) == mul(a, 1n+b) : Nat} -> P
+  forall  f: @r1: Nat -> @u: {r1 == a : Nat} -> @r2: Nat -> @v: {r2 == a : Nat} -> @w: {add(a, mul(a, b)) == mul(a, 1n+b) : Nat} -> P
   P
 
 def mul_succ.go(a, b, P, f):
@@ -278,10 +278,10 @@ def mul_succ(a, b):
     r1 => u => r2 => v => w => w)
 
 assert mul_comm.go:
-  forall a: Nat
-  forall b: Nat
+  forall  a: Nat
+  forall  b: Nat
   forall -P: Type
-  forall f: @r1: Nat -> @u: {r1 == a : Nat} -> @r2: Nat -> @v: {r2 == a : Nat} -> @w: {mul(b, a) == mul(a, b) : Nat} -> P
+  forall  f: @r1: Nat -> @u: {r1 == a : Nat} -> @r2: Nat -> @v: {r2 == a : Nat} -> @w: {mul(b, a) == mul(a, b) : Nat} -> P
   P
 
 def mul_comm.go(a, b, P, f):
@@ -326,9 +326,9 @@ def mul_comm(a, b):
 # induction suffices: no worker, just copies of c (resp. b and c)
 
 assert mul_dist:
-  forall a: Nat
+  forall  a: Nat
   forall -b: Nat
-  forall c: Nat
+  forall  c: Nat
   {add(mul(a, c), mul(b, c)) == mul(add(a, b), c) : Nat}
 
 def mul_dist(a, b, c):
@@ -367,19 +367,19 @@ def mul_assoc(a, b, c):
       copy2(b, {mul(1n+p, mul(b, c)) == mul(mul(1n+p, b), c) : Nat}, b1 => e1 => b2 => e2 => s12 =>
       copy2(b2, {mul(1n+p, mul(b, c)) == mul(mul(1n+p, b), c) : Nat}, b3 => e3 => b4 => e4 => s34 =>
       copy2(b4, {mul(1n+p, mul(b, c)) == mul(mul(1n+p, b), c) : Nat}, b5 => e5 => b6 => e6 => s56 =>
-      copy2(c, {mul(1n+p, mul(b, c)) == mul(mul(1n+p, b), c) : Nat}, cA => ca => cB => cb => sAB =>
-      copy2(cB, {mul(1n+p, mul(b, c)) == mul(mul(1n+p, b), c) : Nat}, cC => cc => cD => cd => sCD =>
+      copy2(c, {mul(1n+p, mul(b, c)) == mul(mul(1n+p, b), c) : Nat}, cA => eca => cB => ecb => sAB =>
+      copy2(cB, {mul(1n+p, mul(b, c)) == mul(mul(1n+p, b), c) : Nat}, cC => ecc => cD => ecd => sCD =>
       %e1 : {mul(1n+p, mul(_, c)) == mul(mul(1n+p, _), c) : Nat}
       %mul_unfold(p, b1) : {mul(1n+p, mul(b1, c)) == mul(_, c) : Nat}
       %s12 : {mul(1n+p, mul(_, c)) == mul(add(_, mul(p, _)), c) : Nat}
       %e3 : {mul(1n+p, mul(b2, c)) == mul(add(_, mul(p, b2)), c) : Nat}
-      %ca : {mul(1n+p, mul(b2, _)) == mul(add(b3, mul(p, b2)), _) : Nat}
+      %eca : {mul(1n+p, mul(b2, _)) == mul(add(b3, mul(p, b2)), _) : Nat}
       %mul_dist(b3, mul(p, b2), cA) : {mul(1n+p, mul(b2, cA)) == _ : Nat}
       %e4 : {mul(1n+p, mul(_, cA)) == add(mul(b3, cA), mul(mul(p, _), cA)) : Nat}
       %e5 : {mul(1n+p, mul(_, cA)) == add(mul(b3, cA), mul(mul(p, _), cA)) : Nat}
       %sAB : {mul(1n+p, mul(b5, _)) == add(mul(b3, _), mul(mul(p, b5), _)) : Nat}
-      %cc : {mul(1n+p, mul(b5, cB)) == add(mul(b3, cB), mul(mul(p, b5), _)) : Nat}
-      %cd : {mul(1n+p, mul(b5, _)) == add(mul(b3, _), mul(mul(p, b5), cC)) : Nat}
+      %ecc : {mul(1n+p, mul(b5, cB)) == add(mul(b3, cB), mul(mul(p, b5), _)) : Nat}
+      %ecd : {mul(1n+p, mul(b5, _)) == add(mul(b3, _), mul(mul(p, b5), cC)) : Nat}
       %mul_assoc(p, b5, cC) : {mul(1n+p, mul(b5, cD)) == add(mul(b3, cD), _) : Nat}
       %s56 : {mul(1n+p, mul(_, cD)) == add(mul(b3, cD), mul(p, mul(_, cC))) : Nat}
       %sCD : {mul(1n+p, mul(b6, cD)) == add(mul(b3, cD), mul(p, mul(b6, _))) : Nat}
@@ -415,7 +415,7 @@ def discr(n):
 
 assert succ_neq_zero:
   forall -a: Nat
-  forall e: {1n+a == 0n : Nat}
+  forall  e: {1n+a == 0n : Nat}
   Empty
 
 def succ_neq_zero(a, e):
@@ -424,7 +424,7 @@ def succ_neq_zero(a, e):
 assert succ_inj:
   forall -a: Nat
   forall -b: Nat
-  forall e: {1n+a == 1n+b : Nat}
+  forall  e: {1n+a == 1n+b : Nat}
   {a == b : Nat}
 
 def succ_inj(a, b, e):
@@ -450,10 +450,10 @@ def le(a, b):
           le(ap, bp)
 
 assert le_diff.con:
-  forall -ap: Nat
-  forall -bp: Nat
-  forall w: (&c: Nat -> {add(ap, c) == bp : Nat})
-  exists c: Nat
+  forall -ap : Nat
+  forall -bp : Nat
+  forall w   : (&c: Nat -> {add(ap, c) == bp : Nat})
+  exists c   : Nat
   {1n+add(ap, c) == 1n+bp : Nat}
 
 assert le_diff:
