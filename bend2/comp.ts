@@ -79,6 +79,8 @@ type Native = {
   cond?: Record<Bend.Name, string>;
 };
 
+type Optim = { C?: Native; JS?: Native };
+
 type Of<K> = Extract<Bend.HTerm, { $: K }>;
 
 type Probe = Of<"Var">;
@@ -112,11 +114,11 @@ type Dst = string[] | null;
 type Arg = string | Parts;
 
 type Intr = {
-  e?: Gen;
-  call?: boolean;
-  flg?: number;
+  C?: Gen;
   parts?: string[];
-  js: Gen;
+  flg?: number;
+  call?: boolean;
+  JS: Gen;
 };
 
 type Js = {
@@ -141,125 +143,461 @@ const STRLIT = new RegExp("^\"(?:[^\"\\\\]|\\\\.)*\"$");
 
 const NATIVE_DIE = " does not match the native format of its type";
 
-const NATIVES: Record<Bend.Name, Native> = Object.setPrototypeOf({
+const EXACT = " sqrt exp log log2 log10 sin cos tan pow ";
+
+const USE0 = Bend.Emp<number>();
+
+const EMPTY = new Map<Bend.HTerm, Bend.HTerm>();
+
+// Operations
+// ----------
+
+export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
+  u32_add: {
+    C:  "U32_BIN($0, +, $1)",
+    JS: "(($0 + $1) >>> 0)",
+  },
+  u32_sub: {
+    C:  "U32_BIN($0, -, $1)",
+    JS: "(($0 - $1) >>> 0)",
+  },
+  u32_mul: {
+    C:  "U32_BIN($0, *, $1)",
+    JS: "(Math.imul($0, $1) >>> 0)",
+  },
+  u32_div: {
+    C:  "(u32_unbox($1) == 0 ? 0 : U32_BIN($0, /, $1))",
+    JS: "($1 === 0 ? 0 : ($0 / $1) >>> 0)",
+  },
+  u32_mod: {
+    C:  "(u32_unbox($1) == 0 ? $0 : U32_BIN($0, %, $1))",
+    JS: "($1 === 0 ? $0 : $0 % $1)",
+  },
+  u32_inc: {
+    C:  "U32_BIN($0, +, 1)",
+    JS: "(($0 + 1) >>> 0)",
+  },
+  u32_shl: {
+    C:  "U32_BIN($0, <<, 1)",
+    JS: "(($0 << 1) >>> 0)",
+  },
+  u32_shr: {
+    C:  "U32_BIN($0, >>, 1)",
+    JS: "($0 >>> 1)",
+  },
+  u32_shln: {
+    C:  "($1 >= 32 ? 0 : U32_BIN($0, <<, $1))",
+    JS: "($1 >= 32n ? 0 : ($0 << Number($1)) >>> 0)",
+  },
+  u32_shrn: {
+    C:  "($1 >= 32 ? 0 : U32_BIN($0, >>, $1))",
+    JS: "($1 >= 32n ? 0 : $0 >>> Number($1))",
+  },
+  u32_and: {
+    C:  "U32_BIN($0, &, $1)",
+    JS: "(($0 & $1) >>> 0)",
+  },
+  u32_or: {
+    C:  "U32_BIN($0, |, $1)",
+    JS: "(($0 | $1) >>> 0)",
+  },
+  u32_xor: {
+    C:  "U32_BIN($0, ^, $1)",
+    JS: "(($0 ^ $1) >>> 0)",
+  },
+  u32_not: {
+    C:  "u32_rewrap(~u32_unbox($0))",
+    JS: "(~$0 >>> 0)",
+  },
+  u32_is_zero: {
+    C:  "U32_BIN($0, ==, 0)",
+    JS: "($0 === 0)",
+  },
+  u32_is_eq: {
+    C:  "U32_BIN($0, ==, $1)",
+    JS: "($0 === $1)",
+  },
+  u32_is_ne: {
+    C:  "U32_BIN($0, !=, $1)",
+    JS: "($0 !== $1)",
+  },
+  u32_is_lt: {
+    C:  "U32_BIN($0, <, $1)",
+    JS: "($0 < $1)",
+  },
+  u32_is_le: {
+    C:  "U32_BIN($0, <=, $1)",
+    JS: "($0 <= $1)",
+  },
+  u32_is_gt: {
+    C:  "U32_BIN($0, >, $1)",
+    JS: "($0 > $1)",
+  },
+  u32_is_ge: {
+    C:  "U32_BIN($0, >=, $1)",
+    JS: "($0 >= $1)",
+  },
+  u32_cmp: {
+    C:  "(U32_BIN($0, >, $1) + U32_BIN($0, >=, $1))",
+    JS: "cmp_new($0, $1)",
+  },
+  u32_to_f32: {
+    C:  "f32_rewrap((f32)u32_unbox($0))",
+    JS: "Math.fround($0)",
+  },
+  u32_to_nat: {
+    C:  "$0",
+    JS: "BigInt($0)",
+  },
+  u32_from_nat: {
+    C:  "u32_rewrap(u32_unbox($0))",
+    JS: "Number($0 & 0xFFFFFFFFn)",
+  },
+  f32_add: {
+    C:  "F32_BIN($0, +, $1)",
+    JS: "Math.fround($0 + $1)",
+  },
+  f32_sub: {
+    C:  "F32_BIN($0, -, $1)",
+    JS: "Math.fround($0 - $1)",
+  },
+  f32_mul: {
+    C:  "F32_BIN($0, *, $1)",
+    JS: "Math.fround($0 * $1)",
+  },
+  f32_div: {
+    C:  "F32_BIN($0, /, $1)",
+    JS: "Math.fround($0 / $1)",
+  },
+  f32_neg: {
+    C:  "f32_rewrap(-f32_unbox($0))",
+    JS: "(-$0)",
+  },
+  f32_is_eq: {
+    C:  "F32_CMP($0, ==, $1)",
+    JS: "($0 === $1)",
+  },
+  f32_is_ne: {
+    C:  "F32_CMP($0, !=, $1)",
+    JS: "($0 !== $1)",
+  },
+  f32_is_lt: {
+    C:  "F32_CMP($0, <, $1)",
+    JS: "($0 < $1)",
+  },
+  f32_is_le: {
+    C:  "F32_CMP($0, <=, $1)",
+    JS: "($0 <= $1)",
+  },
+  f32_is_gt: {
+    C:  "F32_CMP($0, >, $1)",
+    JS: "($0 > $1)",
+  },
+  f32_is_ge: {
+    C:  "F32_CMP($0, >=, $1)",
+    JS: "($0 >= $1)",
+  },
+  f32_sqrt: {
+    C:  "f32_rewrap(sqrtf(f32_unbox($0)))",
+    JS: "Math.fround(Math.sqrt($0))",
+  },
+  f32_exp: {
+    C:  "f32_rewrap(expf(f32_unbox($0)))",
+    JS: "Math.fround(Math.exp($0))",
+  },
+  f32_log: {
+    C:  "f32_rewrap(logf(f32_unbox($0)))",
+    JS: "Math.fround(Math.log($0))",
+  },
+  f32_log2: {
+    C:  "f32_rewrap(log2f(f32_unbox($0)))",
+    JS: "Math.fround(Math.log2($0))",
+  },
+  f32_log10: {
+    C:  "f32_rewrap(log10f(f32_unbox($0)))",
+    JS: "Math.fround(Math.log10($0))",
+  },
+  f32_sin: {
+    C:  "f32_rewrap(sinf(f32_unbox($0)))",
+    JS: "Math.fround(Math.sin($0))",
+  },
+  f32_cos: {
+    C:  "f32_rewrap(cosf(f32_unbox($0)))",
+    JS: "Math.fround(Math.cos($0))",
+  },
+  f32_tan: {
+    C:  "f32_rewrap(tanf(f32_unbox($0)))",
+    JS: "Math.fround(Math.tan($0))",
+  },
+  f32_asin: {
+    C:  "f32_rewrap(asinf(f32_unbox($0)))",
+    JS: "Math.fround(Math.asin($0))",
+  },
+  f32_acos: {
+    C:  "f32_rewrap(acosf(f32_unbox($0)))",
+    JS: "Math.fround(Math.acos($0))",
+  },
+  f32_atan: {
+    C:  "f32_rewrap(atanf(f32_unbox($0)))",
+    JS: "Math.fround(Math.atan($0))",
+  },
+  f32_sinh: {
+    C:  "f32_rewrap(sinhf(f32_unbox($0)))",
+    JS: "Math.fround(Math.sinh($0))",
+  },
+  f32_cosh: {
+    C:  "f32_rewrap(coshf(f32_unbox($0)))",
+    JS: "Math.fround(Math.cosh($0))",
+  },
+  f32_tanh: {
+    C:  "f32_rewrap(tanhf(f32_unbox($0)))",
+    JS: "Math.fround(Math.tanh($0))",
+  },
+  f32_floor: {
+    C:  "f32_rewrap(floorf(f32_unbox($0)))",
+    JS: "Math.fround(Math.floor($0))",
+  },
+  f32_ceil: {
+    C:  "f32_rewrap(ceilf(f32_unbox($0)))",
+    JS: "Math.fround(Math.ceil($0))",
+  },
+  f32_trunc: {
+    C:  "f32_rewrap(truncf(f32_unbox($0)))",
+    JS: "Math.fround(Math.trunc($0))",
+  },
+  f32_pow: {
+    C:  "f32_rewrap(powf(f32_unbox($0), f32_unbox($1)))",
+    JS: "Math.fround(Math.pow($0, $1))",
+  },
+  f32_atan2: {
+    C:  "f32_rewrap(atan2f(f32_unbox($0), f32_unbox($1)))",
+    JS: "Math.fround(Math.atan2($0, $1))",
+  },
+  f32_abs: {
+    C:  "f32_rewrap(fabsf(f32_unbox($0)))",
+    JS: "Math.abs($0)",
+  },
+  f32_mod: {
+    C:  "f32_rewrap(fmodf(f32_unbox($0), f32_unbox($1)))",
+    JS: "Math.fround($0 % $1)",
+  },
+  f32_to_u32: {
+    C:  "f32_to_u32($0)",
+    JS: "($0 >= 1 && $0 < 4294967296 ? Math.floor($0) : 0)",
+  },
+  f32_show: {
+    C:    "f32_show(e, $0)",
+    call: true,
+    JS:   "String(Number(($0).toPrecision(6)))",
+  },
+  f32_read: {
+    C:    "f32_read(e, $0)",
+    call: true,
+    JS:   "f32_read($0)",
+  },
+  nat_add: {
+    C:  "nat_chk(e, $0 + $1)",
+    JS: "nat_chk($0 + $1)",
+  },
+  nat_sub: {
+    C:  "($0 < $1 ? 0 : $0 - $1)",
+    JS: "($0 < $1 ? 0n : $0 - $1)",
+  },
+  nat_mul: {
+    C:  "nat_mul(e, $0, $1)",
+    JS: "nat_chk($0 * $1)",
+  },
+  nat_double: {
+    C:  "nat_chk(e, $0 + $0)",
+    JS: "nat_chk($0 << 1n)",
+  },
+  nat_cmp: {
+    C:  "(($0 > $1) + ($0 >= $1))",
+    JS: "cmp_new($0, $1)",
+  },
+  nat_is_lt: {
+    C:  "($0 < $1)",
+    JS: "($0 < $1)",
+  },
+  nat_divmod: {
+    parts: ["($1 == 0 ? 0 : $0 / $1)", "($1 == 0 ? $0 : $0 % $1)"],
+    call:  true,
+    JS:    "nat_divmod($0, $1)",
+  },
+  bool_or: {
+    C:  "(($0) | ($1))",
+    JS: "($0 || $1)",
+  },
+  bool_xor: {
+    C:  "(($0) ^ ($1))",
+    JS: "($0 !== $1)",
+  },
+  string_append: {
+    JS: "($0 + $1)",
+  },
+  array_new: {
+    C:    "buf_new(e, $2, $0, $1)",
+    flg:  1,
+    call: true,
+    JS:   "array_new($0, $1)",
+  },
+  array_set: {
+    C:    "blk_set(e, $3, $0, $1, $2)",
+    flg:  0,
+    call: true,
+    JS:   "array_set($0, $1, $2)",
+  },
+  array_get: {
+    parts: ["$0", "blk_get(e, $2, $3, $1)"],
+    flg:   0,
+    call:  true,
+    JS:    "array_get($0, $1)",
+  },
+  array_swap: {
+    parts: ["$0", "blk_give(e, $3, $4, $1, $2)"],
+    flg:   0,
+    call:  true,
+    JS:    "array_swap($0, $1, $2)",
+  },
+  array_size: {
+    parts: ["$0", "(1ull << blk_cls(e, $2))"],
+    call:  true,
+    JS:    "array_size($0)",
+  },
+  array_clone: {
+    parts: ["blk_copy(e, $0)", "$0"],
+    call:  true,
+    JS:    "array_clone($0)",
+  },
+}, null);
+
+// Optimized
+// ---------
+
+const OPTIMIZED: Record<Bend.Name, Optim> = Object.setPrototypeOf({
   Nat: {
-    intr: {
-      Zero: "0",
-      Succ: ([p]: string[]) => /^\d+(?:ull)?$/.test(p)
-        ? (BigInt(p.replace("ull", "")) + 1n) + "ull"
-        : `nat_chk(e, ${p} + 1)`,
+    C: {
+      intr: {
+        Zero: "0",
+        Succ: ([p]: string[]) => /^\d+(?:ull)?$/.test(p)
+          ? (BigInt(p.replace("ull", "")) + 1n) + "ull"
+          : `nat_chk(e, ${p} + 1)`,
+      },
+      elim: {
+        Succ: ["($0 - 1)"],
+      },
+      cond: {
+        Zero: "$0 == 0",
+        Succ: "$0 != 0",
+      },
     },
-    elim: { Succ: ["($0 - 1)"] },
-    cond: { Zero: "$0 == 0", Succ: "$0 != 0" },
+    JS: {
+      intr: {
+        Zero: "0n",
+        Succ: ([p]: string[]) => /^\d+n$/.test(p)
+          ? (BigInt(p.slice(0, -1)) + 1n) + "n"
+          : "nat_chk(" + p + " + 1n)",
+      },
+      elim: {
+        Succ: ["($0 - 1n)"],
+      },
+      cond: {
+        Zero: "$0 === 0n",
+        Succ: "$0 !== 0n",
+      },
+    },
   },
   Array: {
-    intr: {
-      ALeaf: "buf_new(e, 0, 0, $0)",
-      ANode: "blk_node(e, $0, $1)",
+    C: {
+      intr: {
+        ALeaf: "buf_new(e, $1, 0, $0)",
+        ANode: "blk_node(e, $0, $1)",
+      },
+      elim: {
+        ALeaf: ["blk_take(e, $0)"],
+        ANode: ["blk_half(e, $0, 0)", "blk_half(e, $0, 1)"],
+      },
+      cond: {
+        ALeaf: "term_aux($0) == 0",
+        ANode: "term_aux($0) != 0",
+      },
     },
-    elim: {
-      ALeaf: ["blk_take(e, $0)"],
-      ANode: ["blk_half(e, $0, 0)", "blk_half(e, $0, 1)"],
+  },
+  Bool: {
+    JS: {
+      intr: {
+        False: "false",
+        True:  "true",
+      },
+      cond: {
+        False: "!$0",
+        True:  "$0",
+      },
     },
-    cond: {
-      ALeaf: "term_aux($0) == 0",
-      ANode: "term_aux($0) != 0",
+  },
+  U32: {
+    JS: {
+      intr: {
+        U32: "word_to_u32($0)",
+      },
+      elim: {
+        U32: ["u32_to_word($0)"],
+      },
+    },
+  },
+  F32: {
+    JS: {
+      intr: {},
+    },
+  },
+  Char: {
+    JS: {
+      intr: {
+        Chr: ([c]: string[]) => {
+          const n = Number(c);
+          return /^\d+$/.test(c)
+            && (n < 0xd800 || n >= 0xe000 && n <= 0x10ffff)
+            ? JSON.stringify(String.fromCodePoint(n))
+            : "char_new(" + c + ")";
+        },
+      },
+      elim: {
+        Chr: ["$0.codePointAt(0)"],
+      },
+    },
+  },
+  String: {
+    JS: {
+      intr: {
+        SNil: "\"\"",
+        SCon: ([h, t]: string[]) => STRLIT.test(h) && STRLIT.test(t)
+          ? JSON.stringify(JSON.parse(h) + JSON.parse(t))
+          : "(" + h + " + " + t + ")",
+      },
+      elim: {
+        SCon: ["($0.codePointAt(0) > 0xFFFF ? $0.slice(0, 2) : $0[0])",
+          "($0.codePointAt(0) > 0xFFFF ? $0.slice(2) : $0.slice(1))"],
+      },
+      cond: {
+        SNil: "$0 === \"\"",
+        SCon: "$0 !== \"\"",
+      },
     },
   },
 }, null);
 
-const ARR_NATIVE = { ...NATIVES.Array,
-  intr: { ...NATIVES.Array.intr, ALeaf: "buf_new(e, 1, 0, $0)" } };
+// Native
+// ------
 
-const CMPS = [["eq", "==", "==="], ["ne", "!=", "!=="], ["lt", "<", "<"],
-  ["le", "<=", "<="], ["gt", ">", ">"], ["ge", ">=", ">="]];
-
-const FOPS = [["add", "+"], ["sub", "-"], ["mul", "*"], ["div", "/"]];
-
-const UOPS = [["add", "+"], ["sub", "-"], ["and", "&"],
-  ["or", "|"], ["xor", "^"]];
-
-const MATH1 = "sqrt exp log log2 log10 sin cos tan asin acos atan sinh"
-  .concat(" cosh tanh floor ceil trunc").split(" ").map((n) => [n]);
-
-const MATH2 = [["pow"], ["atan2"]];
-
-const EXACT = " sqrt exp log log2 log10 sin cos tan pow ";
-
-const SHIMS = [...MATH1, ...MATH2, ["fabs"], ["fmod"]].map(([n]) =>
-  "#define " + (n + "f").padEnd(7) + " "
+const SHIMS = Object.values(OPERATIONS)
+  .flatMap((it) => typeof it.C === "string"
+    ? [...it.C.matchAll(/(\w+)f\(/g)].map((m) => m[1]) : [])
+  .filter((n, i, ns) => ns.indexOf(n) === i)
+  .map((n) => "#define " + (n + "f").padEnd(7) + " "
     + (EXACT.includes(` ${n} `) ? "precise::" : "") + n).join("\n");
 
-const INTR_PURE: Record<string, string[]> = {
-  ...intr_fam("u32_is_", CMPS, "U32_BIN($0, @1, $1)", "($0 @2 $1)"),
-  ...intr_fam("u32_", UOPS, "U32_BIN($0, @1, $1)", "(($0 @1 $1) >>> 0)"),
-  u32_mul: ["U32_BIN($0, *, $1)", "(Math.imul($0, $1) >>> 0)"],
-  u32_inc: ["U32_BIN($0, +, 1)", "(($0 + 1) >>> 0)"],
-  u32_shl: ["U32_BIN($0, <<, 1)", "(($0 << 1) >>> 0)"],
-  u32_shr: ["U32_BIN($0, >>, 1)", "($0 >>> 1)"],
-  u32_not: ["u32_rewrap(~u32_unbox($0))", "(~$0 >>> 0)"],
-  u32_is_zero: ["U32_BIN($0, ==, 0)", "($0 === 0)"],
-  u32_div: ["(u32_unbox($1) == 0 ? 0 : U32_BIN($0, /, $1))",
-    "($1 === 0 ? 0 : ($0 / $1) >>> 0)"],
-  u32_mod: ["(u32_unbox($1) == 0 ? $0 : U32_BIN($0, %, $1))",
-    "($1 === 0 ? $0 : $0 % $1)"],
-  u32_shln: ["($1 >= 32 ? 0 : U32_BIN($0, <<, $1))",
-    "($1 >= 32n ? 0 : ($0 << Number($1)) >>> 0)"],
-  u32_shrn: ["($1 >= 32 ? 0 : U32_BIN($0, >>, $1))",
-    "($1 >= 32n ? 0 : $0 >>> Number($1))"],
-  u32_cmp: ["(U32_BIN($0, >, $1) + U32_BIN($0, >=, $1))",
-    "cmp_new($0, $1)"],
-  u32_to_f32: ["f32_rewrap((f32)u32_unbox($0))", "Math.fround($0)"],
-  u32_to_nat: ["$0", "BigInt($0)"],
-  u32_from_nat: ["u32_rewrap(u32_unbox($0))", "Number($0 & 0xFFFFFFFFn)"],
-  ...intr_fam("f32_is_", CMPS, "F32_CMP($0, @1, $1)", "($0 @2 $1)"),
-  ...intr_fam("f32_", FOPS, "F32_BIN($0, @1, $1)", "Math.fround($0 @1 $1)"),
-  ...intr_fam("f32_", MATH1, "f32_rewrap(@0f(f32_unbox($0)))",
-    "Math.fround(Math.@0($0))"),
-  ...intr_fam("f32_", MATH2, "f32_rewrap(@0f(f32_unbox($0), f32_unbox($1)))",
-    "Math.fround(Math.@0($0, $1))"),
-  f32_neg: ["f32_rewrap(-f32_unbox($0))", "(-$0)"],
-  f32_abs: ["f32_rewrap(fabsf(f32_unbox($0)))", "Math.abs($0)"],
-  f32_mod: ["f32_rewrap(fmodf(f32_unbox($0), f32_unbox($1)))",
-    "Math.fround($0 % $1)"],
-  f32_to_u32: ["f32_to_u32($0)",
-    "($0 >= 1 && $0 < 4294967296 ? Math.floor($0) : 0)"],
-  nat_add: ["nat_chk(e, $0 + $1)", "nat_chk($0 + $1)"],
-  nat_sub: ["($0 < $1 ? 0 : $0 - $1)", "($0 < $1 ? 0n : $0 - $1)"],
-  nat_mul: ["nat_mul(e, $0, $1)", "nat_chk($0 * $1)"],
-  nat_double: ["nat_chk(e, $0 + $0)", "nat_chk($0 << 1n)"],
-  nat_cmp: ["(($0 > $1) + ($0 >= $1))", "cmp_new($0, $1)"],
-  nat_is_lt: ["($0 < $1)", "($0 < $1)"],
-  bool_or: ["(($0) | ($1))", "($0 || $1)"],
-  bool_xor: ["(($0) ^ ($1))", "($0 !== $1)"],
-};
-
-const INTR_CALL: Record<string, Intr> = {
-  array_new: { e: "buf_new(e, $2, $0, $1)", flg: 1,
-    js: "array_new($0, $1)" },
-  array_set: { e: "blk_set(e, $3, $0, $1, $2)", flg: 0,
-    js: "array_set($0, $1, $2)" },
-  array_get: { parts: ["$0", "blk_get(e, $2, $3, $1)"], flg: 0,
-    js: "array_get($0, $1)" },
-  array_swap: { parts: ["$0", "blk_give(e, $3, $4, $1, $2)"], flg: 0,
-    js: "array_swap($0, $1, $2)" },
-  array_size: { parts: ["$0", "(1ull << blk_cls(e, $2))"],
-    js: "array_size($0)" },
-  array_clone: { parts: ["blk_copy(e, $0)", "$0"],
-    js: "array_clone($0)" },
-  nat_divmod: { parts: ["($1 == 0 ? 0 : $0 / $1)", "($1 == 0 ? $0 : $0 % $1)"],
-    js: "nat_divmod($0, $1)" },
-  f32_show: { e: "f32_show(e, $0)",
-    js: "String(Number(($0).toPrecision(6)))" },
-  f32_read: { e: "f32_read(e, $0)", js: "f32_read($0)" },
-};
-
-export const INTRINSICS: Record<string, Intr> = Object.setPrototypeOf({
-  ...Object.fromEntries(Object.entries(INTR_PURE).map(([k, [c, js]]) =>
-    [k, { e: c, call: false, js }])),
-  ...INTR_CALL }, null);
-
-const NATIVE_C = String.raw`
+const NATIVE = {
+  C: String.raw`
 #ifdef __METAL_VERSION__
 ${SHIMS}
 #endif
@@ -303,9 +641,8 @@ static Term f32_show(Env e, Term x);
 static Term f32_read(Env e, Term s);
 
 #endif
-`.slice(1);
-
-const NATIVE_IO = String.raw`
+`.slice(1),
+  IO: String.raw`
 static Term f32_show(Env e, Term x) {
   char buf[32];
   return io_str(e, buf, snprintf(buf, 32, "%g", (double)f32_unbox(x)));
@@ -325,9 +662,8 @@ static Term f32_read(Env e, Term s) {
   free(text);
   return out;
 }
-`;
-
-const NATIVE_JS = String.raw`
+`,
+  JS: String.raw`
 function word_to_u32(w) {
   let x = 0;
   for (let i = 0; w.$ === "WCon"; i++) {
@@ -382,13 +718,15 @@ function char_new(code) {
   }
   return String.fromCodePoint(code);
 }
-`.slice(1);
+`.slice(1),
+};
+
+// Caches
+// ------
 
 let PIDN = 0;
 
 const DUMMY = probe("~");
-
-const USE0 = Bend.Emp<number>();
 
 const OPENS: Map<Of<"Lam">, { p: Probe; b: Bend.HTerm }> = new Map();
 
@@ -415,60 +753,6 @@ const SPINES: Map<Bend.HTerm, Spine> = new Map();
 const PURES: Map<Bend.HTerm, boolean> = new Map();
 
 const CONSTS: Map<Bend.HTerm, boolean> = new Map();
-
-const EMPTY = new Map<Bend.HTerm, Bend.HTerm>();
-
-export const JS_INTRINSICS: Record<string, Gen> = Object.setPrototypeOf({
-  string_append: "($0 + $1)",
-  ...Object.fromEntries(Object.entries(INTRINSICS).map(([k, it]) =>
-    [k, it.js])),
-}, null);
-
-const JS_NATIVES: Record<Bend.Name, Native> = {
-  Nat: {
-    intr: {
-      Zero: "0n",
-      Succ: ([p]) => /^\d+n$/.test(p)
-        ? (BigInt(p.slice(0, -1)) + 1n) + "n"
-        : "nat_chk(" + p + " + 1n)",
-    },
-    elim: { Succ: ["($0 - 1n)"] },
-    cond: { Zero: "$0 === 0n", Succ: "$0 !== 0n" },
-  },
-  Bool: {
-    intr: { False: "false", True: "true" },
-    cond: { False: "!$0", True: "$0" },
-  },
-  U32: {
-    intr: { U32: "word_to_u32($0)" },
-    elim: { U32: ["u32_to_word($0)"] },
-  },
-  F32: { intr: {} },
-  Char: {
-    intr: {
-      Chr: ([c]) => {
-        const n = Number(c);
-        return /^\d+$/.test(c) && (n < 0xd800 || n >= 0xe000 && n <= 0x10ffff)
-          ? JSON.stringify(String.fromCodePoint(n))
-          : "char_new(" + c + ")";
-      },
-    },
-    elim: { Chr: ["$0.codePointAt(0)"] },
-  },
-  String: {
-    intr: {
-      SNil: "\"\"",
-      SCon: ([h, t]) => STRLIT.test(h) && STRLIT.test(t)
-        ? JSON.stringify(JSON.parse(h) + JSON.parse(t))
-        : "(" + h + " + " + t + ")",
-    },
-    elim: {
-      SCon: ["($0.codePointAt(0) > 0xFFFF ? $0.slice(0, 2) : $0[0])",
-        "($0.codePointAt(0) > 0xFFFF ? $0.slice(2) : $0.slice(1))"],
-    },
-    cond: { SNil: "$0 === \"\"", SCon: "$0 !== \"\"" },
-  },
-};
 
 // Name
 // ====
@@ -665,14 +949,10 @@ function live_doms(c: Comp, tld: Bend.Def): Dom[] {
 // Intr
 // ====
 
-function intr_fam(pre: string, xs: string[][], c: string,
-  js: string): Record<string, string[]> {
-  return Object.fromEntries(xs.map((x): [string, string[]] => [pre + x[0],
-    [c, js].map((t) => t.replace(/@(\d)/g, (_, k) => x[Number(k)]))]));
-}
-
 function intr_of(c: Comp, k: Bend.Name): Intr | undefined {
-  return def_own(c.book.tlds[k]) ? INTRINSICS[eff_name(k)] : undefined;
+  const it = def_own(c.book.tlds[k]) ? OPERATIONS[eff_name(k)] : undefined;
+  return it !== undefined && (it.C !== undefined || it.parts !== undefined)
+    ? it : undefined;
 }
 
 // Call
@@ -889,10 +1169,10 @@ function native_of(book: Bend.Book, adt: HAdt): Native | undefined {
   if (adt.k === "U32" || adt.k === "F32") {
     die("a structural view of a machine word");
   }
-  if (adt.k === "Array" && arr_flag(book, adt.x[0])) {
-    return ARR_NATIVE;
+  if (adt.k === "Array") {
+    arr_flag(book, adt.x[0]);
   }
-  return NATIVES[adt.k] ?? native_nullary(book, adt.k);
+  return OPTIMIZED[adt.k]?.C ?? native_nullary(book, adt.k);
 }
 
 // Adt
@@ -1502,7 +1782,7 @@ function done_defs(cb: Carb): [Bend.Name, Def][] {
 
 function brw_type(cb: Carb, A: Bend.HTerm): boolean {
   const t = Bend.term_wnf(cb.book, A);
-  return t.$ === "ADT" && NATIVES[t.k] === undefined
+  return t.$ === "ADT" && OPTIMIZED[t.k]?.C === undefined
     && !adt_triv(cb.book, A);
 }
 
@@ -1668,13 +1948,13 @@ function eq_set(fl: File, t: Bend.HTerm): { p: Probe; ks: number[] } | null {
     return null;
   }
   const it = intr_of(fl, sp.t.k);
-  if (it === INTRINSICS.bool_or) {
+  if (it === OPERATIONS.bool_or) {
     const l = eq_set(fl, sp.args[0]);
     const r = eq_set(fl, sp.args[1]);
     return l !== null && r !== null && l.p === r.p
       ? { p: l.p, ks: [...l.ks, ...r.ks] } : null;
   }
-  if (it === INTRINSICS.u32_is_eq) {
+  if (it === OPERATIONS.u32_is_eq) {
     const vs = sp.args.map((a) => Bend.u32_from_term(a));
     for (const i of [0, 1]) {
       const w = vs[1 - i];
@@ -1700,7 +1980,8 @@ function eq_mask(ks: number[]): { m: number; K: number } | null {
 function sel_walk(fl: File, t: Bend.HTerm,
   leaf: (x: Bend.HTerm) => boolean): boolean {
   const m = term_spine(fl, t);
-  if (m.t.$ === "Ref" && intr_of(fl, m.t.k)?.call === false) {
+  const it = m.t.$ === "Ref" ? intr_of(fl, m.t.k) : undefined;
+  if (it !== undefined && !it.call) {
     return m.args.every((a) => sel_walk(fl, a, leaf));
   }
   return leaf(t);
@@ -1995,12 +2276,12 @@ function emit_expr(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null): string {
         return arg_term(fl, arg_fuse(fl, x));
       }
       const args = emit_exprs(fl, m.args);
-      const exprs = tpl_dup(intr.e!)
+      const exprs = tpl_dup(intr.C!)
         ? args.map((a) => emit_alias(fl, a, "a")) : args;
       if (intr.flg !== undefined) {
         exprs.push(arg_arr(fl, m.args[intr.flg]));
       }
-      return tpl_run(intr.e!, exprs);
+      return tpl_run(intr.C!, exprs);
     }
     case "Ctr": {
       const [adt, u] = ctr_adt(fl, x, ty);
@@ -2013,6 +2294,9 @@ function emit_expr(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null): string {
         const fn = native.intr[x.k];
         if (fn === undefined) {
           die(`no native introduction for a computed ${x.k}`);
+        }
+        if (adt.k === "Array") {
+          exprs.push(arr_flag(fl.book, adt.x[0]) ? "1" : "0");
         }
         return tpl_run(fn, exprs);
       }
@@ -2626,7 +2910,7 @@ export function compile_book(book: Bend.Book): string {
     if (s.$ === "App") {
       const m = term_spine(cb, s);
       const it = m.t.$ === "Ref" ? intr_of(cb, m.t.k) : undefined;
-      if (it === INTRINSICS.array_get || it === INTRINSICS.array_new) {
+      if (it === OPERATIONS.array_get || it === OPERATIONS.array_new) {
         const A = ty_ann(m.args[it.flg as number]);
         const el = A === null ? null : arr_elem(cb.book, A);
         if (el !== null && !ty_w32(cb.book, el)) {
@@ -2697,7 +2981,7 @@ export function compile_book(book: Bend.Book): string {
   }
   const seen = new Set<string>();
   fl.reqs += eff_src(new URL("./effs/sys.c", import.meta.url).pathname, seen);
-  fl.reqs += NATIVE_IO;
+  fl.reqs += NATIVE.IO;
   fl.spares = [];
   for (const k of cb.done) {
     const tld = cb.book.tlds[k];
@@ -2856,7 +3140,7 @@ function js_f32(bits: number): string {
 }
 
 function js_intr(book: Bend.Book, k: Bend.Name): Gen | null {
-  return def_own(book.tlds[k]) ? JS_INTRINSICS[eff_name(k)] ?? null : null;
+  return def_own(book.tlds[k]) ? OPERATIONS[eff_name(k)]?.JS ?? null : null;
 }
 
 function js_call(fl: Js, k: Bend.Name, args: Bend.HTerm[],
@@ -2936,7 +3220,7 @@ function js_expr(fl: Js, tm: Bend.HTerm,
       }
       const exprs = ctr_flds(fl.book, x.k, x.x)
         .map((f) => js_expr(fl, f, null));
-      const native = JS_NATIVES[adt.k];
+      const native = OPTIMIZED[adt.k]?.JS;
       if (native !== undefined) {
         const it = native.intr[x.k];
         if (it === undefined
@@ -2993,7 +3277,7 @@ function js_func(fl: Js, tm: Bend.HTerm, ty0: Bend.HTerm | null,
       });
     }
     const last = arms.length === total ? null : end ?? Bend.Efq();
-    const native = JS_NATIVES[adt.k];
+    const native = OPTIMIZED[adt.k]?.JS;
     const arm = (h: Bend.HTerm, k: Bend.Name): void => {
       const ctr = fl.book.ctrs[k] ?? die("unknown constructor: " + k);
       const live = ctr_doms(fl.book, ctr).length;
@@ -3460,7 +3744,7 @@ static const char* CLI_HELP =
 
 #endif
 
-${NATIVE_C}
+${NATIVE.C}
 // Tables
 // ======
 
@@ -5229,7 +5513,7 @@ int main(int argc, char** argv) {
 // =========
 
 const RUNTIME: string = String.raw`
-${NATIVE_JS}
+${NATIVE.JS}
 // Array
 // =====
 
