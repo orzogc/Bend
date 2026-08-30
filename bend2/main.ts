@@ -74,13 +74,13 @@ function cli_report(book: Bend.Book): void {
   const all  = "All " + tlds.length + " definitions check";
   if (book.hols > 0) {
     const s = book.hols === 1 ? " TODO" : " TODOs";
-    console.error(all + ", with " + book.hols + s + " found.");
-    console.error("The code is incomplete, and not a valid proof yet.");
+    console.log(all + ", with " + book.hols + s + " found.");
+    console.log("The code is incomplete, and not a valid proof yet.");
   } else if (uns > 0) {
-    console.error(all + ", with " + uns + " annotated as unsafe.");
-    console.error("The code is well-typed, but may contain logical paradoxes.");
+    console.log(all + ", with " + uns + " annotated as unsafe.");
+    console.log("The code is well-typed, but may contain logical paradoxes.");
   } else {
-    console.error(all + ".");
+    console.log(all + ". VALID.");
   }
 }
 

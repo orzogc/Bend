@@ -1036,6 +1036,14 @@ export function book_ctr(book: Book, k: Name): Ctr | null {
   return book.ctrs[k] ?? null;
 }
 
+export function book_fam(book: Book, k: Name): Name {
+  let t = term_strip((book_ctr(book, k) as Ctr).T);
+  for (let d = 0; t.$ === "All"; d++) {
+    t = term_strip(t.B(Var(t.k, d)));
+  }
+  return t.$ === "ADT" ? t.k : k;
+}
+
 export function book_adt(book: Book, tm: Extract<HTerm, { $: "ADT" }>, ctx: Ctx, def?: Name): ADT {
   const tld = book.tlds[tm.k];
   if (tld === undefined || tld.$ !== "ADT") {
@@ -3500,7 +3508,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
         if (book_ctr(book, tm.k) === null) {
           throw Err(book, ctx, "a declared constructor (" + t_wnf.k + " declares " + adt.c.map((c) => c.k).join(", ") + ")", tm, tm.s, lhs.def);
         }
-        throw Err(book, ctx, ty, tm, tm.s, lhs.def);
+        throw Err(book, ctx, ty, Ref(book_fam(book, tm.k), tm.s), tm.s, lhs.def);
       }
       if (tm.x.length !== ctr.n) {
         throw Err(book, ctx, tm.k + " with " + String(ctr.n) + (ctr.n === 1 ? " field" : " fields"), tm, tm.s, lhs.def);
