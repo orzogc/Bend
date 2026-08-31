@@ -18,6 +18,8 @@ typedef struct Census {
   uint32_t mix;
 } Census;
 
+static uint32_t b2u(uint32_t b) { return b ? 1u : 0u; }
+
 static uint32_t cell_get(uint32_t board, uint32_t r, uint32_t c) {
   return (board >> (((r & 3u) * 4u + (c & 3u)) & 31u)) & 1u;
 }
@@ -29,16 +31,18 @@ static uint32_t neighbor_count(uint32_t board, uint32_t r, uint32_t c) {
          cell_get(board, r + 1u, c) + cell_get(board, r + 1u, c + 1u);
 }
 
-static uint32_t to_bool(uint32_t k) { return k == 0u ? 0u : 1u; }
-
-static uint32_t next_dead(uint32_t n) { return to_bool(n == 3u); }
+static uint32_t next_dead(uint32_t n) { return b2u(n == 3u); }
 
 static uint32_t next_alive(uint32_t n) {
-  return to_bool((n == 2u) | (n == 3u));
+  return b2u((n == 2u) | (n == 3u));
+}
+
+static uint32_t next_cell_go(uint32_t n, uint32_t z) {
+  return z ? next_dead(n) : next_alive(n);
 }
 
 static uint32_t next_cell(uint32_t a, uint32_t n) {
-  return a == 0u ? next_dead(n) : next_alive(n);
+  return next_cell_go(n, a == 0u);
 }
 
 static uint32_t step_cell(uint32_t board, uint32_t pos) {
@@ -49,20 +53,20 @@ static uint32_t step_cell(uint32_t board, uint32_t pos) {
   return next_cell(alive, neighbors) << (pos & 31u);
 }
 
-static uint32_t board_step(uint32_t b) {
-  uint32_t next = 0u;
-  for (uint32_t pos = 0u; pos < 16u; ++pos) {
-    next |= step_cell(b, pos);
-  }
-  return next;
+static inline __attribute__((always_inline)) uint32_t board_step(uint32_t b) {
+  return step_cell(b, 0u) | step_cell(b, 1u) | step_cell(b, 2u) |
+         step_cell(b, 3u) | step_cell(b, 4u) | step_cell(b, 5u) |
+         step_cell(b, 6u) | step_cell(b, 7u) | step_cell(b, 8u) |
+         step_cell(b, 9u) | step_cell(b, 10u) | step_cell(b, 11u) |
+         step_cell(b, 12u) | step_cell(b, 13u) | step_cell(b, 14u) |
+         step_cell(b, 15u);
 }
 
 static uint32_t board_run(uint32_t n, uint32_t board) {
-  while (n != 0u) {
-    board = board_step(board);
-    --n;
+  if (n == 0u) {
+    return board;
   }
-  return board;
+  return board_run(n - 1u, board_step(board));
 }
 
 // 16-bit SWAR population count
@@ -73,38 +77,38 @@ static uint32_t board_popcount(uint32_t b) {
   return (d * 257u >> 8u) & 31u;
 }
 
-// classify the settled board by two probe steps
-static Cls board_classify(uint32_t b) {
-  uint32_t n1 = board_step(b);
-  if (n1 == b) {
-    return CLS_STILL;
-  }
-  uint32_t n2 = board_step(n1);
-  return n2 == b ? CLS_OSC : CLS_CHAOS;
+static Cls classify_p2(uint32_t t) { return t ? CLS_OSC : CLS_CHAOS; }
+
+static Cls classify_go(uint32_t t, uint32_t n1, uint32_t b) {
+  return t ? CLS_STILL : classify_p2(board_step(n1) == b);
 }
+
+static Cls classify_p1(uint32_t n1, uint32_t b) {
+  return classify_go(n1 == b, n1, b);
+}
+
+// classify the settled board by two probe steps
+static Cls board_classify(uint32_t b) { return classify_p1(board_step(b), b); }
 
 // one soup: hash the soup index into a 16-bit board, run GENS steps
 static uint32_t soup_sim(uint32_t ix, uint32_t g) {
   return board_run(g, (ix * 2654435761u) & 65535u);
 }
 
+// class code: Still 0, Osc 1, Chaos 2
+static uint32_t cls_code(Cls c) { return (uint32_t)c; }
+
 // leaf chunk: 64 soups folded into scalar accumulators
-static Census chunk_run(uint32_t j, uint32_t i, uint32_t g) {
-  uint32_t pa = 0u;
-  uint32_t sa = 0u;
-  uint32_t oa = 0u;
-  uint32_t mx = 0u;
-  while (j != 0u) {
-    uint32_t bd = soup_sim(i + j - 1u, g);
-    uint32_t p = board_popcount(bd);
-    Cls c = board_classify(bd);
-    mx = (mx * 2654435761u) ^ bd;
-    pa += p;
-    sa += c == CLS_STILL ? 1u : 0u;
-    oa += c == CLS_OSC ? 1u : 0u;
-    --j;
+static Census chunk_run(uint32_t j, uint32_t i, uint32_t g, uint32_t pa,
+                        uint32_t sa, uint32_t oa, uint32_t mx) {
+  if (j == 0u) {
+    return (Census){pa, sa, oa, mx};
   }
-  return (Census){pa, sa, oa, mx};
+  uint32_t p = j - 1u;
+  uint32_t bd = soup_sim(i + p, g);
+  uint32_t cd = cls_code(board_classify(bd));
+  return chunk_run(p, i, g, pa + board_popcount(bd), sa + b2u(cd == 0u),
+                   oa + b2u(cd == 1u), (mx * 2654435761u) ^ bd);
 }
 
 static Census census_zip(Census a, Census b) {
@@ -114,7 +118,7 @@ static Census census_zip(Census a, Census b) {
 
 static Census batch_run(uint32_t d, uint32_t i, uint32_t g) {
   if (d == 0u) {
-    return chunk_run(64u, i, g);
+    return chunk_run(64u, i, g, 0u, 0u, 0u, 0u);
   }
   Census a = batch_run(d - 1u, i, g);
   Census b = batch_run(d - 1u, i + (64u << (d - 1u)), g);

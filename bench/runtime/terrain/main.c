@@ -55,10 +55,18 @@ static void erode_cell(uint32_t i, uint32_t p, uint32_t *h) {
   h[i] = ((hc * 4u + hl + hr + hu + hd) >> 3u) + rough;
 }
 
+// four cells per erode turn, as in the Bend twin's erode.go quad
+static void erode_go(uint32_t i, uint32_t p, uint32_t *h) {
+  erode_cell(i, p, h);
+  erode_cell(i + 1u, p, h);
+  erode_cell(i + 2u, p, h);
+  erode_cell(i + 3u, p, h);
+}
+
 // one Gauss-Seidel sweep over the tile, ascending scan order
 static void tile_erode(uint32_t p, uint32_t *h) {
-  for (uint32_t i = 0u; i < 4096u; ++i) {
-    erode_cell(i, p, h);
+  for (uint32_t i = 0u; i < 4096u; i += 4u) {
+    erode_go(i, p, h);
   }
 }
 

@@ -27,6 +27,7 @@ static uint32_t round_key(uint32_t index) {
 // 22 Speck rounds over the 16-bit halves x, y
 static uint32_t speck_run(uint32_t rounds, uint32_t index, uint32_t x,
                           uint32_t y) {
+#pragma clang loop unroll(full)
   while (rounds != 0u) {
     uint32_t next_x =
         (((((x >> 7) | (x << 9)) & 65535u) + y) & 65535u) ^ round_key(index);
@@ -41,6 +42,7 @@ static uint32_t speck_run(uint32_t rounds, uint32_t index, uint32_t x,
 
 // one leaf: encrypt `count` counter blocks, chain the ciphertexts
 static uint32_t block_chain(uint32_t count, uint32_t block, uint32_t acc) {
+#pragma clang loop unroll_count(6)
   while (count != 0u) {
     uint32_t ciphertext =
         speck_run(22u, 0u, block & 65535u, (block >> 16) & 65535u);
@@ -82,7 +84,7 @@ typedef struct MtArena {
 
 static uint32_t mt_arena_push(MtArena *arena, Mt value) {
   if (arena->length == arena->capacity) {
-    size_t n = arena->capacity ? arena->capacity * 2 : 1024;
+    size_t n = arena->capacity ? arena->capacity * 2 : (2u << SIZE) - 1u;
     Mt *p = realloc(arena->items, n * sizeof(*p));
     if (!p) {
       fputs("Mt arena exhausted\n", stderr);

@@ -63,6 +63,16 @@ static Hit scene_nearest(float ox, float oy, float oz,
   return (Hit){ bt, bi };
 }
 
+// t-only nearest for the shadow probe: same fold, bare min distance
+static float scene_nearest_t(float ox, float oy, float oz,
+                             float dx, float dy, float dz, float bt) {
+  for (uint32_t i = NS; i > 0; i--) {
+    float t = sphere_isect(i - 1, ox, oy, oz, dx, dy, dz);
+    if (t < bt) bt = t;
+  }
+  return bt;
+}
+
 static float float_fmax0(float x) {
   if (x < 0.0f) return 0.0f;
   return x;
@@ -103,8 +113,8 @@ static float ray_trace(uint32_t dep, float ox, float oy, float oz,
   float sox = hx + 0.001f*nx;
   float soy = hy + 0.001f*ny;
   float soz = hz + 0.001f*nz;
-  Hit sh = scene_nearest(sox, soy, soz, lx, ly, lz, 1e9f, NS);
-  float lum = 0.1f + 0.85f * hit_shade(sh.t, ll, df);
+  float st = scene_nearest_t(sox, soy, soz, lx, ly, lz, 1e9f);
+  float lum = 0.1f + 0.85f * hit_shade(st, ll, df);
   if (dep == 0) return acc + w*lum;
   float k2 = 2.0f * ((dx*nx + dy*ny) + dz*nz);
   return ray_trace(dep - 1, sox, soy, soz,

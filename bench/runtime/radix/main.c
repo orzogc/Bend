@@ -1,8 +1,12 @@
 // Native C twin of main.bend: same trie sort (gen -> to_map/merge
-// -> to_arr) and Chk verification scan, single-threaded. ADT nodes live
-// in arenas with freelists (consuming a node in a match frees it,
+// -> to_arr) and Chk verification scan, single-threaded. Nullary ctors
+// (Emp, Free, Busy) and Single (24-bit payload) are immediate tagged
+// words; only Concat and Mnode allocate, as 8-byte {l,r} pairs in index
+// arenas with freelists (consuming a node in a match frees it,
 // mirroring the linear semantics), so peak memory tracks the live
-// input tree + trie.
+// input tree + trie. The final traversals (to_arr over the trie, chk
+// over the sorted array) skip per-node frees: those arenas have no
+// readers left.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,188 +17,139 @@
 
 #define ARENA_NIL 0xFFFFFFFFu
 
-typedef enum ArrTag { ARR_EMPTY, ARR_SINGLE, ARR_CONCAT } ArrTag;
-typedef struct Arr {
-  uint32_t tag;
-  uint32_t a, b;
-} Arr;
-typedef enum MapTag { MAP_FREE, MAP_BUSY, MAP_NODE } MapTag;
-typedef struct Map {
-  uint32_t tag;
-  uint32_t left, right;
-} Map;
-typedef struct ArrArena {
-  Arr *items;
-  size_t length, capacity;
-  uint32_t free_head; // freelist threaded through .a
-} ArrArena;
-typedef struct MapArena {
-  Map *items;
-  size_t length, capacity;
-  uint32_t free_head; // freelist threaded through .left
-} MapArena;
+// Arr refs: 0 = Emp, bit 31 set = Single (payload in low 24 bits),
+// otherwise Concat arena index (>= 1).
+#define ARR_EMP 0u
+#define ARR_SINGLE_BIT 0x80000000u
+// Trie refs: 0 = Free, 1 = Busy, otherwise Mnode arena index (>= 2).
+#define MAP_FREE 0u
+#define MAP_BUSY 1u
 
-static uint32_t arr_arena_push(ArrArena *arena, Arr value) {
-  if (arena->free_head != ARENA_NIL) {
-    uint32_t i = arena->free_head;
-    arena->free_head = arena->items[i].a;
-    arena->items[i] = value;
-    return i;
-  }
-  if (arena->length == arena->capacity) {
-    size_t n = arena->capacity ? arena->capacity * 2 : 1024;
-    Arr *p = realloc(arena->items, n * sizeof(*p));
-    if (!p) {
-      fputs("Arr arena exhausted\n", stderr);
-      exit(2);
+typedef struct Pair {
+  uint32_t l, r;
+} Pair;
+typedef struct Arena {
+  Pair *items;
+  uint32_t length, capacity;
+  uint32_t free_head; // freelist threaded through .l
+} Arena;
+
+static Arena arr_arena = {0, 1, 0, ARENA_NIL};
+static Arena map_arena = {0, 2, 0, ARENA_NIL};
+
+static uint32_t arena_push(Arena *arena, uint32_t l, uint32_t r) {
+  uint32_t i = arena->free_head;
+  if (i != ARENA_NIL) {
+    arena->free_head = arena->items[i].l;
+  } else {
+    if (arena->length >= arena->capacity) {
+      uint32_t n = arena->capacity ? arena->capacity * 2 : (1u << 20);
+      Pair *p = realloc(arena->items, (size_t)n * sizeof(*p));
+      if (!p) {
+        fputs("arena exhausted\n", stderr);
+        exit(2);
+      }
+      arena->items = p;
+      arena->capacity = n;
     }
-    arena->items = p;
-    arena->capacity = n;
+    i = arena->length++;
   }
-  uint32_t i = (uint32_t)arena->length++;
-  arena->items[i] = value;
+  arena->items[i].l = l;
+  arena->items[i].r = r;
   return i;
 }
-static void arr_drop(ArrArena *arena, uint32_t i) {
-  arena->items[i].a = arena->free_head;
+static void arena_drop(Arena *arena, uint32_t i) {
+  arena->items[i].l = arena->free_head;
   arena->free_head = i;
 }
-static uint32_t map_arena_push(MapArena *arena, Map value) {
-  if (arena->free_head != ARENA_NIL) {
-    uint32_t i = arena->free_head;
-    arena->free_head = arena->items[i].left;
-    arena->items[i] = value;
-    return i;
-  }
-  if (arena->length == arena->capacity) {
-    size_t n = arena->capacity ? arena->capacity * 2 : 1024;
-    Map *p = realloc(arena->items, n * sizeof(*p));
-    if (!p) {
-      fputs("Map arena exhausted\n", stderr);
-      exit(2);
-    }
-    arena->items = p;
-    arena->capacity = n;
-  }
-  uint32_t i = (uint32_t)arena->length++;
-  arena->items[i] = value;
-  return i;
+static uint32_t arr_concat(uint32_t l, uint32_t r) {
+  return arena_push(&arr_arena, l, r);
 }
-static void map_drop(MapArena *arena, uint32_t i) {
-  arena->items[i].left = arena->free_head;
-  arena->free_head = i;
+static void arr_drop(uint32_t i) { arena_drop(&arr_arena, i); }
+static uint32_t map_node(uint32_t l, uint32_t r) {
+  return arena_push(&map_arena, l, r);
 }
+static void map_drop(uint32_t i) { arena_drop(&map_arena, i); }
 // deep drop of a discarded subtree (the Mnode-vs-Busy merge arms)
-static void map_drop_deep(MapArena *arena, uint32_t i) {
-  Map x = arena->items[i];
-  map_drop(arena, i);
-  if (x.tag == MAP_NODE) {
-    map_drop_deep(arena, x.left);
-    map_drop_deep(arena, x.right);
-  }
-}
-static uint32_t arr_empty(ArrArena *a) {
-  return arr_arena_push(a, (Arr){ARR_EMPTY, 0, 0});
-}
-static uint32_t arr_single(ArrArena *a, uint32_t x) {
-  return arr_arena_push(a, (Arr){ARR_SINGLE, x, 0});
-}
-static uint32_t arr_concat(ArrArena *a, uint32_t l, uint32_t r) {
-  return arr_arena_push(a, (Arr){ARR_CONCAT, l, r});
-}
-static uint32_t map_free(MapArena *a) {
-  return map_arena_push(a, (Map){MAP_FREE, 0, 0});
-}
-static uint32_t map_busy(MapArena *a) {
-  return map_arena_push(a, (Map){MAP_BUSY, 0, 0});
-}
-static uint32_t map_node(MapArena *a, uint32_t l, uint32_t r) {
-  return map_arena_push(a, (Map){MAP_NODE, l, r});
+static void map_drop_deep(uint32_t i) {
+  if (i < 2)
+    return;
+  Pair x = map_arena.items[i];
+  map_drop(i);
+  map_drop_deep(x.l);
+  map_drop_deep(x.r);
 }
 
-static uint32_t word_prng(uint32_t x) {
+static uint32_t b2u(uint32_t b) { return b ? 1u : 0u; }
+static uint32_t prng(uint32_t x) {
   uint32_t b = x ^ (x << 13);
   uint32_t d = b ^ (b >> 17);
   return d ^ (d << 5);
 }
-static uint32_t word_key(uint32_t i) {
-  return word_prng((i + 1u) * 2654435761u) & 16777215u;
+static uint32_t key(uint32_t i) {
+  return prng((i + 1u) * 2654435761u) & 16777215u;
 }
 
-static uint32_t map_merge(MapArena *a, uint32_t x, uint32_t y) {
-  Map p = a->items[x], q = a->items[y];
-  if (p.tag == MAP_FREE) {
-    map_drop(a, x);
-    return y;
+static uint32_t merge(uint32_t a, uint32_t b) {
+  if (a == MAP_FREE)
+    return b;
+  if (a == MAP_BUSY) {
+    map_drop_deep(b);
+    return MAP_BUSY;
   }
-  if (q.tag == MAP_FREE) {
-    map_drop(a, y);
-    return x;
+  if (b == MAP_FREE)
+    return a;
+  if (b == MAP_BUSY) {
+    map_drop_deep(a);
+    return MAP_BUSY;
   }
-  if (p.tag == MAP_BUSY) {
-    map_drop(a, x);
-    if (q.tag == MAP_NODE)
-      map_drop_deep(a, y);
-    else
-      map_drop(a, y);
-    return map_busy(a);
-  }
-  if (q.tag == MAP_BUSY) {
-    map_drop_deep(a, x);
-    map_drop(a, y);
-    return map_busy(a);
-  }
-  map_drop(a, x);
-  map_drop(a, y);
-  uint32_t l = map_merge(a, p.left, q.left);
-  uint32_t r = map_merge(a, p.right, q.right);
-  return map_node(a, l, r);
+  Pair p = map_arena.items[a], q = map_arena.items[b];
+  map_drop(b);
+  uint32_t l = merge(p.l, q.l);
+  uint32_t r = merge(p.r, q.r);
+  map_arena.items[a] = (Pair){l, r}; // reuse the consumed slot for the result
+  return a;
 }
-static uint32_t arr_generate(ArrArena *a, uint32_t n, uint32_t x) {
+static uint32_t gen(uint32_t n, uint32_t x) {
   if (!n)
-    return arr_single(a, word_key(x));
-  return arr_concat(a, arr_generate(a, n - 1, x * 2),
-                    arr_generate(a, n - 1, x * 2 + 1));
+    return ARR_SINGLE_BIT | key(x);
+  uint32_t l = gen(n - 1, x * 2);
+  uint32_t r = gen(n - 1, x * 2 + 1);
+  return arr_concat(l, r);
 }
-static uint32_t map_swap_bits(MapArena *a, uint32_t n, uint32_t x0,
-                              uint32_t x1) {
-  return n == 0 ? map_node(a, x0, x1) : map_node(a, x1, x0);
+static uint32_t swap_bits_go(uint32_t x0, uint32_t x1, uint32_t z) {
+  return z ? map_node(x0, x1) : map_node(x1, x0);
 }
-static uint32_t map_radix(MapArena *a, uint32_t i, uint32_t n, uint32_t k,
-                          uint32_t r) {
-  while (i) {
-    r = map_swap_bits(a, n & k, r, map_free(a));
-    k *= 2;
-    --i;
-  }
-  return r;
+static uint32_t swap_bits(uint32_t n, uint32_t x0, uint32_t x1) {
+  return swap_bits_go(x0, x1, n == 0);
 }
-static uint32_t arr_to_map(ArrArena *aa, MapArena *ma, uint32_t i) {
-  Arr x = aa->items[i];
-  arr_drop(aa, i);
-  if (x.tag == ARR_EMPTY)
-    return map_free(ma);
-  if (x.tag == ARR_SINGLE)
-    return map_radix(ma, 24, x.a, 1, map_busy(ma));
-  uint32_t l = arr_to_map(aa, ma, x.a);
-  uint32_t r = arr_to_map(aa, ma, x.b);
-  return map_merge(ma, l, r);
+static uint32_t radix(uint32_t i, uint32_t n, uint32_t k, uint32_t r) {
+  if (!i)
+    return r;
+  return radix(i - 1, n, k * 2, swap_bits(n & k, r, MAP_FREE));
 }
-static uint32_t map_to_arr(MapArena *ma, ArrArena *aa, uint32_t i,
-                           uint32_t k) {
-  Map x = ma->items[i];
-  map_drop(ma, i);
-  if (x.tag == MAP_FREE)
-    return arr_empty(aa);
-  if (x.tag == MAP_BUSY)
-    return arr_single(aa, k);
-  uint32_t l = map_to_arr(ma, aa, x.left, k * 2);
-  uint32_t r = map_to_arr(ma, aa, x.right, k * 2 + 1);
-  return arr_concat(aa, l, r);
+static uint32_t to_map(uint32_t a) {
+  if (a == ARR_EMP)
+    return MAP_FREE;
+  if (a & ARR_SINGLE_BIT)
+    return radix(24, a & 16777215u, 1, MAP_BUSY);
+  Pair x = arr_arena.items[a];
+  arr_drop(a);
+  uint32_t l = to_map(x.l);
+  uint32_t r = to_map(x.r);
+  return merge(l, r);
 }
-static uint32_t arr_sort(ArrArena *aa, MapArena *ma, uint32_t x) {
-  return map_to_arr(ma, aa, arr_to_map(aa, ma, x), 0);
+static uint32_t to_arr(uint32_t m, uint32_t k) {
+  if (m == MAP_FREE)
+    return ARR_EMP;
+  if (m == MAP_BUSY)
+    return ARR_SINGLE_BIT | k;
+  Pair x = map_arena.items[m];
+  uint32_t l = to_arr(x.l, k * 2);
+  uint32_t r = to_arr(x.r, k * 2 + 1);
+  return arr_concat(l, r);
 }
+static uint32_t sort(uint32_t a) { return to_arr(to_map(a), 0); }
 
 typedef struct Chk {
   uint32_t nil; // 1 = Cnil
@@ -208,19 +163,20 @@ static Chk chk_join(Chk a, Chk b) {
   return (Chk){0,
                a.lo,
                b.hi,
-               (a.ok & b.ok) & (a.hi < b.lo ? 1u : 0u),
+               (a.ok & b.ok) & b2u(a.hi < b.lo),
                a.cnt + b.cnt,
                a.sum + b.sum};
 }
-static Chk arr_chk(ArrArena *aa, uint32_t i) {
-  Arr x = aa->items[i];
-  arr_drop(aa, i);
-  if (x.tag == ARR_EMPTY)
+static Chk chk(uint32_t a) {
+  if (a == ARR_EMP)
     return (Chk){1, 0, 0, 0, 0, 0};
-  if (x.tag == ARR_SINGLE)
-    return (Chk){0, x.a, x.a, 1, 1, x.a};
-  Chk l = arr_chk(aa, x.a);
-  Chk r = arr_chk(aa, x.b);
+  if (a & ARR_SINGLE_BIT) {
+    uint32_t w = a & 16777215u;
+    return (Chk){0, w, w, 1, 1, w};
+  }
+  Pair x = arr_arena.items[a];
+  Chk l = chk(x.l);
+  Chk r = chk(x.r);
   return chk_join(l, r);
 }
 static uint32_t chk_out(Chk c) {
@@ -231,11 +187,7 @@ static uint32_t chk_out(Chk c) {
 }
 
 int main(void) {
-  ArrArena aa = {0, 0, 0, ARENA_NIL};
-  MapArena ma = {0, 0, 0, ARENA_NIL};
-  uint32_t x = arr_generate(&aa, DEPTH, 0);
-  uint32_t y = arr_sort(&aa, &ma, x);
-  printf("%u\n", chk_out(arr_chk(&aa, y)));
-  free(aa.items);
-  free(ma.items);
+  printf("%u\n", chk_out(chk(sort(gen(DEPTH, 0)))));
+  free(arr_arena.items);
+  free(map_arena.items);
 }

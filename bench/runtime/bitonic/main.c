@@ -1,8 +1,11 @@
 // Native C twin of main.bend: same tree-shaped bitonic sorting
-// network, key generator and Stat verification scan, single-threaded.
-// Tree nodes live in an arena with a freelist (consuming a node in a
-// match frees it, mirroring the linear semantics), so peak memory stays
-// ~2n nodes across the whole sort.
+// network, key generator and Stat verification scan, single-threaded,
+// one C function per Bend function. A Term is a tagged 64-bit
+// reference: bit 32 marks the Leaf constructor (v rides immediate in
+// the low word), Node terms index an arena of {l, r} pairs with a
+// freelist. Each match consumes its node (mirroring the linear
+// semantics) and warp_zip rewrites the consumed pairs in place, so
+// peak memory stays ~n nodes across the whole sort.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,29 +14,29 @@
 #define SIZE 23
 #endif
 
-typedef enum TreeTag { TREE_LEAF, TREE_NODE } TreeTag;
-typedef struct Tree {
-  uint32_t tag;
-  uint32_t a, b; // leaf: a = v; node: a = l, b = r
-} Tree;
+typedef uint64_t Term;
+#define TREE_LEAF (1ull << 32)
+typedef struct Node {
+  Term a, b;
+} Node;
 typedef struct TreeArena {
-  Tree *items;
+  Node *items;
   size_t length, capacity;
   uint32_t free_head; // freelist threaded through .a
 } TreeArena;
 
 #define TREE_NIL 0xFFFFFFFFu
 
-static uint32_t tree_arena_push(TreeArena *arena, Tree value) {
+static uint32_t tree_arena_push(TreeArena *arena, Node value) {
   if (arena->free_head != TREE_NIL) {
     uint32_t i = arena->free_head;
-    arena->free_head = arena->items[i].a;
+    arena->free_head = (uint32_t)arena->items[i].a;
     arena->items[i] = value;
     return i;
   }
   if (arena->length == arena->capacity) {
     size_t n = arena->capacity ? arena->capacity * 2 : 1024;
-    Tree *p = realloc(arena->items, n * sizeof(*p));
+    Node *p = realloc(arena->items, n * sizeof(*p));
     if (!p) {
       fputs("Tree arena exhausted\n", stderr);
       exit(2);
@@ -49,12 +52,11 @@ static void tree_drop(TreeArena *arena, uint32_t i) {
   arena->items[i].a = arena->free_head;
   arena->free_head = i;
 }
-static uint32_t tree_leaf(TreeArena *a, uint32_t v) {
-  return tree_arena_push(a, (Tree){TREE_LEAF, v, 0});
+static Term tree_leaf(uint32_t v) { return TREE_LEAF | v; }
+static Term tree_node(TreeArena *a, Term l, Term r) {
+  return tree_arena_push(a, (Node){l, r});
 }
-static uint32_t tree_node(TreeArena *a, uint32_t l, uint32_t r) {
-  return tree_arena_push(a, (Tree){TREE_NODE, l, r});
-}
+static int is_leaf(Term t) { return (t & TREE_LEAF) != 0; }
 
 static uint32_t word_prng(uint32_t x) {
   uint32_t b = x ^ (x << 13);
@@ -63,73 +65,88 @@ static uint32_t word_prng(uint32_t x) {
 }
 static uint32_t word_key(uint32_t i) { return word_prng((i + 1u) * 2654435761u); }
 
-static uint32_t tree_swap(TreeArena *a, uint32_t s, uint32_t x, uint32_t y) {
-  if (s == 0)
-    return tree_node(a, tree_leaf(a, x), tree_leaf(a, y));
-  return tree_node(a, tree_leaf(a, y), tree_leaf(a, x));
+static Term tree_warp_leaf_go(TreeArena *a, uint32_t x, uint32_t y,
+                              uint32_t t) {
+  if (t)
+    return tree_node(a, tree_leaf(y), tree_leaf(x));
+  return tree_node(a, tree_leaf(x), tree_leaf(y));
 }
-static uint32_t tree_warp_zip(TreeArena *a, uint32_t wa, uint32_t wb) {
-  Tree p = a->items[wa], q = a->items[wb];
-  tree_drop(a, wa);
-  tree_drop(a, wb);
-  return tree_node(a, tree_node(a, p.a, q.a), tree_node(a, p.b, q.b));
+static Term tree_warp_leaf(TreeArena *a, uint32_t x, uint32_t y, uint32_t s) {
+  return tree_warp_leaf_go(a, x, y, s ^ (x > y ? 1u : 0u));
 }
-static uint32_t tree_warp(TreeArena *a, uint32_t s, uint32_t x, uint32_t y) {
-  Tree p = a->items[x], q = a->items[y];
-  tree_drop(a, x);
-  tree_drop(a, y);
-  if (p.tag == TREE_LEAF) {
-    uint32_t av = p.a, bv = q.a;
-    return tree_swap(a, s ^ (av > bv ? 1u : 0u), av, bv);
+// warp_zip: reuse wa, wb as the zipped children
+static Term tree_warp_zip(TreeArena *a, Term wa, Term wb) {
+  if (!is_leaf(wa) && !is_leaf(wb)) {
+    uint32_t i = (uint32_t)wa, j = (uint32_t)wb;
+    Term a1 = a->items[i].b;
+    a->items[i].b = a->items[j].a;
+    a->items[j].a = a1;
+    return tree_node(a, wa, wb);
   }
-  uint32_t wa = tree_warp(a, s, p.a, q.a);
-  uint32_t wb = tree_warp(a, s, p.b, q.b);
+  return tree_leaf(0);
+}
+static Term tree_warp(TreeArena *a, Term x, Term y, uint32_t s) {
+  if (is_leaf(x) && is_leaf(y))
+    return tree_warp_leaf(a, (uint32_t)x, (uint32_t)y, s);
+  if (is_leaf(x) != is_leaf(y))
+    return tree_leaf(0);
+  uint32_t i = (uint32_t)x, j = (uint32_t)y;
+  Node p = a->items[i], q = a->items[j];
+  tree_drop(a, i);
+  tree_drop(a, j);
+  Term wa = tree_warp(a, p.a, q.a, s);
+  Term wb = tree_warp(a, p.b, q.b, s);
   return tree_warp_zip(a, wa, wb);
 }
-// mode 0 warps the halves, mode 1 descends one level shallower
-static uint32_t tree_flow(TreeArena *a, uint32_t d, uint32_t m, uint32_t s,
-                          uint32_t t) {
-  if (d == 0)
+// warp of a whole subtree: compare-and-swap its root pair
+static Term tree_warp_node(TreeArena *a, Term t, uint32_t s) {
+  if (is_leaf(t))
     return t;
-  Tree n = a->items[t];
-  if (m == 0) {
-    tree_drop(a, t);
-    uint32_t w = tree_warp(a, s, n.a, n.b);
-    return tree_flow(a, d - 1, 1, s, w);
-  }
-  tree_drop(a, t);
-  uint32_t fa = tree_flow(a, d, 0, s, n.a);
-  uint32_t fb = tree_flow(a, d, 0, s, n.b);
-  return tree_node(a, fa, fb);
+  uint32_t i = (uint32_t)t;
+  Node n = a->items[i];
+  tree_drop(a, i);
+  return tree_warp(a, n.a, n.b, s);
 }
-static uint32_t tree_sort_1(TreeArena *a, uint32_t d, uint32_t s, uint32_t sa,
-                            uint32_t sb) {
-  return tree_flow(a, d, 0, s, tree_node(a, sa, sb));
-}
-static uint32_t tree_bsort(TreeArena *a, uint32_t d, uint32_t s, uint32_t x) {
+// bitonic merge, root pair already warped by the caller
+static Term tree_flow(TreeArena *a, uint32_t d, uint32_t s, Term w) {
   if (d == 0)
-    return tree_leaf(a, word_key(x));
-  uint32_t sa = tree_bsort(a, d - 1, 0, x * 2 + 1);
-  uint32_t sb = tree_bsort(a, d - 1, 1, x * 2);
-  return tree_sort_1(a, d, s, sa, sb);
+    return w;
+  if (is_leaf(w))
+    return w;
+  uint32_t i = (uint32_t)w;
+  Node n = a->items[i];
+  Term fa = tree_flow(a, d - 1, s, tree_warp_node(a, n.a, s));
+  Term fb = tree_flow(a, d - 1, s, tree_warp_node(a, n.b, s));
+  a->items[i] = (Node){fa, fb};
+  return w;
+}
+static Term tree_bsort(TreeArena *a, uint32_t d, uint32_t s, uint32_t x) {
+  if (d == 0)
+    return tree_leaf(word_key(x));
+  Term sa = tree_bsort(a, d - 1, 0, x * 2 + 1);
+  Term sb = tree_bsort(a, d - 1, 1, x * 2);
+  return tree_flow(a, d - 1, s, tree_warp(a, sa, sb, s));
 }
 
 typedef struct Stat {
   uint32_t lo, hi, ok, mx;
 } Stat;
-static Stat stat_join(Stat a, Stat b) {
-  return (Stat){a.lo, b.hi, (a.ok & b.ok) & (a.hi <= b.lo ? 1u : 0u),
-                a.mx * 2654435761u + b.mx};
+static Stat stat_join_go(uint32_t alo, uint32_t bhi, uint32_t aok, uint32_t bok,
+                         uint32_t amx, uint32_t bmx, uint32_t t) {
+  return (Stat){alo, bhi, t ? (aok & bok) : 0, amx * 2654435761u + bmx};
 }
-static Stat tree_scan(TreeArena *a, uint32_t d, uint32_t t) {
-  Tree n = a->items[t];
-  tree_drop(a, t);
-  if (d == 0) {
-    uint32_t v = n.a;
+static Stat stat_join(Stat a, Stat b) {
+  return stat_join_go(a.lo, b.hi, a.ok, b.ok, a.mx, b.mx,
+                      a.hi <= b.lo ? 1u : 0u);
+}
+static Stat tree_scan(TreeArena *a, Term t) {
+  if (is_leaf(t)) {
+    uint32_t v = (uint32_t)t;
     return (Stat){v, v, 1, v};
   }
-  Stat l = tree_scan(a, d - 1, n.a);
-  Stat r = tree_scan(a, d - 1, n.b);
+  Node n = a->items[(uint32_t)t];
+  Stat l = tree_scan(a, n.a);
+  Stat r = tree_scan(a, n.b);
   return stat_join(l, r);
 }
 static uint32_t stat_out(Stat s) {
@@ -138,8 +155,11 @@ static uint32_t stat_out(Stat s) {
 }
 
 int main(void) {
-  TreeArena arena = {0, 0, 0, TREE_NIL};
-  uint32_t t = tree_bsort(&arena, SIZE, 0, 0);
-  printf("%u\n", stat_out(tree_scan(&arena, SIZE, t)));
+  size_t cap = ((size_t)1 << SIZE) + 1024;
+  TreeArena arena = {malloc(cap * sizeof(Node)), 0, cap, TREE_NIL};
+  if (!arena.items)
+    return 2;
+  Term t = tree_bsort(&arena, SIZE, 0, 0);
+  printf("%u\n", stat_out(tree_scan(&arena, t)));
   free(arena.items);
 }

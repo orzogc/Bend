@@ -2,20 +2,29 @@
 // quad-trees with a Freivalds verification pass. Single-threaded, 1-to-1
 // with the Bend program: same quad-tree/vector datatypes, same recursive
 // block multiply (8 products joined by 4 adds per node), same numerics in
-// wrapping u32. ADT nodes live in a pool arena with a freelist: adds
-// consume (free) their inputs, generators and multiplies allocate.
+// wrapping u32. ADT nodes live in a pool arena with a freelist; the
+// Lf/Qd (Vl/Vn) tag rides in the pointer's low bit, so a node is four
+// words: a leaf's value or a branch's kids. Adds consume their inputs
+// (reusing the left node in place, freeing the right); generators and
+// multiplies allocate.
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
 typedef struct Node {
-  uint32_t tag; // 0 = leaf, 1 = branch
-  uint32_t v;
-  struct Node *k[4];
+  union {
+    uint32_t v;        // leaf payload
+    struct Node *k[4]; // branch kids (vec branches use k[0], k[1])
+  };
 } Node;
 
 typedef struct Node Mat;
 typedef struct Node Vec;
+
+// tag bit 0: set = leaf, clear = branch
+#define IS_LEAF(p) ((uintptr_t)(p)&1u)
+#define PTR(p) ((Node *)((uintptr_t)(p) & ~(uintptr_t)1u))
+#define LV(p) (PTR(p)->v)
 
 static Node *pool_free = NULL;
 static Node *pool_block = NULL;
@@ -45,8 +54,9 @@ static void node_free(Node *node) {
   pool_free = node;
 }
 
-static void tree_free(Node *node) {
-  if (node->tag != 0u) {
+static void tree_free(Node *t) {
+  Node *node = PTR(t);
+  if (!IS_LEAF(t)) {
     tree_free(node->k[0]);
     tree_free(node->k[1]);
     if (node->k[2] != NULL) {
@@ -59,14 +69,12 @@ static void tree_free(Node *node) {
 
 static Node *node_leaf(uint32_t v) {
   Node *node = node_alloc();
-  node->tag = 0u;
   node->v = v;
-  return node;
+  return (Node *)((uintptr_t)node | 1u);
 }
 
 static Mat *mat_quad(Mat *a, Mat *b, Mat *c, Mat *d) {
   Node *node = node_alloc();
-  node->tag = 1u;
   node->k[0] = a;
   node->k[1] = b;
   node->k[2] = c;
@@ -76,12 +84,16 @@ static Mat *mat_quad(Mat *a, Mat *b, Mat *c, Mat *d) {
 
 static Vec *vec_branch(Vec *l, Vec *r) {
   Node *node = node_alloc();
-  node->tag = 1u;
   node->k[0] = l;
   node->k[1] = r;
   node->k[2] = NULL;
   node->k[3] = NULL;
   return node;
+}
+
+// Bool is 0/1
+static uint32_t b2u(uint32_t b) {
+  return b != 0u ? 1u : 0u;
 }
 
 static Mat *mat_gen(uint32_t d, uint32_t s) {
@@ -104,21 +116,29 @@ static Vec *vec_gen(uint32_t d, uint32_t s) {
   return vec_branch(l, r);
 }
 
-// consumes both inputs
+// consumes both inputs, reusing the left node in place
 static Mat *mat_add(Mat *a, Mat *b) {
-  if (a->tag == 0u) {
-    uint32_t v = a->v + b->v;
-    node_free(a);
-    node_free(b);
-    return node_leaf(v);
+  if (IS_LEAF(a)) {
+    if (IS_LEAF(b)) {
+      LV(a) += LV(b);
+      node_free(PTR(b));
+      return a;
+    }
+    LV(a) = 0u;
+    tree_free(b);
+    return a;
   }
-  Mat *r0 = mat_add(a->k[0], b->k[0]);
-  Mat *r1 = mat_add(a->k[1], b->k[1]);
-  Mat *r2 = mat_add(a->k[2], b->k[2]);
-  Mat *r3 = mat_add(a->k[3], b->k[3]);
-  node_free(a);
+  if (IS_LEAF(b)) {
+    LV(b) = 0u;
+    tree_free(a);
+    return b;
+  }
+  a->k[0] = mat_add(a->k[0], b->k[0]);
+  a->k[1] = mat_add(a->k[1], b->k[1]);
+  a->k[2] = mat_add(a->k[2], b->k[2]);
+  a->k[3] = mat_add(a->k[3], b->k[3]);
   node_free(b);
-  return mat_quad(r0, r1, r2, r3);
+  return a;
 }
 
 // join of one mul burst: C_ij = P_ij + Q_ij (consumes all eight)
@@ -133,8 +153,14 @@ static Mat *mat_add4(Mat *p0, Mat *q0, Mat *p1, Mat *q1, Mat *p2, Mat *q2,
 
 // reads both inputs; each node spawns its whole 8-product burst
 static Mat *mat_mul(Mat *a, Mat *b) {
-  if (a->tag == 0u) {
-    return node_leaf(a->v * b->v);
+  if (IS_LEAF(a)) {
+    if (IS_LEAF(b)) {
+      return node_leaf(LV(a) * LV(b));
+    }
+    return node_leaf(0u);
+  }
+  if (IS_LEAF(b)) {
+    return node_leaf(0u);
   }
   Mat *p0 = mat_mul(a->k[0], b->k[0]);
   Mat *q0 = mat_mul(a->k[1], b->k[2]);
@@ -147,19 +173,27 @@ static Mat *mat_mul(Mat *a, Mat *b) {
   return mat_add4(p0, q0, p1, q1, p2, q2, p3, q3);
 }
 
-// consumes both inputs
+// consumes both inputs, reusing the left node in place
 static Vec *vec_add(Vec *x, Vec *y) {
-  if (x->tag == 0u) {
-    uint32_t v = x->v + y->v;
-    node_free(x);
-    node_free(y);
-    return node_leaf(v);
+  if (IS_LEAF(x)) {
+    if (IS_LEAF(y)) {
+      LV(x) += LV(y);
+      node_free(PTR(y));
+      return x;
+    }
+    LV(x) = 0u;
+    tree_free(y);
+    return x;
   }
-  Vec *l = vec_add(x->k[0], y->k[0]);
-  Vec *r = vec_add(x->k[1], y->k[1]);
-  node_free(x);
+  if (IS_LEAF(y)) {
+    LV(y) = 0u;
+    tree_free(x);
+    return y;
+  }
+  x->k[0] = vec_add(x->k[0], y->k[0]);
+  x->k[1] = vec_add(x->k[1], y->k[1]);
   node_free(y);
-  return vec_branch(l, r);
+  return x;
 }
 
 // join of one mvm burst (consumes all four)
@@ -169,8 +203,14 @@ static Vec *vec_add2(Vec *t0, Vec *t1, Vec *t2, Vec *t3) {
 
 // reads both inputs; [[a,b],[c,d]] * (l,h) = (a*l + b*h, c*l + d*h)
 static Vec *mat_vec_mul(Mat *m, Vec *v) {
-  if (m->tag == 0u) {
-    return node_leaf(m->v * v->v);
+  if (IS_LEAF(m)) {
+    if (IS_LEAF(v)) {
+      return node_leaf(LV(m) * LV(v));
+    }
+    return node_leaf(0u);
+  }
+  if (IS_LEAF(v)) {
+    return node_leaf(0u);
   }
   Vec *t0 = mat_vec_mul(m->k[0], v->k[0]);
   Vec *t1 = mat_vec_mul(m->k[1], v->k[1]);
@@ -180,8 +220,8 @@ static Vec *mat_vec_mul(Mat *m, Vec *v) {
 }
 
 static uint32_t mat_cksum(Mat *m) {
-  if (m->tag == 0u) {
-    return m->v;
+  if (IS_LEAF(m)) {
+    return LV(m);
   }
   uint32_t p = mat_cksum(m->k[0]);
   uint32_t q = mat_cksum(m->k[1]);
@@ -192,8 +232,14 @@ static uint32_t mat_cksum(Mat *m) {
 
 // or-fold of elementwise xor: 0 iff the vectors are identical
 static uint32_t vec_dif(Vec *x, Vec *y) {
-  if (x->tag == 0u) {
-    return x->v ^ y->v;
+  if (IS_LEAF(x)) {
+    if (IS_LEAF(y)) {
+      return LV(x) ^ LV(y);
+    }
+    return 1u;
+  }
+  if (IS_LEAF(y)) {
+    return 1u;
   }
   uint32_t l = vec_dif(x->k[0], y->k[0]);
   uint32_t r = vec_dif(x->k[1], y->k[1]);
@@ -218,23 +264,39 @@ static uint32_t round_run(uint32_t d, uint32_t s) {
   tree_free(t1);
   tree_free(u);
   tree_free(t2);
-  return (k ^ (s * 2654435761u)) + (v == 0u ? 1u : 0u);
+  return (k ^ (s * 2654435761u)) + b2u(v == 0u ? 1u : 0u);
 }
 
-// batch over the round index space: round i runs on seed = hashed index
-// (rounds past nchain contribute zero; u32 addition commutes, so the
-// flat loop equals the Bend fork tree's sum)
-static uint32_t batch_run(uint32_t nchain, uint32_t d) {
-  uint32_t acc = 0u;
-  for (uint32_t i = 0u; i < nchain; ++i) {
-    acc += round_run(d, i * 2654435761u);
+static uint32_t batch_leaf_go(uint32_t t, uint32_t d, uint32_t pp) {
+  if (t == 0u) {
+    return 0u;
   }
-  return acc;
+  return round_run(d, pp * 2654435761u);
+}
+
+static uint32_t batch_leaf(uint32_t pp, uint32_t n, uint32_t d) {
+  return batch_leaf_go(pp < n ? 1u : 0u, d, pp);
+}
+
+// batch tree over the round index space: leaf i runs one round when
+// p < nchain, p = the leaf's odd-multiplier permuted index (seed =
+// hashed p, so the live chain set -- and the checksum -- is the same
+// for any spread)
+static uint32_t batch_run(uint32_t bg, uint32_t i, uint32_t n, uint32_t m,
+                          uint32_t d) {
+  if (bg == 0u) {
+    return batch_leaf((i * 2654435761u) & m, n, d);
+  }
+  uint32_t x = batch_run(bg - 1u, i, n, m, d);
+  uint32_t y = batch_run(bg - 1u, i + (1u << (bg - 1u)), n, m, d);
+  return x + y;
 }
 
 int main(void) {
   uint32_t size = 7u;
+  uint32_t blog = 9u;
   uint32_t nchain = 384u;
-  printf("%u\n", batch_run(nchain, size));
+  uint32_t mm = (1u << blog) - 1u;
+  printf("%u\n", batch_run(blog, 0u, nchain, mm, size));
   return 0;
 }
