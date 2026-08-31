@@ -29,13 +29,13 @@ issue.
 
 ![Checker benchmarks](docs/assets/checker.svg)
 
-As AI models become faster, check times become a critical bottleneck on the
-software engineering process. Alternative proof languages often take several
-minutes to check, and scale poorly with codebase size. Since Bend is fully
-annotated, proof checking is near-linear on the codebase size, meaning it scales
-to massive codebases without wasting your time, making proofs more practical
-than ever. The cost is the code is a bit verbose, but nobody is writing code
-anymore, and AI models even appreciate the extra annotations.
+As AI models become faster, compilation times become a critical bottleneck on
+the software engineering process. Alternative proof languages often take several
+minutes to check a medium sized codebase, making proofs unviable. Since Bend is
+fully annotated, checking is done by a linear bidirectional pass, meaning it
+scales to massive codebases without losing performance, making proofs truly
+practical. The tradeoff is that Bend is a bit verbose, but nobody is writing
+code anymore, and AI models even appreciate the extra annotations.
 
 ## Bend4 programs WORK (with proof!)
 

@@ -10,7 +10,16 @@
 // language evolves. In theory, Bend can be arbitrarily fast, for clear logical
 // reasons (types, linearity, purity), and as evidenced by the several
 // benchmarks and programs we've written. In practice, it will take time for it
-// to cover all the case that a mature compiler does, and that's expected.
+// to cover all the shapes that a mature compiler does, and that's expected. I
+// also believe I must be in peace with this file being maintained by AI moving
+// forward, since this allows it to include more optimizations and features as
+// models work on it and get better over time. The critical part, the trusted
+// kernel, is human-audited and readable. The compiler doesn't need to be, and
+// once the base architecture is designed (as AIs struggle with that), they can
+// do a fairly good job at maintaining and extending the file. It is still very
+// important that we keep it within a token budget, since larger files cause the
+// models to lose control over it, and that's very dangerous. As models get
+// larget and more capable, this limit can increase. For now, 64k works well.
 
 import * as fs from "node:fs";
 
