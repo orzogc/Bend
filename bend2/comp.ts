@@ -570,8 +570,8 @@ static Term f32_read(Env e, Term s) {
 function word_to_u32(w) {
   let x = 0;
   for (let i = 0; w.$ === "WCon"; i++) {
-    x |= (w.$0 ? 1 : 0) << i;
-    w = w.$1;
+    x |= (w.head ? 1 : 0) << i;
+    w = w.tail;
   }
   return x >>> 0;
 }
@@ -579,7 +579,7 @@ function word_to_u32(w) {
 function u32_to_word(x) {
   let w = {$: "WNil"};
   for (let i = 31; i >= 0; i--) {
-    w = {$: "WCon", $0: ((x >>> i) & 1) === 1, $1: w};
+    w = {$: "WCon", head: ((x >>> i) & 1) === 1, tail: w};
   }
   return w;
 }
@@ -596,11 +596,11 @@ function cmp_new(a, b) {
 
 function nat_divmod(a, b) {
   const q = b === 0n ? 0n : a / b;
-  return {$: "Tuple", $0: q, $1: b === 0n ? a : a % b};
+  return {$: "Tuple", fst: q, snd: b === 0n ? a : a % b};
 }
 
 function array_clone(a) {
-  return {$: "Tuple", $0: a, $1: a};
+  return {$: "Tuple", fst: a, snd: a};
 }
 
 function nat_chk(n) {
@@ -612,7 +612,7 @@ function nat_chk(n) {
 
 function f32_read(s) {
   const v = s === "" ? NaN : Number(s);
-  return Number.isNaN(v) ? {$: "None"} : {$: "Some", $0: Math.fround(v)};
+  return Number.isNaN(v) ? {$: "None"} : {$: "Some", value: Math.fround(v)};
 }
 
 function char_new(code) {
@@ -1223,7 +1223,7 @@ function eff_src(path: string, seen: Set<string>): string {
 // Io
 // ==
 
-function io_base(book: Bend.Book, t: Bend.HTerm): Bend.HTerm[] | null {
+export function io_base(book: Bend.Book, t: Bend.HTerm): Bend.HTerm[] | null {
   const io = book.tlds["IO"];
   if (io?.$ !== "Def" || io.b !== true) {
     return null;
@@ -1249,7 +1249,7 @@ export function io_type(book: Bend.Book): Bend.HTerm | null {
 }
 
 export function io_run(book: Bend.Book): number {
-  const src = js_text(book)
+  const src = js_text(book, null) + "\n" + RUNTIME_MAIN
     + "\nreturn io_run(" + js_sat("main") + ");";
   return new Function("require", src)(import.meta.require) as number;
 }
@@ -3546,9 +3546,7 @@ function js_expr(fl: Js, tm: Bend.HTerm,
       if (u !== null) {
         return adt.k === "F32" ? js_f32(u) : String(u);
       }
-      if (fl.book.ctrs[x.k] === undefined) {
-        die("unknown constructor: " + x.k);
-      }
+      const ctr = fl.book.ctrs[x.k] ?? die("unknown constructor: " + x.k);
       const exprs = ctr_flds(fl.book, x.k, x.x)
         .map((f) => js_expr(fl, f, null));
       const native = OPTIMIZED[adt.k]?.JS;
@@ -3560,7 +3558,8 @@ function js_expr(fl: Js, tm: Bend.HTerm,
         }
         return tpl_run(it, exprs);
       }
-      return exprs.reduce((e, z, j) => e + ", $" + j + ": " + z,
+      const keys = ctr_tail(fl.book, ctr).filter(live_dom).map(([, n]) => n);
+      return exprs.reduce((e, z, j) => e + ", " + keys[j] + ": " + z,
         "{$: \"" + x.k + "\"") + "}";
     }
     case "Let": return js_expr(fl, js_open(fl, x), ty);
@@ -3620,7 +3619,8 @@ function js_func(fl: Js, tm: Bend.HTerm, ty0: Bend.HTerm | null,
         }
         fields = el.map((e) => tpl(e)([s]));
       } else {
-        fields = Array.from({ length: live }, (_, j) => s + ".$" + j);
+        fields = ctr_tail(fl.book, ctr).filter(live_dom)
+          .map(([, n]) => s + "." + n);
       }
       js_func(fl, h, null, [...fields, ...rest]);
     };
@@ -3670,19 +3670,13 @@ function js_def(fl: Js, k: Bend.Name, def: Def): void {
   file_push(fl, "");
 }
 
-function js_text(book: Bend.Book): string {
-  const roots: Bend.Name[] = [];
-  if (book.tlds["main"] !== undefined) {
-    roots.push("main");
-  } else {
-    for (const k of new Set(book.order)) {
+function js_text(book: Bend.Book, outs: Bend.Name[] | null): string {
+  const roots = outs ?? (book.tlds["main"] !== undefined ? ["main"]
+    : [...new Set(book.order)].filter((k) => {
       const tld = book.tlds[k];
-      if (tld.$ === "Def" && tld.v !== null
-        && io_base(book, tld.T) !== null) {
-        roots.push(k);
-      }
-    }
-  }
+      return tld.$ === "Def" && tld.v !== null
+        && io_base(book, tld.T) !== null;
+    }));
   const cb = carb_book(book, roots);
   const fl: Js = { book: cb.book, cb, seg: { lines: [] }, tab: 0,
     decl: "const", fresh: new Map() };
@@ -3699,7 +3693,7 @@ function js_text(book: Bend.Book): string {
   const seen = new Set<string>();
   const srcs: string[] = [];
   const names: string[] = [];
-  for (const k of new Set(book.order)) {
+  for (const k of outs === null ? new Set(book.order) : cb.done) {
     const tld = book.tlds[k];
     const path = def_foreign(tld)
       ? tld.i!.find((x) => x.endsWith(".js")) : undefined;
@@ -3720,8 +3714,11 @@ function js_text(book: Bend.Book): string {
       + "return {\n" + width_fold(rows.join("\n"), false) + "\n};\n"
       + "})();\n\n";
   }
-  const out = RUNTIME + effs + "// Program\n// =======\n\n"
+  return RUNTIME + effs + "// Program\n// =======\n\n"
     + width_fold(fl.seg.lines.join("\n"), false);
+}
+
+export function js_book(book: Bend.Book): string {
   const main = book.tlds["main"];
   if (main !== undefined) {
     if (main.$ !== "Def" || main.v === null
@@ -3732,12 +3729,17 @@ function js_text(book: Bend.Book): string {
       die("main must answer IO<T>");
     }
   }
-  return out;
+  return js_text(book, null) + "\n" + RUNTIME_MAIN
+    + (main === undefined ? ""
+    : "\ncli(process.argv.slice(2));\nio_exit(" + js_sat("main") + ");");
 }
 
-export function js_book(book: Bend.Book): string {
-  return js_text(book) + (book.tlds["main"] === undefined ? ""
-    : "\ncli(process.argv.slice(2));\nio_exit(" + js_sat("main") + ");");
+export function js_lib(book: Bend.Book, outs: Bend.Name[]): string {
+  return js_text(book, [...outs]) + "\nexport default {\n" + outs.map((k) => {
+    const xs = def_get_params(book, book.tlds[k] as Bend.Def)
+      .filter(live_dom).map((_, i) => "x" + i).join(", ");
+    return `  "${k}": (${xs}) => run_loop(${js_sat(k)}(${xs})),`;
+  }).join("\n") + "\n};\n";
 }
 
 // RuntimeC
@@ -5883,14 +5885,14 @@ ${NATIVE.JS}
 
 function array_len(a) {
   let n = 1;
-  for (let x = a; x.$ === "ANode"; x = x.$0) {
+  for (let x = a; x.$ === "ANode"; x = x.xs) {
     n *= 2;
   }
   return n;
 }
 
 function array_size(a) {
-  return {$: "Tuple", $0: a, $1: array_len(a)};
+  return {$: "Tuple", fst: a, snd: array_len(a)};
 }
 
 function array_get(a, i) {
@@ -5900,37 +5902,37 @@ function array_get(a, i) {
   while (x.$ === "ANode") {
     n /= 2;
     if (i < n) {
-      x = x.$0;
+      x = x.xs;
     } else {
-      x = x.$1;
+      x = x.ys;
       i -= n;
     }
   }
-  return {$: "Tuple", $0: a, $1: x.$0};
+  return {$: "Tuple", fst: a, snd: x.value};
 }
 
 function array_new(d, v) {
   if (d > 31n) {
     throw new Error("array_new: " + d + " is past the deepest block class 31");
   }
-  let a = {$: "ALeaf", $0: v};
+  let a = {$: "ALeaf", value: v};
   for (let j = 0n; j < d; j += 1n) {
-    a = {$: "ANode", $0: a, $1: a};
+    a = {$: "ANode", xs: a, ys: a};
   }
   return a;
 }
 
 function array_swap_go(a, n, i, v) {
   if (a.$ === "ALeaf") {
-    return {$: "Tuple", $0: {$: "ALeaf", $0: v}, $1: a.$0};
+    return {$: "Tuple", fst: {$: "ALeaf", value: v}, snd: a.value};
   }
   n /= 2;
   if (i < n) {
-    const r = array_swap_go(a.$0, n, i, v);
-    return {$: "Tuple", $0: {$: "ANode", $0: r.$0, $1: a.$1}, $1: r.$1};
+    const r = array_swap_go(a.xs, n, i, v);
+    return {$: "Tuple", fst: {$: "ANode", xs: r.fst, ys: a.ys}, snd: r.snd};
   }
-  const r = array_swap_go(a.$1, n, i - n, v);
-  return {$: "Tuple", $0: {$: "ANode", $0: a.$0, $1: r.$0}, $1: r.$1};
+  const r = array_swap_go(a.ys, n, i - n, v);
+  return {$: "Tuple", fst: {$: "ANode", xs: a.xs, ys: r.fst}, snd: r.snd};
 }
 
 function array_swap(a, i, v) {
@@ -5939,9 +5941,25 @@ function array_swap(a, i, v) {
 }
 
 function array_set(a, i, v) {
-  return array_swap(a, i, v).$0;
+  return array_swap(a, i, v).fst;
 }
 
+// Run
+// ===
+
+function run_jump(f, x) {
+  return {$: "$JMP", f: f, x: x};
+}
+
+function run_loop(r) {
+  while (r !== null && typeof r === "object" && r.$ === "$JMP") {
+    r = r.f(...r.x);
+  }
+  return r;
+}
+`.slice(1);
+
+const RUNTIME_MAIN: string = String.raw`
 // Cli
 // ===
 
@@ -6020,20 +6038,6 @@ function cli(argv) {
   }
 }
 
-// Run
-// ===
-
-function run_jump(f, x) {
-  return {$: "$JMP", f: f, x: x};
-}
-
-function run_loop(r) {
-  while (r !== null && typeof r === "object" && r.$ === "$JMP") {
-    r = r.f(...r.x);
-  }
-  return r;
-}
-
 // Io
 // ==
 
@@ -6051,7 +6055,7 @@ function io_exit(m) {
 function io_run(m) {
   let op;
   try {
-    op = run_loop(m())((x) => ({ $: "Emit", $0: x }));
+    op = run_loop(m())((x) => ({ $: "Emit", value: x }));
     while (op.$ === "$FFI") {
       op = op.kont(op.run());
     }
@@ -6063,14 +6067,14 @@ function io_run(m) {
       throw req;
     }
     const msg = "bend: a request decoded outside the event loop";
-    op = { $: "Halt", $0: 1, $1: msg };
+    op = { $: "Halt", code: 1, message: msg };
   }
   if (op.$ !== "Halt") {
     return 0;
   }
   const fs = require("fs");
   const data = [];
-  for (const c of op.$1) {
+  for (const c of op.message) {
     data.push(c.codePointAt(0) & 255);
   }
   data.push(10);
@@ -6091,6 +6095,6 @@ function io_run(m) {
       process.exit(1);
     }
   }
-  return op.$0;
+  return op.code;
 }
 `.slice(1);

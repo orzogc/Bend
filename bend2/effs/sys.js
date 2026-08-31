@@ -42,15 +42,15 @@ function sys_get() {
     },
     fail(code) {
       const text = String(lib.symbols.strerror(code));
-      return { $: "Fail", $0: { $: "Tuple", $0: code >>> 0, $1: text } };
+      return { $: "Fail", error: { $: "Tuple", fst: code >>> 0, snd: text } };
     },
     done(value) {
-      return { $: "Done", $0: value };
+      return { $: "Done", value: value };
     },
     tup(...xs) {
       let out = xs[xs.length - 1];
       for (let i = xs.length - 2; i >= 0; i--) {
-        out = { $: "Tuple", $0: xs[i], $1: out };
+        out = { $: "Tuple", fst: xs[i], snd: out };
       }
       return out;
     },
@@ -59,11 +59,11 @@ function sys_get() {
       const row = this.rows[slot];
       const gen = row === undefined ? 1 : (row.gen + 1) >>> 0;
       this.rows[slot] = { gen: gen, kind: kind, fd: fd };
-      return { $: ctr, $0: slot, $1: gen };
+      return { $: ctr, slot: slot, gen: gen };
     },
     read(handle, kind) {
-      const row = this.rows[Number(handle.$0)];
-      if (row === undefined || row.gen !== Number(handle.$1)) {
+      const row = this.rows[Number(handle.slot)];
+      if (row === undefined || row.gen !== Number(handle.gen)) {
         return null;
       }
       if (row.fd === null || !kind.includes(row.kind)) {
@@ -72,8 +72,8 @@ function sys_get() {
       return row.fd;
     },
     kill(handle) {
-      const row = this.rows[Number(handle.$0)];
-      if (row === undefined || row.gen !== Number(handle.$1)) {
+      const row = this.rows[Number(handle.slot)];
+      if (row === undefined || row.gen !== Number(handle.gen)) {
         return null;
       }
       if (row.fd === null) {
@@ -82,7 +82,7 @@ function sys_get() {
       const fd = row.fd;
       row.fd = null;
       row.kind = null;
-      this.free.push(Number(handle.$0));
+      this.free.push(Number(handle.slot));
       return fd;
     },
     sock(type) {
