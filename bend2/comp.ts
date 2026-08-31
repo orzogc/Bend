@@ -1,3 +1,17 @@
+// HUMAN NOTE: this file has two parts: compilers and runtimes (at the end).
+// The architecture behind the runtimes was 95% designed by humans, but the file
+// itself is significantly AI written and not fully audited. It can have bugs.
+// The compiler is 50% designed by humans, 50% by AI, and 100% AI written. I've
+// barely audited it, so, it is the most prone to bugs and overfit. In practice,
+// there may be benchmarks where Bend significantly under-performs C, due to
+// falling into some case that wasn't explicitly optimized for. Rather than
+// hoping to cover everything that GCC handled over decades of effort, I'm
+// launching it how it is, and will improve, fix bugs, and generalize, as the
+// language evolves. In theory, Bend can be arbitrarily fast, for clear logical
+// reasons (types, linearity, purity), and as evidenced by the several
+// benchmarks and programs we've written. In practice, it will take time for it
+// to cover all the case that a mature compiler does, and that's expected.
+
 import * as fs from "node:fs";
 
 import * as Bend from "./bend.ts";

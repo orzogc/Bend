@@ -1,3 +1,25 @@
+-- HUMAN NOTE: the (massive) file below is near entirely AI written, including
+-- all proofs, but that is not relevant, because the proofs are mechanically
+-- checked by Lean, so, only the spec (which is relatively small) matters!
+-- 
+-- Sadly, even the spec itself has drifted from what Bend's core implements, in
+-- some important ways, most notably in how Data kinding is handled. As launch
+-- approaches, we didn't have time to fully update it; it takes several days for
+-- AI models to rework the proofs after a spec change; so, we leave it as is for
+-- now, and will update later.
+-- 
+-- Currently, the most surprising contribution of this file is a mechanization
+-- of a consistent proof language with Type:Type and negative recursive types.
+-- The core insight is that we exploit linear types to forbid the contraction of
+-- functions, while still allowing cloning lower order values. This inhibits the
+-- source of most paradoxes: Girard's, Russel's, Curry's and the like all are
+-- manifestations of self-replicating lambdas (like `λf.f(f) λf.f(f)`), which
+-- are not representable in this theory. With this, the consistency becomes
+-- relatively trivial, and the only reason this file is massive is that the
+-- proofs are still written by AI, which struggles to craft concise arguments.
+-- 
+-- ----------------------------------------------------------------------------
+-- 
 -- ============================================================================
 -- BEND-CORE — the bend2-core affine calculus
 -- ============================================================================
@@ -317,7 +339,6 @@ inductive Quant : Type
 deriving DecidableEq
 
 abbrev Uses := Nat → Quant
-
 
 inductive Term : Type
   | Var : Nat → Term                          -- x

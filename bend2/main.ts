@@ -1,3 +1,5 @@
+// HUMAN NOTE: this particular file is AI written and nobody really cares.
+
 import * as fs from "node:fs";
 
 import * as Bend from "./bend.ts";
