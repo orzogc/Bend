@@ -18,11 +18,10 @@ Strong types, linearity and purity lets Bend compete with hand-written C in
 single-core performance, and it scales to thousands of CPU or GPU threads, with
 near-ideal speedups, near-zero programmer effort. Compared to Bend 1, v2 is up
 to 100x faster, supports f32, u32, mutable arrays, up to 8 TB of heap memory,
-all with zero interaction net overhead.
-
-The compiler is still new, so, expect bugs and defective programs (where it
-under-performs C or CUDA). These will be fixed as the pipeline matures. If you
-ever come across one, please write an issue.
+all with zero interaction net overhead. The compiler is still new, so, expect
+bugs and defective programs (where it under-performs C or CUDA). These will be
+fixed as the pipeline matures. If you ever come across one, please write an
+issue.
 
 ## Bend4 checks FAST
 
