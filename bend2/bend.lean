@@ -14,9 +14,13 @@
 -- (live) — and no duplication of any kind: Many is unspellable here
 -- (the checker rejects a Many binder at formation) and survives only
 -- inside the usage measure, where it means "consumed more than once"
--- and is always a violation. (The shipped checker adds one licensed
--- duplication mechanism, the kind system — see NOT MODELED below;
--- this file mechanizes the all-&1 fragment.) Every live self-call
+-- and is always a violation. THIS IS THE LARGEST DIVERGENCE FROM THE
+-- SHIPPED LANGUAGE: bend.ts licenses duplication through the Data
+-- layer, whose + binder, + field and certify-once promotion have no
+-- counterpart here, and whose usage metatheory holds only for weak
+-- by-value reduction of closed terms and rests on three invariants
+-- outside the checker — see NOT MODELED (2). This file mechanizes the
+-- all-&1 fragment. Every live self-call
 -- descends lexicographically on the definition's own case-tree
 -- columns, and no rule coerces dead to live. In a functional language
 -- there are only two ways to loop: self-replicating lambdas (dead on
@@ -67,15 +71,16 @@
 -- U32/SCon/SNil string literals are base.bend constructors, not
 -- calculus.
 --
--- Beyond those, bend.ts and this file DIVERGE in nine places, listed in
+-- Beyond those, bend.ts and this file DIVERGE in ten places, listed in
 -- full below. Each is a PERMISSION the implementation adds: bend.ts
--- accepts every book this file types, PLUS books that use (1)-(9), and
--- the theorems below do not cover those. (1)-(4) are mechanisms with no
--- counterpart here at all. (5)-(9) are narrower: the mechanism exists on
--- both sides, but Book.Ok pins a SHAPE syntactically where validation
--- reaches it by normalization or replaces it with a spot test, so a book
--- may check and still fail Book.Ok. Do not read the claims as covering
--- more than this list allows.
+-- accepts every book this file types, PLUS books that use (1)-(10), and
+-- the theorems below do not cover those. (1)-(5) are mechanisms with no
+-- counterpart here at all, and (2) is the largest: the whole Data layer.
+-- (6)-(10) are narrower: the mechanism exists on both sides, but Book.Ok
+-- pins a SHAPE syntactically where validation reaches it by
+-- normalization or replaces it with a spot test, so a book may check and
+-- still fail Book.Ok. Do not read the claims as covering more than this
+-- list allows.
 --
 -- (1) the kind system: every type has a kind Kind(q) over a quantity
 --     q : Quant, &1 (Lone) or &2 (Many); Type = Kind(&1), Data =
@@ -90,12 +95,43 @@
 --     constructor context; the meet a <&> b is the minimum, reduced
 --     only when forced, and both its operands check at the ambient
 --     demand and add their measures. Here every kind is Kind(&1):
---     Quant, &2 and the meet are absent, and Many is unspellable and
---     always a violation.
--- (2) check-efq's emptied-context clause: a LIVE context binder at an
+--     Quant, &2 and the meet are absent.
+-- (2) THE WHOLE DATA LAYER, which is to say every way bend.ts licenses
+--     a SECOND use. This file mechanizes the all-&1 fragment: Many is
+--     unspellable, it survives only inside the usage measure, and there
+--     it is always a violation. bend.ts instead has a + binder, a + let
+--     and a + field, each forming only at Data, and it has PROMOTION:
+--     an argument to a q binder checks at demand dem(q, qt) and its
+--     measure adds ONCE, UNSCALED (certify-once), so a Lone Data value
+--     may enter a + binder and the callee copies it. QTT forbids that
+--     -- Atkey scales the argument's measure by the binder's omega, so
+--     a 1 never becomes an omega -- and Bend allows it because its
+--     default is Lone, where without promotion only closed data would
+--     ever be reusable.
+--     The price is a NARROWER THEOREM, and it is the reason this
+--     divergence is the important one. Term-substitution reduction does
+--     not preserve the measure: unfold f(+x) at f(y) and y counts twice
+--     under its plain binder. So in bend.ts subject reduction for usage
+--     is claimed only for WEAK BY-VALUE reduction of CLOSED terms, the
+--     only reduction the machine performs. subject_reduction below is
+--     indeed stated at Step .weak with q /= .Many, but over a calculus
+--     in which the difficulty cannot arise at all, so it does not
+--     witness the shipped language's version of the claim.
+--     THREE INVARIANTS OUTSIDE THE CHECKER carry the difference, and
+--     nothing here and nothing in bend.ts verifies any of them:
+--       (a) no pass duplicates a term -- wnf shares every argument, let
+--           value and field in a cell, and the compiler is strict;
+--       (b) a type with runtime ownership (File, Socket, Array) is
+--           Type, never Data -- a property of what base.bend declares,
+--           not a rule the checker enforces;
+--       (c) a compiler may drop a copy the source spelled, never add
+--           one -- a property of comp.ts.
+--     They live in the machine, in the library and in the compiler
+--     respectively. Read them as the assumptions they are.
+-- (3) check-efq's emptied-context clause: a LIVE context binder at an
 --     emptied family admits an empty match with constructors remaining
 --     (ctx_dead); the efq rule here demands every constructor peeled.
--- (3) base-native and foreign asserts are live-usable with no body
+-- (4) base-native and foreign asserts are live-usable with no body
 --     (the b flag, the effect fills); the ref rule here demands a body
 --     at live demand — their steps are the backends', not the calculus.
 --     Two consequences ride along. base is the only file whose defs
@@ -104,16 +140,16 @@
 --     source-order wall that stops user mutual recursion never sees a
 --     b-flagged pending ref. And a bodiless assert is an axiom the
 --     checker trusts outright. Neither is covered here.
--- (4) term_compare follows a let-bound variable to its value before
+-- (5) term_compare follows a let-bound variable to its value before
 --     comparing; PEq here is syntactic on variables.
--- (5) a definition's arity is read by NORMALIZATION, not syntax.
+-- (6) a definition's arity is read by NORMALIZATION, not syntax.
 --     Book.Ok demands d.ty.NAll d.n, a literal All node per parameter,
 --     while def_valid takes its binders through tele_unbind and
 --     term_check reaches each All the same way. So a def may declare
 --     its type as a Ref that merely unfolds to a function type:
 --     assert AF: Type / def AF(): Type -> Type / assert id: AF /
 --     def id(x): x checks, though NAll 1 (Ref AF) is False.
--- (6) a constructor telescope's parameter binders need not be ERASED.
+-- (7) a constructor telescope's parameter binders need not be ERASED.
 --     WTele demands .All .None K B for each of the pn parameters, while
 --     adt_valid takes each binder's own quantity as given and treats
 --     only FIELDS specially, and parse_adt copies the source
@@ -122,14 +158,14 @@
 --     erased, so this is user-only ground, and it grants no ownership:
 --     Ctr and Mat instantiate the parameters through tele_fill and bind
 --     only the ctr.n fields, so the binder is a phantom.
--- (7) the datatype shapes are matched AFTER normalization. STele,
+-- (8) the datatype shapes are matched AFTER normalization. STele,
 --     AdtD.Shape, FTele, WTele and CtrD.Shape all demand syntactic
 --     telescopes, while tele_unbind, tele_head and adt_valid's closing
 --     term_wnf accept them normalized — so a family's declared kind may
 --     be an alias that unfolds to Data. The alias is itself checked and
 --     its normal form is what every field is then checked against, so
---     this is a coverage gap, not a false kind. Same shape as (5).
--- (8) the constructor tip is INSPECTED, not checked. Book.Ok checks the
+--     this is a coverage gap, not a false kind. Same shape as (6).
+-- (9) the constructor tip is INSPECTED, not checked. Book.Ok checks the
 --     whole constructor telescope against Type, which in particular
 --     validates its tip against the family signature; adt_valid checks
 --     each domain and then only tests that the normalized tip is the
@@ -138,7 +174,7 @@
 --     domains that disagree with its signature and still pass; a PARSED
 --     book cannot, since parse_adt builds every constructor telescope
 --     from the one params array. Unreachable from a .bend file.
--- (9) the descent check is SKIPPED at dead demand. Guard here is
+-- (10) the descent check is SKIPPED at dead demand. Guard here is
 --     demand-blind: it is structural over the whole body and its ref
 --     rule requires j < k, so a bare self-reference fails wherever it
 --     sits, and Book.Ok demands Tree unconditionally. term_infer's Ref
