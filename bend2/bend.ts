@@ -55,7 +55,7 @@
 // ADT    ::= "type" Name ("<" [Bind ","?] ">")? "is" Term ":" [Ctr]
 // Clause ::= ("forall" Quant | "exists") Name ":" Term ("where" Term)?
 // Assert ::= "assert" Name ":" [Clause] Term
-// Def    ::= ("@unsafe")? "def" Name "(" [Name ","?] ")" ":" (Body | ["import" STRING]+)
+// Def    ::= ("@unsafe")? "def" Name "(" [Bind ","?] ")" ("->" Term)? ":" (Body | ["import" STRING]+)
 // TLD    ::= ADT | Assert | Def
 // Import ::= "import" "Base" | "import" Path "as" Name
 // Book   ::= [Import] [TLD]
@@ -85,6 +85,8 @@
 // def, type, assert, match, case, do, return, forall, exists, where,
 // is, import, Type, Data, Kind, Quant ("as" reads only on an import
 // line, so it stays free).
+// a def with no prior assert types itself: a Bind telescope and a
+// "->" return type. a def after its assert takes bare names, no "->".
 // a bare Bind name is -Name: Quant. Fill and Plus omit a datatype's
 // leading Quant parameters as a block; Plus alone fills a quant-only D.
 // a literal expands to one node per unit, unbounded by design. Arrow is
@@ -2489,7 +2491,18 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
     return;
   }
   parse_fresh(p, k);
-  parse_fail(p, "a prior assert for " + k + " (an assert holds the type, a def fills the body)");
+  const n0   = p.sc.stk.length;
+  parse_eat(p, "(");
+  const tele = parse_tele(p, ")");
+  parse_eat(p, "->");
+  const ret  = parse_term(p);
+  const def: Def = { $: "Def", n: tele.length, T: term_higher(tele_bind(tele, ret)), v: null };
+  if (u) {
+    def.u = true;
+  }
+  book.tlds[k] = def;
+  const vars = tele.map((cell): PVar => ({ $: "PVar", k: cell[1], i: cell[2] }));
+  parse_def_body(p, book, k, def, vars, n0);
 }
 
 export function parse_def_fill(p: Parse, book: Book, k: Name, def: Def): void {
@@ -2507,6 +2520,10 @@ export function parse_def_fill(p: Parse, book: Book, k: Name, def: Def): void {
     parse_take(p, ",");
   }
   def.n = vars.length;
+  parse_def_body(p, book, k, def, vars, n0);
+}
+
+export function parse_def_body(p: Parse, book: Book, k: Name, def: Def, vars: PVar[], n0: number): void {
   parse_eat(p, ":");
   if (parse_at_word(p, "import")) {
     def.i = [];

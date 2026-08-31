@@ -95,143 +95,138 @@ type Map<a, -V: Kind(a)> is Kind(a):
 # Sugars
 # ------
 
-# Claims
-# ======
+# Defs
+# ====
+
+# Word
+# ----
+
+def Word(n):
+  match n:
+    case 0n:
+      Word.Nil
+    case 1n+p:
+      Word.Con<p>
 
 # Pair
 # ----
 
-assert Pair:
-  forall -A: Type
-  forall -B: Type
-  Type
+def Pair(-A: Type, -B: Type) -> Type:
+  Sigma<&1, &1, A, _ => B>
 
-assert Exists:
-  forall -A: Type
-  forall -B: @-x: A -> Type
-  Type
+def Exists(-A: Type, -B: @-x: A -> Type) -> Type:
+  Sigma<&1, &1, A, B>
 
-assert Or:
-  forall -A: Type
-  forall -B: Type
-  Type
+def Or(-A: Type, -B: Type) -> Type:
+  Either<&1, &1, A, B>
 
 # Effects
 # -------
 
-assert IO:
-  forall -A: Type
-  Type
+def IO(-A: Type) -> Type:
+  @-R: Type ->
+  @k: (A -> IO.OP<R>) ->
+  IO.OP<R>
 
-assert IO.pure:
-  forall -A: Type
-  forall  x: A
-  IO(A)
+def IO.pure(-A: Type, x: A) -> IO(A):
+  R => k => k(x)
 
-assert IO.bind:
-  forall -A: Type
-  forall -B: Type
-  forall  m: IO(A)
-  forall  f: A -> IO(B)
-  IO(B)
+def IO.bind(-A: Type, -B: Type, m: IO(A), f: A -> IO(B)) -> IO(B):
+  R => k => m(R, x => f(x, R, k))
 
-assert IO.print:
-  forall text: String
-  IO(Unit)
+def IO.print(text: String) -> IO(Unit):
+  import "./effs/print.c"
+  import "./effs/print.js"
 
-assert IO.write:
-  forall text: String
-  IO(Unit)
+def IO.write(text: String) -> IO(Unit):
+  import "./effs/write.c"
+  import "./effs/write.js"
 
-assert IO.print_err:
-  forall text: String
-  IO(Unit)
+def IO.print_err(text: String) -> IO(Unit):
+  import "./effs/print_err.c"
+  import "./effs/print_err.js"
 
-assert IO.get_env:
-  forall name: String
-  IO(Result<&1, &1, U32 & String, String>)
+def IO.get_env(name: String) -> IO(Result<&1, &1, U32 & String, String>):
+  import "./effs/get_env.c"
+  import "./effs/get_env.js"
 
-assert IO.die:
-  forall -A   : Type
-  forall code : U32
-  forall msg  : String
-  IO(A)
+def IO.die(-A: Type, code: U32, msg: String) -> IO(A):
+  R => k => Halt{code, msg}
 
-assert IO.pass:
-  forall -A: Type
-  forall  r: Result<&1, &1, U32 & String, A>
-  IO(A)
+def IO.pass(-A: Type, r: Result<&1, &1, U32 & String, A>) -> IO(A):
+  match r:
+    case Done{value}:
+      IO.pure(A, value)
+    case Fail{(code, message)}:
+      IO.die(A, code, message)
 
-assert IO.try:
-  forall -A  : Type
-  forall act : IO(Result<&1, &1, U32 & String, A>)
-  IO(A)
+def IO.try(-A: Type, act: IO(Result<&1, &1, U32 & String, A>)) -> IO(A):
+  IO.bind(Result<&1, &1, U32 & String, A>, A, act, IO.pass(A))
 
-assert File.open:
-  forall path: String
-  forall mode: String
-  IO(Result<&1, &1, U32 & String, File>)
+def File.open(path: String, mode: String) ->
+  IO(Result<&1, &1, U32 & String, File>):
+  import "./effs/file_open.c"
+  import "./effs/file_open.js"
 
-assert File.read:
-  forall file : File
-  forall max  : U32
-  IO(File & Result<&1, &1, U32 & String, String>)
+def File.read(file: File, max: U32) ->
+  IO(File & Result<&1, &1, U32 & String, String>):
+  import "./effs/file_read.c"
+  import "./effs/file_read.js"
 
-assert File.write:
-  forall file: File
-  forall data: String
-  IO(File & Result<&1, &1, U32 & String, Unit>)
+def File.write(file: File, data: String) ->
+  IO(File & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/file_write.c"
+  import "./effs/file_write.js"
 
-assert File.close:
-  forall file: File
-  IO(Unit)
+def File.close(file: File) -> IO(Unit):
+  import "./effs/file_close.c"
+  import "./effs/file_close.js"
 
-assert TCP.listen:
-  forall port: U32
-  IO(Result<&1, &1, U32 & String, Listener>)
+def TCP.listen(port: U32) -> IO(Result<&1, &1, U32 & String, Listener>):
+  import "./effs/tcp_listen.c"
+  import "./effs/tcp_listen.js"
 
-assert TCP.accept:
-  forall listener: Listener
-  IO(Listener & Result<&1, &1, U32 & String, Socket>)
+def TCP.accept(listener: Listener) ->
+  IO(Listener & Result<&1, &1, U32 & String, Socket>):
+  import "./effs/tcp_accept.c"
+  import "./effs/tcp_accept.js"
 
-assert TCP.connect:
-  forall host: String
-  forall port: U32
-  IO(Result<&1, &1, U32 & String, Socket>)
+def TCP.connect(host: String, port: U32) ->
+  IO(Result<&1, &1, U32 & String, Socket>):
+  import "./effs/tcp_connect.c"
+  import "./effs/tcp_connect.js"
 
-assert TCP.send:
-  forall sock: Socket
-  forall data: String
-  IO(Socket & Result<&1, &1, U32 & String, Unit>)
+def TCP.send(sock: Socket, data: String) ->
+  IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/tcp_send.c"
+  import "./effs/tcp_send.js"
 
-assert TCP.recv:
-  forall sock : Socket
-  forall max  : U32
-  IO(Socket & Result<&1, &1, U32 & String, String>)
+def TCP.recv(sock: Socket, max: U32) ->
+  IO(Socket & Result<&1, &1, U32 & String, String>):
+  import "./effs/tcp_recv.c"
+  import "./effs/tcp_recv.js"
 
-assert UDP.bind:
-  forall port: U32
-  IO(Result<&1, &1, U32 & String, Socket>)
+def UDP.bind(port: U32) -> IO(Result<&1, &1, U32 & String, Socket>):
+  import "./effs/udp_bind.c"
+  import "./effs/udp_bind.js"
 
-assert UDP.send_to:
-  forall sock: Socket
-  forall host: String
-  forall port: U32
-  forall data: String
-  IO(Socket & Result<&1, &1, U32 & String, Unit>)
+def UDP.send_to(sock: Socket, host: String, port: U32, data: String) ->
+  IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/udp_send_to.c"
+  import "./effs/udp_send_to.js"
 
-assert UDP.recv_from:
-  forall sock : Socket
-  forall max  : U32
-  IO(Socket & Result<&1, &1, U32 & String, String & U32 & String>)
+def UDP.recv_from(sock: Socket, max: U32) ->
+  IO(Socket & Result<&1, &1, U32 & String, String & U32 & String>):
+  import "./effs/udp_recv_from.c"
+  import "./effs/udp_recv_from.js"
 
-assert Socket.close:
-  forall socket: Socket
-  IO(Unit)
+def Socket.close(socket: Socket) -> IO(Unit):
+  import "./effs/socket_close.c"
+  import "./effs/socket_close.js"
 
-assert Listener.close:
-  forall listener: Listener
-  IO(Unit)
+def Listener.close(listener: Listener) -> IO(Unit):
+  import "./effs/listener_close.c"
+  import "./effs/listener_close.js"
 
 # Equal
 # -----
@@ -245,12 +240,18 @@ assert Equal.cong:
   forall  e: {a == b : A}
   {f(a) == f(b) : B}
 
+def Equal.cong(A, B, f, a, b, e):
+  %e : {f(a) == f(_) : B}; {==}
+
 assert Equal.sym:
   forall -A: Type
   forall -a: A
   forall -b: A
   forall  e: {a == b : A}
   {b == a : A}
+
+def Equal.sym(A, a, b, e):
+  %e : {_ == a : A}; {==}
 
 assert Equal.trans:
   forall -A : Type
@@ -261,254 +262,351 @@ assert Equal.trans:
   forall bc : {b == c : A}
   {a == c : A}
 
+def Equal.trans(A, a, b, c, ab, bc):
+  %bc : {a == _ : A}; ab
+
 # Empty
 # -----
 
-assert Empty.absurd:
-  forall -A: Type
-  forall  e: Empty
-  A
+def Empty.absurd(-A: Type, e: Empty) -> A:
+  match e:
 
 # Bool
 # ----
 
-assert Bool.not:
-  forall b: Bool
-  Bool
+def Bool.not(b: Bool) -> Bool:
+  match b:
+    case False{}:
+      True{}
+    case True{}:
+      False{}
 
-assert Bool.and:
-  forall a: Bool
-  forall b: Bool
-  Bool
+def Bool.and(a: Bool, b: Bool) -> Bool:
+  match a:
+    case False{}:
+      False{}
+    case True{}:
+      b
 
-assert Bool.or:
-  forall a: Bool
-  forall b: Bool
-  Bool
+def Bool.or(a: Bool, b: Bool) -> Bool:
+  match a:
+    case False{}:
+      b
+    case True{}:
+      True{}
 
-assert Bool.xor:
-  forall a: Bool
-  forall b: Bool
-  Bool
+def Bool.xor(a: Bool, b: Bool) -> Bool:
+  match a:
+    case False{}:
+      b
+    case True{}:
+      Bool.not(b)
 
-assert Bool.cmp:
-  forall a: Bool
-  forall b: Bool
-  Cmp
+def Bool.cmp(a: Bool, b: Bool) -> Cmp:
+  match a b:
+    case False{} False{}:
+      EQ{}
+    case False{} True{}:
+      LT{}
+    case True{} False{}:
+      GT{}
+    case True{} True{}:
+      EQ{}
 
-assert Bool.full_add:
-  forall a: Bool
-  forall b: Bool
-  forall c: Bool
-  Bool & Bool
+def Bool.full_add(a: Bool, b: Bool, c: Bool) -> Bool & Bool:
+  match a b c:
+    case False{} False{} False{}:
+      (False{}, False{})
+    case False{} False{} True{}:
+      (True{}, False{})
+    case False{} True{} False{}:
+      (True{}, False{})
+    case False{} True{} True{}:
+      (False{}, True{})
+    case True{} False{} False{}:
+      (True{}, False{})
+    case True{} False{} True{}:
+      (False{}, True{})
+    case True{} True{} False{}:
+      (False{}, True{})
+    case True{} True{} True{}:
+      (True{}, True{})
 
 # Cmp
 # ---
 
-assert Cmp.is_lt:
-  forall c: Cmp
-  Bool
+def Cmp.is_lt(c: Cmp) -> Bool:
+  match c:
+    case LT{}:
+      True{}
+    case EQ{}:
+      False{}
+    case GT{}:
+      False{}
 
-assert Cmp.is_eq:
-  forall c: Cmp
-  Bool
+def Cmp.is_eq(c: Cmp) -> Bool:
+  match c:
+    case LT{}:
+      False{}
+    case EQ{}:
+      True{}
+    case GT{}:
+      False{}
 
-assert Cmp.is_gt:
-  forall c: Cmp
-  Bool
+def Cmp.is_gt(c: Cmp) -> Bool:
+  match c:
+    case LT{}:
+      False{}
+    case EQ{}:
+      False{}
+    case GT{}:
+      True{}
 
-assert Cmp.is_le:
-  forall c: Cmp
-  Bool
+def Cmp.is_le(c: Cmp) -> Bool:
+  match c:
+    case LT{}:
+      True{}
+    case EQ{}:
+      True{}
+    case GT{}:
+      False{}
 
-assert Cmp.is_ge:
-  forall c: Cmp
-  Bool
+def Cmp.is_ge(c: Cmp) -> Bool:
+  match c:
+    case LT{}:
+      False{}
+    case EQ{}:
+      True{}
+    case GT{}:
+      True{}
 
 # Nat
 # ---
 
-assert Nat.double:
-  forall n: Nat
-  Nat
+def Nat.double(n: Nat) -> Nat:
+  match n:
+    case 0n:
+      0n
+    case 1n+p:
+      2n+Nat.double(p)
 
-assert Nat.add:
-  forall a: Nat
-  forall b: Nat
-  Nat
+def Nat.add(a: Nat, b: Nat) -> Nat:
+  match a:
+    case 0n:
+      b
+    case 1n+p:
+      1n+Nat.add(p, b)
 
-assert Nat.sub:
-  forall a: Nat
-  forall b: Nat
-  Nat
+def Nat.sub(a: Nat, b: Nat) -> Nat:
+  match a b:
+    case 0n 0n:
+      0n
+    case 0n 1n+bp:
+      0n
+    case 1n+ap 0n:
+      1n+ap
+    case 1n+ap 1n+bp:
+      Nat.sub(ap, bp)
 
-assert Nat.mul:
-  forall  a: Nat
-  forall +b: Nat
-  Nat
+def Nat.mul(a: Nat, +b: Nat) -> Nat:
+  match a:
+    case 0n:
+      0n
+    case 1n+p:
+      Nat.add(b, Nat.mul(p, b))
 
-assert Nat.divmod.go:
-  forall n: Nat
-  forall m: Nat
-  forall d: Nat
-  forall r: Nat
-  Nat & Nat
+def Nat.divmod.go(n: Nat, m: Nat, d: Nat, r: Nat) -> Nat & Nat:
+  match n:
+    case 0n:
+      (d, r)
+    case 1n+np:
+      match m:
+        case 0n:
+          Nat.divmod.go(np, r, 1n+d, 0n)
+        case 1n+mp:
+          Nat.divmod.go(np, mp, d, 1n+r)
 
-assert Nat.divmod:
-  forall a: Nat
-  forall b: Nat
-  Nat & Nat
+def Nat.divmod(a: Nat, b: Nat) -> Nat & Nat:
+  match b:
+    case 0n:
+      (0n, a)
+    case 1n+bp:
+      Nat.divmod.go(a, bp, 0n, 0n)
 
-assert Nat.cmp:
-  forall a: Nat
-  forall b: Nat
-  Cmp
+def Nat.cmp(a: Nat, b: Nat) -> Cmp:
+  match a b:
+    case 0n 0n:
+      EQ{}
+    case 0n 1n+bp:
+      LT{}
+    case 1n+ap 0n:
+      GT{}
+    case 1n+ap 1n+bp:
+      Nat.cmp(ap, bp)
 
-assert Nat.is_lt:
-  forall a: Nat
-  forall b: Nat
-  Bool
+def Nat.is_lt(a: Nat, b: Nat) -> Bool:
+  Cmp.is_lt(Nat.cmp(a, b))
 
 # Maybe
 # -----
 
-assert Maybe.pure:
-  forall -a: Quant
-  forall -A: Kind(a)
-  forall  x: A
-  Maybe<a, A>
+def Maybe.pure(a, -A: Kind(a), x: A) -> Maybe<a, A>:
+  Some{x}
 
-assert Maybe.bind:
-  forall -a: Quant
-  forall -A: Kind(a)
-  forall -B: Kind(a)
-  forall  m: Maybe<a, A>
-  forall  f: A -> Maybe<a, B>
-  Maybe<a, B>
+def Maybe.bind(
+  a, -A: Kind(a), -B: Kind(a), m: Maybe<a, A>, f: A -> Maybe<a, B>
+) -> Maybe<a, B>:
+  match m:
+    case None{}:
+      None{}
+    case Some{x}:
+      f(x)
 
 # Result
 # ------
 
-assert Result.pure:
-  forall -a: Quant
-  forall -b: Quant
-  forall -E: Kind(a)
-  forall -A: Kind(b)
-  forall  x: A
-  Result<a, b, E, A>
+def Result.pure(a, b, -E: Kind(a), -A: Kind(b), x: A) -> Result<a, b, E, A>:
+  Done{x}
 
-assert Result.fail:
-  forall -a: Quant
-  forall -b: Quant
-  forall -E: Kind(a)
-  forall -A: Kind(b)
-  forall  e: E
-  Result<a, b, E, A>
+def Result.fail(a, b, -E: Kind(a), -A: Kind(b), e: E) -> Result<a, b, E, A>:
+  Fail{e}
 
-assert Result.bind:
-  forall -a: Quant
-  forall -b: Quant
-  forall -E: Kind(a)
-  forall -A: Kind(b)
-  forall -B: Kind(b)
-  forall  r: Result<a, b, E, A>
-  forall  f: A -> Result<a, b, E, B>
-  Result<a, b, E, B>
+def Result.bind(
+  a, b, -E: Kind(a), -A: Kind(b), -B: Kind(b), r: Result<a, b, E, A>,
+  f: A -> Result<a, b, E, B>
+) -> Result<a, b, E, B>:
+  match r:
+    case Fail{e}:
+      Fail{e}
+    case Done{x}:
+      f(x)
 
 # Word
 # ----
 
-assert Word.cast:
-  forall -m: Nat
-  forall -n: Nat
-  forall  e: {m == n : Nat}
-  forall  w: Word(m)
-  Word(n)
+def Word.cast(-m: Nat, -n: Nat, e: {m == n : Nat}, w: Word(m)) -> Word(n):
+  %e : Word(_); w
 
-assert Word.zero:
-  forall n: Nat
-  Word(n)
+def Word.zero(n: Nat) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      WCon{False{}, Word.zero(p)}
 
-assert Word.not:
-  forall n: Nat
-  forall w: Word(n)
-  Word(n)
+def Word.not(n: Nat, w: Word(n)) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          WCon{Bool.not(b), Word.not(p, t)}
 
-assert Word.and:
-  forall n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
-  Word(n)
+def Word.and(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match a b:
+        case WCon{ab, at} WCon{bb, bt}:
+          WCon{Bool.and(ab, bb), Word.and(p, at, bt)}
 
-assert Word.or:
-  forall n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
-  Word(n)
+def Word.or(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match a b:
+        case WCon{ab, at} WCon{bb, bt}:
+          WCon{Bool.or(ab, bb), Word.or(p, at, bt)}
 
-assert Word.xor:
-  forall n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
-  Word(n)
+def Word.xor(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match a b:
+        case WCon{ab, at} WCon{bb, bt}:
+          WCon{Bool.xor(ab, bb), Word.xor(p, at, bt)}
 
-assert Word.shl.put:
-  forall n: Nat
-  forall c: Bool
-  forall w: Word(n)
-  Word(n)
+def Word.shl.put(n: Nat, c: Bool, w: Word(n)) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          WCon{c, Word.shl.put(p, b, t)}
 
-assert Word.shl:
-  forall n: Nat
-  forall w: Word(n)
-  Word(n)
+def Word.shl(n: Nat, w: Word(n)) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          WCon{False{}, Word.shl.put(p, b, t)}
 
-assert Word.shl.out.con:
-  forall -p: Nat
-  forall  c: Bool
-  forall  r: Bool & Word(p)
-  Bool & Word(1n+p)
+def Word.shl.out.con(-p: Nat, c: Bool, r: Bool & Word(p)) -> Bool & Word(1n+p):
+  (hi, t2) = r
+  (hi, WCon{c, t2})
 
-assert Word.shl.out:
-  forall n: Nat
-  forall c: Bool
-  forall w: Word(n)
-  Bool & Word(n)
+def Word.shl.out(n: Nat, c: Bool, w: Word(n)) -> Bool & Word(n):
+  match n:
+    case 0n:
+      (c, WNil{})
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          Word.shl.out.con(p, c, Word.shl.out(p, b, t))
 
-assert Word.shr.pad:
-  forall n: Nat
-  forall w: Word(n)
-  Word(1n+n)
+def Word.shr.pad(n: Nat, w: Word(n)) -> Word(1n+n):
+  match n:
+    case 0n:
+      WCon{False{}, w}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          WCon{b, Word.shr.pad(p, t)}
 
-assert Word.shr:
-  forall n: Nat
-  forall w: Word(n)
-  Word(n)
+def Word.shr(n: Nat, w: Word(n)) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match w:
+        case WCon{b, t}:
+          Word.shr.pad(p, t)
 
-assert Word.cmp.fin:
-  forall ab : Bool
-  forall bb : Bool
-  forall t  : Cmp
-  Cmp
+def Word.cmp.fin(ab: Bool, bb: Bool, t: Cmp) -> Cmp:
+  match t:
+    case LT{}:
+      LT{}
+    case EQ{}:
+      Bool.cmp(ab, bb)
+    case GT{}:
+      GT{}
 
-assert Word.cmp:
-  forall n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
-  Cmp
+def Word.cmp(n: Nat, a: Word(n), b: Word(n)) -> Cmp:
+  match n:
+    case 0n:
+      EQ{}
+    case 1n+p:
+      match a b:
+        case WCon{ab, at} WCon{bb, bt}:
+          Word.cmp.fin(ab, bb, Word.cmp(p, at, bt))
 
-assert Word.inc:
-  forall n: Nat
-  forall w: Word(n)
-  Word(n)
-
-assert Word.adc.con:
-  forall p  : Nat
-  forall at : Word(p)
-  forall bt : Word(p)
-  forall f  : Bool
-  forall sk : Bool & Bool
-  Word(1n+p)
+def Word.inc(n: Nat, w: Word(n)) -> Word(n):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match w:
+        case WCon{False{}, t}:
+          WCon{True{}, t}
+        case WCon{True{}, t}:
+          WCon{False{}, Word.inc(p, t)}
 
 assert Word.adc:
   forall n: Nat
@@ -518,17 +616,27 @@ assert Word.adc:
   forall c: Bool
   Word(n)
 
-assert Word.add:
-  forall n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
-  Word(n)
+def Word.adc.con(p: Nat, at: Word(p), bt: Word(p), f: Bool, sk: Bool & Bool) ->
+  Word(1n+p):
+  (s, k) = sk
+  WCon{s, Word.adc(p, at, bt, f, k)}
 
-assert Word.sub:
-  forall n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
-  Word(n)
+def Word.adc(n, a, b, f, c):
+  match n:
+    case 0n:
+      WNil{}
+    case 1n+p:
+      match a b f:
+        case WCon{ab, at} WCon{bb, bt} False{}:
+          Word.adc.con(p, at, bt, False{}, Bool.full_add(ab, bb, c))
+        case WCon{ab, at} WCon{bb, bt} True{}:
+          Word.adc.con(p, at, bt, True{}, Bool.full_add(ab, Bool.not(bb), c))
+
+def Word.add(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+  Word.adc(n, a, b, False{}, False{})
+
+def Word.sub(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+  Word.adc(n, a, b, True{}, True{})
 
 assert Word.add_comm.arm:
   forall p  : Nat
@@ -546,205 +654,250 @@ assert Word.add_comm.go:
   forall c: Bool
   {Word.adc(n, a, b, False{}, c) == Word.adc(n, b, a, False{}, c) : Word(n)}
 
+def Word.add_comm.arm(p, h, at, bt, k):
+  Equal.cong(Word(p), Word(1n+p), w => WCon{h, w},
+    Word.adc(p, at, bt, False{}, k), Word.adc(p, bt, at, False{}, k),
+    Word.add_comm.go(p, at, bt, k))
+
+def Word.add_comm.go(n, a, b, c):
+  match n:
+    case 0n:
+      match a b:
+        case WNil{} WNil{}:
+          {==}
+    case 1n+p:
+      match a b c:
+        case WCon{False{}, at} WCon{False{}, bt} False{}:
+          Word.add_comm.arm(p, False{}, at, bt, False{})
+        case WCon{False{}, at} WCon{False{}, bt} True{}:
+          Word.add_comm.arm(p, True{}, at, bt, False{})
+        case WCon{False{}, at} WCon{True{}, bt} False{}:
+          Word.add_comm.arm(p, True{}, at, bt, False{})
+        case WCon{False{}, at} WCon{True{}, bt} True{}:
+          Word.add_comm.arm(p, False{}, at, bt, True{})
+        case WCon{True{}, at} WCon{False{}, bt} False{}:
+          Word.add_comm.arm(p, True{}, at, bt, False{})
+        case WCon{True{}, at} WCon{False{}, bt} True{}:
+          Word.add_comm.arm(p, False{}, at, bt, True{})
+        case WCon{True{}, at} WCon{True{}, bt} False{}:
+          Word.add_comm.arm(p, False{}, at, bt, True{})
+        case WCon{True{}, at} WCon{True{}, bt} True{}:
+          Word.add_comm.arm(p, True{}, at, bt, True{})
+
 assert Word.add_comm:
   forall n: Nat
   forall a: Word(n)
   forall b: Word(n)
   {Word.add(n, a, b) == Word.add(n, b, a) : Word(n)}
 
-assert Word.to_nat:
-  forall n: Nat
-  forall w: Word(n)
-  Nat
+def Word.add_comm(n, a, b):
+  Word.add_comm.go(n, a, b, False{})
 
-assert Word.mul.go:
-  forall +n  : Nat
-  forall m   : Nat
-  forall a   : Word(m)
-  forall b   : Word(n)
-  forall acc : Word(n)
-  Word(n)
+def Word.to_nat(n: Nat, w: Word(n)) -> Nat:
+  match n:
+    case 0n:
+      0n
+    case 1n+p:
+      match w:
+        case WCon{False{}, t}:
+          Nat.double(Word.to_nat(p, t))
+        case WCon{True{}, t}:
+          1n+Nat.double(Word.to_nat(p, t))
 
-assert Word.mul:
-  forall +n: Nat
-  forall  a: Word(n)
-  forall  b: Word(n)
-  Word(n)
+def Word.mul.go(+n: Nat, m: Nat, a: Word(m), b: Word(n), acc: Word(n)) ->
+  Word(n):
+  match m:
+    case 0n:
+      acc
+    case 1n+mp:
+      match a:
+        case WCon{False{}, at}:
+          Word.mul.go(n, mp, at, Word.shl(n, b), acc)
+        case WCon{True{}, at}:
+          +b2 = b
+          Word.mul.go(n, mp, at, Word.shl(n, b2), Word.add(n, acc, b2))
+
+def Word.mul(+n: Nat, a: Word(n), b: Word(n)) -> Word(n):
+  Word.mul.go(n, n, a, b, Word.zero(n))
 
 # U32
 # ---
 
-assert U32.zero:
-  U32
+def U32.zero() -> U32:
+  U32{Word.zero(32n)}
 
-assert U32.one:
-  U32
+def U32.one() -> U32:
+  U32{Word.inc(32n, Word.zero(32n))}
 
-assert U32.inc:
-  forall a: U32
-  U32
+def U32.inc(a: U32) -> U32:
+  match a:
+    case U32{x}:
+      U32{Word.inc(32n, x)}
 
-assert U32.add:
-  forall a: U32
-  forall b: U32
-  U32
+def U32.add(a: U32, b: U32) -> U32:
+  match a b:
+    case U32{x} U32{y}:
+      U32{Word.add(32n, x, y)}
 
 assert U32.add_comm:
   forall a: U32
   forall b: U32
   {U32.add(a, b) == U32.add(b, a) : U32}
 
-assert U32.sub:
-  forall a: U32
-  forall b: U32
-  U32
+def U32.add_comm(a, b):
+  match a b:
+    case U32{x} U32{y}:
+      Equal.cong(Word(32n), U32, w => U32{w}, Word.add(32n, x, y),
+        Word.add(32n, y, x), Word.add_comm(32n, x, y))
 
-assert U32.mul:
-  forall a: U32
-  forall b: U32
-  U32
+def U32.sub(a: U32, b: U32) -> U32:
+  match a b:
+    case U32{x} U32{y}:
+      U32{Word.sub(32n, x, y)}
 
-assert U32.not:
-  forall a: U32
-  U32
+def U32.mul(a: U32, b: U32) -> U32:
+  match a b:
+    case U32{x} U32{y}:
+      U32{Word.mul(32n, x, y)}
 
-assert U32.and:
-  forall a: U32
-  forall b: U32
-  U32
+def U32.not(a: U32) -> U32:
+  match a:
+    case U32{x}:
+      U32{Word.not(32n, x)}
 
-assert U32.or:
-  forall a: U32
-  forall b: U32
-  U32
+def U32.and(a: U32, b: U32) -> U32:
+  match a b:
+    case U32{x} U32{y}:
+      U32{Word.and(32n, x, y)}
 
-assert U32.xor:
-  forall a: U32
-  forall b: U32
-  U32
+def U32.or(a: U32, b: U32) -> U32:
+  match a b:
+    case U32{x} U32{y}:
+      U32{Word.or(32n, x, y)}
 
-assert U32.shl:
-  forall a: U32
-  U32
+def U32.xor(a: U32, b: U32) -> U32:
+  match a b:
+    case U32{x} U32{y}:
+      U32{Word.xor(32n, x, y)}
 
-assert U32.shr:
-  forall a: U32
-  U32
+def U32.shl(a: U32) -> U32:
+  match a:
+    case U32{x}:
+      U32{Word.shl(32n, x)}
 
-assert U32.shln:
-  forall a: U32
-  forall n: Nat
-  U32
+def U32.shr(a: U32) -> U32:
+  match a:
+    case U32{x}:
+      U32{Word.shr(32n, x)}
 
-assert U32.shrn:
-  forall a: U32
-  forall n: Nat
-  U32
+def U32.shln(a: U32, n: Nat) -> U32:
+  match n:
+    case 0n:
+      a
+    case 1n+p:
+      U32.shl(U32.shln(a, p))
 
-assert U32.cmp:
-  forall a: U32
-  forall b: U32
-  Cmp
+def U32.shrn(a: U32, n: Nat) -> U32:
+  match n:
+    case 0n:
+      a
+    case 1n+p:
+      U32.shr(U32.shrn(a, p))
 
-assert U32.is_eq:
-  forall a: U32
-  forall b: U32
-  Bool
+def U32.cmp(a: U32, b: U32) -> Cmp:
+  match a b:
+    case U32{x} U32{y}:
+      Word.cmp(32n, x, y)
 
-assert U32.is_ne:
-  forall a: U32
-  forall b: U32
-  Bool
+def U32.is_eq(a: U32, b: U32) -> Bool:
+  Cmp.is_eq(U32.cmp(a, b))
 
-assert U32.is_lt:
-  forall a: U32
-  forall b: U32
-  Bool
+def U32.is_ne(a: U32, b: U32) -> Bool:
+  Bool.not(Cmp.is_eq(U32.cmp(a, b)))
 
-assert U32.is_le:
-  forall a: U32
-  forall b: U32
-  Bool
+def U32.is_lt(a: U32, b: U32) -> Bool:
+  Cmp.is_lt(U32.cmp(a, b))
 
-assert U32.is_gt:
-  forall a: U32
-  forall b: U32
-  Bool
+def U32.is_le(a: U32, b: U32) -> Bool:
+  Cmp.is_le(U32.cmp(a, b))
 
-assert U32.is_ge:
-  forall a: U32
-  forall b: U32
-  Bool
+def U32.is_gt(a: U32, b: U32) -> Bool:
+  Cmp.is_gt(U32.cmp(a, b))
 
-assert U32.is_zero:
-  forall a: U32
-  Bool
+def U32.is_ge(a: U32, b: U32) -> Bool:
+  Cmp.is_ge(U32.cmp(a, b))
 
-assert U32.to_nat:
-  forall a: U32
-  Nat
+def U32.is_zero(a: U32) -> Bool:
+  U32.is_eq(a, U32.zero())
 
-assert U32.from_nat:
-  forall n: Nat
-  U32
+def U32.to_nat(a: U32) -> Nat:
+  match a:
+    case U32{w}:
+      Word.to_nat(32n, w)
 
-assert U32.divmod.go.fin:
-  forall -p: Nat
-  forall  q: Word(p)
-  forall  s: U32
-  forall  b: U32
-  forall  g: Bool
-  Word(1n+p) & U32
+def U32.from_nat(n: Nat) -> U32:
+  match n:
+    case 0n:
+      U32.zero()
+    case 1n+p:
+      U32.inc(U32.from_nat(p))
 
-assert U32.divmod.go.shl:
-  forall -p : Nat
-  forall q  : Word(p)
-  forall +b : U32
-  forall ts : Bool & Word(32n)
-  Word(1n+p) & U32
+def U32.divmod.go.fin(-p: Nat, q: Word(p), s: U32, b: U32, g: Bool) ->
+  Word(1n+p) & U32:
+  match g:
+    case True{}:
+      (WCon{True{}, q}, U32.sub(s, b))
+    case False{}:
+      (WCon{False{}, q}, s)
 
-assert U32.divmod.go.rec:
-  forall -p : Nat
-  forall a0 : Bool
-  forall +b : U32
-  forall qr : Word(p) & U32
-  Word(1n+p) & U32
+def U32.divmod.go.shl(-p: Nat, q: Word(p), +b: U32, ts: Bool & Word(32n)) ->
+  Word(1n+p) & U32:
+  (t, s) = ts
+  +s2 = {U32{s} : U32}
+  U32.divmod.go.fin(p, q, s2, b, Bool.or(t, U32.is_ge(s2, b)))
 
-assert U32.divmod.go:
-  forall  m: Nat
-  forall  a: Word(m)
-  forall +b: U32
-  Word(m) & U32
+def U32.divmod.go.rec(-p: Nat, a0: Bool, +b: U32, qr: Word(p) & U32) ->
+  Word(1n+p) & U32:
+  (q, r) = qr
+  U32{rw} = r
+  U32.divmod.go.shl(p, q, b, Word.shl.out(32n, a0, rw))
 
-assert U32.div.fin:
-  forall qr: Word(32n) & U32
-  U32
+def U32.divmod.go(m: Nat, a: Word(m), +b: U32) -> Word(m) & U32:
+  match m a:
+    case 0n WNil{}:
+      (WNil{}, U32.zero())
+    case 1n+p WCon{a0, hi}:
+      U32.divmod.go.rec(p, a0, b, U32.divmod.go(p, hi, b))
 
-assert U32.div.if:
-  forall aw : Word(32n)
-  forall b  : U32
-  forall z  : Bool
-  U32
+def U32.div.fin(qr: Word(32n) & U32) -> U32:
+  (q, r) = qr
+  U32{q}
 
-assert U32.div:
-  forall  a: U32
-  forall +b: U32
-  U32
+def U32.div.if(aw: Word(32n), b: U32, z: Bool) -> U32:
+  match z:
+    case True{}:
+      U32.zero()
+    case False{}:
+      U32.div.fin(U32.divmod.go(32n, aw, b))
 
-assert U32.mod.fin:
-  forall qr: Word(32n) & U32
-  U32
+def U32.div(a: U32, +b: U32) -> U32:
+  U32{aw} = a
+  U32.div.if(aw, b, U32.is_zero(b))
 
-assert U32.mod.if:
-  forall aw : Word(32n)
-  forall b  : U32
-  forall z  : Bool
-  U32
+def U32.mod.fin(qr: Word(32n) & U32) -> U32:
+  (q, r) = qr
+  r
 
-assert U32.mod:
-  forall  a: U32
-  forall +b: U32
-  U32
+def U32.mod.if(aw: Word(32n), b: U32, z: Bool) -> U32:
+  match z:
+    case True{}:
+      U32{aw}
+    case False{}:
+      U32.mod.fin(U32.divmod.go(32n, aw, b))
+
+def U32.mod(a: U32, +b: U32) -> U32:
+  U32{aw} = a
+  U32.mod.if(aw, b, U32.is_zero(b))
 
 # F32
 # ---
@@ -909,1412 +1062,7 @@ assert F32.read:
 # Char
 # ----
 
-assert Char.cmp:
-  forall a: Char
-  forall b: Char
-  (Char & Char) & Cmp
-
-# String
-# ------
-
-assert String.append:
-  forall a: String
-  forall b: String
-  String
-
-assert String.cmp.rec:
-  forall h1b : Char
-  forall h2b : Char
-  forall rr  : (String & String) & Cmp
-  (String & String) & Cmp
-
-assert String.cmp.fin:
-  forall t1: String
-  forall t2: String
-  forall hc: (Char & Char) & Cmp
-  (String & String) & Cmp
-
-assert String.cmp:
-  forall a: String
-  forall b: String
-  (String & String) & Cmp
-
-assert String.eq.fin:
-  forall r: (String & String) & Cmp
-  Bool
-
-assert String.eq:
-  forall a: String
-  forall b: String
-  Bool
-
-# Text
-# ----
-
-assert U32.read.dig.if:
-  forall x  : U32
-  forall ok : Bool
-  Maybe<&2, U32>
-
-assert U32.read.dig:
-  forall c: Char
-  Maybe<&2, U32>
-
-assert Nat.show.put:
-  forall qr: Nat & Nat
-  Char & Nat
-
-assert Nat.show.step:
-  forall n: Nat
-  Char & Nat
-
-assert Nat.show.fin:
-  forall g   : Nat
-  forall acc : String
-  forall dq  : Char & Nat
-  String
-
-assert Nat.show.go:
-  forall f   : Nat
-  forall n   : Nat
-  forall acc : String
-  String
-
-assert Nat.show:
-  forall +n: Nat
-  String
-
-assert Nat.read.fin:
-  forall t   : String
-  forall acc : Nat
-  forall d   : Maybe<&2, U32>
-  Maybe<&2, Nat>
-
-assert Nat.read.go:
-  forall s   : String
-  forall acc : Nat
-  Maybe<&2, Nat>
-
-assert Nat.read:
-  forall s: String
-  Maybe<&2, Nat>
-
-assert U32.show.fin:
-  forall g   : Nat
-  forall acc : String
-  forall +n  : U32
-  forall z   : Bool
-  String
-
-assert U32.show.go:
-  forall f   : Nat
-  forall +n  : U32
-  forall acc : String
-  String
-
-assert U32.show.if:
-  forall a: U32
-  forall z: Bool
-  String
-
-assert U32.show:
-  forall +a: U32
-  String
-
-assert U32.read.fin:
-  forall t   : String
-  forall acc : U32
-  forall d   : Maybe<&2, U32>
-  Maybe<&2, U32>
-
-assert U32.read.go:
-  forall s   : String
-  forall acc : U32
-  Maybe<&2, U32>
-
-assert U32.read:
-  forall s: String
-  Maybe<&2, U32>
-
-# Array
-# -----
-
-assert Array.size.node:
-  forall -T : Type
-  forall ys : Array<T>
-  forall r  : Array<T> & U32
-  Array<T> & U32
-
-assert Array.size:
-  forall -T: Type
-  forall  a: Array<T>
-  Array<T> & U32
-
-assert Array.swap.lo:
-  forall -T : Type
-  forall ys : Array<T>
-  forall r  : Array<T> & T
-  Array<T> & T
-
-assert Array.swap.hi:
-  forall -T : Type
-  forall xs : Array<T>
-  forall r  : Array<T> & T
-  Array<T> & T
-
-assert Array.swap.if:
-  forall -T : Type
-  forall xs : Array<T>
-  forall ys : Array<T>
-  forall +h : U32
-  forall i  : U32
-  forall v  : T
-  forall z  : Bool
-  Array<T> & T
-
-assert Array.swap.go:
-  forall -T: Type
-  forall  a: Array<T>
-  forall  n: U32
-  forall +i: U32
-  forall  v: T
-  Array<T> & T
-
-assert Array.swap.at:
-  forall -T : Type
-  forall i  : U32
-  forall v  : T
-  forall an : Array<T> & U32
-  Array<T> & T
-
-assert Array.swap:
-  forall -T: Type
-  forall  a: Array<T>
-  forall +i: U32
-  forall  v: T
-  Array<T> & T
-
-assert Array.clone.node:
-  forall cx: Array<U32> & Array<U32>
-  forall cy: Array<U32> & Array<U32>
-  Array<U32> & Array<U32>
-
-assert Array.clone:
-  forall a: Array<U32>
-  Array<U32> & Array<U32>
-
-assert Array.new:
-  forall -T: Data
-  forall +d: Nat
-  forall +v: T
-  Array<T>
-
-assert Array.set.fin:
-  forall -T: Type
-  forall  r: Array<T> & T
-  Array<T>
-
-assert Array.set:
-  forall -T: Type
-  forall  a: Array<T>
-  forall  i: U32
-  forall  v: T
-  Array<T>
-
-assert Array.get.if:
-  forall -T : Data
-  forall xs : Array<T>
-  forall ys : Array<T>
-  forall +h : U32
-  forall i  : U32
-  forall z  : Bool
-  Array<T> & T
-
-assert Array.get.go:
-  forall -T: Data
-  forall  a: Array<T>
-  forall  n: U32
-  forall +i: U32
-  Array<T> & T
-
-assert Array.get.at:
-  forall -T : Data
-  forall i  : U32
-  forall an : Array<T> & U32
-  Array<T> & T
-
-assert Array.get:
-  forall -T: Data
-  forall  a: Array<T>
-  forall +i: U32
-  Array<T> & T
-
-# Map
-# ---
-
-assert Map.bit.u:
-  forall x: U32
-  forall k: Nat
-  Bool
-
-assert Map.bit.chr:
-  forall c   : Char
-  forall off : Nat
-  Char & Bool
-
-assert Map.bit.go.chr:
-  forall t: String
-  forall r: Char & Bool
-  String & Bool
-
-assert Map.bit.go.rec:
-  forall c: Char
-  forall r: String & Bool
-  String & Bool
-
-assert Map.bit.go:
-  forall key : String
-  forall ci  : Nat
-  forall off : Nat
-  String & Bool
-
-assert Map.bit.at:
-  forall key : String
-  forall co  : Nat & Nat
-  String & Bool
-
-assert Map.bit:
-  forall key: String
-  forall pos: Nat
-  String & Bool
-
-assert Map.msb.u.if:
-  forall p  : Nat
-  forall x2 : U32
-  forall z  : Bool
-  Nat
-
-assert Map.msb.u:
-  forall n: Nat
-  forall x: U32
-  Nat
-
-assert Map.diff.chr:
-  forall x: U32
-  Nat
-
-assert Map.diff.step:
-  forall x: Char
-  forall y: Char
-  Nat & Bool
-
-assert Map.diff.fin:
-  forall xt: String
-  forall yt: String
-  forall rc: Nat & Bool
-  Nat
-
-assert Map.diff:
-  forall a: String
-  forall b: String
-  Nat
-
-assert Map.new:
-  forall -a: Quant
-  forall -V: Kind(a)
-  Map<a, V>
-
-assert Map.put.bit:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall x  : V
-  forall p2 : Nat
-  forall lo : Map<a, V>
-  forall hi : Map<a, V>
-  forall kb : String & Bool
-  Map<a, V>
-
-assert Map.put:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  forall x   : V
-  Map<a, V>
-
-assert Map.ins.splice.bit:
-  forall -a   : Quant
-  forall -V   : Kind(a)
-  forall x    : V
-  forall rest : Map<a, V>
-  forall pb   : Nat
-  forall kb   : String & Bool
-  Map<a, V>
-
-assert Map.ins.splice:
-  forall -a   : Quant
-  forall -V   : Kind(a)
-  forall +p   : Nat
-  forall key  : String
-  forall x    : V
-  forall rest : Map<a, V>
-  Map<a, V>
-
-assert Map.ins.deep:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall x  : V
-  forall lo : Map<a, V>
-  forall hi : Map<a, V>
-  forall pb : Nat
-  forall qb : Nat
-  forall kb : String & Bool
-  Map<a, V>
-
-assert Map.ins.if:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall key : String
-  forall x   : V
-  forall lo  : Map<a, V>
-  forall hi  : Map<a, V>
-  forall +p2 : Nat
-  forall pb  : Nat
-  forall t   : Bool
-  Map<a, V>
-
-assert Map.ins:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  forall x   : V
-  forall +p  : Nat
-  Map<a, V>
-
-assert Map.seek.lo:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall p2 : Nat
-  forall hi : Map<a, V>
-  forall r0 : (Map<a, V> & String) & Maybe<&2, String>
-  (Map<a, V> & String) & Maybe<&2, String>
-
-assert Map.seek.hi:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall p2 : Nat
-  forall lo : Map<a, V>
-  forall r0 : (Map<a, V> & String) & Maybe<&2, String>
-  (Map<a, V> & String) & Maybe<&2, String>
-
-assert Map.seek.bit:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall lo : Map<a, V>
-  forall hi : Map<a, V>
-  forall p2 : Nat
-  forall kb : String & Bool
-  (Map<a, V> & String) & Maybe<&2, String>
-
-assert Map.seek:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  (Map<a, V> & String) & Maybe<&2, String>
-
-assert Map.set.fin.go:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  forall x   : V
-  forall r   : (String & String) & Cmp
-  Map<a, V>
-
-assert Map.set.fin:
-  forall -a   : Quant
-  forall -V   : Kind(a)
-  forall m    : Map<a, V>
-  forall key  : String
-  forall x    : V
-  forall keyb : String
-  forall k    : String
-  Map<a, V>
-
-assert Map.set.go:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall  x: V
-  forall  r: (Map<a, V> & String) & Maybe<&2, String>
-  Map<a, V>
-
-assert Map.set:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  forall x   : V
-  Map<a, V>
-
-assert Map.set.kv:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall m  : Map<a, V>
-  forall kv : Sigma<&2, a, String, _ => V>
-  Map<a, V>
-
-assert Map.has.leaf:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall  v: V
-  forall  r: (String & String) & Cmp
-  Map<a, V> & Bool
-
-assert Map.has.lo:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall p2 : Nat
-  forall hi : Map<a, V>
-  forall r0 : Map<a, V> & Bool
-  Map<a, V> & Bool
-
-assert Map.has.hi:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall p2 : Nat
-  forall lo : Map<a, V>
-  forall r0 : Map<a, V> & Bool
-  Map<a, V> & Bool
-
-assert Map.has.bit:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall lo : Map<a, V>
-  forall hi : Map<a, V>
-  forall p2 : Nat
-  forall kb : String & Bool
-  Map<a, V> & Bool
-
-assert Map.has:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  Map<a, V> & Bool
-
-assert Map.get.leaf:
-  forall -V: Data
-  forall  d: V
-  forall  v: V
-  forall  r: (String & String) & Cmp
-  Map<&2, V> & V
-
-assert Map.get.lo:
-  forall -V : Data
-  forall p2 : Nat
-  forall hi : Map<&2, V>
-  forall r0 : Map<&2, V> & V
-  Map<&2, V> & V
-
-assert Map.get.hi:
-  forall -V : Data
-  forall p2 : Nat
-  forall lo : Map<&2, V>
-  forall r0 : Map<&2, V> & V
-  Map<&2, V> & V
-
-assert Map.get.bit:
-  forall -V : Data
-  forall d  : V
-  forall lo : Map<&2, V>
-  forall hi : Map<&2, V>
-  forall p2 : Nat
-  forall kb : String & Bool
-  Map<&2, V> & V
-
-assert Map.get:
-  forall -V  : Data
-  forall d   : V
-  forall m   : Map<&2, V>
-  forall key : String
-  Map<&2, V> & V
-
-assert Map.pop.lo:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall pos : Nat
-  forall lo  : Map<a, V>
-  forall hi  : Map<a, V>
-  forall r   : Maybe<a, V>
-  Map<a, V> & Maybe<a, V>
-
-assert Map.pop.hi:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall pos : Nat
-  forall lo  : Map<a, V>
-  forall hi  : Map<a, V>
-  forall r   : Maybe<a, V>
-  Map<a, V> & Maybe<a, V>
-
-assert Map.pop.leaf:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall  v: V
-  forall  r: (String & String) & Cmp
-  Map<a, V> & Maybe<a, V>
-
-assert Map.pop.golo:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall p2 : Nat
-  forall hi : Map<a, V>
-  forall r0 : Map<a, V> & Maybe<a, V>
-  Map<a, V> & Maybe<a, V>
-
-assert Map.pop.gohi:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall p2 : Nat
-  forall lo : Map<a, V>
-  forall r0 : Map<a, V> & Maybe<a, V>
-  Map<a, V> & Maybe<a, V>
-
-assert Map.pop.bit:
-  forall -a : Quant
-  forall -V : Kind(a)
-  forall lo : Map<a, V>
-  forall hi : Map<a, V>
-  forall p2 : Nat
-  forall kb : String & Bool
-  Map<a, V> & Maybe<a, V>
-
-assert Map.pop:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  Map<a, V> & Maybe<a, V>
-
-assert Map.del.fin:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall  r: Map<a, V> & Maybe<a, V>
-  Map<a, V>
-
-assert Map.del:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  Map<a, V>
-
-assert Map.to_list.go:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall acc : List<a, Sigma<&2, a, String, _ => V>>
-  List<a, Sigma<&2, a, String, _ => V>>
-
-assert Map.to_list:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall  m: Map<a, V>
-  List<a, Sigma<&2, a, String, _ => V>>
-
-assert Map.keys.go:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall acc : List<&2, String>
-  List<&2, String>
-
-assert Map.keys:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall  m: Map<a, V>
-  List<&2, String>
-
-assert Map.from_list.go:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall kvs : List<a, Sigma<&2, a, String, _ => V>>
-  forall m   : Map<a, V>
-  Map<a, V>
-
-assert Map.from_list:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall kvs : List<a, Sigma<&2, a, String, _ => V>>
-  Map<a, V>
-
-assert Map.union:
-  forall -a: Quant
-  forall -V: Kind(a)
-  forall  m: Map<a, V>
-  forall  n: Map<a, V>
-  Map<a, V>
-
-# Set
-# ---
-
-assert Set:
-  Data
-
-assert Set.new:
-  Set()
-
-assert Set.add:
-  forall s   : Set()
-  forall key : String
-  Set()
-
-assert Set.has:
-  forall s   : Set()
-  forall key : String
-  Set() & Bool
-
-assert Set.del:
-  forall s   : Set()
-  forall key : String
-  Set()
-
-assert Set.union:
-  forall a: Set()
-  forall b: Set()
-  Set()
-
-# Proofs
-# ======
-
-# Word
-# ----
-
-def Word(n):
-  match n:
-    case 0n:
-      Word.Nil
-    case 1n+p:
-      Word.Con<p>
-
-# Pair
-# ----
-
-def Pair(A, B):
-  Sigma<&1, &1, A, _ => B>
-
-def Exists(A, B):
-  Sigma<&1, &1, A, B>
-
-def Or(A, B):
-  Either<&1, &1, A, B>
-
-# Effects
-# -------
-
-def IO(A):
-  @-R: Type ->
-  @k: (A -> IO.OP<R>) ->
-  IO.OP<R>
-
-def IO.pure(A, x):
-  R => k => k(x)
-
-def IO.bind(A, B, m, f):
-  R => k => m(R, x => f(x, R, k))
-
-def IO.print(text):
-  import "./effs/print.c"
-  import "./effs/print.js"
-
-def IO.write(text):
-  import "./effs/write.c"
-  import "./effs/write.js"
-
-def IO.print_err(text):
-  import "./effs/print_err.c"
-  import "./effs/print_err.js"
-
-def IO.get_env(name):
-  import "./effs/get_env.c"
-  import "./effs/get_env.js"
-
-def IO.die(A, code, msg):
-  R => k => Halt{code, msg}
-
-def IO.pass(A, r):
-  match r:
-    case Done{value}:
-      IO.pure(A, value)
-    case Fail{(code, message)}:
-      IO.die(A, code, message)
-
-def IO.try(A, act):
-  IO.bind(Result<&1, &1, U32 & String, A>, A, act, IO.pass(A))
-
-def File.open(path, mode):
-  import "./effs/file_open.c"
-  import "./effs/file_open.js"
-
-def File.read(file, max):
-  import "./effs/file_read.c"
-  import "./effs/file_read.js"
-
-def File.write(file, data):
-  import "./effs/file_write.c"
-  import "./effs/file_write.js"
-
-def File.close(file):
-  import "./effs/file_close.c"
-  import "./effs/file_close.js"
-
-def TCP.listen(port):
-  import "./effs/tcp_listen.c"
-  import "./effs/tcp_listen.js"
-
-def TCP.accept(listener):
-  import "./effs/tcp_accept.c"
-  import "./effs/tcp_accept.js"
-
-def TCP.connect(host, port):
-  import "./effs/tcp_connect.c"
-  import "./effs/tcp_connect.js"
-
-def TCP.send(sock, data):
-  import "./effs/tcp_send.c"
-  import "./effs/tcp_send.js"
-
-def TCP.recv(sock, max):
-  import "./effs/tcp_recv.c"
-  import "./effs/tcp_recv.js"
-
-def UDP.bind(port):
-  import "./effs/udp_bind.c"
-  import "./effs/udp_bind.js"
-
-def UDP.send_to(sock, host, port, data):
-  import "./effs/udp_send_to.c"
-  import "./effs/udp_send_to.js"
-
-def UDP.recv_from(sock, max):
-  import "./effs/udp_recv_from.c"
-  import "./effs/udp_recv_from.js"
-
-def Socket.close(socket):
-  import "./effs/socket_close.c"
-  import "./effs/socket_close.js"
-
-def Listener.close(listener):
-  import "./effs/listener_close.c"
-  import "./effs/listener_close.js"
-
-# Equal
-# -----
-
-def Equal.cong(A, B, f, a, b, e):
-  %e : {f(a) == f(_) : B}; {==}
-
-def Equal.sym(A, a, b, e):
-  %e : {_ == a : A}; {==}
-
-def Equal.trans(A, a, b, c, ab, bc):
-  %bc : {a == _ : A}; ab
-
-# Empty
-# -----
-
-def Empty.absurd(A, e):
-  match e:
-
-# Bool
-# ----
-
-def Bool.not(b):
-  match b:
-    case False{}:
-      True{}
-    case True{}:
-      False{}
-
-def Bool.and(a, b):
-  match a:
-    case False{}:
-      False{}
-    case True{}:
-      b
-
-def Bool.or(a, b):
-  match a:
-    case False{}:
-      b
-    case True{}:
-      True{}
-
-def Bool.xor(a, b):
-  match a:
-    case False{}:
-      b
-    case True{}:
-      Bool.not(b)
-
-def Bool.cmp(a, b):
-  match a b:
-    case False{} False{}:
-      EQ{}
-    case False{} True{}:
-      LT{}
-    case True{} False{}:
-      GT{}
-    case True{} True{}:
-      EQ{}
-
-def Bool.full_add(a, b, c):
-  match a b c:
-    case False{} False{} False{}:
-      (False{}, False{})
-    case False{} False{} True{}:
-      (True{}, False{})
-    case False{} True{} False{}:
-      (True{}, False{})
-    case False{} True{} True{}:
-      (False{}, True{})
-    case True{} False{} False{}:
-      (True{}, False{})
-    case True{} False{} True{}:
-      (False{}, True{})
-    case True{} True{} False{}:
-      (False{}, True{})
-    case True{} True{} True{}:
-      (True{}, True{})
-
-# Cmp
-# ---
-
-def Cmp.is_lt(c):
-  match c:
-    case LT{}:
-      True{}
-    case EQ{}:
-      False{}
-    case GT{}:
-      False{}
-
-def Cmp.is_eq(c):
-  match c:
-    case LT{}:
-      False{}
-    case EQ{}:
-      True{}
-    case GT{}:
-      False{}
-
-def Cmp.is_gt(c):
-  match c:
-    case LT{}:
-      False{}
-    case EQ{}:
-      False{}
-    case GT{}:
-      True{}
-
-def Cmp.is_le(c):
-  match c:
-    case LT{}:
-      True{}
-    case EQ{}:
-      True{}
-    case GT{}:
-      False{}
-
-def Cmp.is_ge(c):
-  match c:
-    case LT{}:
-      False{}
-    case EQ{}:
-      True{}
-    case GT{}:
-      True{}
-
-# Nat
-# ---
-
-def Nat.double(n):
-  match n:
-    case 0n:
-      0n
-    case 1n+p:
-      2n+Nat.double(p)
-
-def Nat.add(a, b):
-  match a:
-    case 0n:
-      b
-    case 1n+p:
-      1n+Nat.add(p, b)
-
-def Nat.sub(a, b):
-  match a b:
-    case 0n 0n:
-      0n
-    case 0n 1n+bp:
-      0n
-    case 1n+ap 0n:
-      1n+ap
-    case 1n+ap 1n+bp:
-      Nat.sub(ap, bp)
-
-def Nat.mul(a, b):
-  match a:
-    case 0n:
-      0n
-    case 1n+p:
-      Nat.add(b, Nat.mul(p, b))
-
-def Nat.divmod.go(n, m, d, r):
-  match n:
-    case 0n:
-      (d, r)
-    case 1n+np:
-      match m:
-        case 0n:
-          Nat.divmod.go(np, r, 1n+d, 0n)
-        case 1n+mp:
-          Nat.divmod.go(np, mp, d, 1n+r)
-
-def Nat.divmod(a, b):
-  match b:
-    case 0n:
-      (0n, a)
-    case 1n+bp:
-      Nat.divmod.go(a, bp, 0n, 0n)
-
-def Nat.cmp(a, b):
-  match a b:
-    case 0n 0n:
-      EQ{}
-    case 0n 1n+bp:
-      LT{}
-    case 1n+ap 0n:
-      GT{}
-    case 1n+ap 1n+bp:
-      Nat.cmp(ap, bp)
-
-def Nat.is_lt(a, b):
-  Cmp.is_lt(Nat.cmp(a, b))
-
-# Maybe
-# -----
-
-def Maybe.pure(a, A, x):
-  Some{x}
-
-def Maybe.bind(a, A, B, m, f):
-  match m:
-    case None{}:
-      None{}
-    case Some{x}:
-      f(x)
-
-# Result
-# ------
-
-def Result.pure(a, b, E, A, x):
-  Done{x}
-
-def Result.fail(a, b, E, A, e):
-  Fail{e}
-
-def Result.bind(a, b, E, A, B, r, f):
-  match r:
-    case Fail{e}:
-      Fail{e}
-    case Done{x}:
-      f(x)
-
-# Word
-# ----
-
-def Word.cast(m, n, e, w):
-  %e : Word(_); w
-
-def Word.zero(n):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      WCon{False{}, Word.zero(p)}
-
-def Word.not(n, w):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      match w:
-        case WCon{b, t}:
-          WCon{Bool.not(b), Word.not(p, t)}
-
-def Word.and(n, a, b):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      match a b:
-        case WCon{ab, at} WCon{bb, bt}:
-          WCon{Bool.and(ab, bb), Word.and(p, at, bt)}
-
-def Word.or(n, a, b):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      match a b:
-        case WCon{ab, at} WCon{bb, bt}:
-          WCon{Bool.or(ab, bb), Word.or(p, at, bt)}
-
-def Word.xor(n, a, b):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      match a b:
-        case WCon{ab, at} WCon{bb, bt}:
-          WCon{Bool.xor(ab, bb), Word.xor(p, at, bt)}
-
-def Word.shl.put(n, c, w):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      match w:
-        case WCon{b, t}:
-          WCon{c, Word.shl.put(p, b, t)}
-
-def Word.shl(n, w):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      match w:
-        case WCon{b, t}:
-          WCon{False{}, Word.shl.put(p, b, t)}
-
-def Word.shl.out.con(p, c, r):
-  (hi, t2) = r
-  (hi, WCon{c, t2})
-
-def Word.shl.out(n, c, w):
-  match n:
-    case 0n:
-      (c, WNil{})
-    case 1n+p:
-      match w:
-        case WCon{b, t}:
-          Word.shl.out.con(p, c, Word.shl.out(p, b, t))
-
-def Word.shr.pad(n, w):
-  match n:
-    case 0n:
-      WCon{False{}, w}
-    case 1n+p:
-      match w:
-        case WCon{b, t}:
-          WCon{b, Word.shr.pad(p, t)}
-
-def Word.shr(n, w):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      match w:
-        case WCon{b, t}:
-          Word.shr.pad(p, t)
-
-def Word.cmp.fin(ab, bb, t):
-  match t:
-    case LT{}:
-      LT{}
-    case EQ{}:
-      Bool.cmp(ab, bb)
-    case GT{}:
-      GT{}
-
-def Word.cmp(n, a, b):
-  match n:
-    case 0n:
-      EQ{}
-    case 1n+p:
-      match a b:
-        case WCon{ab, at} WCon{bb, bt}:
-          Word.cmp.fin(ab, bb, Word.cmp(p, at, bt))
-
-def Word.inc(n, w):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      match w:
-        case WCon{False{}, t}:
-          WCon{True{}, t}
-        case WCon{True{}, t}:
-          WCon{False{}, Word.inc(p, t)}
-
-def Word.adc.con(p, at, bt, f, sk):
-  (s, k) = sk
-  WCon{s, Word.adc(p, at, bt, f, k)}
-
-def Word.adc(n, a, b, f, c):
-  match n:
-    case 0n:
-      WNil{}
-    case 1n+p:
-      match a b f:
-        case WCon{ab, at} WCon{bb, bt} False{}:
-          Word.adc.con(p, at, bt, False{}, Bool.full_add(ab, bb, c))
-        case WCon{ab, at} WCon{bb, bt} True{}:
-          Word.adc.con(p, at, bt, True{}, Bool.full_add(ab, Bool.not(bb), c))
-
-def Word.add(n, a, b):
-  Word.adc(n, a, b, False{}, False{})
-
-def Word.sub(n, a, b):
-  Word.adc(n, a, b, True{}, True{})
-
-def Word.add_comm.arm(p, h, at, bt, k):
-  Equal.cong(Word(p), Word(1n+p), w => WCon{h, w},
-    Word.adc(p, at, bt, False{}, k), Word.adc(p, bt, at, False{}, k),
-    Word.add_comm.go(p, at, bt, k))
-
-def Word.add_comm.go(n, a, b, c):
-  match n:
-    case 0n:
-      match a b:
-        case WNil{} WNil{}:
-          {==}
-    case 1n+p:
-      match a b c:
-        case WCon{False{}, at} WCon{False{}, bt} False{}:
-          Word.add_comm.arm(p, False{}, at, bt, False{})
-        case WCon{False{}, at} WCon{False{}, bt} True{}:
-          Word.add_comm.arm(p, True{}, at, bt, False{})
-        case WCon{False{}, at} WCon{True{}, bt} False{}:
-          Word.add_comm.arm(p, True{}, at, bt, False{})
-        case WCon{False{}, at} WCon{True{}, bt} True{}:
-          Word.add_comm.arm(p, False{}, at, bt, True{})
-        case WCon{True{}, at} WCon{False{}, bt} False{}:
-          Word.add_comm.arm(p, True{}, at, bt, False{})
-        case WCon{True{}, at} WCon{False{}, bt} True{}:
-          Word.add_comm.arm(p, False{}, at, bt, True{})
-        case WCon{True{}, at} WCon{True{}, bt} False{}:
-          Word.add_comm.arm(p, False{}, at, bt, True{})
-        case WCon{True{}, at} WCon{True{}, bt} True{}:
-          Word.add_comm.arm(p, True{}, at, bt, True{})
-
-def Word.add_comm(n, a, b):
-  Word.add_comm.go(n, a, b, False{})
-
-def Word.to_nat(n, w):
-  match n:
-    case 0n:
-      0n
-    case 1n+p:
-      match w:
-        case WCon{False{}, t}:
-          Nat.double(Word.to_nat(p, t))
-        case WCon{True{}, t}:
-          1n+Nat.double(Word.to_nat(p, t))
-
-def Word.mul.go(n, m, a, b, acc):
-  match m:
-    case 0n:
-      acc
-    case 1n+mp:
-      match a:
-        case WCon{False{}, at}:
-          Word.mul.go(n, mp, at, Word.shl(n, b), acc)
-        case WCon{True{}, at}:
-          +b2 = b
-          Word.mul.go(n, mp, at, Word.shl(n, b2), Word.add(n, acc, b2))
-
-def Word.mul(n, a, b):
-  Word.mul.go(n, n, a, b, Word.zero(n))
-
-# U32
-# ---
-
-def U32.zero():
-  U32{Word.zero(32n)}
-
-def U32.one():
-  U32{Word.inc(32n, Word.zero(32n))}
-
-def U32.inc(a):
-  match a:
-    case U32{x}:
-      U32{Word.inc(32n, x)}
-
-def U32.add(a, b):
-  match a b:
-    case U32{x} U32{y}:
-      U32{Word.add(32n, x, y)}
-
-def U32.add_comm(a, b):
-  match a b:
-    case U32{x} U32{y}:
-      Equal.cong(Word(32n), U32, w => U32{w}, Word.add(32n, x, y),
-        Word.add(32n, y, x), Word.add_comm(32n, x, y))
-
-def U32.sub(a, b):
-  match a b:
-    case U32{x} U32{y}:
-      U32{Word.sub(32n, x, y)}
-
-def U32.mul(a, b):
-  match a b:
-    case U32{x} U32{y}:
-      U32{Word.mul(32n, x, y)}
-
-def U32.not(a):
-  match a:
-    case U32{x}:
-      U32{Word.not(32n, x)}
-
-def U32.and(a, b):
-  match a b:
-    case U32{x} U32{y}:
-      U32{Word.and(32n, x, y)}
-
-def U32.or(a, b):
-  match a b:
-    case U32{x} U32{y}:
-      U32{Word.or(32n, x, y)}
-
-def U32.xor(a, b):
-  match a b:
-    case U32{x} U32{y}:
-      U32{Word.xor(32n, x, y)}
-
-def U32.shl(a):
-  match a:
-    case U32{x}:
-      U32{Word.shl(32n, x)}
-
-def U32.shr(a):
-  match a:
-    case U32{x}:
-      U32{Word.shr(32n, x)}
-
-def U32.shln(a, n):
-  match n:
-    case 0n:
-      a
-    case 1n+p:
-      U32.shl(U32.shln(a, p))
-
-def U32.shrn(a, n):
-  match n:
-    case 0n:
-      a
-    case 1n+p:
-      U32.shr(U32.shrn(a, p))
-
-def U32.cmp(a, b):
-  match a b:
-    case U32{x} U32{y}:
-      Word.cmp(32n, x, y)
-
-def U32.is_eq(a, b):
-  Cmp.is_eq(U32.cmp(a, b))
-
-def U32.is_ne(a, b):
-  Bool.not(Cmp.is_eq(U32.cmp(a, b)))
-
-def U32.is_lt(a, b):
-  Cmp.is_lt(U32.cmp(a, b))
-
-def U32.is_le(a, b):
-  Cmp.is_le(U32.cmp(a, b))
-
-def U32.is_gt(a, b):
-  Cmp.is_gt(U32.cmp(a, b))
-
-def U32.is_ge(a, b):
-  Cmp.is_ge(U32.cmp(a, b))
-
-def U32.is_zero(a):
-  U32.is_eq(a, U32.zero())
-
-def U32.to_nat(a):
-  match a:
-    case U32{w}:
-      Word.to_nat(32n, w)
-
-def U32.from_nat(n):
-  match n:
-    case 0n:
-      U32.zero()
-    case 1n+p:
-      U32.inc(U32.from_nat(p))
-
-def U32.divmod.go.fin(p, q, s, b, g):
-  match g:
-    case True{}:
-      (WCon{True{}, q}, U32.sub(s, b))
-    case False{}:
-      (WCon{False{}, q}, s)
-
-def U32.divmod.go.shl(p, q, b, ts):
-  (t, s) = ts
-  +s2 = {U32{s} : U32}
-  U32.divmod.go.fin(p, q, s2, b, Bool.or(t, U32.is_ge(s2, b)))
-
-def U32.divmod.go.rec(p, a0, b, qr):
-  (q, r) = qr
-  U32{rw} = r
-  U32.divmod.go.shl(p, q, b, Word.shl.out(32n, a0, rw))
-
-def U32.divmod.go(m, a, b):
-  match m a:
-    case 0n WNil{}:
-      (WNil{}, U32.zero())
-    case 1n+p WCon{a0, hi}:
-      U32.divmod.go.rec(p, a0, b, U32.divmod.go(p, hi, b))
-
-def U32.div.fin(qr):
-  (q, r) = qr
-  U32{q}
-
-def U32.div.if(aw, b, z):
-  match z:
-    case True{}:
-      U32.zero()
-    case False{}:
-      U32.div.fin(U32.divmod.go(32n, aw, b))
-
-def U32.div(a, b):
-  U32{aw} = a
-  U32.div.if(aw, b, U32.is_zero(b))
-
-def U32.mod.fin(qr):
-  (q, r) = qr
-  r
-
-def U32.mod.if(aw, b, z):
-  match z:
-    case True{}:
-      U32{aw}
-    case False{}:
-      U32.mod.fin(U32.divmod.go(32n, aw, b))
-
-def U32.mod(a, b):
-  U32{aw} = a
-  U32.mod.if(aw, b, U32.is_zero(b))
-
-# Char
-# ----
-
-def Char.cmp(a, b):
+def Char.cmp(a: Char, b: Char) -> (Char & Char) & Cmp:
   match a b:
     case Chr{x} Chr{y}:
       +x2 = x
@@ -2324,18 +1072,25 @@ def Char.cmp(a, b):
 # String
 # ------
 
-def String.append(a, b):
+def String.append(a: String, b: String) -> String:
   match a:
     case SNil{}:
       b
     case SCon{h, t}:
       SCon{h, String.append(t, b)}
 
-def String.cmp.rec(h1b, h2b, rr):
+def String.cmp.rec(h1b: Char, h2b: Char, rr: (String & String) & Cmp) ->
+  (String & String) & Cmp:
   ((t1b, t2b), r) = rr
   ((SCon{h1b, t1b}, SCon{h2b, t2b}), r)
 
-def String.cmp.fin(t1, t2, hc):
+assert String.cmp:
+  forall a: String
+  forall b: String
+  (String & String) & Cmp
+
+def String.cmp.fin(t1: String, t2: String, hc: (Char & Char) & Cmp) ->
+  (String & String) & Cmp:
   ((h1b, h2b), c) = hc
   match c:
     case LT{}:
@@ -2356,37 +1111,43 @@ def String.cmp(a, b):
     case SCon{h1, t1} SCon{h2, t2}:
       String.cmp.fin(t1, t2, Char.cmp(h1, h2))
 
-def String.eq.fin(r):
+def String.eq.fin(r: (String & String) & Cmp) -> Bool:
   ((a2, b2), c) = r
   Cmp.is_eq(c)
 
-def String.eq(a, b):
+def String.eq(a: String, b: String) -> Bool:
   String.eq.fin(String.cmp(a, b))
 
 # Text
 # ----
 
-def U32.read.dig.if(x, ok):
+def U32.read.dig.if(x: U32, ok: Bool) -> Maybe<&2, U32>:
   match ok:
     case True{}:
       Some{U32.sub(x, 48)}
     case False{}:
       None{}
 
-def U32.read.dig(c):
+def U32.read.dig(c: Char) -> Maybe<&2, U32>:
   match c:
     case Chr{x}:
       +x2 = x
       U32.read.dig.if(x2, Bool.and(U32.is_le(48, x2), U32.is_le(x2, 57)))
 
-def Nat.show.put(qr):
+def Nat.show.put(qr: Nat & Nat) -> Char & Nat:
   (q, r) = qr
   (Chr{U32.from_nat(Nat.add(48n, r))}, q)
 
-def Nat.show.step(n):
+def Nat.show.step(n: Nat) -> Char & Nat:
   Nat.show.put(Nat.divmod(n, 10n))
 
-def Nat.show.fin(g, acc, dq):
+assert Nat.show.go:
+  forall f   : Nat
+  forall n   : Nat
+  forall acc : String
+  String
+
+def Nat.show.fin(g: Nat, acc: String, dq: Char & Nat) -> String:
   (d, q) = dq
   match q:
     case 0n:
@@ -2401,10 +1162,15 @@ def Nat.show.go(f, n, acc):
     case 1n+g:
       Nat.show.fin(g, acc, Nat.show.step(n))
 
-def Nat.show(n):
+def Nat.show(+n: Nat) -> String:
   Nat.show.go(1n+n, n, SNil{})
 
-def Nat.read.fin(t, acc, d):
+assert Nat.read.go:
+  forall s   : String
+  forall acc : Nat
+  Maybe<&2, Nat>
+
+def Nat.read.fin(t: String, acc: Nat, d: Maybe<&2, U32>) -> Maybe<&2, Nat>:
   match d:
     case None{}:
       None{}
@@ -2418,14 +1184,20 @@ def Nat.read.go(s, acc):
     case SCon{h, t}:
       Nat.read.fin(t, acc, U32.read.dig(h))
 
-def Nat.read(s):
+def Nat.read(s: String) -> Maybe<&2, Nat>:
   match s:
     case SNil{}:
       None{}
     case SCon{h, t}:
       Nat.read.go(SCon{h, t}, 0n)
 
-def U32.show.fin(g, acc, n, z):
+assert U32.show.go:
+  forall f   : Nat
+  forall +n  : U32
+  forall acc : String
+  String
+
+def U32.show.fin(g: Nat, acc: String, +n: U32, z: Bool) -> String:
   match z:
     case True{}:
       acc
@@ -2440,17 +1212,22 @@ def U32.show.go(f, n, acc):
     case 1n+g:
       U32.show.fin(g, acc, n, U32.is_zero(n))
 
-def U32.show.if(a, z):
+def U32.show.if(a: U32, z: Bool) -> String:
   match z:
     case True{}:
       SCon{Chr{48}, SNil{}}
     case False{}:
       U32.show.go(10n, a, SNil{})
 
-def U32.show(a):
+def U32.show(+a: U32) -> String:
   U32.show.if(a, U32.is_zero(a))
 
-def U32.read.fin(t, acc, d):
+assert U32.read.go:
+  forall s   : String
+  forall acc : U32
+  Maybe<&2, U32>
+
+def U32.read.fin(t: String, acc: U32, d: Maybe<&2, U32>) -> Maybe<&2, U32>:
   match d:
     case None{}:
       None{}
@@ -2464,7 +1241,7 @@ def U32.read.go(s, acc):
     case SCon{h, t}:
       U32.read.fin(t, acc, U32.read.dig(h))
 
-def U32.read(s):
+def U32.read(s: String) -> Maybe<&2, U32>:
   match s:
     case SNil{}:
       None{}
@@ -2474,26 +1251,37 @@ def U32.read(s):
 # Array
 # -----
 
-def Array.size.node(T, ys, r):
+def Array.size.node(-T: Type, ys: Array<T>, r: Array<T> & U32) ->
+  Array<T> & U32:
   (xs2, n) = r
   (ANode{xs2, ys}, U32.shl(n))
 
-def Array.size(T, a):
+def Array.size(-T: Type, a: Array<T>) -> Array<T> & U32:
   match a:
     case ALeaf{x}:
       (ALeaf{x}, 1)
     case ANode{xs, ys}:
       Array.size.node(T, ys, Array.size(T, xs))
 
-def Array.swap.lo(T, ys, r):
+def Array.swap.lo(-T: Type, ys: Array<T>, r: Array<T> & T) -> Array<T> & T:
   (nxs, old) = r
   (ANode{nxs, ys}, old)
 
-def Array.swap.hi(T, xs, r):
+def Array.swap.hi(-T: Type, xs: Array<T>, r: Array<T> & T) -> Array<T> & T:
   (nys, old) = r
   (ANode{xs, nys}, old)
 
-def Array.swap.if(T, xs, ys, h, i, v, z):
+assert Array.swap.go:
+  forall -T: Type
+  forall  a: Array<T>
+  forall  n: U32
+  forall +i: U32
+  forall  v: T
+  Array<T> & T
+
+def Array.swap.if(
+  -T: Type, xs: Array<T>, ys: Array<T>, +h: U32, i: U32, v: T, z: Bool
+) -> Array<T> & T:
   match z:
     case True{}:
       Array.swap.lo(T, ys, Array.swap.go(T, xs, h, i, v))
@@ -2508,20 +1296,22 @@ def Array.swap.go(T, a, n, i, v):
       +h = U32.shr(n)
       Array.swap.if(T, xs, ys, h, i, v, U32.is_lt(i, h))
 
-def Array.swap.at(T, i, v, an):
+def Array.swap.at(-T: Type, i: U32, v: T, an: Array<T> & U32) -> Array<T> & T:
   (a, n) = an
   +m = n
   Array.swap.go(T, a, m, U32.and(i, U32.sub(m, 1)), v)
 
-def Array.swap(T, a, i, v):
+def Array.swap(-T: Type, a: Array<T>, +i: U32, v: T) -> Array<T> & T:
   Array.swap.at(T, i, v, Array.size(T, a))
 
-def Array.clone.node(cx, cy):
+def Array.clone.node(
+  cx: Array<U32> & Array<U32>, cy: Array<U32> & Array<U32>
+) -> Array<U32> & Array<U32>:
   (xa, xb) = cx
   (ya, yb) = cy
   (ANode{xa, ya}, ANode{xb, yb})
 
-def Array.clone(a):
+def Array.clone(a: Array<U32>) -> Array<U32> & Array<U32>:
   match a:
     case ALeaf{x}:
       +x2 = x
@@ -2529,21 +1319,30 @@ def Array.clone(a):
     case ANode{xs, ys}:
       Array.clone.node(Array.clone(xs), Array.clone(ys))
 
-def Array.new(T, d, v):
+def Array.new(-T: Data, +d: Nat, +v: T) -> Array<T>:
   match d:
     case 0n:
       ALeaf{v}
     case 1n+p:
       ANode{Array.new(T, p, v), Array.new(T, p, v)}
 
-def Array.set.fin(T, r):
+def Array.set.fin(-T: Type, r: Array<T> & T) -> Array<T>:
   (na, old) = r
   na
 
-def Array.set(T, a, i, v):
+def Array.set(-T: Type, a: Array<T>, i: U32, v: T) -> Array<T>:
   Array.set.fin(T, Array.swap(T, a, i, v))
 
-def Array.get.if(T, xs, ys, h, i, z):
+assert Array.get.go:
+  forall -T: Data
+  forall  a: Array<T>
+  forall  n: U32
+  forall +i: U32
+  Array<T> & T
+
+def Array.get.if(
+  -T: Data, xs: Array<T>, ys: Array<T>, +h: U32, i: U32, z: Bool
+) -> Array<T> & T:
   match z:
     case True{}:
       Array.swap.lo(T, ys, Array.get.go(T, xs, h, i))
@@ -2559,21 +1358,21 @@ def Array.get.go(T, a, n, i):
       +h = U32.shr(n)
       Array.get.if(T, xs, ys, h, i, U32.is_lt(i, h))
 
-def Array.get.at(T, i, an):
+def Array.get.at(-T: Data, i: U32, an: Array<T> & U32) -> Array<T> & T:
   (a, n) = an
   +m = n
   Array.get.go(T, a, m, U32.and(i, U32.sub(m, 1)))
 
-def Array.get(T, a, i):
+def Array.get(-T: Data, a: Array<T>, +i: U32) -> Array<T> & T:
   Array.get.at(T, i, Array.size(T, a))
 
 # Map
 # ---
 
-def Map.bit.u(x, k):
+def Map.bit.u(x: U32, k: Nat) -> Bool:
   U32.is_ne(U32.and(U32.shrn(x, k), 1), 0)
 
-def Map.bit.chr(c, off):
+def Map.bit.chr(c: Char, off: Nat) -> Char & Bool:
   match c:
     case Chr{x}:
       match off:
@@ -2583,15 +1382,15 @@ def Map.bit.chr(c, off):
           +x2 = x
           (Chr{x2}, Map.bit.u(x2, Nat.sub(31n, b)))
 
-def Map.bit.go.chr(t, r):
+def Map.bit.go.chr(t: String, r: Char & Bool) -> String & Bool:
   (c2, b) = r
   (SCon{c2, t}, b)
 
-def Map.bit.go.rec(c, r):
+def Map.bit.go.rec(c: Char, r: String & Bool) -> String & Bool:
   (t2, b) = r
   (SCon{c, t2}, b)
 
-def Map.bit.go(key, ci, off):
+def Map.bit.go(key: String, ci: Nat, off: Nat) -> String & Bool:
   match key:
     case SNil{}:
       (SNil{}, False{})
@@ -2602,14 +1401,19 @@ def Map.bit.go(key, ci, off):
         case 1n+j:
           Map.bit.go.rec(c, Map.bit.go(t, j, off))
 
-def Map.bit.at(key, co):
+def Map.bit.at(key: String, co: Nat & Nat) -> String & Bool:
   (ci, off) = co
   Map.bit.go(key, ci, off)
 
-def Map.bit(key, pos):
+def Map.bit(key: String, pos: Nat) -> String & Bool:
   Map.bit.at(key, Nat.divmod(pos, 33n))
 
-def Map.msb.u.if(p, x2, z):
+assert Map.msb.u:
+  forall n: Nat
+  forall x: U32
+  Nat
+
+def Map.msb.u.if(p: Nat, x2: U32, z: Bool) -> Nat:
   match z:
     case True{}:
       0n
@@ -2624,17 +1428,22 @@ def Map.msb.u(n, x):
       +x2 = x
       Map.msb.u.if(p, x2, U32.is_zero(x2))
 
-def Map.diff.chr(x):
+def Map.diff.chr(x: U32) -> Nat:
   Nat.sub(33n, Map.msb.u(32n, x))
 
-def Map.diff.step(x, y):
+def Map.diff.step(x: Char, y: Char) -> Nat & Bool:
   match x y:
     case Chr{cx} Chr{cy}:
       +cx2 = cx
       +cy2 = cy
       (Map.diff.chr(U32.xor(cx2, cy2)), U32.is_eq(cx2, cy2))
 
-def Map.diff.fin(xt, yt, rc):
+assert Map.diff:
+  forall a: String
+  forall b: String
+  Nat
+
+def Map.diff.fin(xt: String, yt: String, rc: Nat & Bool) -> Nat:
   (r, c) = rc
   match c:
     case True{}:
@@ -2653,10 +1462,20 @@ def Map.diff(a, b):
     case SCon{x, xt} SCon{y, yt}:
       Map.diff.fin(xt, yt, Map.diff.step(x, y))
 
-def Map.new(a, V):
+def Map.new(a, -V: Kind(a)) -> Map<a, V>:
   MTip{}
 
-def Map.put.bit(a, V, x, p2, lo, hi, kb):
+assert Map.put:
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
+  forall x   : V
+  Map<a, V>
+
+def Map.put.bit(
+  a, -V: Kind(a), x: V, p2: Nat, lo: Map<a, V>, hi: Map<a, V>, kb: String & Bool
+) -> Map<a, V>:
   (key2, b) = kb
   match b:
     case False{}:
@@ -2674,7 +1493,9 @@ def Map.put(a, V, m, key, x):
       +p = pos
       Map.put.bit(a, V, x, p, lo, hi, Map.bit(key, p))
 
-def Map.ins.splice.bit(a, V, x, rest, pb, kb):
+def Map.ins.splice.bit(
+  a, -V: Kind(a), x: V, rest: Map<a, V>, pb: Nat, kb: String & Bool
+) -> Map<a, V>:
   (key2, b) = kb
   match b:
     case False{}:
@@ -2682,10 +1503,24 @@ def Map.ins.splice.bit(a, V, x, rest, pb, kb):
     case True{}:
       MNode{pb, rest, MLeaf{key2, x}}
 
-def Map.ins.splice(a, V, p, key, x, rest):
+def Map.ins.splice(
+  a, -V: Kind(a), +p: Nat, key: String, x: V, rest: Map<a, V>
+) -> Map<a, V>:
   Map.ins.splice.bit(a, V, x, rest, p, Map.bit(key, p))
 
-def Map.ins.deep(a, V, x, lo, hi, pb, qb, kb):
+assert Map.ins:
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
+  forall x   : V
+  forall +p  : Nat
+  Map<a, V>
+
+def Map.ins.deep(
+  a, -V: Kind(a), x: V, lo: Map<a, V>, hi: Map<a, V>, pb: Nat, qb: Nat,
+  kb: String & Bool
+) -> Map<a, V>:
   (key2, b) = kb
   match b:
     case False{}:
@@ -2693,7 +1528,10 @@ def Map.ins.deep(a, V, x, lo, hi, pb, qb, kb):
     case True{}:
       MNode{qb, lo, Map.ins(a, V, hi, key2, x, pb)}
 
-def Map.ins.if(a, V, key, x, lo, hi, p2, pb, t):
+def Map.ins.if(
+  a, -V: Kind(a), key: String, x: V, lo: Map<a, V>, hi: Map<a, V>, +p2: Nat,
+  pb: Nat, t: Bool
+) -> Map<a, V>:
   match t:
     case False{}:
       Map.ins.splice(a, V, pb, key, x, MNode{p2, lo, hi})
@@ -2710,15 +1548,30 @@ def Map.ins(a, V, m, key, x, p):
       +pos2 = pos
       Map.ins.if(a, V, key, x, lo, hi, pos2, p, Nat.is_lt(pos2, p))
 
-def Map.seek.lo(a, V, p2, hi, r0):
+def Map.seek.lo(
+  a, -V: Kind(a), p2: Nat, hi: Map<a, V>,
+  r0: (Map<a, V> & String) & Maybe<&2, String>
+) -> (Map<a, V> & String) & Maybe<&2, String>:
   ((lo2, key3), r) = r0
   ((MNode{p2, lo2, hi}, key3), r)
 
-def Map.seek.hi(a, V, p2, lo, r0):
+def Map.seek.hi(
+  a, -V: Kind(a), p2: Nat, lo: Map<a, V>,
+  r0: (Map<a, V> & String) & Maybe<&2, String>
+) -> (Map<a, V> & String) & Maybe<&2, String>:
   ((hi2, key3), r) = r0
   ((MNode{p2, lo, hi2}, key3), r)
 
-def Map.seek.bit(a, V, lo, hi, p2, kb):
+assert Map.seek:
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
+  (Map<a, V> & String) & Maybe<&2, String>
+
+def Map.seek.bit(
+  a, -V: Kind(a), lo: Map<a, V>, hi: Map<a, V>, p2: Nat, kb: String & Bool
+) -> (Map<a, V> & String) & Maybe<&2, String>:
   (key2, b) = kb
   match b:
     case False{}:
@@ -2737,7 +1590,9 @@ def Map.seek(a, V, m, key):
       +p = pos
       Map.seek.bit(a, V, lo, hi, p, Map.bit(key, p))
 
-def Map.set.fin.go(a, V, m, key, x, r):
+def Map.set.fin.go(
+  a, -V: Kind(a), m: Map<a, V>, key: String, x: V, r: (String & String) & Cmp
+) -> Map<a, V>:
   ((keyb2, k2), c) = r
   match c:
     case LT{}:
@@ -2747,10 +1602,14 @@ def Map.set.fin.go(a, V, m, key, x, r):
     case GT{}:
       Map.ins(a, V, m, key, x, Map.diff(keyb2, k2))
 
-def Map.set.fin(a, V, m, key, x, keyb, k):
+def Map.set.fin(
+  a, -V: Kind(a), m: Map<a, V>, key: String, x: V, keyb: String, k: String
+) -> Map<a, V>:
   Map.set.fin.go(a, V, m, key, x, String.cmp(keyb, k))
 
-def Map.set.go(a, V, x, r):
+def Map.set.go(
+  a, -V: Kind(a), x: V, r: (Map<a, V> & String) & Maybe<&2, String>
+) -> Map<a, V>:
   ((m2, key2), found) = r
   match found:
     case None{}:
@@ -2759,26 +1618,40 @@ def Map.set.go(a, V, x, r):
       +ka = {key2 : String}
       Map.set.fin(a, V, m2, ka, x, ka, k)
 
-def Map.set(a, V, m, key, x):
+def Map.set(a, -V: Kind(a), m: Map<a, V>, key: String, x: V) -> Map<a, V>:
   Map.set.go(a, V, x, Map.seek(a, V, m, key))
 
-def Map.set.kv(a, V, m, kv):
+def Map.set.kv(
+  a, -V: Kind(a), m: Map<a, V>, kv: Sigma<&2, a, String, _ => V>
+) -> Map<a, V>:
   (k, v) = kv
   Map.set(a, V, m, k, v)
 
-def Map.has.leaf(a, V, v, r):
+def Map.has.leaf(a, -V: Kind(a), v: V, r: (String & String) & Cmp) ->
+  Map<a, V> & Bool:
   ((key2, k2), c) = r
   (MLeaf{k2, v}, Cmp.is_eq(c))
 
-def Map.has.lo(a, V, p2, hi, r0):
+def Map.has.lo(a, -V: Kind(a), p2: Nat, hi: Map<a, V>, r0: Map<a, V> & Bool) ->
+  Map<a, V> & Bool:
   (lo2, r) = r0
   (MNode{p2, lo2, hi}, r)
 
-def Map.has.hi(a, V, p2, lo, r0):
+def Map.has.hi(a, -V: Kind(a), p2: Nat, lo: Map<a, V>, r0: Map<a, V> & Bool) ->
+  Map<a, V> & Bool:
   (hi2, r) = r0
   (MNode{p2, lo, hi2}, r)
 
-def Map.has.bit(a, V, lo, hi, p2, kb):
+assert Map.has:
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
+  Map<a, V> & Bool
+
+def Map.has.bit(
+  a, -V: Kind(a), lo: Map<a, V>, hi: Map<a, V>, p2: Nat, kb: String & Bool
+) -> Map<a, V> & Bool:
   (key2, b) = kb
   match b:
     case False{}:
@@ -2796,7 +1669,8 @@ def Map.has(a, V, m, key):
       +p = pos
       Map.has.bit(a, V, lo, hi, p, Map.bit(key, p))
 
-def Map.get.leaf(V, d, v, r):
+def Map.get.leaf(-V: Data, d: V, v: V, r: (String & String) & Cmp) ->
+  Map<&2, V> & V:
   ((key2, k2), c) = r
   match c:
     case LT{}:
@@ -2807,15 +1681,26 @@ def Map.get.leaf(V, d, v, r):
     case GT{}:
       (MLeaf{k2, v}, d)
 
-def Map.get.lo(V, p2, hi, r0):
+def Map.get.lo(-V: Data, p2: Nat, hi: Map<&2, V>, r0: Map<&2, V> & V) ->
+  Map<&2, V> & V:
   (lo2, r) = r0
   (MNode{p2, lo2, hi}, r)
 
-def Map.get.hi(V, p2, lo, r0):
+def Map.get.hi(-V: Data, p2: Nat, lo: Map<&2, V>, r0: Map<&2, V> & V) ->
+  Map<&2, V> & V:
   (hi2, r) = r0
   (MNode{p2, lo, hi2}, r)
 
-def Map.get.bit(V, d, lo, hi, p2, kb):
+assert Map.get:
+  forall -V  : Data
+  forall d   : V
+  forall m   : Map<&2, V>
+  forall key : String
+  Map<&2, V> & V
+
+def Map.get.bit(
+  -V: Data, d: V, lo: Map<&2, V>, hi: Map<&2, V>, p2: Nat, kb: String & Bool
+) -> Map<&2, V> & V:
   (key2, b) = kb
   match b:
     case False{}:
@@ -2833,7 +1718,9 @@ def Map.get(V, d, m, key):
       +p = pos
       Map.get.bit(V, d, lo, hi, p, Map.bit(key, p))
 
-def Map.pop.lo(a, V, pos, lo, hi, r):
+def Map.pop.lo(
+  a, -V: Kind(a), pos: Nat, lo: Map<a, V>, hi: Map<a, V>, r: Maybe<a, V>
+) -> Map<a, V> & Maybe<a, V>:
   match lo:
     case MTip{}:
       (hi, r)
@@ -2842,7 +1729,9 @@ def Map.pop.lo(a, V, pos, lo, hi, r):
     case MNode{p, a, b}:
       (MNode{pos, MNode{p, a, b}, hi}, r)
 
-def Map.pop.hi(a, V, pos, lo, hi, r):
+def Map.pop.hi(
+  a, -V: Kind(a), pos: Nat, lo: Map<a, V>, hi: Map<a, V>, r: Maybe<a, V>
+) -> Map<a, V> & Maybe<a, V>:
   match hi:
     case MTip{}:
       (lo, r)
@@ -2851,7 +1740,8 @@ def Map.pop.hi(a, V, pos, lo, hi, r):
     case MNode{p, a, b}:
       (MNode{pos, lo, MNode{p, a, b}}, r)
 
-def Map.pop.leaf(a, V, v, r):
+def Map.pop.leaf(a, -V: Kind(a), v: V, r: (String & String) & Cmp) ->
+  Map<a, V> & Maybe<a, V>:
   ((key2, k2), c) = r
   match c:
     case LT{}:
@@ -2861,15 +1751,28 @@ def Map.pop.leaf(a, V, v, r):
     case GT{}:
       (MLeaf{k2, v}, None{})
 
-def Map.pop.golo(a, V, p2, hi, r0):
+def Map.pop.golo(
+  a, -V: Kind(a), p2: Nat, hi: Map<a, V>, r0: Map<a, V> & Maybe<a, V>
+) -> Map<a, V> & Maybe<a, V>:
   (lo2, r) = r0
   Map.pop.lo(a, V, p2, lo2, hi, r)
 
-def Map.pop.gohi(a, V, p2, lo, r0):
+def Map.pop.gohi(
+  a, -V: Kind(a), p2: Nat, lo: Map<a, V>, r0: Map<a, V> & Maybe<a, V>
+) -> Map<a, V> & Maybe<a, V>:
   (hi2, r) = r0
   Map.pop.hi(a, V, p2, lo, hi2, r)
 
-def Map.pop.bit(a, V, lo, hi, p2, kb):
+assert Map.pop:
+  forall -a  : Quant
+  forall -V  : Kind(a)
+  forall m   : Map<a, V>
+  forall key : String
+  Map<a, V> & Maybe<a, V>
+
+def Map.pop.bit(
+  a, -V: Kind(a), lo: Map<a, V>, hi: Map<a, V>, p2: Nat, kb: String & Bool
+) -> Map<a, V> & Maybe<a, V>:
   (key2, b) = kb
   match b:
     case False{}:
@@ -2887,14 +1790,16 @@ def Map.pop(a, V, m, key):
       +p = pos
       Map.pop.bit(a, V, lo, hi, p, Map.bit(key, p))
 
-def Map.del.fin(a, V, r):
+def Map.del.fin(a, -V: Kind(a), r: Map<a, V> & Maybe<a, V>) -> Map<a, V>:
   (m2, x) = r
   m2
 
-def Map.del(a, V, m, key):
+def Map.del(a, -V: Kind(a), m: Map<a, V>, key: String) -> Map<a, V>:
   Map.del.fin(a, V, Map.pop(a, V, m, key))
 
-def Map.to_list.go(a, V, m, acc):
+def Map.to_list.go(
+  a, -V: Kind(a), m: Map<a, V>, acc: List<a, Sigma<&2, a, String, _ => V>>
+) -> List<a, Sigma<&2, a, String, _ => V>>:
   match m:
     case MTip{}:
       acc
@@ -2903,10 +1808,12 @@ def Map.to_list.go(a, V, m, acc):
     case MNode{pos, lo, hi}:
       Map.to_list.go(a, V, lo, Map.to_list.go(a, V, hi, acc))
 
-def Map.to_list(a, V, m):
+def Map.to_list(a, -V: Kind(a), m: Map<a, V>) ->
+  List<a, Sigma<&2, a, String, _ => V>>:
   Map.to_list.go(a, V, m, Nil{})
 
-def Map.keys.go(a, V, m, acc):
+def Map.keys.go(a, -V: Kind(a), m: Map<a, V>, acc: List<&2, String>) ->
+  List<&2, String>:
   match m:
     case MTip{}:
       acc
@@ -2915,39 +1822,42 @@ def Map.keys.go(a, V, m, acc):
     case MNode{pos, lo, hi}:
       Map.keys.go(a, V, lo, Map.keys.go(a, V, hi, acc))
 
-def Map.keys(a, V, m):
+def Map.keys(a, -V: Kind(a), m: Map<a, V>) -> List<&2, String>:
   Map.keys.go(a, V, m, Nil{})
 
-def Map.from_list.go(a, V, kvs, m):
+def Map.from_list.go(
+  a, -V: Kind(a), kvs: List<a, Sigma<&2, a, String, _ => V>>, m: Map<a, V>
+) -> Map<a, V>:
   match kvs:
     case Nil{}:
       m
     case Con{kv, t}:
       Map.from_list.go(a, V, t, Map.set.kv(a, V, m, kv))
 
-def Map.from_list(a, V, kvs):
+def Map.from_list(a, -V: Kind(a), kvs: List<a, Sigma<&2, a, String, _ => V>>) ->
+  Map<a, V>:
   Map.from_list.go(a, V, kvs, MTip{})
 
-def Map.union(a, V, m, n):
+def Map.union(a, -V: Kind(a), m: Map<a, V>, n: Map<a, V>) -> Map<a, V>:
   Map.from_list.go(a, V, Map.to_list(a, V, n), m)
 
 # Set
 # ---
 
-def Set():
+def Set() -> Data:
   Map<&2, Unit>
 
-def Set.new():
+def Set.new() -> Set():
   Map.new(&2, Unit)
 
-def Set.add(s, key):
+def Set.add(s: Set(), key: String) -> Set():
   Map.set(&2, Unit, s, key, Unit{})
 
-def Set.has(s, key):
+def Set.has(s: Set(), key: String) -> Set() & Bool:
   Map.has(&2, Unit, s, key)
 
-def Set.del(s, key):
+def Set.del(s: Set(), key: String) -> Set():
   Map.del(&2, Unit, s, key)
 
-def Set.union(a, b):
+def Set.union(a: Set(), b: Set()) -> Set():
   Map.union(&2, Unit, a, b)
