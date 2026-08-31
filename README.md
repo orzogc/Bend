@@ -10,26 +10,35 @@ That's it. All else is fluff. Bend addresses both. And nothing else.
 
 ## Bend4 runs FAST
 
-**Target:** as fast as C on the CPU, as fast as CUDA in the GPU.
-
-**State:**
+**Target:** be as fast as C on the CPU, as fast as CUDA in the GPU. **Status:**
 
 ![Single-core benchmarks](docs/assets/single_core.svg)
 
-A Bend program running much slower than a well-written C equivalent is a
-reportable bug. If you come across one, please, open an issue. Bend is still
-new, so, this *will* happen. Yet, in theory, Bend is inherently *optimal*, so,
-any such instance can and will be addressed.
+Strong types, linearity and purity lets Bend compete with hand-written C in
+single-core performance, and it scales to thousands of CPU or GPU threads, with
+near-ideal speedups, near-zero programmer effort. Compared to Bend 1, v2 is up
+to 100x faster, supports f32, u32, mutable arrays, up to 8 TB of heap memory,
+all with zero interaction net overhead.
+
+The compiler is still new, so, expect bugs and defective programs (where it
+under-performs C or CUDA). These will be fixed as the pipeline matures. If you
+ever come across one, please write an issue.
 
 ## Bend4 checks FAST
 
-**Target:** outperform every proof assistant by several OOMs.
-
-**State:**
+**Target:** outperform every proof assistant by several OOMs. **Status:**
 
 ![Checker benchmarks](docs/assets/checker.svg)
 
-## Bend4 programs WORK
+As AI models become faster, check times become a critical bottleneck on the
+software engineering process. Alternative proof languages often take several
+minutes to check, and scale poorly with codebase size. Since Bend is fully
+annotated, proof checking is near-linear on the codebase size, meaning it scales
+to massive codebases without wasting your time, making proofs more practical
+than ever. The cost is the code is a bit verbose, but nobody is writing code
+anymore, and AI models even appreciate the extra annotations.
+
+## Bend4 programs WORK (with proof!)
 
 **Q:** How can I **trust** AI code without **reading** it?
 
@@ -41,21 +50,18 @@ there are infinitely many game states. You can't test them all. On Bend, you ask
 your agent: "before stopping, **prove that your code is correct**". It outputs:
 
 ```python
-# CLAIM: for every game state, for every sequence of trades,
-# the count of every item in the game stays EXACTLY the same.
-assert no_cloned_items:
+# CLAIM: no sequence of trades can result in cloned assets
+assert no_cloned_assets:
   forall t: &List<Trade>
   forall g: Game
-  {items(run(t, g)) == items(g) : Bag}
+  {assets(run(t, g)) == assets(g) : Bag}
 
-# PROOF: the `no_cloned_items` assert holds.
-def no_cloned_items(ts, g):
-  # ... this is long. your AI writes that ...
+# PROOF: the `no_cloned_assets` assert holds.
+def no_cloned_assets(ts, g):
+  # (LONG. leave this part for the AI!)
 ```
 
 And that's it. Once that proof lands, your code is correct. Mathematically.
-
-The property holds, for every game state. Assets can't be cloned. Period.
 
 > We must stress what this means. This is not a test. This is not an audit.
 > This is a MATHEMATICAL PROOF. This is hard to grasp because it is not a common
