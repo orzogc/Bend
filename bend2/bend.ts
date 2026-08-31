@@ -162,7 +162,9 @@
 // erased), a datatype declares its kind, Kind(G) over its parameters,
 // and the meet a <&> b is the minimum, reduced only when forced: &2 is
 // the identity, &0 absorbs, two literals meet, a stuck side stays
-// stuck, so no definition order can decide it early. adt_valid earns
+// stuck, so no definition order can decide it early. both its operands
+// check at the ambient demand and their measures add, so a meet never
+// launders a live occurrence past the tally. adt_valid earns
 // G: every live field's kind must fit Kind(G) in the real constructor
 // context, so a constructor-local quantity never reaches G and a
 // function field never sits in Data.
@@ -3341,14 +3343,13 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     case "Qua": {
       return Infer(Qua(tm.q, tm.s), Qnt(tm.s), uses_nil());
     }
-    // Γ ⊢ a : Quant    Γ ⊢ b : Quant
-    // where a and b are dead
-    // ------------------------------- infer-min
-    // Γ ⊢ a <&> b : Quant
+    // Γ ⊢ a : Quant ~ au    Γ ⊢ b : Quant ~ bu
+    // ------------------------------------- infer-min
+    // Γ ⊢ a <&> b : Quant ~ au + bu
     case "Min": {
-      const a_chk = term_check(book, lhs, tm.a, None(), Qnt(tm.s), ctx, d);
-      const b_chk = term_check(book, lhs, tm.b, None(), Qnt(tm.s), ctx, d);
-      return Infer(Min(a_chk.tm, b_chk.tm, tm.s), Qnt(tm.s), uses_nil());
+      const a_chk = term_check(book, lhs, tm.a, qt, Qnt(tm.s), ctx, d);
+      const b_chk = term_check(book, lhs, tm.b, qt, Qnt(tm.s), ctx, d);
+      return Infer(Min(a_chk.tm, b_chk.tm, tm.s), Qnt(tm.s), uses_add(a_chk.us, b_chk.us));
     }
     // Γ ⊢ A : Kind(q)
     // Γ , x : qA ⊢ B(x) : Type

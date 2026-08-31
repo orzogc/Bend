@@ -65,7 +65,18 @@
 -- NOT MODELED. Char, PMap, Show, Parse, Flatten and the import system
 -- are parsing and pipeline concerns with no counterpart here;
 -- U32/SCon/SNil string literals are base.bend constructors, not
--- calculus. Four checker mechanisms sit outside this mechanization:
+-- calculus.
+--
+-- Beyond those, bend.ts and this file DIVERGE in nine places, listed in
+-- full below. Each is a PERMISSION the implementation adds: bend.ts
+-- accepts every book this file types, PLUS books that use (1)-(9), and
+-- the theorems below do not cover those. (1)-(4) are mechanisms with no
+-- counterpart here at all. (5)-(9) are narrower: the mechanism exists on
+-- both sides, but Book.Ok pins a SHAPE syntactically where validation
+-- reaches it by normalization or replaces it with a spot test, so a book
+-- may check and still fail Book.Ok. Do not read the claims as covering
+-- more than this list allows.
+--
 -- (1) the kind system: every type has a kind Kind(q) over a quantity
 --     q : Quant, &1 (Lone) or &2 (Many); Type = Kind(&1), Data =
 --     Kind(&2); at check-any Kind(g) fits Kind(h) when h <= g, so Data
@@ -76,22 +87,78 @@
 --     A function type is Type, an equation is Data, a datatype declares
 --     its kind Kind(G), and adt_valid checks every live field's type
 --     against Kind(G) (a + field against Data), in the real
---     constructor context; the meet a <&> b reduces only against a
---     literal. Here every kind is Kind(&1): Quant, &2 and the meet are
---     absent, and Many is unspellable and always a violation.
+--     constructor context; the meet a <&> b is the minimum, reduced
+--     only when forced, and both its operands check at the ambient
+--     demand and add their measures. Here every kind is Kind(&1):
+--     Quant, &2 and the meet are absent, and Many is unspellable and
+--     always a violation.
 -- (2) check-efq's emptied-context clause: a LIVE context binder at an
 --     emptied family admits an empty match with constructors remaining
 --     (ctx_dead); the efq rule here demands every constructor peeled.
 -- (3) base-native and foreign asserts are live-usable with no body
 --     (the b flag, the effect fills); the ref rule here demands a body
 --     at live demand — their steps are the backends', not the calculus.
+--     Two consequences ride along. base is the only file whose defs
+--     carry b, so base alone can build a live recursive CYCLE: the
+--     descent test fires only on a self-call (tm.k = lhs.def), and the
+--     source-order wall that stops user mutual recursion never sees a
+--     b-flagged pending ref. And a bodiless assert is an axiom the
+--     checker trusts outright. Neither is covered here.
 -- (4) term_compare follows a let-bound variable to its value before
 --     comparing; PEq here is syntactic on variables.
--- Each is a PERMISSION the implementation adds over this model: bend.ts
--- accepts every book this file types, plus books that use (1)-(4),
--- which the theorems below do not cover. Neither side has an escape
--- hatch: the #[halts] pragma left the language, so every wall below is
--- unconditional in bend.ts exactly as it is here.
+-- (5) a definition's arity is read by NORMALIZATION, not syntax.
+--     Book.Ok demands d.ty.NAll d.n, a literal All node per parameter,
+--     while def_valid takes its binders through tele_unbind and
+--     term_check reaches each All the same way. So a def may declare
+--     its type as a Ref that merely unfolds to a function type:
+--     assert AF: Type / def AF(): Type -> Type / assert id: AF /
+--     def id(x): x checks, though NAll 1 (Ref AF) is False.
+-- (6) a constructor telescope's parameter binders need not be ERASED.
+--     WTele demands .All .None K B for each of the pn parameters, while
+--     adt_valid takes each binder's own quantity as given and treats
+--     only FIELDS specially, and parse_adt copies the source
+--     quantities. So type Box<a: Type> is Type: Wrap{v: a} checks
+--     while CtrD.Shape is False. base writes every such parameter
+--     erased, so this is user-only ground, and it grants no ownership:
+--     Ctr and Mat instantiate the parameters through tele_fill and bind
+--     only the ctr.n fields, so the binder is a phantom.
+-- (7) the datatype shapes are matched AFTER normalization. STele,
+--     AdtD.Shape, FTele, WTele and CtrD.Shape all demand syntactic
+--     telescopes, while tele_unbind, tele_head and adt_valid's closing
+--     term_wnf accept them normalized — so a family's declared kind may
+--     be an alias that unfolds to Data. The alias is itself checked and
+--     its normal form is what every field is then checked against, so
+--     this is a coverage gap, not a false kind. Same shape as (5).
+-- (8) the constructor tip is INSPECTED, not checked. Book.Ok checks the
+--     whole constructor telescope against Type, which in particular
+--     validates its tip against the family signature; adt_valid checks
+--     each domain and then only tests that the normalized tip is the
+--     family applied to its own parameters, in order, with an empty
+--     residual. A Book built programmatically could give a constructor
+--     domains that disagree with its signature and still pass; a PARSED
+--     book cannot, since parse_adt builds every constructor telescope
+--     from the one params array. Unreachable from a .bend file.
+-- (9) the descent check is SKIPPED at dead demand. Guard here is
+--     demand-blind: it is structural over the whole body and its ref
+--     rule requires j < k, so a bare self-reference fails wherever it
+--     sits, and Book.Ok demands Tree unconditionally. term_infer's Ref
+--     case tests descent only in the LIVE branch of the demand switch,
+--     so a self-reference inside a type, an erased argument, an
+--     equality endpoint or a rewrite motive is accepted with no descent
+--     at all. This is what makes a negative recursive type definable in
+--     bend.ts — R = @-x: R -> Empty — and it is deliberate: rule zero
+--     of .devs/WONTFIX.txt states the checker may diverge on any input,
+--     there is no termination check on dead code, and a hang accepts
+--     nothing. The theorems here simply do not reach such a book.
+--
+-- ONE ESCAPE HATCH, and it is bend.ts's. An @unsafe def opts out of the
+-- wall: its self-calls skip descent (the u flag on lhs) and its binder
+-- domains form + at any kind (lhs_kind relaxes Many to Lone), so the
+-- walls proved below are NOT unconditional there. It is always
+-- disclosed — cli_report prints "with K annotated as unsafe." — so a
+-- book that reports a clean verdict uses none, and for those books the
+-- list above is the whole of the difference. The #[halts] pragma left
+-- the language; @unsafe is what remains.
 --
 -- MODELED faithfully: Rwt is
 -- the J axiom (two-binder motive: goal P(b, e), body P(a, {==})); the
