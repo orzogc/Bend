@@ -73,8 +73,7 @@ And that's it. Once that proof lands, your code is correct. Mathematically.
 
 # Examples
 
-Bend's syntax is, essentially, "Python with dependent types". Every `def` fills
-a prior `assert`, which states its type:
+Bend's **syntax** is, essentially, "Python with dependent types".
 
 ```python
 import Base
@@ -89,20 +88,15 @@ def main():
     IO.print("Hello, " ++ name)
 ```
 
-**Parallelism** is achieved via divide-and-conquer. `!` is used for GPU
-evaluation.  Memory is fully unified. Passing arbitrary data and closures from
-CPU to GPU is O(0) operation.
+**Parallelism** is achieved via divide-and-conquer.
+
+`!` moves data to/from the GPU, with full memory unification.
 
 ```python
 import Base
 
 # Sums a range of numbers in parallel.
-assert sum:
-  forall +d: Nat
-  forall +i: U32
-  U32
-
-def sum(d, i):
+def sum(+d: Nat, +i: U32) -> U32:
   match d:
     case 0n:
       i
@@ -115,7 +109,8 @@ assert main:
   IO(Unit)
 
 def main():
-  IO.print(U32.show(sum!(24n, 0)))
+  result = sum!(24n, 0) # calls on GPU
+  IO.print(U32.show(result))
 ```
 
 **Claims** are just asserts with "foralls" and "exists".
@@ -125,14 +120,14 @@ def main():
 ```python
 import Base
 
-# Claim: "for all numbers a, b and c, a + (b + c) equals (a + b) + c".
+# CLAIM: for all nums a, b and c, a + (b + c) equals (a + b) + c.
 assert add_assoc:
-  forall a: Nat
+  forall  a: Nat
   forall -b: Nat
   forall -c: Nat
   {Nat.add(a, Nat.add(b, c)) == Nat.add(Nat.add(a, b), c) : Nat}
 
-# Proof: induction on `a`, one rewrite (`%`) per step.
+# PROOF: induction on `a`, one rewrite (`%`) per step.
 def add_assoc(a, b, c):
   match a:
     case 0n:
@@ -149,7 +144,6 @@ For more examples, check:
 
 To learn more, read:
 - [GUIDE.md](docs/GUIDE.md): a complete guide.
-
 
 # Get Started
 
