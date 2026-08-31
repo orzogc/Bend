@@ -160,7 +160,9 @@
 // fit Kind(q): its type's quantity is at least q. a function type
 // is Type (a closure captures), an equation is Data (evidence is
 // erased), a datatype declares its kind, Kind(G) over its parameters,
-// and the meet a <&> b reduces only against a literal. adt_valid earns
+// and the meet a <&> b is the minimum, reduced only when forced: &2 is
+// the identity, &0 absorbs, two literals meet, a stuck side stays
+// stuck, so no definition order can decide it early. adt_valid earns
 // G: every live field's kind must fit Kind(G) in the real constructor
 // context, so a constructor-local quantity never reaches G and a
 // function field never sits in Data.
@@ -2976,17 +2978,17 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
               tm = fr.b;
               continue main;
             }
-            if (tm.$ !== "Qua") {
-              frs.push({ $: "MNB", a: tm, s: fr.s });
-              tm = fr.b;
-              continue main;
+            if (tm.$ === "Qua" && tm.q.$ === "None") {
+              continue back;
             }
-            continue back;
+            frs.push({ $: "MNB", a: tm, s: fr.s });
+            tm = fr.b;
+            continue main;
           }
           case "MNB": {
             if (tm.$ === "Qua" && tm.q.$ === "Many") {
               tm = fr.a;
-            } else if (tm.$ !== "Qua") {
+            } else if (tm.$ !== "Qua" || (tm.q.$ === "Lone" && fr.a.$ !== "Qua")) {
               tm = Min(fr.a, tm, fr.s);
             }
             continue back;
