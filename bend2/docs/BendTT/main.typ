@@ -116,10 +116,10 @@ of times, and it forms only at the kind #Da. A function type is never
 ever copied, and every known paradox of #Ty : #Ty or of negative
 datatypes copies a closure. Recursion passes one syntactic descent over
 the definition's own case tree. Erased code is free and may diverge;
-nothing promotes it to live. There is no unification and there are no
-tactics: a claim is an `assert`, a proof is the `def` that fills it, and
-the match is the eliminator. We state the calculus, show how each attack
-dies, and describe a Lean 4 mechanization of the all-affine fragment.
+nothing promotes it to live. Proofs are ordinary definitions: the match
+is the eliminator and there are no tactics. We state the calculus, show
+how each attack dies, and describe a Lean 4 mechanization of the
+all-affine fragment.
 
 = Introduction <sec:intro>
 
@@ -143,8 +143,8 @@ Affinity alone would make the language useless: a proof feeds one
 hypothesis to the induction hypothesis and to a lemma. Bend restores
 reuse through the kind of a type. A binder may be marked `+`, and then
 its type must have kind #Da. A datatype declares its kind and the
-checker earns it at every constructor; a function type is #Ty\; a
-proposition is #Da because its evidence is erased. The license to copy
+checker earns it at every constructor; a function type is #Ty\; an
+equation is #Da because its evidence is erased. The license to copy
 is a property of a _type_, never a proof carried by a _term_: there is
 no modality, no copy class, no clone function. This inverts
 quantitative type theory @mcbride2016 @atkey2018 @brady2021, where
@@ -160,10 +160,8 @@ erased before the runtime, which moves every value by default.
 
 = The Calculus <sec:calculus>
 
-BendTT is one file, `bend2/bend.ts`: parser, flattener, evaluator and
-checker over one `Term` type whose binders are host functions
-@pfenningelliott1988. Every rule below is a derivation comment beside
-its case in that file.
+The checker is one file, `bend2/bend.ts`; every rule below is a
+derivation comment beside its case.
 
 == Terms, Quantities, Kinds <sec:terms>
 
@@ -202,8 +200,7 @@ order, $#Kd($g$) lt.eq #Kd($h$)$ when $h lt.eq g$: #Da fits every kind,
 every kind fits #Ty, a kind fits a meet when it fits either side, a
 meet fits a kind only when both its sides do, and a stuck quantity
 fits only itself. The meet reduces only when forced: $omega$ is its
-identity, $0$ absorbs, two literals meet, and a stuck side stays stuck,
-so no declaration order can decide a meet early.
+identity, $0$ absorbs, two literals meet, and a stuck side stays stuck.
 
 A _book_ is an ordered list of declarations. A `type` declares a family
 with parameters and a kind, then its constructors, each a telescope of
@@ -512,8 +509,6 @@ of the claims above is waived.
 A claim is an `assert` and a proof is the `def` that fills it. `forall`
 folds to a function type, `exists` to a dependent pair, `where` packs a
 hypothesis onto a binder; `{a != b : T}` is a function into `Empty`.
-An unfilled claim is a `TODO`: the checker counts it, the compiler
-refuses it, and no unproven name reaches live code.
 
 The match is the eliminator. Matching a parameter refines the claim in
 each arm: the goal in the `1n+p` arm of a claim about `a` is the claim
@@ -525,8 +520,9 @@ must go to its own definition. Rewriting is J with the motive written
 out: given
 `e : {a == b : T}`, the motive marks with `_` the places where `b`
 stands, the goal must be the motive at `b`, and the body proves it at
-`a`. So one states an equation with the term to eliminate on the
-right:
+`a`. Commutativity of addition, from the lemmas
+`zero : {a == add(a, 0n)}` and `succ : {1n+add(a, b) == add(a, 1n+b)}`,
+each by the same induction:
 
 ```bend
 def add(a: Nat, b: Nat) -> Nat:
@@ -536,29 +532,8 @@ def add(a: Nat, b: Nat) -> Nat:
     case 1n+p:
       1n+add(p, b)
 
-assert zero:
-  forall a: Nat
-  {a == add(a, 0n) : Nat}
-
-def zero(a):
-  match a:
-    case 0n:
-      {==}
-    case 1n+p:
-      %zero(p) : {1n+p == 1n+_ : Nat}
-      {==}
-```
-
-The successor goal is `{1n+p == 1n+add(p, 0n)}`; the hypothesis
-`zero(p)` proves `{p == add(p, 0n)}`, and the rewrite folds
-`add(p, 0n)` back into `p`, leaving reflexivity. Commutativity needs
-its hypothesis `b` twice, in the lemma `succ`
-(`{1n+add(a, b) == add(a, 1n+b)}`, by the same induction) and in the
-induction hypothesis:
-
-```bend
 assert comm:
-  forall  a: Nat
+  forall +a: Nat
   forall +b: Nat
   {add(a, b) == add(b, a) : Nat}
 
@@ -572,29 +547,27 @@ def comm(a, b):
       {==}
 ```
 
-`Nat` is #Da, so `+b` licenses it. This is the idiom that affinity
-alone forbids and the kind restores. Statements are free: at demand $0$
-a theorem may quantify over functions and repeat variables at will.
-Affinity constrains what runs, never what is said.
+The successor arm uses `p` twice and `b` twice. `Nat` is #Da, so `+a`
+and `+b` license it, and a `+` scrutinee hands out `+` fields. This is
+the idiom that affinity alone forbids and the kind restores. Statements
+are free: at demand $0$ a theorem may quantify over functions and
+repeat variables at will. Affinity constrains what runs, never what is
+said.
 
 = Erasure and the Runtime <sec:erasure>
 
-The checker elaborates as it checks: it returns the term with every
-node annotated by its type, and stores it for the compiler @bendrt2026.
-Erased binders, arguments and fields drop. Kinds, quantities, function
-types, family instances, equations and reflexivity become nothing; a
-rewrite compiles to its body. What survives is the live fragment:
-constructors with their live fields, lambdas over live binders,
-matches, and calls. A closed live proof is `{==}` and vanishes whole.
-
-The usage discipline then pays twice. The checker needed only a counter
-per binder, threaded through the one pass it already makes. The runtime
-needs no garbage collector: a value has one owner, so a match frees its
-scrutinee as it opens it, arrays update in place, and a forked task
-carries no lock. Where a `+` licensed reuse, the compiler places a
-counted share or a borrow, and nowhere else. Reuse was derived from the
-kind of a type and never proved by a term, so the runtime never runs a
-copy the source did not spell.
+The checker elaborates as it checks and hands the compiler the term
+with every node typed @bendrt2026. Erasure drops erased binders,
+arguments and fields; kinds, quantities, function types, family
+instances, equations and reflexivity become nothing; a rewrite compiles
+to its body; a closed live proof is `{==}` and vanishes whole. What
+survives is the live fragment: constructors, lambdas, matches and calls
+over live binders. The runtime then needs no garbage collector: a value
+has one owner, so a match frees its scrutinee as it opens it, arrays
+update in place, and a forked task carries no lock. Where a `+`
+licensed reuse the compiler places a counted share or a borrow, and
+nowhere else: reuse was derived from the kind of a type, never proved
+by a term, so the runtime never runs a copy the source did not spell.
 
 = The Mechanization <sec:mech>
 

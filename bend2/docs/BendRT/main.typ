@@ -98,9 +98,9 @@
 
 #heading(numbering: none, outlined: false)[Abstract]
 
-Bend is a pure functional language with an affine dependent type
-system. This paper describes BendRT, its runtime. The compiler emits
-one C file per program; that file runs the same code on one thread, on
+BendRT is the runtime of Bend, a pure functional language with an
+affine dependent type system. The compiler emits one C file per
+program; that file runs the same code on one thread, on
 CPU threads, and on the GPU through Metal or CUDA, over one heap, with
 no garbage collector and no user-written kernels. Three ideas carry
 the design. Affinity comes from the checker: a value has one owner, so
@@ -136,18 +136,10 @@ recursion and no runtime; under affinity the evaluator needs no
 collector, and with one discipline on calls no C stack either, so the
 C file is also the shader.
 
-BendRT is that discipline plus that scheduler. Every function compiles
-to a case tree inside one worklist function, calls are jumps, and
-every call site is emitted twice: for a sequential world that chains
-frames on a value stack, and for a parallel world that mints tasks.
-Tasks are heap terms in a fixed grid of $2^14$ rings, the _cube_, and
-evaluation is bulk synchronous @valiant1990: a _grow_ phase runs tasks
-one fork step at a time along the rows until the grid is full, a
-_work_ phase drains the columns to completion, and an $O(1)$ index map
-turns the one into the other. No lane ever takes work from another.
 We follow one program from source to C, to tasks, to the GPU dispatch
 that runs it. Readers of the author's earlier runtimes may expect
-interaction nets @lafont1997 @taelin2024hvm2 here; there are none.
+interaction nets @lafont1997 @taelin2024hvm2 here; there are none
+(@sec:related).
 
 = The Program and Its Contract <sec:contract>
 
@@ -187,16 +179,13 @@ _mark_ `sum!(t)` means: run this call on the GPU. Nothing else creates
 parallelism, and the runtime trusts the equal-parts promise absolutely
 (@sec:cube).
 
-The checker hands the compiler more than types. A live binder is
-consumed at most once; a `+` binder may be used freely, but only at
-kind `Data`, so no closure, array or file handle is ever shared. A
-match consumes its scrutinee, always a parameter or a field of one,
-never a computed value. A def body is flattened at parse into a _case
-tree_, lambdas and constructor matches over leaves, and validation
-annotates every node with its type; erased binders (`-`), types and
-proofs never reach the emitted code. One law governs
-what follows: a compiler may drop a copy the source spelled, never add
-one.
+The checker hands the compiler more than types. A match consumes its
+scrutinee, always a parameter or a field of one, never a computed
+value. A def body is flattened at parse into a _case tree_, lambdas
+and constructor matches over leaves, and validation annotates every
+node with its type; erased binders (`-`), types and proofs never reach
+the emitted code. One law governs what follows: a compiler may drop a
+copy the source spelled, never add one.
 
 = Compilation <sec:compile>
 
@@ -222,7 +211,7 @@ argument of a datatype starts borrowed and flips to owned on any
 escape, to a fixpoint. A borrowed argument is lent raw and read in
 place, so a fold over a reused tree costs no count traffic. A small
 fork-free callee is inlined by running the checker's own evaluator on
-the call; the rest is left to the emitter.
+the call.
 
 == The Segment
 
@@ -281,10 +270,9 @@ one word-sized field is packed into the term word. And the fork is
 read twice. In the parallel world the arm mints a _join task_ with one
 empty slot per child, spawns each child pointing back at its slot, and
 returns the join as its _reply_ for the scheduler to deal out
-(@sec:cube). In the sequential world it pushes a frame and reloads its
-own parameter, so the first call runs in place; its answer lands in
-`res`, the step pushes the next frame and jumps to `sum` again, and
-the last step jumps into the joiner with both results in the bank.
+(@sec:cube). In the sequential world it pushes a frame and runs the
+first call in place; each step pushes the next frame, and the last
+jumps into the joiner with both results in the bank.
 
 The emitted file is the runtime template, the program's tables and
 segments, and the C source of every effect it imports; `--threads`,
@@ -307,8 +295,7 @@ host reserves 8 TB and pages fault in on touch; the GPU fixes its span
 before the first dispatch (@sec:gpu). Both processors address the same
 words. Each lane allocates from its own free lists and claims fresh
 pages off one global counter, so an allocation is a pop or a bump, a
-free is two stores, and neither crosses a thread. Exhaustion is
-fail-stop: a numbered error in the header, never a hang.
+free is two stores, and neither crosses a thread.
 
 == Ownership at Run Time <sec:ownership>
 
@@ -427,8 +414,7 @@ task (@fig:cube).
 The driver reads one number per round, the _frontier_ $f$: how many
 tasks were pushed into the cube during the last round. While
 $f < 2^14$ it runs a grow phase; it always runs a work phase; it stops
-when the root has delivered, and an empty frontier with no answer is a
-numbered error, never a hang.
+when the root has delivered.
 
 _Grow_ widens the frontier one fork step at a time. Each of the 128
 rows is served by one worker, a thread on the host or a threadgroup on
@@ -484,10 +470,10 @@ CUDA with the binary cached by source hash, so host and device run the
 same functions by construction.
 
 The span is decided once, before the first dispatch: `--gpu-memory`,
-else 2 GB on Metal, where mapping is charged per gigabyte and a buffer
-cannot grow under a running kernel, and the whole card on CUDA, whose
-managed pages fault in on demand. Metal wraps the host mapping
-in one zero-copy buffer at the same addresses. A device cannot abort,
+else 2 GB on Metal, where a buffer cannot grow under a running kernel,
+and the whole card on CUDA, whose managed pages fault in on demand.
+Metal wraps the host mapping in one zero-copy buffer at the same
+addresses. A device cannot abort,
 so failure is a protocol: the first failing lane compare-and-swaps its
 error into the header word, every long loop polls that word and
 drains, and the host reads it after the dispatch, prints one line and
@@ -498,8 +484,7 @@ sequential program point, where nothing else runs. The solo thread
 detaches the marked call whole, makes its continuation the root, seeds
 it into ring zero and runs the phase loop on the device until the root
 delivers; then it hands the answer into the original continuation and
-continues on the CPU. The marked call's subtree forks on the device
-along its own fork lets. Met anywhere else the mark degrades: in the
+continues on the CPU. Met anywhere else the mark degrades: in the
 parallel world it spawns a task rather than nesting, in the sequential
 world it is inert, and without a device it is inert everywhere. The
 CPU and the GPU never compute at the same time. Floats follow one
@@ -517,31 +502,28 @@ one thread: it evaluates `main` to a request through the pure machine,
 runs the effect's C handler, applies the continuation to the answer,
 and evaluates again; `Emit` ends the program and `Halt` exits with its
 code. Effects never run inside an evaluator, and the machine performs
-no IO. The kit ships one file per effect (print, environment, files,
-TCP and UDP sockets); a fallible operation answers a `Result` carrying
-errno, and a handle threads back outside the `Result`, so even a
-failure cannot lose it.
+no IO. A fallible operation answers a `Result` carrying errno, and a
+handle threads back outside the `Result`, so even a failure cannot
+lose it.
 
 = The JavaScript Backend <sec:js>
 
 The same carbonized book prints as plain JavaScript over the host's
-garbage collector: one function per live definition, naturals as
-`BigInt`, words as numbers, strings as strings, other constructors as
-tagged objects, closures as unary functions; tail calls trampoline,
-forks run in sequence, and a request unwinds to the loop as a thrown
-value. `bend file.bend` runs this backend in memory, and a loader makes
+garbage collector: one function per live definition, constructors as
+tagged objects; tail calls trampoline, forks run in sequence, and a
+request unwinds to the loop as a thrown value. `bend file.bend` runs
+this backend in memory, and a loader makes
 a `.bend` file a module under node and Bun, so a Bend program is also a
 JavaScript library.
 
 = Results <sec:eval>
 
-#figure(placement: top, caption: [The pinned suite, `bench/runtime/`
-in the Bend repository: seconds on one Apple M4 Max (pin of
-2026-08-31, commit `64fc4b7`) for one thread, sixteen threads, the
-integrated GPU through Metal, and the hand-written C twin, one C
-function per Bend definition. Each cell is a warm run then a timed run
-on an idle machine, and every executor must print the pinned
-checksum.],
+#figure(placement: top, caption: [The pinned suite, `bench/runtime/`:
+seconds on one Apple M4 Max (pin of 2026-08-31, commit `64fc4b7`) for
+one thread, sixteen threads, the integrated GPU through Metal, and the
+hand-written C twin, one C function per Bend definition. Each cell is
+a warm run then a timed run on an idle machine, and every executor
+must print the pinned checksum.],
 {
   set text(size: 8.5pt)
   table(
@@ -630,12 +612,11 @@ paper's theorems stop at the calculus.
 
 BendRT compiles an affine functional language to one C file and runs
 it unchanged from a single thread to a GPU. Affinity places the frees,
-so no collector couples the lanes; the flat evaluator gives every
-executor its unit of work; the cube forks and drains a fixed grid of
-rings without contending. The benchmarks show both sides of the
-bargain: near-C sequential speed and large parallel wins when the fork
-contract holds, and honest losses on divergent work, which the runtime
-declines to repair.
+the flat evaluator gives every executor its unit of work, and the cube
+forks and drains a fixed grid of rings without contending. The
+benchmarks show both sides of the bargain: near-C sequential speed and
+large parallel wins when the fork contract holds, and honest losses on
+divergent work.
 
 #heading(numbering: none, outlined: false)[Acknowledgments]
 
