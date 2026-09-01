@@ -1491,6 +1491,9 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
       }
       function leaf(caps: Capture[], t: Bend.HTerm): Open {
         const s = Bend.term_strip(t);
+        if (s.$ === "Rwt") {
+          return leaf(caps, s.f);
+        }
         if (s.$ === "Let") {
           if (s.k.length >= 2) {
             if (s.v.every((v) => call_is(cb, v))) {
@@ -1500,6 +1503,10 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
           }
           if (!quant_live(s.q[0])) {
             return leaf(caps, s.f(s.v));
+          }
+          if (term_use(term_uses(cb, term_lets(s).b),
+            term_lets(s).ps[0]) === 0) {
+            return leaf(caps, term_lets(s).b);
           }
           if (call_is(cb, s.v[0]) && !flat_call(cb, s.v[0])) {
             return apps(caps, s.v[0], (c2, c) =>
@@ -1636,6 +1643,10 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
             if (!quant_live(s.q[0])) {
               return expr(caps, s.f(s.v), null, k);
             }
+            if (term_use(term_uses(cb, term_lets(s).b),
+              term_lets(s).ps[0]) === 0) {
+              return expr(caps, term_lets(s).b, ty, k);
+            }
             if (call_deep(cb, term_lets(s).b)) {
               return expr(caps, s.v[0], null, (c2, v) =>
                 bound(c2, s, v, (c3, b) => expr(c3, b, null, k)));
@@ -1649,6 +1660,9 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
             const T = ty ?? die("an untyped match");
             return k(caps, mint(cb, d, "c", caps, false, 0,
               () => func(caps, Bend.Ann(s, T), null, 1), 1));
+          }
+          case "Rwt": {
+            return expr(caps, s.f, ty, k);
           }
           default: {
             return k(caps, mint_lift(s));
@@ -2905,8 +2919,7 @@ function emit_expr(fl: File, tm: Bend.HTerm, ty0: Bend.HTerm | null): Val {
     }
     case "Ctr": return emit_ctr(fl, x, ty);
     case "Let": return emit_expr(fl, emit_open(fl, x), null);
-    case "Rwt": return emit_expr(fl, x.f, ty);
-    case "Sub": case "Lam": case "Mat": case "Efq":
+    case "Sub": case "Lam": case "Mat": case "Efq": case "Rwt":
       die(`a ${x.$} value`);
     default: {
       const lay = lay_of(fl.book, ty);
@@ -3457,8 +3470,7 @@ function js_expr(fl: File, tm: Bend.HTerm,
         "{$: \"" + x.k + "\"") + "}";
     }
     case "Let": return js_expr(fl, js_open(fl, x), ty);
-    case "Rwt": return js_expr(fl, x.f, ty);
-    case "Sub": case "Lam": case "Mat": case "Efq":
+    case "Sub": case "Lam": case "Mat": case "Efq": case "Rwt":
       die("cannot compile a " + x.$ + " node");
     default: return "null";
   }
