@@ -1,3 +1,16 @@
+assert cong:
+  forall -A: Type
+  forall -B: Type
+  forall -f: A -> B
+  forall -a: A
+  forall -b: A
+  forall  e: {a == b : A}
+  {f(a) == f(b) : B}
+
+def cong(A, B, f, a, b, e):
+  %e : {f(a) == f(_) : B}
+  {==}
+
 type Nat is Data:
   Z{}
   S{pred: Nat}
@@ -69,7 +82,7 @@ assert Nat.cpy.succ:
 
 def Nat.cpy.succ(p, c):
   ((a, ea), (b, eb)) = c
-  ((S{a}, %ea : {S{p} == S{_} : Nat}; {==}), (S{b}, %eb : {S{p} == S{_} : Nat}; {==}))
+  ((S{a}, cong(Nat, Nat, x => S{x}, p, a, ea)), (S{b}, cong(Nat, Nat, x => S{x}, p, b, eb)))
 
 def Nat.cpy(n):
   match n:

@@ -43,7 +43,9 @@ def copy2(n, P, f):
       f(0n, {==}, 0n, {==}, {==})
     case 1n+p:
       copy2(p, P, a => ea => b => eb => eab =>
-        f(1n+a, %ea : {1n+a == 1n+_ : Nat}; {==}, 1n+b, %eb : {1n+b == 1n+_ : Nat}; {==}, %eab : {1n+b == 1n+_ : Nat}; {==}))
+        f(1n+a, Equal.cong(Nat, Nat, x => 1n+x, a, p, ea),
+          1n+b, Equal.cong(Nat, Nat, x => 1n+x, b, p, eb),
+          Equal.cong(Nat, Nat, x => 1n+x, b, a, eab)))
 
 assert copy2_spec:
   forall  n: Nat
@@ -57,7 +59,9 @@ def copy2_spec(n, P, f):
       {==}
     case 1n+p:
       %copy2_spec(p, P, a => ea => b => eb => eab =>
-        f(1n+a, %ea : {1n+a == 1n+_ : Nat}; {==}, 1n+b, %eb : {1n+b == 1n+_ : Nat}; {==}, %eab : {1n+b == 1n+_ : Nat}; {==})) : {f(1n+p, {==}, 1n+p, {==}, {==}) == _ : P}
+        f(1n+a, Equal.cong(Nat, Nat, x => 1n+x, a, p, ea),
+          1n+b, Equal.cong(Nat, Nat, x => 1n+x, b, p, eb),
+          Equal.cong(Nat, Nat, x => 1n+x, b, a, eab))) : {f(1n+p, {==}, 1n+p, {==}, {==}) == _ : P}
       {==}
 
 # equations are consumed by rewrites; eqcopy2 hands back two uses of
@@ -419,7 +423,8 @@ assert succ_neq_zero:
   Empty
 
 def succ_neq_zero(a, e):
-  %e : discr(_); Unit{}
+  %e : discr(_)
+  Unit{}
 
 assert succ_inj:
   forall -a: Nat
@@ -428,7 +433,8 @@ assert succ_inj:
   {a == b : Nat}
 
 def succ_inj(a, b, e):
-  %e : {a == pred(_) : Nat}; {==}
+  %e : {a == pred(_) : Nat}
+  {==}
 
 # order is arithmetic: a <= b exactly when b is a plus something.
 # le is a computed type: Unit when it holds, Empty when it fails
@@ -464,7 +470,7 @@ assert le_diff:
 
 def le_diff.con(ap, bp, w):
   (c, prf) = w
-  (c, %prf : {1n+add(ap, c) == 1n+_ : Nat}; {==})
+  (c, Equal.cong(Nat, Nat, x => 1n+x, add(ap, c), bp, prf))
 
 def le_diff(a, b, e):
   match a:

@@ -241,7 +241,8 @@ assert Equal.cong:
   {f(a) == f(b) : B}
 
 def Equal.cong(A, B, f, a, b, e):
-  %e : {f(a) == f(_) : B}; {==}
+  %e : {f(a) == f(_) : B}
+  {==}
 
 assert Equal.sym:
   forall -A: Type
@@ -251,7 +252,8 @@ assert Equal.sym:
   {b == a : A}
 
 def Equal.sym(A, a, b, e):
-  %e : {_ == a : A}; {==}
+  %e : {_ == a : A}
+  {==}
 
 assert Equal.trans:
   forall -A : Type
@@ -263,7 +265,8 @@ assert Equal.trans:
   {a == c : A}
 
 def Equal.trans(A, a, b, c, ab, bc):
-  %bc : {a == _ : A}; ab
+  %bc : {a == _ : A}
+  ab
 
 # Empty
 # -----
@@ -485,7 +488,8 @@ def Result.bind(
 # ----
 
 def Word.cast(-m: Nat, -n: Nat, e: {m == n : Nat}, w: Word(m)) -> Word(n):
-  %e : Word(_); w
+  %e : Word(_)
+  w
 
 def Word.zero(n: Nat) -> Word(n):
   match n:
