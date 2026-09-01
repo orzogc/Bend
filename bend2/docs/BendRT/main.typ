@@ -57,11 +57,7 @@
   }
 }
 
-// Monospace names (function names, file names, surface syntax).
-#let co(body) = text(font: "DejaVu Sans Mono", size: 0.82em, body)
-
-// Code blocks: shaded, monospace, unbreakable (a split code block invites
-// floats between its halves), no syntax coloring.
+// Code blocks: shaded, monospace, unbreakable, no syntax coloring.
 #show raw.where(block: true): it => block(
   breakable: false,
   fill: solhi, inset: 6pt, radius: 2pt, width: 100%,
@@ -70,11 +66,8 @@
   fill: solhi, inset: (x: 2pt), outset: (y: 2pt), radius: 1pt,
   text(font: "DejaVu Sans Mono", size: 0.82em, it))
 
-// Figures: top-anchored floats (bottom floats collect the column's slack
-// above themselves), with a caption gap clearly wider than a text line.
+// Figures: top-anchored floats, ACM-flavored captions.
 #set figure(placement: top, gap: 1em)
-
-// Figure captions, ACM-flavored: bold label, period, left-justified.
 #show figure.caption: it => {
   set text(size: 9pt)
   set par(first-line-indent: 0em)
@@ -101,9 +94,9 @@
     set text(size: 8pt)
     set par(justify: true)
     align(left)[#smallcaps[AI Disclosure.] Bend and its runtime were designed
-    by the human author. This paper was written with the
-    assistance of Claude (Fable 5, Anthropic), based on the author's code
-    and design notes, and thoroughly reviewed by the author.]
+    by the human author. This paper was written with the assistance of
+    Claude (Fable 5.1, Anthropic), from the author's code and design
+    notes, and reviewed by the author.]
   }))
   v(2pt)
 })
@@ -112,928 +105,586 @@
 
 #heading(numbering: none, outlined: false)[Abstract]
 
-Bend is a pure functional programming language with an affine
-dependent type system. This paper describes BendRT, its runtime.
-The compiler emits one standalone C file per program, and that
-file runs the same code sequentially, in parallel on multicore
-CPUs, and on Apple-Silicon GPUs through Metal, with no garbage
-collector and no user-written kernels. The programmer writes two
-annotations: the fork #co[let], which promises that its calls run
-in parallel and split the work into roughly equal halves, and
-#co[f!(x)], which requests that a call run on the GPU. Tasks fork
-along fork #co[let]s until the lanes are saturated, then every
-lane runs its tasks to completion, sequentially. The scheduler
-contains no work stealing and no shared task queues; this is what
-lets the same phase bodies run as CPU worker threads and as GPU
-dispatches, at the price that a program with unequal forks loses
-parallel speed. Affinity makes every value uniquely owned by
-default, so matching frees, deallocation is compiled code, and a
-forked task carries no synchronization; where the types license
-reuse, the compiler places a counted share or a borrow, never a
-tracing collector. We describe the compiled form, the memory
-layout, the task system, the sequential machine, and the Metal
-backend, and report benchmarks on an Apple M4 Mac Mini.
+Bend is a pure functional language with an affine dependent type
+system. This paper describes BendRT, its runtime. The compiler emits
+one C file per program; that file runs the same code on one thread, on
+CPU threads, and on the GPU through Metal or CUDA, over one heap, with
+no garbage collector and no user-written kernels. Three ideas carry
+the design. Affinity comes from the checker: a value has one owner, so
+a match frees the node it consumed, a forked task owns its arguments,
+and sharing exists only where the compiler placed a counted share or a
+borrow. The evaluator is flat: every function is a case tree inside
+one worklist function with no C call stack, and every call site reads
+two ways, sequential and parallel, so one text serves every executor.
+Tasks live in a _cube_, a fixed 128 by 128 grid of rings that forks
+along its rows in a grow phase and drains along its columns in a work
+phase, with no shared queue, no lock and no work stealing. The price
+is a contract: the program's forks must split their work evenly. On an
+Apple M4 Max the sequential build runs within 0.8 to 1.5 times the
+time of hand-written C, sixteen threads give 9 to 12 times over one,
+and the integrated GPU up to 67 times.
 
 = Introduction <sec:intro>
 
-Bend is a pure functional language: programs are recursive
-functions over algebraic datatypes, and its type system, an affine
-dependent type theory developed in a companion paper @bendtt2026,
-makes every live value consumed at most once unless its type is
-of the reusable kind #co[Data]; where reuse is licensed, the
-compiler places a borrow (a read in place) or a counted share,
-each decided at compile time. A functional program is an
-evaluation strategy away from a parallel one, since independent
-subexpressions may run in any order on any core; historically the
-speedups have foundered on garbage collection, which couples every
-core to a shared collector, on task scheduling, which either
-leaves cores idle or pays for work stealing, and on GPUs, which
-want flat memory, bounded recursion, and kernels. BendRT is built
-from three parts that fit together.
+Bend's type system, developed in a companion paper @bendtt2026, is
+affine: a live value is consumed at most once unless its binder is
+marked `+`, and a `+` binder forms only at the kind `Data`, which
+excludes functions, arrays and handles. The theory paper argues that
+this wall makes the language consistent. This paper argues that it
+also makes the language fast: the runtime gets for free what runtimes
+for functional languages usually pay most for. A garbage collector
+exists because nobody knows when a value's last owner leaves; under
+affinity the one owner is the match that consumes it, so deallocation
+is compiled code. Work stealing exists because tasks are cheap to make
+and hard to place; under affinity a task owns its arguments, so a fork
+moves memory and never shares it, and the only cross-thread protocol
+is delivering an answer into a join. A GPU wants flat memory, no
+recursion and no runtime; under affinity the evaluator needs no
+collector, and with one discipline on calls no C stack either, so the
+C file is also the shader.
 
-_Programs are worklist segments._ The compiler rewrites every
-function until each call sits in one of three runnable shapes, a
-tail call, a cut (one call whose continuation is named), or one
-parallel fork, and everything else is call-free straight-line code
-(@sec:compile). Each function then compiles to one segment of a
-single worklist machine that has no C call stack: calls are jumps,
-and every call site carries both a sequential and a parallel
-reading of the same text (@sec:seq). This one shape serves every
-executor: it is the step the scheduler advances one fork at a
-time, the body a lane runs to completion, and, having no native
-recursion and no captured environments, the code a GPU compiler
-accepts.
+BendRT is that discipline plus that scheduler. Every function compiles
+to a case tree inside one worklist function, calls are jumps, and
+every call site is emitted twice: for a sequential world that chains
+frames on a value stack, and for a parallel world that mints tasks.
+Tasks are heap terms in a fixed grid of $2^14$ rings, the _cube_, and
+evaluation is bulk synchronous @valiant1990: a _grow_ phase runs tasks
+one fork step at a time along the rows until the grid is full, a
+_work_ phase drains the columns to completion, and an $O(1)$ index map
+turns the one into the other. No lane ever takes work from another.
+We follow one program from source to C, to tasks, to the GPU dispatch
+that runs it. Readers of the author's earlier runtimes may expect
+interaction nets @lafont1997 @taelin2024hvm2 here; there are none.
 
-_The scheduler is contention-free._ Evaluation is bulk synchronous
-@valiant1990: tasks fork exponentially along fork #co[let]s until
-the lanes are saturated, then every lane runs its tasks to
-completion (@sec:tasks). There is no work stealing, no shared
-deque, no balancing of any kind: tasks live in a fixed grid of
-rings, one per lane, and the only global motion is an $O(1)$
-transposition of the grid's index map. Nothing contends and each
-phase is a closed step, which is what lets the same scheduler run
-as persistent CPU threads and as GPU dispatches. The price is that
-the runtime never rescues a program whose forks are unequal
-(@sec:hint).
-
-_Affinity supplies the memory story._ A match consumes its
-scrutinee, so the runtime frees nodes exactly where ownership says
-they die, and dropping a value is one iterative walk that threads
-its worklist through the dying nodes themselves. A forked task
-owns its arguments outright, so forking synchronizes nothing: the
-only cross-thread protocol is the delivery of results into join
-tasks. Where the compiler's own analysis finds sharing, it places
-a one-word counted redirect beside the shared term, and where a
-callee provably only reads, it lends the value instead; there is
-no tracing, no epochs, and no count on any unshared value.
-
-Five words recur from here on, so we fix them now. A _task_ is a
-forked call waiting to run; the _frontier_ is the set of live
-tasks. Evaluation alternates three phases: _seed_ runs the small
-frontier on one lane group, _grow_ runs tasks one fork step at a
-time to widen it, and _work_ runs each task to completion,
-sequentially, one lane per task. @sec:tasks defines all five
-precisely; until then these one-line meanings suffice.
-
-The paper walks the machine bottom-up: the source-level contract
-(@sec:contract), the compiled form (@sec:compile), terms and
-memory (@sec:memory), run-time ownership (@sec:ownership), arrays
-(@sec:arrays), the task system (@sec:tasks), sequential execution
-(@sec:seq), the Metal backend (@sec:gpu), the event loop
-(@sec:io), benchmarks (@sec:eval), related work (@sec:related),
-and limitations (@sec:limits). Readers of the author's earlier
-work may expect interaction nets @lafont1997 @taelin2024hvm2 in
-this stack; there are none (@sec:related).
-
-= The Contract with the Programmer <sec:contract>
-
-== Affinity, from the Types
-
-Bend's checker tracks every use. A live value is consumed at most
-once, with one way around it: a binder marked #co[+] may be
-consumed freely, and its type must be of the reusable kind
-#co[Data], a _kind_ every datatype declares and the checker
-verifies at each constructor, so that no closure ever sits inside
-a #co[Data] value (the companion paper develops the discipline).
-Kinds are erased at runtime; a #co[+] variable is simply emitted
-at every use. The checker
-is authoritative about cost: a compiler may drop a cost the
-source spelled, never add a clone or a retain the source did not.
-The runtime exploits that latitude. The default is a move: passing
-a value transfers ownership, and no deep cloner exists anywhere in
-the runtime. Where a value genuinely gains a second owner, the
-compiler emits a _keep_: a one-word counted redirect minted beside
-the term, bumped and decremented only at real sharing sites. And
-wherever an extra use provably only reads, the compiler passes a
-_borrow_ instead: the callee walks the owner's tree in place
-through bare loads and the owner frees it once, after the last
-read. Three runtime consequences organize everything that follows:
-
-+ An unshared value has exactly one owner, so the runtime may
-  mutate and free it without synchronization, and pattern matching
-  compiles to load-then-free.
-+ Every share and borrow site is static, placed by the compiler's
-  own analyses from the types and the use counts, so a program's
-  memory traffic is readable off its source; a program that never
-  reuses compiles to pure move-shaped code, with no count anywhere.
-+ Which constructor types can be shared at all is decided once,
-  for the whole program: only those _wear_ reference counts, and
-  everything else is built and consumed through plain stores and
-  loads (@sec:ownership).
-
-== The Fork <sec:hint>
-
-The fork #co[let] spells its members in one binding,
+= The Program and Its Contract <sec:contract>
 
 #block(breakable: false)[
 ```
-a b = sum(l) sum(r)
-a + b
-```
-]
+import Base
 
-and means: these calls run in parallel, and they split the work
-into roughly equal halves. That promise is the _equal-halves
-contract_, and the whole task grid is built on trusting it
-(@sec:tasks): sibling computations are assumed to split at the
-same arity all the way down, so a saturated grid holds equal
-hands. The parser builds one Let binding n names to n values;
-the compiler turns it into one fork whose members become tasks
-and whose continuation becomes their join.
-Nothing else in the language creates parallelism, and the runtime
-trusts the promise absolutely (@sec:intro): balance is the
-program's job, never the scheduler's. When the assumption fails,
-lanes idle at the end of a work turn, and the runtime must not
-correct that: any such correction is treated as a compiler bug,
-not a scheduling feature. The honest idioms are teachable, and
-they cover practice so far: fork equal halves of the data or index
-space; sequence full-width phases instead of forking phases
-against each other; keep light work out of forks.
-
-== The Placement Mark <sec:mark>
-
-The second and last annotation is the call mark #box(co[f!(x)]):
-run this call on the GPU. The mark has no type rule or evaluation
-rule of the language that can observe it; it travels as one bit on
-the reference itself. Its meaning is scoped: the runtime never
-computes on two devices at once, so a marked call is honored when
-the event loop meets it at a sequential program point, where
-nothing else is running (@sec:io); there it detaches the whole
-call to the Metal evaluator, which computes the answer on the
-shared heap and hands it back. Inside a running computation the
-mark degrades gracefully: a marked call in the parallel world
-spawns its task rather than nesting into it, and in the sequential
-world it is inert. On a build or machine without a usable GPU the
-mark is inert everywhere. There is no automatic backend pick:
-execution is the parallel CPU driver unless the programmer asked
-otherwise (#co[--gpu on], default when a device probes; asking for
-a device that is not there is a refusal, not a fallback).
-@sec:gpu-mark describes the hand-off.
-
-= The Shape of a Compiled Program <sec:compile>
-
-== One File, Three Executors
-
-The compiler emits one standalone C file: the runtime (a single
-fixed template, spliced in verbatim) followed by the program's
-constructor and function tables, its compiled segments, and the
-effect handlers it imports. The same file compiles as plain C for
-the CPU build and as Objective-C for the Metal host; a GPU-capable
-binary then compiles _its own source file_ as the Metal shader
-library at launch, so the device kernels are, by construction, the
-same code the host runs. Every build is one compiler invocation
-and every binary is self-contained: it ships no separate kernel.
-The three executors, sequential CPU, parallel CPU, and
-Metal GPU, are selected at run time (#co[--parallel],
-#co[--threads], #co[--gpu]): every call site is emitted in both a
-sequential and a parallel reading behind one runtime flag
-(@sec:seq), so one text serves all three. A second, sequential
-backend emits the same compiled book as plain JavaScript over the
-host's garbage collector; it shares every compiler pass and is out
-of scope here.
-
-== Carbo: Tail, Cut, Fork
-
-Before emission, every function reachable from #co[main] is
-rewritten into the form the runtime schedules, called _Carbo_: an
-outer tree of lambdas and matches, then straight-line lets ending
-in one of three shapes. A _tail_ is a saturated call in return
-position. A _cut_ is one call whose result is named and whose
-continuation is a minted sequential definition. A _fork_ is a
-chain of two or more calls whose results feed a named joiner.
-Everything else, constructor builds, arithmetic, erased proofs, is
-call-free expression code. Lambdas lift into top-level definitions
-over their captures, so a closure value is an under-saturated
-spine of an ordinary definition, applied through the same call
-protocol as everything else; dynamic applications route through a
-synthesized apply step. The rewrite is one recursive pass per
-definition, minting continuations, joiners, lifted matches and
-closure bodies as it goes; an inliner then splices small,
-fork-free case trees into their callers, and unrolls closed
-recursion over constants into straight-line code, so the format's
-cuts are only the calls that genuinely must suspend.
-
-Each definition in this form compiles to exactly one _segment_ of
-the worklist machine (@sec:seq). Which world runs a segment is the
-scheduler's choice, never the code's: the grow phase of @sec:tasks
-runs fork steps to widen the frontier, and the work phase runs the
-same segments sequentially to drain it. A definition that can
-never fork is marked once in a table, closed under references, and
-the scheduler skips it during growth: it can never widen the
-frontier, so it waits for the work phase and runs whole.
-
-== Example
-
-#block(breakable: false)[
-The canonical tree sum:
-
-```
-type Tree:
+type Tree is Type:
   Leaf{x: U32}
   Node{l: Tree, r: Tree}
 
-assert sum:
-  forall t: Tree
-  U32
+def build(+d: Nat, +i: U32) -> Tree:
+  match d:
+    case 0n:
+      Leaf{i}
+    case 1n+p:
+      l r = build(p, i * 2) build(p, i * 2 + 1)
+      Node{l, r}
 
-def sum(t):
+def sum(t: Tree) -> U32:
   match t:
     case Leaf{x}:
       x
     case Node{l, r}:
-      &a: U32 = sum(l)
-      &b: U32 = sum(r)
+      a b = sum(l) sum(r)
       a + b
+
+def main() -> IO(Unit):
+  t = build(20n, 0)
+  IO.print(U32.show(sum!(t)))
 ```
 ]
 
-The declaration is an #co[assert] (the type) plus a #co[def] (the
-fill); the fork #co[let] promises two equal halves. Carbonization
-leaves the case tree in place, turns the fork into two calls
-joined by a minted definition #co[sum\$j0(a, b) = a + b], and the
-emitter prints one segment of this shape (simplified, names
-shortened; #co[seq] is the machine's world flag):
+The program builds a tree of $2^20$ leaves and sums it. Two marks
+carry all the parallelism Bend has. The _fork let_ `l r = f(x) g(y)`
+binds $n$ names to $n$ calls in one statement and means: run these
+calls in parallel; they split the work into roughly equal parts. The
+_mark_ `sum!(t)` means: run this call on the GPU. Nothing else creates
+parallelism, and the runtime trusts the equal-parts promise absolutely
+(@sec:cube).
+
+The checker hands the compiler more than types. A live binder is
+consumed at most once; a `+` binder may be used freely, but only at
+kind `Data`, so no closure, array or file handle is ever shared. A
+match consumes its scrutinee, always a parameter or a field of one,
+never a computed value. A def body is flattened at parse into a _case
+tree_, lambdas and constructor matches over leaves, and validation
+annotates every node with its type; erased binders (`-`), types and
+proofs are gone before the compiler sees the term. One law governs
+what follows: a compiler may drop a copy the source spelled, never add
+one.
+
+= Compilation <sec:compile>
+
+== Tail, Cut, Fork
+
+The runtime has no C call stack for user code, so every call must sit
+where a jump can replace it. The first pass rewrites each reachable
+body until every call has one of three shapes and all else is
+call-free expression code. A _tail_ is a saturated call in return
+position. A _cut_ is one call whose result is named; its continuation
+is minted as a sequential definition `f$k`. A _fork_ is a let of two
+or more calls; its continuation is minted as a joiner `f$j`. Lambdas
+lift into definitions `f$c` over their captures, so a closure is a
+definition applied to all but one of its arguments.
+
+Two whole-program analyses then decide the memory traffic. _Share
+inference_ marks the constructor types that wear reference counts: a
+type is _hot_ when some binder of it is used more than once, when a
+hot type's live field reaches it, or when it is boxed in an array;
+everything else is built and consumed through plain stores and loads.
+_Borrow inference_ marks the arguments a callee only reads: each live
+argument of a datatype starts borrowed and flips to owned on any
+escape, to a fixpoint. A borrowed argument is lent raw and read in
+place, a field read off it is itself borrowed, and an argument lent
+to a forked call must outlive the fork: held by the join, or itself
+borrowed by the caller. A fold over a reused tree costs no count
+traffic.
+
+Two more passes are load-bearing and get one sentence each. The
+inliner runs the checker's own evaluator on a call under a view of the
+book that exposes only the callee, and keeps the result when it is a
+small fork-free case tree. Fusion splices a non-recursive callee into
+its caller at a tail or a cut, and spins a self-recursive callee that
+returns a word or one flat record as a loop in place, so the record
+never allocates.
+
+== The Segment
+
+Each definition becomes one _segment_ of the worklist function. For
+`sum` the emitter prints (locals renamed, unboxing elided):
 
 ```
-case FID_SUM: {
+WL_CASE(FID_SUM) {
   Term t = r0;
-  if (term_tag(t) == PAK) {
-    // one-word ctors are unboxed: the payload
-    // lives in the term itself
-    res = term_loc(t); goto exit;
-  }
-  // Node{l, r}: read both fields; the node
-  // is freed, or handed to the arm as a spare
-  Term l, r;  spare = ctr_take(t, &l, &r);
-  if (seq) {
-    // two steps chained by stack frames,
-    // the last one jumping into sum$j0
-    push_frame(r, FID_SUM_STEP); r0 = l;
-    goto again;
+  WL_SPIN
+  if (term_aux(t) == CID_LEAF) {
+    WL_RET(term_loc(t));  // packed: no node
   } else {
-    // a join task: one slot per child, each
-    // child spawned pointing back at its slot
-    Term j = task_new(FID_SUM_J0, 2);
-    kid(j, 0, FID_SUM, l);
-    kid(j, 1, FID_SUM, r);
-    reply = j;  // dealt by the scheduler
+    u64 nd = term_loc(t);
+    Term l = e.mem[nd + 0];
+    Term r = e.mem[nd + 1];
+    heap_free(e, cls_fit(2), nd);  // owned
+    if (!seq) {  // parallel: a join, two kids
+      u64 j = task_node(e, FID_SUM_J,
+        WL_CONT, WL_IDX, 2);
+      Term jt = term_tsk(FID_SUM_J, j);
+      u64 k0 = task_node(e, FID_SUM, jt, 0, 0);
+      e.mem[k0] = l;  WL_KID(j, 0, FID_SUM, k0);
+      u64 k1 = task_node(e, FID_SUM, jt, 1, 0);
+      e.mem[k1] = r;  WL_KID(j, 1, FID_SUM, k1);
+      return jt;
+    }
+    STK(0) = r;  STK(1) = FID_SUM_S_1;
+    WL_PUSHN(2);
+    t = l;  WL_AGAIN;  // sequential: in place
   }
+  WL_SPUN
+}
+WL_CASE(FID_SUM_S_1) {  // after sum(l)
+  Term r = STK(-1);
+  STK(0) = res;  STK(1) = FID_SUM_S_0;
+  WL_PUSHN(2);
+  r0 = r;  WL_JMP(FID_SUM);
+}
+WL_CASE(FID_SUM_S_0) {  // after sum(r)
+  WL_POPN(2);
+  r0 = STK(1);  r1 = res;
+  WL_JMP(FID_SUM_J);
+}
+WL_CASE(FID_SUM_J) {
+  WL_RET(U32_BIN(r0, +, r1));
 }
 ```
 
-The match takes ownership: #co[ctr_take] reads both fields and
-reclaims the node, because this reference was the only one, and
-the emptied node is offered as a _spare_ to the arm's own builds
-of the same size class. The two worlds are the same fork read
-twice: sequentially, the members run one after the other through
-stack frames and the last step jumps into the joiner; in parallel,
-the join task is born with one empty slot per child and the
-children are spawned pointing back at the slots their results will
-fill (@sec:tasks). A #co[Leaf] never touches memory at all: a
-constructor with exactly one live word-sized field is packed into
-the term word itself.
+Three things happen here. The match takes ownership: `Tree` is not
+hot, so the arm reads both fields and frees the node with two stores
+onto a free list. A `Leaf` never touched memory: a constructor with
+one word-sized field is packed into the term word. And the fork is
+read twice. In the parallel world the arm mints a _join task_ with one
+empty slot per child, spawns each child pointing back at its slot, and
+returns the join as its _reply_ for the scheduler to deal out
+(@sec:cube). In the sequential world it pushes a frame and reloads its
+own parameter, so the first call runs in place; its answer lands in
+`res`, the step pushes the next frame and jumps to `sum` again, and
+the last step jumps into the joiner with both results in the bank.
 
-= Terms and Memory <sec:memory>
+The emitted file is the runtime template, the program's tables and
+segments, and the C source of every effect it imports; `--threads`,
+`--parallel` and `--gpu` pick the executor at run time.
+
+= Memory <sec:memory>
 
 == The Term Word
 
-#figure(caption: [The term word. One 64-bit value: bit 63 flags a
-counted redirect, bits 62--56 hold the tag, bits 55--40 a 16-bit
-aux field (constructor id, function id, or block class), and the
-low 40 bits a heap location in words. Machine words, small
-naturals (up to $2^48 - 1$), and packed one-field constructors own
-no node and are never counted or collected. #co[HOLE] is a
-reserved word marking an undelivered task slot, never a value.], {
-  set text(size: 8pt)
-  table(
-    columns: (auto, auto, auto),
-    align: (left, left, left),
-    stroke: none,
-    table.hline(stroke: 0.6pt + solfg),
-    table.header([Kind], [Aux + location], [Node slots]),
-    table.hline(stroke: 0.4pt + solfg),
-    [word], [32-bit value or small Nat, unboxed], [none],
-    [constructor], [ctor id + loc], [fields],
-    [packed ctor], [ctor id; payload in loc], [none],
-    [closure], [fn id + loc], [captured args],
-    [task], [fn id + loc], [args, cont, idx|rem],
-    [array], [cell class + loc], [one term per word],
-    [buffer], [cell class + loc], [u32 cells, two per word],
-    table.hline(stroke: 0.6pt + solfg),
-  )
-}) <fig:term>
+A term is one 64-bit word: bit 63 flags a counted redirect, bits
+62--56 hold the tag, bits 55--40 a 16-bit aux, and bits 39--0 a heap
+location in words. The tags are a raw word (a `u32`, `f32` bits, or a
+`Nat` below $2^48$), a _packed_ constructor (no field, or one
+word-sized field, carried in the location bits), a constructor (aux
+the constructor id, the node its fields), a closure (aux the segment
+id, the node its captured arguments), a task (@sec:cube), a _buffer_
+of packed 32-bit cells, and an _array_ of one term per word. `HOLE`,
+all ones, marks an undelivered task slot. A raw word, a packed
+constructor and `HOLE` are _trivial_: copied freely, never counted,
+never collected.
 
-A term is one 64-bit word (@fig:term). Machine words, 32-bit
-floats as raw IEEE-754 bits, and naturals up to $2^48 - 1$ are
-unboxed; a nullary or single-word-field constructor packs its
-payload into the location bits and owns no node. Every other term
-points at its _node_, its children in consecutive heap slots. A
-closure stores its captured arguments; a zero-capture closure is a
-bare function id with no node. A task node is the fork's join,
-carried as an ordinary term (@sec:tasks). An array block stores
-one term per word and owns its cells; a buffer is the same block
-shape for packed 32-bit words, two cells per word, so copying or
-dropping it touches no cell. The tag's top bit is the sharing
-flag: a shared term keeps its tag and aux and points, through one
-redirect word, at the node it shares (@sec:ownership).
+== The Corpus and the Allocator <sec:heap>
 
-== The Corpus <sec:heap>
+Every executor shares one flat array of words, the _corpus_: a 96-word
+header, a scratch region per lane (its ring counters and allocator
+words, persisted across GPU dispatches), the $2^14$ task rings of
+@sec:cube, the device value stacks, and the heap, with per-lane words
+strided so that device accesses coalesce. The host reserves 8 TB and
+pages fault in on touch; the GPU fixes its span before the first
+dispatch (@sec:gpu). Both processors address the same words.
 
-#figure(kind: image, supplement: [Figure], caption: [The corpus:
-one flat word array shared by every CPU thread and the GPU. A
-96-word header, per-lane scratch (allocator state, counters),
-the task rings, the device value stacks, then the heap, consumed
-by one global page cursor. Per-lane words are strided so device
-accesses coalesce.], {
+The heap is carved into 128-word pages off one global bump counter,
+checked against one cap. Each lane keeps a free-list head and a partly
+used _quantum_ for each of nine size classes, $2^0$ to $2^8$ words: an
+allocation pops its class, else bumps its quantum, else claims fresh
+pages, and a free is two stores. Larger spans are whole pages and
+recycle through one shared stack per class. Every free is exact: a
+match frees the node it consumed, or hands it to its arm as a _spare_
+for a build of the same class, and a small free never crosses a
+thread. Exhaustion is fail-stop: a claim past the cap
+posts a numbered error into the header, once, and answers page zero,
+because a GPU lane cannot be killed; the doomed write lands inside the
+program's own span, which the next poll abandons.
+
+== Ownership at Run Time <sec:ownership>
+
+Generated code moves values. Three operations cover the cases where it
+cannot. _Take_ consumes a value at a match: read the fields, free the
+node. _Keep_ gives a value a second owner and is emitted exactly at a
+binder's second use: the first keep mints a _redirect_, one class-zero
+word holding the node's address and a count, and turns the local into
+a pointer at it; the count lives there, never on the node, so an
+unshared value carries no count anywhere. _Drop_ releases an owner: a
+trivial term costs nothing, a counted pointer decrements and only the
+last one collects, a sole owner collects at once. Take respects
+sharing: at count one it collapses the redirect and owns the node;
+above one it copies the fields out and releases its pointer. Every
+decrement is a release and whoever sees zero acquires first, so a
+field read never races a free. Only hot types pay any of this, and
+they seal every stored field with a count at build time.
+
+Drop is the runtime's only collector: an iterative walk that threads
+its worklist through the nodes being freed, the first word of each
+displaced by the parent link, so it allocates nothing and runs from
+any code on either processor. There is no tracing, no epoch and no
+deep copy anywhere: a `+` variable is emitted at every use, and each
+extra use is the share or the borrow the compiler placed.
+
+== Arrays <sec:arrays>
+
+In the source, `Array<T>` is a perfect binary tree walked by index
+bits. The backends run it as one flat block: packed 32-bit cells for
+an array of machine words, one owned term per word otherwise. A read
+is an indexed load, a write an indexed store, and a read of a boxed
+cell shares it. Affinity makes the store sound: `Array<T>` is `Type`,
+never `Data`, so an array has one owner, nobody can observe the
+mutation, and a copy is explicit. A match on the tree takes both
+halves in place, and joining two adjacent halves back is free.
+
+= The Machine <sec:machine>
+
+All segments live in one function: labels and a computed goto on the
+host, the cases of a switch inside an error-polling loop on the
+device. The state is a register bank `r0..rn`, a result register
+`res`, the current segment id, a value stack, and the world flag
+`seq`.
+
+The function takes one task. Its prologue pushes the task's
+continuation, slot index and the exit segment onto the value stack,
+loads the arguments into the bank, frees the task node, and jumps. A
+segment ends in one of four ways. A tail call loads the bank and
+jumps; a self call reloads its own parameters and loops. A cut, in the
+sequential world, pushes a frame holding the continuation's captures
+and segment id and jumps to the callee; in the parallel world it mints
+a continuation task expecting one result, makes it the current
+continuation, and jumps. A fork was shown above. A return puts the
+value in `res` and pops the stack: the popped word is the segment to
+enter next, a step or a minted continuation, which reads its captures
+from the stack and its result from `res`. The exit segment pops the
+task's continuation and delivers `res` into it; a marked call in the
+parallel world returns a spawned task instead of jumping.
+
+Word-typed parameters live in the bank as raw machine words, so
+arithmetic never touches the heap. Recursion depth is bounded by the
+value stack alone, a guarded 2 GB mapping per host worker and a fixed
+window per device lane, and an overflow on either is the same
+numbered error.
+
+= The Task Cube <sec:cube>
+
+== Tasks are Terms
+
+A task is a heap term like any other: a node of arity plus two words,
+`[args..., cont, idx|rem]`, tagged with the segment to enter. A join's
+argument slots hold `HOLE` until its children answer; `cont` is the
+parent continuation task, or `HOLE` at the root; `idx` says which slot
+of the parent this task's own answer fills, and `rem` how many
+children still owe one. Delivery writes the slot and decrements `rem`
+with release order; the lane that takes it to zero owns the runnable
+join and runs it. Children of one join write disjoint slots and race
+only on the countdown. A `HOLE` continuation is the root: its delivery
+is the program's answer.
+
+== The Cube
+
+#figure(kind: image, supplement: [Figure], caption: [The cube, shown 4
+lanes wide. Tasks pushed along a row during one phase are drained down
+the columns of the next: the flip swaps the index map, an $O(1)$
+transposition that moves no task. A task born during a work pass
+(`w`, darker) lands past the snapshot and belongs to the next
+round.], {
   set text(size: 8pt, font: "DejaVu Sans Mono")
-  align(center, stack(spacing: 5pt,
-    table(
-      columns: (38pt, 44pt, 40pt, 52pt, 44pt, 46pt),
-      rows: 13pt,
-      align: center + horizon,
-      stroke: none,
-      inset: 2pt,
-      table.cell(align: right)[corpus#h(4pt)],
-      table.cell(fill: solhi, stroke: 0.4pt + solfg)[header],
-      table.cell(fill: solhi, stroke: 0.4pt + solfg)[monks],
-      table.cell(fill: solhi, stroke: 0.4pt + solfg)[rings],
-      table.cell(fill: solhi, stroke: 0.4pt + solfg)[stacks],
-      table.cell(stroke: (left: 0.4pt + solfg))[heap ...],
-    ),
-    table(
-      columns: (auto, auto),
-      align: (right, left),
-      stroke: none,
-      inset: 2pt,
-      rows: 11pt,
-      [lane words:#h(2pt)], [free heads c0..c8 #h(6pt) quantum #h(6pt) counters],
-      [heap:#h(2pt)], [128-word pages off one bump cursor #h(4pt) \u{2191}],
-    ),
-  ))
-}) <fig:corpus>
-
-All executors share one flat 64-bit word array, the _corpus_
-(@fig:corpus): a 96-word header, a scratch region per lane (the
-_monk_: its allocator words and counters, persisted across GPU
-dispatches), the task rings of @sec:tasks, the device machine
-stacks, and the heap. A term crosses the CPU/GPU seam unchanged,
-in $O(1)$: no serialization, no copy, no pointer rewriting, and
-heap locations are stable for the whole run. The heap is carved
-into 128-word pages taken off a single global bump cursor, checked
-against one cap, fixed before the first dispatch and the same on
-both processors. There are $2^14$ lanes, a 128 by 128 grid, on every
-target; #co[--parallel off] runs the same machinery at width one,
-a single thread serving the grid, with no GPU.
-
-The allocator keeps, per lane and per size class, two words: a
-LIFO free-list head and a partially consumed quantum of the lane's
-last claimed page. There are nine small classes ($2^0$ to $2^8$
-words) and 23 huge classes (whole page spans). An allocation pops
-its class, else bumps its quantum, else claims a fresh page off
-the global cursor; a free is two plain stores onto the class list.
-Frees are exact, and every span goes back at the class it was
-taken from: a match frees the node it consumed or hands it to the
-arm as a spare, and an array or buffer frees its block whole. Huge
-spans recycle through one lock-free page stack per class, a pop
-briefly locking the head while pushes wait it out. Because the
-per-lane state rides in the monk scratch, whichever executor next
-serves a lane adopts its piles wholesale, and freed memory
-recycles with no cross-thread free list on the allocation path.
-
-Exhaustion is fail-stop by construction. A claim past the cap
-posts a numbered error into the header, once, and yields page
-zero, because a device thread cannot be killed and the allocator
-must still answer an address. Nothing is reserved for this: since
-the span never moves there is no unmapped edge to overshoot, so a
-doomed write lands in the program's own memory, which the poll is
-about to abandon anyway; no thread waits, parks mid-allocation, or
-grows memory itself. The host reads the error after the dispatch
-and stops, naming the flag that raises the cap.
-
-= Ownership at Run Time <sec:ownership>
-
-Generated code manages memory with three operations. _Take_
-consumes a value at a match: load the fields and free the node,
-handing the freed slots back so a branch that builds a node of the
-same size class reuses them in place. _Keep_ gives a value an
-extra owner: the first keep mints a _redirect_, a one-word cell
-holding the target address and a reference count, rewrites the
-local to the redirected form, and hands out a counted alias; the
-count lives in the redirect, never on the node itself, so an
-unshared value carries no count anywhere. _Drop_ releases one
-ownership: a word owns nothing and costs nothing; a counted
-pointer decrements, and only the reference that takes the count to
-zero goes on to collect; a sole owner collects at once.
-
-Take respects sharing. On a sole owner it reads the fields and
-reclaims the node; at count one it collapses the redirect and owns
-the node; above that it copies the fields out, sharing each one,
-and fades this reference, the last reference out collects. Every
-decrement is a release, and whoever sees zero acquires first, so
-field reads never race a free. Array and buffer blocks copy on
-write instead: a write to a shared block copies the block first,
-sharing each cell.
-
-Which types pay any of this is decided at compile time, by two
-global analyses. _Share inference_ decides which constructor types
-wear counts at all, to a fixpoint over every binder site: a type
-is hot when some binder of it is used more than once non-trivially
-or is reachable through a hot type's live fields, and only hot
-constructors seal their stored words and are destructured through
-the counted take; everything else is built and consumed through
-plain stores. _Borrow inference_ decides which arguments are only
-read: each such argument is lent raw, the callee's takes become
-bare field loads, a field read off a borrowed value is itself
-borrowed, transitively, and the owner frees once, after the last
-reader, which is sound because work is never stolen and a join
-outlives its children. A fold, a lookup, a checksum walk over a
-reused tree costs no count traffic at all.
-
-Dropping is one compiled walk, the runtime's single collector: an
-iterative traversal that threads its worklist through the nodes
-being freed, each node's first word displaced by the parent link,
-so the walk itself allocates nothing and runs synchronously from
-any code; shared terms decrement and stop unless they were the
-last owner. There is no deep cloner and no copy intrinsic
-anywhere in the runtime: a #co[+] variable is emitted at every
-use because its type is #co[Data] by declaration, and each extra
-use is the borrow or the share the compiler placed. There is
-no tracing, no epochs, and no deferred queues: the whole
-discipline is plain malloc-free-shaped code, the frees placed by
-the types, plus a compiler-placed count exactly where a second
-owner genuinely escapes.
-
-= Arrays <sec:arrays>
-
-In the source, `Array<T>` is an ordinary datatype, a perfect
-binary tree walked by index bits, built by #co[new(d, v)] with
-$2^d$ leaves and accessed through #co[get], #co[set] and a generic
-#co[swap] that returns the displaced element. The backends
-intercept it: an array of machine words runs as a _buffer_, one
-flat block of packed 32-bit cells, two per word, and an array of
-anything else as a _block_ of one term per word, each cell owned
-by the block. Creation allocates the block whole; a read is an
-indexed load, a write an indexed store, a swap both. Affinity is
-what makes the in-place access sound: an unshared array has one
-owner, so nobody can observe the mutation, and a shared one is
-copied on write, cell by cell, before the store. Block depth is
-capped at 31 on every backend, one wall, identically; past it
-creation refuses on all three executors.
-
-= The Task System <sec:tasks>
-
-== Tasks are Terms, in the Heap
-
-A task is not a runtime object beside the program; it _is_ a heap
-term. A fork compiles to a _join task_: one heap span of arity
-plus two words, #co[\[args..., cont, idx|rem\]]. The argument
-slots of children that have not answered yet hold the reserved
-#co[HOLE] word; #co[cont] holds the parent continuation, itself a
-task term, or #co[HOLE] at the root; and the last word packs
-#co[idx], which slot of the parent this task's own answer fills,
-beside #co[rem], how many children still owe one. The arity comes
-from the function id, so the node carries no length. A delivery
-writes its slot and decrements #co[rem] with release ordering; the
-thread that takes it to zero owns the now-runnable task and runs
-it. All children of a join may deliver concurrently; they write
-disjoint slots and race only on the countdown. When a whole
-cascade runs inside one lane, the countdown runs in plain memory.
-A #co[HOLE] continuation is the root: its delivery is the
-program's answer.
-
-== The Ring Cube
-
-#figure(kind: image, supplement: [Figure], caption: [The cube,
-shown 4 lanes wide. Tasks pushed along a row during one phase are
-drained down the columns of the next: the flip swaps the index
-map, an $O(1)$ transposition that moves no task. A task born
-during a work pass (#co[w], darker) lands past the snapshot and
-belongs to the next wave.], {
-  set text(size: 8pt, font: "DejaVu Sans Mono")
+  let cell(s) = if s == "" { [] } else if s == "w" {
+    table.cell(fill: solgreen.transparentize(60%))[w]
+  } else { table.cell(fill: solhi)[#s] }
+  let rows = (("t0", "t4", "t8", ""), ("t1", "t5", "t9", ""),
+    ("t2", "t6", "w", ""), ("t3", "t7", "", ""))
   align(center, table(
     columns: (auto, 20pt, 20pt, 20pt, 20pt),
     rows: 13pt,
     align: center + horizon,
     stroke: (x, y) => if x > 0 { 0.4pt + solfg },
     inset: 2pt,
-    table.cell(stroke: none)[ring 0], table.cell(fill: solhi)[t0], table.cell(fill: solhi)[t4], table.cell(fill: solhi)[t8], [],
-    table.cell(stroke: none)[ring 1], table.cell(fill: solhi)[t1], table.cell(fill: solhi)[t5], table.cell(fill: solhi)[t9], [],
-    table.cell(stroke: none)[ring 2], table.cell(fill: solhi)[t2], table.cell(fill: solhi)[t6], table.cell(fill: solgreen.transparentize(60%))[w], [],
-    table.cell(stroke: none)[ring 3], table.cell(fill: solhi)[t3], table.cell(fill: solhi)[t7], [], [],
+    ..rows.enumerate().map(((i, r)) =>
+      (table.cell(stroke: none)[ring #i], ..r.map(cell))).flatten(),
   ))
 }) <fig:cube>
 
-The task frontier lives in the _cube_: a hardcoded 128 by 128
-square of rings, one ring per lane, $2^14$ on every target,
-served by one thread when parallelism is switched off, the same
-code at width one. Each ring is a fixed FIFO with put
-and get counters, and each owns its lane's state: the allocator
-words, the machine-stack window, the counters. A slot hands a task
-across threads with one publication protocol: the producer
-fetch-adds the put counter, writes the slot's low half relaxed,
-then release-stores the high half carrying the lap parity in its
-top bit; a consumer's acquire load rejects a wrong lap as
-unpublished. The square is stored slot-major, so a row and a
-column are both $O(1)$ index maps, and _flipping_ the cube,
-turning the rows one phase filled into the columns the next phase
-drains, is swapping the indexer, not moving data (@fig:cube). A
-task is written into a ring once, when it is born or when a
-continuation returns to the cube; no phase re-reads a task to
-place it somewhere else: no redeal, no migration, no rebalancing
-pass. Global pushes advance one shared cursor whose total is the
-frontier estimate the driver reads.
+The frontier lives in the _cube_: $2^14$ rings arranged as a 128 by
+128 square, one ring per lane, the same on every target; a single
+thread serves the whole square when parallelism is off. A ring is a
+fixed FIFO of 1024 slots. A push fetch-adds the put counter, writes
+the slot's low half, then release-stores the high half with the lap
+parity in its top bit, which the consumer's acquire load checks. Each
+ring has one consumer per phase, the lane that owns it. The square is stored
+slot-major, so a row and a column are both $O(1)$ index maps, and
+_flipping_ the cube, turning the rows one phase filled into the
+columns the next phase drains, swaps the indexer and moves no task
+(@fig:cube).
 
-== Seed, Grow, Work
+== Grow and Work
 
-Evaluation alternates three phases over the cube until the root
-answer lands, selected by the frontier estimate $f$: seed below
-128, grow below $2^14$, work at saturation.
+The driver reads one number per round, the _frontier_ $f$: how many
+tasks were pushed into the cube during the last round. While
+$f < 2^14$ it runs a grow phase; it always runs a work phase; it stops
+when the root has delivered, and an empty frontier with no answer is a
+numbered error, never a hang.
 
-_Seed_ runs the small frontier on one group of 128 lanes: each
-pops a task, runs it one fork step, and pushes the fork's children
-back into the strip. Forks double the row's population, and
-seeding ends when every ring of the row is non-empty. On the host
-there is no seed twin: the solo prologue covers the small
-frontier, and for small programs it finishes the evaluation by
-itself, without ever dispatching.
+_Grow_ widens the frontier one fork step at a time. Each of the 128
+rows is served by one worker, a thread on the host or a threadgroup on
+the device. It pops the head of each ring in its row, runs it in the
+parallel world, and pushes what comes back into the row: a fork reply
+deals its children round-robin across the row's rings, and a runnable
+reply, a completed continuation or a spawned marked call, is pushed
+back whole. Tasks whose segment can never fork are skipped: they
+cannot widen the frontier, and they wait for work. A row stops growing
+when every ring in it has work or a sweep grew nothing; on the device
+the lanes vote through two group counters and a barrier.
 
-_Grow_ runs below saturation: 128 groups run every row exactly as
-seed runs the top one, one thread, one ring, pop, step, push,
-through the flip, so the tasks one phase dealt along its rows
-drain down the next phase's columns. Growth skips the definitions
-that cannot fork, they can never widen the frontier and wait for
-work, and the lanes vote: growth stops when every ring has work or
-nothing grew. The host mirrors the same rule on its worker pool.
+_Work_ runs at saturation. Every lane drains its column ring, down to a
+snapshot of the put counter taken at the turn's start, in the
+sequential world: forks run as consecutive calls on the value stack
+and cuts as frames, and most of a program's time is spent here, in
+straight-line code. A join completed by the lane's last delivery runs
+at once, in the parallel world, so the forks it meets are dealt into
+the cube through the global cursor and counted toward the next
+round's frontier. This is the bulk-synchronous rhythm
+@valiant1990: bursts of exponential fork, then deep sequential focus,
+then the next wave.
 
-_Work_ runs at saturation: every lane drains exactly the frontier
-its ring held at the turn's start, sequentially, forks running as
-ordinary consecutive calls. New tasks born during the turn land
-past the snapshot and belong to the next wave: work consumes
-exactly the frontier that existed when it began. When a lane's
-machine cannot finish, its answer must wait on other lanes'
-deliveries, its continuation returns to the cube as a task,
-claimed by one global increment, which fills the first rows; the
-flip then spreads those rows into columns for the next turn. A
-lane that is growing pushes its runnable work back to its ring and
-stops. This is the bulk-synchronous rhythm
-@valiant1990: bursts of exponential fork, then deep sequential
-focus, then the next wave. The driver reads and clears the push
-cursor each round and stops when the root has delivered; an empty
-frontier with no root answer is itself a numbered error, never a
-hang.
+The host pool is up to 128 threads, which claim rows by one fetch-add
+and meet at one barrier per turn. The GPU runs a grow as one dispatch
+of 128 groups (one group while $f < 128$) and a work as one dispatch
+of one thread per lane; between dispatches the host only reads $f$.
+The solo thread opens the pool at a program's first fork; a program
+that never forks never opens it.
 
-= Sequential Execution <sec:seq>
+== Why Nothing Contends
 
-The work phase runs whole calls, so most of a program's time is
-spent in ordinary sequential code. Two constraints shape it: GPU
-device code has no recursion, so native C recursion is unavailable
-there; and one text must serve both worlds, so every call site
-carries both readings.
+Count what crosses a lane. A push is one fetch-add and two stores. A
+delivery is one release fetch-sub on the join's own node. A page claim
+is one fetch-add on the global cursor, once per quantum. That is all:
+no shared deque, no lock on the task path, no compare-and-swap loop
+but the huge-page stack and the error word, no migration, no
+rebalance, and no task is ever re-read to be placed elsewhere. Every
+phase is a closed step, which is what lets the same phase bodies run
+as persistent host threads and as device dispatches.
 
-All compiled segments live in _one_ worklist function. On the
-host, segments are labels and dispatch is a computed goto; on the
-device, the same segments sit in a switch inside a poll loop, so a
-posted error drains every lane. The machine's state is an argument
-register bank, a result register, the current function id, and a
-stack; there are no C call frames for user code anywhere. A
-segment's prologue loads its parameters from the bank, frees the
-task node it entered from, and runs its case tree; it ends by
-answering: a value delivered through its continuation, a tail jump
-into another segment with the bank loaded, a cut, or a fork.
-
-The _dual call protocol_ is the one mechanism behind
-@sec:compile's claim that one text serves three executors. At a
-cut, the sequential world pushes a frame holding the
-continuation's captures and function id, jumps into the callee,
-and on return pops the frame and enters the continuation with the
-result in the result register; the parallel world instead
-allocates a continuation task expecting one result and replies it
-to the scheduler; and a marked call returns a spawned task rather
-than jumping, spawn, do not nest. At a fork, the parallel world
-births the join task of @sec:tasks; the sequential world runs the
-same members as consecutive steps chained by stack frames, the
-last step jumping into the joiner. Minted continuations are
-_sequential_ segments: their arguments travel on a value stack
-rather than the register bank, and when the machine pops one it
-runs it in place, its frame pushed and control jumping straight
-in, with the result already in the result register. Self tail
-calls reload their parameters and spin inside their own segment;
-spare nodes flush before any jump or return.
-
-The machine is kept fast by four compiler disciplines. Parameters
-of word and float type are _unboxed_: they live as raw machine
-words in the bank, rewrapped at uses, so arithmetic chains never
-touch the heap. Two match specials remove branches: a two-arm
-boolean match whose arms are constant equality tests becomes a
-single branchless test over an OR-mask, and a closed chain of
-constant natural cases becomes a deduped constant table with a
-clamped lookup. _Fusion_ inlines a non-recursive callee's text at
-a tail call, and inlines a pure cut whose callee returns a word or
-one flat constructor, spinning a recursive one as a loop in place,
-its result consumed as unpacked parts so the record never
-allocates; on the
-device the spun loop is outlined into its own function, since
-device compilers degrade superlinearly in single-function size.
-And in #co[main]'s chain a small call-free callee is inlined even
-across a constructor match, because one extra segment in the
-worklist function costs about two percent of whole-function code
-generation, more than the inlined text.
-
-Recursion depth is bounded by the stack: host workers run on
-guarded #co[mmap]-ed stacks, and a fault is trapped through an
-alternate-stack handler and reported as the same numbered
-depth error the device posts when its value stack overflows. The
-same program at the same depth answers the same way on every
-executor.
+The price is written into the language. Work stealing @blumofe1999
+@frigo1998 repairs an unequal split at run time; the cube does not. If
+a program forks unequal parts, lanes idle at the end of a work turn,
+and the runtime declines to correct that: balance is the program's
+job. The idioms are teachable: fork equal halves of the data or the
+index space, sequence full-width phases instead of forking phases
+against each other, keep light work out of forks.
 
 = The GPU <sec:gpu>
 
-== One Source, Its Own Shader
+The runtime speaks two device APIs, Metal and CUDA, and the device
+code is not a port: at launch the binary reads _its own source file_
+and compiles it as the shader library on Metal, or through NVRTC on
+CUDA with the binary cached by source hash, so host and device run the
+same functions by construction. One macro family covers the atomics:
+the compiler's on the host, relaxed 32-bit operations bracketed by
+fences on the device, always on the low half of a corpus word, which
+every shared protocol fits.
 
-The runtime speaks to one GPU API, Metal, and the device code is
-not a port: at launch, the binary compiles _its own C source
-file_ as the Metal shader library, so host and device run the same
-functions by construction, and a bug fixed once is fixed
-everywhere. One macro family covers the concurrency layer: on the
-host it expands to the compiler's real atomic orders, on the device to
-relaxed 32-bit atomics bracketed by sequentially consistent
-fences, always on the low 32-bit half of a corpus word, whose
-value fits 32 bits for every shared protocol (the ring counters,
-the join countdown, the error word). Full 64-bit terms cross
-threads as two halves ordered by the publication lap bit and the
-join's fill countdown (@sec:tasks).
+The span is decided once, before the first dispatch: a `--gpu-memory`
+size, else 2 GB on Metal, where mapping is charged per gigabyte and a
+buffer cannot grow while a kernel runs, and the whole card on CUDA,
+whose managed pages fault in on demand. Metal wraps the host mapping
+in one zero-copy buffer at the same addresses. A device cannot abort,
+so failure is a protocol: the first failing lane compare-and-swaps its
+error into the header word, every long loop polls that word and
+drains, and the host reads it after the dispatch, prints one line and
+exits.
 
-A device cannot abort, so failure is a protocol: the first failing
-lane compare-and-swaps its numbered error into a header word,
-once; every unbounded device loop polls that word and drains; and
-the host reads it after the dispatch, prints one line, and exits.
-Genuine memory exhaustion inside a kernel follows @sec:heap: a
-wandering lane writes inside the mapped span until the poll fires,
-so a dispatch that cannot progress fail-stops instead of
-hanging.
+The mark `f!(x)` is honored by the event loop (@sec:io) at a
+sequential program point, where nothing else runs. The solo thread
+detaches the marked call whole, makes its continuation the root, seeds
+it into ring zero and runs the phase loop on the device until the root
+delivers; then it hands the answer into the original continuation and
+continues on the CPU. The marked call's subtree forks on the device
+along its own fork lets. Met anywhere else the mark degrades: in the
+parallel world it spawns a task rather than nesting, in the sequential
+world it is inert, and without a device it is inert everywhere. The
+CPU and the GPU never compute at the same time.
 
-== Memory Discipline <sec:gpu-mem>
+One semantics extends to floats: both sides compile with contraction
+off, the device with safe math and precise roots and transcendentals,
+and division by zero follows the base library's laws everywhere. All
+three executors print the same bytes, and the harness checks it.
 
-The corpus is one shape on both processors: the same host
-#co[mmap] wrapped, zero-copy, in a Metal buffer at the same
-addresses. Address space is nearly free, but every byte a kernel
-may touch must be _mapped_ first, a real per-gigabyte cost
-(about 14 ms per gigabyte on an M4 Max), and a map cannot be
-widened while a kernel runs: the request queues behind the running
-dispatch and deadlocks. So the span is decided once, before the
-first dispatch — a #co[--gpu-memory] size, else two gigabytes
-on Metal, where the mapping is charged — and mapped whole. Every address under the cap is present
-for the entire run, so no kernel can reach a word the device has
-not got, and the per-gigabyte price is paid once, at the size the
-program asks for.
+= Effects <sec:io>
 
-When a kernel still runs out, that is genuine exhaustion, not a
-window too small: the error drains the dispatch and the host stops
-with one line naming #co[--gpu-memory]. Nothing waits, nothing parks,
-nothing re-runs. The managed CUDA span behaves the same way with
-no mapping cost at all, since its pages fault in on demand, and so
-takes the whole card by default; one protocol serves both.
+The type `IO(A)` is a continuation: a function from an erased result
+type `R` and a continuation `A -> IO.OP<R>` to an `IO.OP<R>`, where
+`IO.OP` has two constructors, `Emit` and `Halt`. A foreign
+definition, a def filled by `import` lines naming a `.c` and a `.js`
+file, compiles to one segment that packs its arguments and its
+continuation into a request constructor. The event loop runs on one
+thread: it evaluates `main` to a request through the pure machine,
+runs the effect's C handler on the loop thread, applies the
+continuation to the answer, and evaluates again; `Emit` ends the
+program and `Halt` exits with its code. Effects never run inside an
+evaluator, and the machine performs no IO. The kit ships one file per
+effect (print, environment, files, TCP and UDP sockets); a fallible
+operation answers a `Result` carrying errno, and a handle threads back
+outside the `Result`, so even a failure cannot lose it.
 
-== Whole Phases as Dispatches
+= The JavaScript Backend <sec:js>
 
-The GPU driver never round-trips per step. A seed is one dispatch
-of one threadgroup; a grow is one dispatch of 128 groups; a work
-pass is one dispatch of one thread per lane; between dispatches
-the host's whole job is to read the phase counters and pick the
-next phase. Results never copy, since host and device
-share the corpus, and the per-lane state that must survive a
-dispatch boundary, allocator words, counters, is exactly what the
-monk scratch persists. The CPU and GPU evaluators interoperate
-over the one heap, but never concurrently: exactly one evaluator
-owns the heap at any moment, by construction.
+The same carbonized book prints as plain JavaScript over the host's
+garbage collector: one function per live definition, naturals as
+`BigInt`, words as numbers, strings as strings, other constructors as
+tagged objects, closures as unary functions. A tail call returns a
+jump thunk that the caller's loop drives, forks run sequentially, and
+a request unwinds to the loop as a thrown value. `bend file.bend` runs
+this backend in memory, and a Bun plugin makes `import "./file.bend"`
+a module, so a Bend program is also a JavaScript library.
 
-== Numeric Parity
+= Results <sec:eval>
 
-One semantics everywhere extends to floats. Device compilers
-default to fast math: relaxed f32 algebra, approximate roots,
-cross-statement fused multiply-adds, each of which alone breaks
-bit parity with the CPU build. The device compilation at launch
-therefore pins safe math and contraction off and uses the precise
-square root, truncation to an integer goes through the bit
-pattern, and the compiler emits f32 arithmetic one operation per
-statement so the host compiler cannot contract either. Host and
-device agree bit for bit on every primitive; shifts past 31
-answer zero, division by zero follows the base library's own laws
-(the quotient is zero, the remainder the dividend), and the same
-laws hold in the JavaScript backend, so all three executors print
-byte-identical output.
-
-== Honoring the Placement Mark <sec:gpu-mark>
-
-On a host with a usable device, the event loop honors the mark at
-its own level: a marked call met at a sequential program point,
-nothing else running, one root, is detached whole to the Metal
-evaluator, which seeds the root into the cube, runs the phase
-loop on the device, and delivers the answer on the shared heap.
-The mark therefore composes: the marked call's subtree forks
-internally on the device along its own fork #co[let]s, the
-surrounding program continues on the CPU, and a mark reached
-mid-computation degrades to a spawn or a plain call rather than
-serializing the machine (@sec:mark).
-
-= The Event Loop <sec:io>
-
-Every compiled program is an event loop anchored on the user's
-monadic #co[IO] main; the runtime accepts no other main type and
-has no way to stringify arbitrary terms, a program prints what it
-chooses to print, through IO. The loop runs on one CPU thread and
-orchestrates the pure evaluators: at each bind it hands one
-saturated call to the chosen evaluator, blocks for the pure
-answer, runs the effect the program requested, print, files, TCP
-and UDP sockets, environment, each a foreign import compiled
-beside the program, and feeds the continuation. Effects never run
-inside an evaluator, and the machine performs no IO: this is what
-makes the whole-run memory retry of @sec:gpu-mem legal, and it is
-enforced, not assumed. The loop is light, no per-call setup, so
-effect-dense programs, a web server, stream through it; the same
-effect kit backs the C runtime and the JavaScript backend, one
-file per effect, and the CLI is four knobs: #co[--threads],
-#co[--parallel], #co[--gpu], #co[--help].
-
-= Evaluation <sec:eval>
-
-#figure(placement: top, caption: [The pinned suite. Seconds on one
-Apple M4 Mac Mini: one thread, 16 threads, and the integrated GPU
-through Metal. Every cell pays a warm run plus a timed run, by
-law; the committed result is a pin diffed against thereafter. The
-matmul GPU cell is marked unstable in the pin file: its variance
-is real and under investigation.], {
+#figure(placement: top, caption: [The pinned suite, `bench/runtime/`
+in the Bend repository. Seconds on one Apple M4 Max (pin of
+2026-08-31, commit `64fc4b7`): one thread, sixteen threads, the
+integrated GPU through Metal, and the hand-written C twin, one C
+function per Bend definition. Every cell is a warm run then a timed
+run on an idle machine, every executor must print the pinned checksum,
+and the numbers are pins diffed against thereafter.],
+{
   set text(size: 8.5pt)
   table(
-    columns: (auto, auto, auto, auto),
-    align: (left, right, right, right),
+    columns: (auto, auto, auto, auto, auto),
+    align: (left, right, right, right, right),
     stroke: none,
     table.hline(stroke: 0.6pt + solfg),
-    table.header([bench], [seq CPU], [par CPU], [Metal GPU]),
+    table.header([bench], [1 thread], [16 threads], [GPU], [C twin]),
     table.hline(stroke: 0.4pt + solfg),
-    [tree bitonic sort], [5.14 s], [0.93 s], [1.37 s],
-    [game of life], [4.21 s], [0.70 s], [0.11 s],
-    [k-means], [5.00 s], [0.93 s], [0.64 s],
-    [mandelbrot], [4.93 s], [0.74 s], [0.14 s],
-    [tree matmul], [2.05 s], [0.37 s], [1.00 s],
-    [merkle tree], [4.65 s], [0.79 s], [0.35 s],
-    [n-body], [4.88 s], [0.75 s], [0.09 s],
-    [n-queens], [3.93 s], [0.60 s], [2.01 s],
-    [tree radix sort], [3.77 s], [0.69 s], [0.97 s],
-    [raytrace], [4.96 s], [0.85 s], [0.45 s],
-    [symbolic regr.], [2.79 s], [0.49 s], [0.80 s],
-    [terrain], [3.59 s], [0.55 s], [0.35 s],
+    [tree bitonic sort], [6.18 s], [0.62 s], [0.43 s], [5.48 s],
+    [game of life], [5.46 s], [0.48 s], [0.08 s], [6.82 s],
+    [k-means], [2.26 s], [0.26 s], [0.18 s], [2.03 s],
+    [mandelbrot], [4.78 s], [0.40 s], [0.08 s], [3.79 s],
+    [tree matmul], [3.50 s], [0.31 s], [0.22 s], [2.89 s],
+    [merkle tree], [4.30 s], [0.39 s], [0.08 s], [3.48 s],
+    [n-body], [4.89 s], [0.43 s], [0.08 s], [4.99 s],
+    [n-queens], [5.51 s], [0.46 s], [1.24 s], [4.61 s],
+    [tree radix sort], [3.89 s], [0.36 s], [0.25 s], [2.67 s],
+    [raytrace], [6.15 s], [0.53 s], [0.21 s], [4.67 s],
+    [symbolic regr.], [3.31 s], [0.29 s], [0.54 s], [2.22 s],
+    [terrain], [2.81 s], [0.25 s], [0.13 s], [2.19 s],
     table.hline(stroke: 0.6pt + solfg),
   )
 }) <fig:bench>
 
-The suite is twelve benchmarks, each a self-contained Bend program
-whose workload and expected checksum are fixed in its header, so
-every number here is reconstructible from the shipped sources,
-which live under #co[bench/runtime/] in the Bend repository. They
-span tree-shaped sorting (bitonic, radix), dense numeric grids
-(game of life, mandelbrot, n-body, terrain), clustering and
-regression search (k-means, symbolic regression), Merkle hashing,
-quad-tree matrix multiplication with Freivalds' verification,
-backtracking search (n-queens), and recursive raytracing.
-
-Method: every cell runs a warm run plus a timed run on an
-otherwise idle machine, and every executor of a bench must
-reproduce the header's checksum, which is how cross-target
-semantic drift (a fast-math flag, say) has repeatedly been caught.
-Benchmarks are never hand-shaped toward a backend (a committed
-suite law): each is the idiomatic spelling of its algorithm, and a
-backend that punishes that spelling keeps the loss; the same law
-bans any optimization that fires only on the benchmark corpus. The
-parallel column is 16 threads (the runtime's default is the core
-count). The committed result is a _pin_ diffed against
-thereafter, so slow regressions cannot hide inside run-to-run
-noise.
-
-@fig:bench supports three readings. First, the parallel CPU column
-is a 5.4x to 6.7x speedup across the suite, which is what the
-no-balancing design delivers when the contract holds: the suite
-forks equal halves, and the wave ends together. Second, the GPU
-column is bimodal. Uniform-work benchmarks reach large multiples
-of the sequential build on the integrated GPU, n-body 54x, game of
-life 38x, mandelbrot 35x, merkle 13x, and raytrace joins them at
-11x; divergent and skewed workloads lose to the parallel CPU
-build, n-queens most visibly, with bitonic, matmul, radix and
-symbolic regression also behind it, and the design stance is to
-report them as losses rather than tune the scheduler toward them.
-Third, all parallel numbers are self-relative: no external
-parallel implementation is raced here, and the sequential column
-is the anchor the speedups multiply.
+@fig:bench supports three readings. The sequential build runs within
+0.8 to 1.5 times the time of its C twin: affinity buys the memory
+story at no sequential cost. Sixteen threads give 8.8 to 12.1 times
+over one: the suite forks equal halves, and each wave ends together.
+The GPU is bimodal. Uniform work reaches 52 to 67 times the sequential
+build (game of life, n-body, mandelbrot, merkle), while divergent and
+skewed work loses to sixteen threads (n-queens, symbolic regression),
+and the design stance is to report the loss rather than tune the
+scheduler toward it.
 
 = Related Work <sec:related>
 
-_Interaction nets._ The author's earlier runtimes, HVM and its
-successors, evaluate interaction combinators @lafont1990
-@lafont1997 @taelin2024hvm2: graph rewriting with strong
-confluence, optimal sharing, and parallelism at every redex.
-Bend's runtime contains no interaction nets. The lineage survives
-in the goals (massive implicit parallelism, one code on CPU and
-GPU) and in hard lessons about GPU memory discipline, but the
-mechanism is replaced wholesale: affinity from the type system
-gives unique ownership directly, so the graph, the sharing nodes,
-and the duplication machinery all become unnecessary. What was
-lost is optimal reduction of shared redexes; what was gained is
-native-speed sequential code, flat memory, and a cost model a
-programmer can read.
+_Interaction nets._ HVM @lafont1997 @taelin2024hvm2 evaluates
+interaction combinators: optimal sharing and parallelism at every
+redex. BendRT keeps the goals and drops the mechanism: affinity gives
+unique ownership directly, so the graph and its duplication machinery
+become unnecessary. Lost is optimal reduction of shared redexes;
+gained are native-speed sequential code, flat memory and a cost model
+a programmer can read.
 
-_Task scheduling._ Work stealing @blumofe1999 @frigo1998 is the
-standard answer to irregular parallelism, and its deliberate
-absence here is the main scheduling novelty: Bend moves the
-balance obligation into the language contract (@sec:hint) and
-keeps the runtime wave-structured @valiant1990, which is what
-makes one scheduler design run on a GPU at all. Lazy task creation
-@mohr1991 anticipates the work phase's discipline: a fork met
-while draining runs as ordinary sequential calls, excess
-parallelism represented, not spawned. GHC's sparks @marlow2009 and
-Multilisp's futures @halstead1985 are hint-driven like the fork
-#co[let], but both back onto stealing pools and a
-garbage-collected heap.
+_Scheduling._ Work stealing @blumofe1999 @frigo1998 is the standard
+answer to irregular parallelism, and its absence here is the
+scheduling novelty: the balance obligation moves into the language
+contract and the runtime stays wave-structured @valiant1990, which is
+what lets one scheduler run on a GPU at all. Lazy task creation
+@mohr1991 anticipates the work phase: a fork met while draining runs
+as a plain call. GHC's sparks @marlow2009 and Multilisp's futures
+@halstead1985 are hints like the fork let, but back onto stealing
+pools and a collected heap.
 
 _Functional GPU compilation._ Futhark @henriksen2017, Accelerate
-@chakravarty2011, and the NESL line @blelloch1996 compile
-array-level data parallelism to GPU kernels, with flattening as
-the central transformation. Bend differs in scope and shape: the
-unit of GPU execution is not a kernel compiled from an array
-combinator but the whole language, recursion, allocation, and
-algebraic data types included, run by a scheduler that lives on
-the device; and the same binary serves CPU and GPU from the same
-intermediate form. The price is that Bend's GPU code is younger
-and less specialized than a flattening compiler's output, visible
-in @fig:bench's losses.
+@chakravarty2011 and NESL @blelloch1996 flatten array combinators into
+kernels. Bend's unit of GPU execution is the whole language, recursion,
+allocation and algebraic data included, run by a scheduler that lives
+on the device; the price is younger, less specialized device code,
+visible in the losses of @fig:bench.
 
-_Memory management._ Region inference @tofte1997 and linear types
-@wadler1990 both aimed at collector-free functional memory; Rust
-@matsakis2014 made ownership mainstream with borrows checked
-statically. The reference-counted functional runtimes, Lean's
-@ullrich2019 and Koka's Perceus @reinking2021, are the closest in
-mechanism to Bend's shares: precise counts, reuse, and no tracing.
-Bend differs in where the counts live and when they exist at all:
-its type system makes affinity the default and admits contraction
-only at the reusable kind #co[Data], so counts are minted only
-where a whole-program analysis finds genuine sharing, ride in a
-separate redirect word rather than on the object, and the
-unshared majority of the program compiles to moves, borrows, and
-frees with no count traffic whatsoever.
+_Memory._ Regions @tofte1997 and linear types @wadler1990 aimed at
+collector-free functional memory; Rust @matsakis2014 made ownership
+with static borrows mainstream; Lean @ullrich2019 and Perceus
+@reinking2021 count precisely and reuse in place. Bend differs in
+where counts live and when they exist: contraction exists only at
+`Data`, so counts are minted only where a whole-program analysis finds
+sharing, in a redirect word beside the node, and the unshared majority
+of a program compiles to moves, borrows and frees with no count
+traffic.
 
 = Limitations <sec:limits>
 
-The equal-halves contract is undecidable and unverified: a skewed
-program silently loses its parallelism, lanes idle at the end of a
-work turn, and the runtime deliberately declines to repair it. The
-GPU story is uneven: divergent workloads lose to the CPU
-(@fig:bench), the matmul GPU cell shows real unexplained variance,
-the CPU and the GPU never compute concurrently (a marked call is
-honored only at sequential program points), and the backend is
-Metal on a current macOS, one API, one platform, today; a Linux
-build and other device APIs are future work, not present tense.
-The whole-run memory retry is legal only before the first effect;
-an effectful program that exhausts the device fails loud instead.
-Reference counts saturate at a fixed width and saturation is a
-numbered fail-stop, not a fallback. f32 arithmetic is bit
-identical across executors but transcendentals beyond the pinned
-set are not covered. The runtime is young, and none of the C code
-is verified: the correctness argument is the checksum discipline
-plus the type system's guarantees, and the companion paper's
-theorems stop at the calculus, not at this implementation.
+The equal-parts contract is unverified: a skewed program silently
+loses its parallelism. The CPU and the GPU never compute together, and
+a mark is honored only at a sequential point. A ring holds 1024 tasks,
+a count saturates at $2^24$, a natural at $2^48$, a block at depth 31;
+each overflow is a numbered fail-stop, not a fallback. The Metal lane
+is measured; the CUDA lane is in the source and not measured here. The
+C runtime is unverified: the correctness argument is the checksum
+discipline plus the type system's guarantees, and the companion
+paper's theorems stop at the calculus.
 
 = Conclusion <sec:conclusion>
 
-BendRT compiles a pure functional language to one C file and runs
-it unchanged from a single thread to an integrated GPU: one
-worklist machine gives every executor its unit of work, the
-three-phase scheduler forks and drains a fixed grid of rings
-without ever contending, and affinity places the frees, so no
-collector and no stealing pool couples the lanes. The benchmarks
-show both sides of that bargain: 5x to 7x CPU scaling and large
-GPU wins on uniform work when the fork contract holds, and honest
-losses on divergent and skewed workloads, which the runtime
-deliberately declines to repair. The companion paper @bendtt2026
-develops the type theory this machine relies on.
+BendRT compiles an affine functional language to one C file and runs
+it unchanged from a single thread to a GPU. Affinity places the frees,
+so no collector couples the lanes; the flat evaluator gives every
+executor its unit of work; the cube forks and drains a fixed grid of
+rings without contending. The benchmarks show both sides of the
+bargain: near-C sequential speed and large parallel wins when the fork
+contract holds, and honest losses on divergent work, which the runtime
+declines to repair.
 
 #heading(numbering: none, outlined: false)[Acknowledgments]
 
