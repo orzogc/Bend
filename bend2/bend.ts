@@ -673,26 +673,6 @@ export function lhs_descend(lhs: LHS, sp: HTerm[]): Cmp {
   return ord;
 }
 
-// Loop
-// ====
-
-export function loop_run<Q, R>(go: (q: Q) => Generator<Q, R, R>, q: Q): R {
-  const stk = [go(q)];
-  let val = undefined as R;
-  while (true) {
-    const r = stk[stk.length - 1].next(val);
-    if (r.done) {
-      stk.pop();
-      val = r.value;
-      if (stk.length === 0) {
-        return val;
-      }
-    } else {
-      stk.push(go(r.value));
-    }
-  }
-}
-
 // Term
 // ====
 
@@ -831,87 +811,72 @@ export function term_higher(tm: LTerm, env: Env = Emp<HTerm>()): HTerm {
   }
 }
 
-export function term_lower(term: HTerm, dep: number = 0): LTerm {
-  type Q = [HTerm, number];
-  function* go([t0, d]: Q): Generator<Q, LTerm, LTerm> {
-    const tm = term_force(t0);
-    switch (tm.$) {
-      case "Var": {
-        return Var(tm.k, tm.i, tm.s);
-      }
-      case "Ref": {
-        return Ref(tm.k, tm.s, tm.b);
-      }
-      case "Sub": {
-        return Sub(tm.i, yield [tm.v, d], yield [tm.f, d], tm.s);
-      }
-      case "Let": {
-        const xs = tm.k.map((k, j): HTerm => Var(k, d + j));
-        const vs: LTerm[] = [];
-        for (const v of tm.v) {
-          vs.push(yield [v, d]);
-        }
-        return Let(tm.k, xs.map((_, j) => d + j), vs, yield [tm.f(xs), d + tm.k.length], tm.s, tm.q);
-      }
-      case "Typ": {
-        return Typ(yield [tm.g, d], tm.s);
-      }
-      case "Qnt":
-      case "Qua": {
-        return tm;
-      }
-      case "Min": {
-        return Min(yield [tm.a, d], yield [tm.b, d], tm.s);
-      }
-      case "All": {
-        const x: HTerm = Var(tm.k, d);
-        return All(tm.q, tm.k, d, yield [tm.A, d], yield [tm.B(x), d + 1], tm.s);
-      }
-      case "Lam": {
-        const x: HTerm = Var(tm.k, d);
-        return Lam(tm.k, d, yield [tm.f(x), d + 1], tm.s);
-      }
-      case "App": {
-        return App(yield [tm.f, d], yield [tm.x, d], tm.s);
-      }
-      case "ADT": {
-        const xs: LTerm[] = [];
-        for (const x of tm.x) {
-          xs.push(yield [x, d]);
-        }
-        return ADT(tm.k, xs, tm.s, tm.r);
-      }
-      case "Ctr": {
-        const xs: LTerm[] = [];
-        for (const x of tm.x) {
-          xs.push(yield [x, d]);
-        }
-        return Ctr(tm.k, xs, tm.s);
-      }
-      case "Mat": {
-        return Mat(tm.k, yield [tm.h, d], yield [tm.m, d], tm.s);
-      }
-      case "Efq": {
-        return Efq(tm.s);
-      }
-      case "Eql": {
-        return Eql(yield [tm.a, d], yield [tm.b, d], yield [tm.T, d], tm.s);
-      }
-      case "Rfl": {
-        return Rfl(tm.s);
-      }
-      case "Rwt": {
-        return Rwt(yield [tm.e, d], yield [tm.p, d], yield [tm.f, d], tm.s);
-      }
-      case "Hol": {
-        return Hol(tm.k, tm.s);
-      }
-      case "Ann": {
-        return Ann(yield [tm.x, d], yield [tm.T, d], tm.s);
-      }
+export function term_lower(term: HTerm, d: number = 0): LTerm {
+  const tm = term_force(term);
+  switch (tm.$) {
+    case "Var": {
+      return Var(tm.k, tm.i, tm.s);
+    }
+    case "Ref": {
+      return Ref(tm.k, tm.s, tm.b);
+    }
+    case "Sub": {
+      return Sub(tm.i, term_lower(tm.v, d), term_lower(tm.f, d), tm.s);
+    }
+    case "Let": {
+      const xs = tm.k.map((k, j): HTerm => Var(k, d + j));
+      const vs = tm.v.map((v) => term_lower(v, d));
+      return Let(tm.k, xs.map((_, j) => d + j), vs, term_lower(tm.f(xs), d + tm.k.length), tm.s, tm.q);
+    }
+    case "Typ": {
+      return Typ(term_lower(tm.g, d), tm.s);
+    }
+    case "Qnt":
+    case "Qua": {
+      return tm;
+    }
+    case "Min": {
+      return Min(term_lower(tm.a, d), term_lower(tm.b, d), tm.s);
+    }
+    case "All": {
+      const x: HTerm = Var(tm.k, d);
+      return All(tm.q, tm.k, d, term_lower(tm.A, d), term_lower(tm.B(x), d + 1), tm.s);
+    }
+    case "Lam": {
+      const x: HTerm = Var(tm.k, d);
+      return Lam(tm.k, d, term_lower(tm.f(x), d + 1), tm.s);
+    }
+    case "App": {
+      return App(term_lower(tm.f, d), term_lower(tm.x, d), tm.s);
+    }
+    case "ADT": {
+      return ADT(tm.k, tm.x.map((x) => term_lower(x, d)), tm.s, tm.r);
+    }
+    case "Ctr": {
+      return Ctr(tm.k, tm.x.map((x) => term_lower(x, d)), tm.s);
+    }
+    case "Mat": {
+      return Mat(tm.k, term_lower(tm.h, d), term_lower(tm.m, d), tm.s);
+    }
+    case "Efq": {
+      return Efq(tm.s);
+    }
+    case "Eql": {
+      return Eql(term_lower(tm.a, d), term_lower(tm.b, d), term_lower(tm.T, d), tm.s);
+    }
+    case "Rfl": {
+      return Rfl(tm.s);
+    }
+    case "Rwt": {
+      return Rwt(term_lower(tm.e, d), term_lower(tm.p, d), term_lower(tm.f, d), tm.s);
+    }
+    case "Hol": {
+      return Hol(tm.k, tm.s);
+    }
+    case "Ann": {
+      return Ann(term_lower(tm.x, d), term_lower(tm.T, d), tm.s);
     }
   }
-  return loop_run(go, [term, dep]);
 }
 
 export function term_descend(q: Quant, arg: HTerm, col: HTerm): Cmp {
@@ -1257,14 +1222,12 @@ export function char_show(n: U32, quote: string): string | null {
 }
 
 export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): string {
-  type Q = [LTerm, number];
-  function* term_show_sugar_exi(tm: LTerm, prc: number): Generator<Q, string | null, string> {
-    const t = tm;
-    if (t.$ !== "App") {
+  function term_show_sugar_exi(tm: LTerm, prc: number): string | null {
+    if (tm.$ !== "App") {
       return null;
     }
-    const h = t.f;
-    const b = t.x;
+    const h = tm.f;
+    const b = tm.x;
     if (h.$ !== "App" || b.$ !== "Lam") {
       return null;
     }
@@ -1272,14 +1235,14 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
     if (r.$ !== "Ref" || r.k !== "Exists") {
       return null;
     }
-    const A = yield [h.x, 2];
+    const A = go(h.x, 2);
     bnd.push(b.k);
-    const f = yield [b.f, 1];
+    const f = go(b.f, 1);
     bnd.pop();
     const s = "&" + b.k + ":" + A + " -> " + f;
     return prc > 1 ? "(" + s + ")" : s;
   }
-  function* term_show_sugar_nat(tm: LTerm, prc: number): Generator<Q, string | null, string> {
+  function term_show_sugar_nat(tm: LTerm, prc: number): string | null {
     let n = 0;
     let t = tm;
     while (t.$ === "Ctr" && t.k === "Succ" && t.x.length === 1) {
@@ -1292,16 +1255,14 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
     if (n === 0) {
       return null;
     }
-    const k = yield [t, 1];
-    const s = String(n) + "n+" + k;
+    const s = String(n) + "n+" + go(t, 1);
     return prc > 1 ? "(" + s + ")" : s;
   }
   function term_show_sugar_chr(tm: LTerm, quote: string): string | null {
-    const t = tm;
-    if (t.$ !== "Ctr" || t.k !== "Chr" || t.x.length !== 1) {
+    if (tm.$ !== "Ctr" || tm.k !== "Chr" || tm.x.length !== 1) {
       return null;
     }
-    const n = u32_from_term(t.x[0]);
+    const n = u32_from_term(tm.x[0]);
     if (n === null || n > 0x10ffff) {
       return null;
     }
@@ -1323,7 +1284,7 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
     }
     return "\"" + out + "\"";
   }
-  function* go([tm, prc]: Q): Generator<Q, string, string> {
+  function go(tm: LTerm, prc: number): string {
     switch (tm.$) {
       case "Var": {
         return bnd.lastIndexOf(tm.k) === tm.i ? tm.k : tm.k + "^" + String(tm.i);
@@ -1332,17 +1293,14 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
         return bnd.includes(tm.k) ? tm.k + "^" : tm.k;
       }
       case "Sub": {
-        return yield [tm.f, prc];
+        return go(tm.f, prc);
       }
       case "Let": {
-        const vs: string[] = [];
-        for (const v of tm.v) {
-          vs.push(yield [v, 1]);
-        }
+        const vs = tm.v.map((v) => go(v, 1));
         for (const k of tm.k) {
           bnd.push(k);
         }
-        const f = yield [tm.f, 0];
+        const f = go(tm.f, 0);
         bnd.length -= tm.k.length;
         const ks = tm.k.map((k, j) => quant_show(tm.q[j]) + k);
         const s  = ks.join(" ") + " = " + vs.join(" ") + "; " + f;
@@ -1356,7 +1314,7 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
         if (g.$ === "Qua" && g.q.$ === "Many") {
           return "Data";
         }
-        return "Kind(" + (yield [tm.g, 0]) + ")";
+        return "Kind(" + go(tm.g, 0) + ")";
       }
       case "Qnt": {
         return "Quant";
@@ -1365,69 +1323,60 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
         return { None: "&0", Lone: "&1", Many: "&2" }[tm.q.$];
       }
       case "Min": {
-        const s = (yield [tm.a, 2]) + " <&> " + (yield [tm.b, 2]);
+        const s = go(tm.a, 2) + " <&> " + go(tm.b, 2);
         return prc > 1 ? "(" + s + ")" : s;
       }
       case "All": {
-        const A = yield [tm.A, 2];
+        const A = go(tm.A, 2);
         bnd.push(tm.k);
-        const B = yield [tm.B, 1];
+        const B = go(tm.B, 1);
         bnd.pop();
         const s = "@" + quant_show(tm.q) + tm.k + ":" + A + " -> " + B;
         return prc > 1 ? "(" + s + ")" : s;
       }
       case "Lam": {
         bnd.push(tm.k);
-        const f = yield [tm.f, 0];
+        const f = go(tm.f, 0);
         bnd.pop();
         const s = tm.k + " => " + f;
         return prc > 0 ? "(" + s + ")" : s;
       }
       case "App": {
-        const sug = yield* term_show_sugar_exi(tm, prc);
+        const sug = term_show_sugar_exi(tm, prc);
         if (sug !== null) {
           return sug;
         }
         const [h, xs] = term_unapply(tm);
-        const hs = yield [h, 2];
-        const as: string[] = [];
-        for (const x of xs) {
-          as.push(yield [x, 0]);
-        }
+        const hs = go(h, 2);
+        const as = xs.map((x) => go(x, 0));
         return hs + "(" + as.join(", ") + ")";
       }
       case "ADT": {
-        const as: string[] = [];
-        for (const x of tm.x) {
-          as.push(yield [x, 0]);
-        }
+        const as = tm.x.map((x) => go(x, 0));
         const rs = tm.r.map((c) => " - " + c + "{}").join("");
         const s  = tm.k + (as.length === 0 && rs === "" ? "" : "<" + as.join(", ") + ">") + rs;
         return rs !== "" && prc > 1 ? "(" + s + ")" : s;
       }
       case "Ctr": {
         const chr = term_show_sugar_chr(tm, "'");
-        const sug = (yield* term_show_sugar_nat(tm, prc))
+        const sug = term_show_sugar_nat(tm, prc)
                  ?? (chr !== null ? "'" + chr + "'" : null)
                  ?? term_show_sugar_str(tm);
         if (sug !== null) {
           return sug;
         }
-        const as: string[] = [];
-        for (const x of tm.x) {
-          as.push(yield [x, 0]);
-        }
+        const as = tm.x.map((x) => go(x, 0));
         return tm.k + "{" + as.join(", ") + "}";
       }
       case "Mat": {
         const arms: string[] = [];
         let m: LTerm = tm;
         while (m.$ === "Mat") {
-          arms.push(m.k + ": " + (yield [m.h, 1]));
+          arms.push(m.k + ": " + go(m.h, 1));
           m = m.m;
         }
         if (m.$ !== "Efq") {
-          arms.push(yield [m, 1]);
+          arms.push(go(m, 1));
         }
         return "\\{" + arms.join("; ") + "}";
       }
@@ -1435,7 +1384,7 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
         return "\\{}";
       }
       case "Eql": {
-        return "{" + (yield [tm.a, 1]) + " == " + (yield [tm.b, 1]) + " : " + (yield [tm.T, 1]) + "}";
+        return "{" + go(tm.a, 1) + " == " + go(tm.b, 1) + " : " + go(tm.T, 1) + "}";
       }
       case "Rfl": {
         return "{==}";
@@ -1444,29 +1393,29 @@ export function term_show(term: LTerm, top: number = 0, bnd: Name[] = []): strin
         return "?" + tm.k;
       }
       case "Rwt": {
-        const e  = yield [tm.e, 1];
+        const e  = go(tm.e, 1);
         const mp = term_strip(tm.p);
         const mb = mp.$ === "Lam" ? term_strip(mp.f) : mp;
         let n = "";
         let P;
         if (mp.$ === "Lam" && mb.$ === "Lam") {
           bnd.push(mp.k, mb.k);
-          P = yield [mb.f, 1];
+          P = go(mb.f, 1);
           bnd.length -= 2;
           n = mb.k === "" ? "" : mb.k + "@";
         } else {
-          P = yield [tm.p, 1];
+          P = go(tm.p, 1);
         }
-        const f = yield [tm.f, 0];
+        const f = go(tm.f, 0);
         const s = "%" + n + e + " : " + P + "; " + f;
         return prc > 0 ? "(" + s + ")" : s;
       }
       case "Ann": {
-        return "{" + (yield [tm.x, 1]) + " : " + (yield [tm.T, 1]) + "}";
+        return "{" + go(tm.x, 1) + " : " + go(tm.T, 1) + "}";
       }
     }
   }
-  return loop_run(go, [term, top]);
+  return go(term, top);
 }
 
 export function expr_show(book: Book, x: Expr, bnd: Name[] = []): string {
@@ -3074,77 +3023,65 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
 // ===
 
 export function term_snf(book: Book, term: HTerm): HTerm {
-  function* go(t0: HTerm): Generator<HTerm, HTerm, HTerm> {
-    const tm = term_wnf(book, t0) as
-      Exclude<HTerm, { $: "Let" | "Ann" }>;
-    switch (tm.$) {
-      case "Var": {
-        return Var(tm.k, tm.i, tm.s);
-      }
-      case "Ref": {
-        return Ref(tm.k, tm.s, tm.b);
-      }
-      case "Sub": {
-        return Sub(tm.i, yield tm.v, yield tm.f, tm.s);
-      }
-      case "Typ": {
-        return Typ(yield tm.g, tm.s);
-      }
-      case "Qnt":
-      case "Qua": {
-        return tm;
-      }
-      case "Min": {
-        return Min(yield tm.a, yield tm.b, tm.s);
-      }
-      case "All": {
-        return All(tm.q, tm.k, tm.i, yield tm.A, (x: HTerm) => {
-          return term_snf(book, tm.B(x));
-        }, tm.s);
-      }
-      case "Lam": {
-        return Lam(tm.k, tm.i, (x: HTerm) => {
-          return term_snf(book, tm.f(x));
-        }, tm.s);
-      }
-      case "App": {
-        return App(tm.f.$ === "Ref" ? tm.f : yield tm.f, yield tm.x, tm.s);
-      }
-      case "ADT": {
-        const xs: HTerm[] = [];
-        for (const x of tm.x) {
-          xs.push(yield x);
-        }
-        return ADT(tm.k, xs, tm.s, tm.r);
-      }
-      case "Ctr": {
-        const xs: HTerm[] = [];
-        for (const x of tm.x) {
-          xs.push(yield x);
-        }
-        return Ctr(tm.k, xs, tm.s);
-      }
-      case "Mat": {
-        return Mat(tm.k, yield tm.h, yield tm.m, tm.s);
-      }
-      case "Efq": {
-        return Efq(tm.s);
-      }
-      case "Eql": {
-        return Eql(yield tm.a, yield tm.b, yield tm.T, tm.s);
-      }
-      case "Rfl": {
-        return Rfl(tm.s);
-      }
-      case "Rwt": {
-        return Rwt(yield tm.e, yield tm.p, yield tm.f, tm.s);
-      }
-      case "Hol": {
-        return Hol(tm.k, tm.s);
-      }
+  const tm = term_wnf(book, term) as Exclude<HTerm, { $: "Let" | "Ann" }>;
+  switch (tm.$) {
+    case "Var": {
+      return Var(tm.k, tm.i, tm.s);
+    }
+    case "Ref": {
+      return Ref(tm.k, tm.s, tm.b);
+    }
+    case "Sub": {
+      return Sub(tm.i, term_snf(book, tm.v), term_snf(book, tm.f), tm.s);
+    }
+    case "Typ": {
+      return Typ(term_snf(book, tm.g), tm.s);
+    }
+    case "Qnt":
+    case "Qua": {
+      return tm;
+    }
+    case "Min": {
+      return Min(term_snf(book, tm.a), term_snf(book, tm.b), tm.s);
+    }
+    case "All": {
+      return All(tm.q, tm.k, tm.i, term_snf(book, tm.A), (x: HTerm) => {
+        return term_snf(book, tm.B(x));
+      }, tm.s);
+    }
+    case "Lam": {
+      return Lam(tm.k, tm.i, (x: HTerm) => {
+        return term_snf(book, tm.f(x));
+      }, tm.s);
+    }
+    case "App": {
+      return App(tm.f.$ === "Ref" ? tm.f : term_snf(book, tm.f), term_snf(book, tm.x), tm.s);
+    }
+    case "ADT": {
+      return ADT(tm.k, tm.x.map((x) => term_snf(book, x)), tm.s, tm.r);
+    }
+    case "Ctr": {
+      return Ctr(tm.k, tm.x.map((x) => term_snf(book, x)), tm.s);
+    }
+    case "Mat": {
+      return Mat(tm.k, term_snf(book, tm.h), term_snf(book, tm.m), tm.s);
+    }
+    case "Efq": {
+      return Efq(tm.s);
+    }
+    case "Eql": {
+      return Eql(term_snf(book, tm.a), term_snf(book, tm.b), term_snf(book, tm.T), tm.s);
+    }
+    case "Rfl": {
+      return Rfl(tm.s);
+    }
+    case "Rwt": {
+      return Rwt(term_snf(book, tm.e), term_snf(book, tm.p), term_snf(book, tm.f), tm.s);
+    }
+    case "Hol": {
+      return Hol(tm.k, tm.s);
     }
   }
-  return loop_run(go, term);
 }
 
 // Compare
