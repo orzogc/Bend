@@ -85,6 +85,12 @@
 // def, type, assert, match, case, do, return, forall, exists, where,
 // is, import, Type, Data, Kind, Quant ("as" reads only on an import
 // line, so it stays free).
+// a file's namespace is its path without ".bend": an import's path
+// joins onto the importer's namespace dir; a "0x<hash>/" path is its
+// own namespace, read from BEND_STORE and fetched from BEND_HUB on a
+// miss. "as Name" binds a per-file alias: Name.x resolves to the
+// file's canonical name, so two aliases of one file agree, and a def
+// of an aliased name fills it. "import Base" is the empty namespace.
 // a def with no prior assert types itself: a Bind telescope and a
 // "->" return type. a def after its assert takes bare names, no "->".
 // a bare Bind name is -Name: Quant. Fill and Plus omit a datatype's
@@ -208,6 +214,8 @@
 // the book incomplete.
 
 import * as fs from "node:fs";
+import * as os from "node:os";
+import * as path from "node:path";
 import * as url from "node:url";
 
 // Core
@@ -302,7 +310,7 @@ export type Body  = Match | Local | Reply
 // Parser
 export type Loc   = number;
 export type Scope = { stk: Array<[Name, number]>; frs: number; };
-export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; };
+export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; };
 export type Span  = { src: string; beg: Loc; end: Loc; };
 
 // Machine
@@ -1073,9 +1081,20 @@ export function book_adt(book: Book, tm: Extract<HTerm, { $: "ADT" }>, ctx: Ctx,
   return { $: "ADT", n: tld.n, g: tld.g, T: tld.T, c: tld.c.filter((c) => !tm.r.includes(c.k)) };
 }
 
-const BASE_BEND = fs.realpathSync(url.fileURLToPath(new URL("./base.bend", import.meta.url)));
+const BASE_BEND  = fs.realpathSync(url.fileURLToPath(new URL("./base.bend", import.meta.url)));
+const BEND_STORE = path.resolve(process.env.BEND_STORE ?? path.join(os.homedir(), ".bend", "store"));
+const BEND_HUB   = process.env.BEND_HUB ?? "https://proofmarket.com";
 
-export function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>): void {
+export async function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>): Promise<number> {
+  if (file.startsWith(BEND_STORE + "/") && !fs.existsSync(file)) {
+    const sub = file.slice(BEND_STORE.length + 1);
+    const res = await fetch(BEND_HUB + "/api/v1/files/" + sub);
+    if (!res.ok) {
+      throw Err(book, ctx_nil(), "a published package (" + BEND_HUB + " has no " + sub + ")");
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, await res.text());
+  }
   const real = fs.realpathSync(file);
   const done = seen.get(real);
   if (done === null) {
@@ -1085,10 +1104,11 @@ export function book_load(book: Book, file: string, ns: string, seen: Map<string
     if (done !== ns) {
       throw Err(book, ctx_nil(), "one namespace per file (" + file + " is both '" + done + "' and '" + ns + "')");
     }
-    return;
+    return book.order.length;
   }
   seen.set(real, null);
   const dir   = file.slice(0, file.lastIndexOf("/") + 1);
+  const al    : Record<Name, Name> = Object.create(null);
   const lines = fs.readFileSync(file, "utf8").split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
@@ -1099,9 +1119,21 @@ export function book_load(book: Book, file: string, ns: string, seen: Map<string
         throw Err(book, ctx_nil(), "an import ('import Base', or 'import <path> as <Name>')");
       }
       if (h[2] === undefined) {
-        book_load(book, BASE_BEND, "", seen);
+        await book_load(book, BASE_BEND, "", seen);
       } else {
-        book_load(book, h[1].startsWith("/") ? h[1] : dir + h[1], h[2], seen);
+        const rel = path.posix.normalize(h[1]);
+        let at  = dir + rel;
+        let sub = path.posix.join(path.posix.dirname(ns), rel);
+        if (rel.startsWith("/")) {
+          at  = rel;
+          sub = rel;
+        }
+        if (/^0x[0-9a-f]+\//.test(rel)) {
+          at  = BEND_STORE + "/" + rel;
+          sub = rel;
+        }
+        al[h[2]] = sub.replace(/\.bend$/, "");
+        await book_load(book, at, al[h[2]], seen);
       }
       lines[i] = "";
       continue;
@@ -1111,7 +1143,7 @@ export function book_load(book: Book, file: string, ns: string, seen: Map<string
     }
   }
   const n0 = book.order.length;
-  parse_book(book, dir, lines.join("\n"), ns);
+  parse_book(book, dir, lines.join("\n"), ns, al);
   if (real === BASE_BEND) {
     for (const k of book.order.slice(n0)) {
       const tld = book.tlds[k];
@@ -1121,6 +1153,7 @@ export function book_load(book: Book, file: string, ns: string, seen: Map<string
     }
   }
   seen.set(real, ns);
+  return n0;
 }
 
 // Tele
@@ -1545,8 +1578,8 @@ const KEYWORDS = new Set([
 
 const QUAS: Record<string, Quant> = { "0": None(), "1": Lone(), "2": Many() };
 
-export function parse_new(book: Book, dir: string, str: string, ns: string = ""): Parse {
-  return { book, dir, str, pos: 0, sc: { stk: [], frs: 0 }, ns };
+export function parse_new(book: Book, dir: string, str: string, ns: string = "", al: Record<Name, Name> = Object.create(null)): Parse {
+  return { book, dir, str, pos: 0, sc: { stk: [], frs: 0 }, ns, al };
 }
 
 export function parse_col(src: string, pos: Loc): number {
@@ -1713,7 +1746,11 @@ export function parse_qual(p: Parse, k: Name): Name {
 }
 
 export function parse_reso(p: Parse, k: Name): Name {
-  const q = parse_qual(p, k);
+  const dot = k.indexOf(".");
+  let q = parse_qual(p, k);
+  if (dot !== -1 && k.slice(0, dot) in p.al) {
+    q = p.al[k.slice(0, dot)] + k.slice(dot);
+  }
   if (q in p.book.tlds || q in p.book.ctrs) {
     return q;
   }
@@ -2481,15 +2518,17 @@ export function parse_fresh(p: Parse, k: Name): void {
 
 export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   parse_word(p, "def");
-  const k   = parse_qual(p, parse_name(p));
-  const tld = book.tlds[k];
+  const nm  = parse_name(p);
+  const q   = parse_reso(p, nm);
+  const tld = book.tlds[q];
   if (tld !== undefined && tld.$ === "Def" && tld.v === null && tld.b !== true) {
     if (u) {
       tld.u = true;
     }
-    parse_def_fill(p, book, k, tld);
+    parse_def_fill(p, book, q, tld);
     return;
   }
+  const k = parse_qual(p, nm);
   parse_fresh(p, k);
   const n0   = p.sc.stk.length;
   parse_eat(p, "(");
@@ -2529,15 +2568,15 @@ export function parse_def_body(p: Parse, book: Book, k: Name, def: Def, vars: PV
     def.i = [];
     while (parse_word(p, "import")) {
       parse_eat(p, "\"");
-      let path = "";
+      let eff = "";
       while (parse_peek(p) !== "\"" && parse_peek(p) !== "") {
-        path += parse_bump(p);
+        eff += parse_bump(p);
       }
       parse_eat(p, "\"");
-      if (!/\.(c|js)$/.test(path)) {
+      if (!/\.(c|js)$/.test(eff)) {
         parse_fail(p, "a .c or .js path");
       }
-      def.i.push(p.dir + path);
+      def.i.push(p.dir + eff);
     }
     parse_close(p, n0);
     book.order.push(k);
@@ -2628,8 +2667,8 @@ export function parse_adt(p: Parse, book: Book): void {
   book.order.push(k);
 }
 
-export function parse_book(book: Book, dir: string, src: string, ns: string = ""): Book {
-  const p = parse_new(book, dir, src, ns);
+export function parse_book(book: Book, dir: string, src: string, ns: string = "", al: Record<Name, Name> = Object.create(null)): Book {
+  const p = parse_new(book, dir, src, ns, al);
   while (true) {
     parse_skip(p);
     if (p.pos >= p.str.length) {
@@ -3775,22 +3814,26 @@ export function book_valid(book: Book, done: number = 0): void {
     last.set(book.order[i], i);
   }
   for (let i = 0; i < book.order.length; i++) {
-    const k = book.order[i];
+    const k   = book.order[i];
     const tld = book.tlds[k];
-    if (i < done || tld.$ === "ADT") {
+    const fin = last.get(k) === i;
+    if (tld.$ === "ADT") {
       seen.tlds[k] = tld;
-      for (const c of tld.$ === "ADT" ? tld.c : []) {
+      for (const c of tld.c) {
         seen.ctrs[c.k] = c;
       }
-      if (i >= done && tld.$ === "ADT") {
+      if (i >= done) {
         adt_valid(seen, k, tld);
       }
       continue;
     }
     const dec: Def = { $: "Def", n: tld.n, T: tld.T, v: null, b: tld.b, u: tld.u };
-    const fin = last.get(k) === i;
+    if (i < done) {
+      seen.tlds[k] = fin ? tld : dec;
+      continue;
+    }
     if (fin && tld.v === null && tld.b !== true && !tld.i) {
-      throw Err(book, ctx_nil(), "a filled definition for '" + k + "' (an unfilled assert is an error outside base)");
+      book.hols += 1;
     }
     seen.tlds[k] = dec;
     def_valid(seen, k, fin ? tld : dec);

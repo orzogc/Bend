@@ -16,7 +16,7 @@ const USAGE = "usage: bend <file.bend> [--check | --to <out.c|out.js>]";
 // CLI
 // ===
 
-function cli(): void {
+async function cli(): Promise<void> {
   const [path, flag, to] = process.argv.slice(2);
   if (path === undefined || path === "--help") {
     console.log(USAGE);
@@ -43,7 +43,7 @@ function cli(): void {
 
   const book = Bend.book_nil();
   try {
-    Bend.book_load(book, path, "", new Map());
+    await Bend.book_load(book, path, "", new Map());
     Bend.book_valid(book);
     if (to !== undefined) {
       if (book.hols > 0) {
@@ -92,5 +92,5 @@ function cli_fail(msg: string): never {
 }
 
 if (import.meta.main) {
-  cli();
+  await cli();
 }

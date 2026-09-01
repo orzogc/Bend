@@ -1157,7 +1157,7 @@ function def_own(tld: Bend.TLD | undefined): boolean {
 // ===
 
 function eff_name(k: Bend.Name): string {
-  return k.toLowerCase().replace(/\./g, "_");
+  return k.toLowerCase().replace(/[./]/g, "_");
 }
 
 function eff_src(path: string, seen: Set<string>): string {
@@ -3074,11 +3074,11 @@ export function compile_book(book: Bend.Book): string {
 function js_fresh(fl: Js, k: Bend.Name): string {
   const n = fl.fresh.get(k) ?? 0;
   fl.fresh.set(k, n + 1);
-  return k.replace(/\./g, "$") + "$" + n;
+  return k.replace(/[./]/g, "$") + "$" + n;
 }
 
 function js_sat(k: Bend.Name): string {
-  return "$" + k.replace(/\./g, "$") + "$";
+  return "$" + k.replace(/[./]/g, "$") + "$";
 }
 
 function js_f32(bits: number): string {

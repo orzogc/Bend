@@ -19,10 +19,10 @@ import * as Comp from "./comp.ts";
 const bend: BunPlugin = {
   name: "bend",
   setup(build) {
-    build.onLoad({ filter: /\.bend$/ }, (args) => {
+    build.onLoad({ filter: /\.bend$/ }, async (args) => {
       const book = Bend.book_nil();
       try {
-        Bend.book_load(book, args.path, "", new Map());
+        await Bend.book_load(book, args.path, "", new Map());
         Bend.book_valid(book);
       } catch (e) {
         const err = e as Bend.Err;
