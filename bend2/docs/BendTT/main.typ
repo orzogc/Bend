@@ -1,5 +1,5 @@
 // BendTT: An Affine Dependent Type Theory
-// Build: typst compile main.typ ../../../docs/BendTT.pdf
+// Build: typst compile --root .. main.typ ../../../docs/BendTT.pdf
 //
 // Solarized-light theme for the site build. Set solarized = false for a
 // plain black-on-white document: colors revert and NOTHING else changes.
@@ -52,7 +52,8 @@
 // Monospace names (theorems, file names).
 #let co(body) = text(font: "DejaVu Sans Mono", size: 0.82em, body)
 
-// Code blocks: shaded, monospace, unbreakable.
+// Code blocks: shaded, monospace, unbreakable, Bend-highlighted.
+#set raw(syntaxes: "../bend.sublime-syntax")
 #show raw.where(block: true): it => block(
   breakable: false,
   fill: solhi, inset: 6pt, radius: 2pt, width: 100%,
@@ -66,26 +67,6 @@
 #let Da = $sans("Data")$
 #let Qn = $sans("Quant")$
 #let Kd(g) = $sans("Kind")(#g)$
-#let tri = sym.triangle.stroked.small.r
-#let uz = sym.nothing
-#let fam(D, r) = $#D^#r$
-#let JJ(G, q, t, T, p) = $#G scripts(tack.r)_#q #t : #T thin tri thin #p$
-
-// An inference rule: premises over a line over the conclusion.
-#let rule(concl, ..prems) = {
-  let ps = prems.pos()
-  box(grid(
-    align: center + bottom,
-    inset: (x: 0.35em, y: 0.3em),
-    ..if ps.len() > 0 { (ps.join(h(1.4em)),) } else { () },
-    grid.hline(stroke: 0.5pt + solfg),
-    concl,
-  ))
-}
-
-// A block of rules: each argument is one row (an array of rules).
-#let rules(..rows) = stack(spacing: 1.1em, ..rows.pos().map(r =>
-  align(center, box(r.join(h(1.7em))))))
 
 #set figure(placement: top, gap: 1em)
 #show figure.caption: it => {
@@ -126,10 +107,10 @@
 #heading(numbering: none, outlined: false)[Abstract]
 
 BendTT is the type theory of the Bend programming language. It has one
-sort with #Ty : #Ty, no universe hierarchy, datatypes with no
-positivity restriction, and it is consistent. The reason is a usage
-discipline: a value is consumed at most once unless the _kind_ of its
-type says otherwise. Every type has a kind $#Kd($q$)$ over a quantity
+sort with #Ty : #Ty, no universe hierarchy and datatypes with no
+positivity restriction, and it is consistent. What holds it up is a
+usage discipline: a value is consumed at most once unless the _kind_ of
+its type says otherwise. Every type has a kind $#Kd($q$)$ over a quantity
 $q$; a binder marked `+` may be consumed any number of times, and it
 forms only when its type's kind is $#Da = #Kd($omega$)$. A function type
 is never #Da, and a datatype earns #Da at every constructor. So no
@@ -145,10 +126,10 @@ all-affine fragment.
 = Introduction <sec:intro>
 
 Bend is a functional language with dependent types and a parallel
-runtime @bendrt2026. Its checker implements a small type theory, BendTT,
-and this paper is about the one thing in it that is not standard: BendTT
+runtime @bendrt2026. Its checker implements BendTT, a type theory that
 keeps #Ty : #Ty, impredicative quantification and recursive datatypes
-with negative occurrences, and it stays consistent.
+with negative occurrences, and stays consistent. This paper explains
+why.
 
 The engines of the classical paradoxes all copy a function: Girard's
 paradox and its Hurkens form apply a function-typed value to itself
@@ -181,11 +162,10 @@ erased before the runtime, which moves every value by default.
 
 = The Calculus <sec:calculus>
 
-BendTT is one file of TypeScript, `bend2/bend.ts`: parser, printer,
-pattern flattener, evaluator and checker. Evaluation, conversion, typing
-and validation are about a thousand lines over one `Term` type whose
-binders are host functions @pfenningelliott1988. Every rule below is a
-derivation comment beside its case in that file.
+BendTT is one file, `bend2/bend.ts`: parser, flattener, evaluator and
+checker over one `Term` type whose binders are host functions
+@pfenningelliott1988. Every rule below is a derivation comment beside
+its case in that file.
 
 == Terms, Quantities, Kinds <sec:terms>
 
@@ -204,13 +184,13 @@ $#Da = #Kd($&2$)$.], {
     [`x`, `k`], [variable, reference to a definition],
     [`@q x: A -> B`], [function type],
     [`x => f`, `f(a)`], [abstraction, application],
-    [`q x = v; b`], [let (not recursive)],
+    [`q x = v`], [let; the body follows],
     [`Kind(g)`, `Quant`], [a kind, the sort of quantities],
     [`&0 &1 &2`, `g <&> h`], [quantity literals, the meet],
     [`D<p..>`, `C{a..}`], [family instance, constructor],
-    [`\{C: h; m}`, `\{}`], [match: peel one constructor; empty match],
+    [`\{C: h; m}`, `\{}`], [one-constructor match; empty match],
     [`{a == b : T}`, `{==}`], [propositional equality, reflexivity],
-    [`%e : P; f`], [rewrite by $e$ through motive $P$],
+    [`%e : P`], [rewrite by $e$ through $P$; the body follows],
     [`{x : T}`, `?name`], [annotation, hole],
   )
 }) <fig:terms>
@@ -223,23 +203,23 @@ $g inter.sq h$ (surface `<&>`). Conversion orders kinds by the quantity
 order, $#Kd($g$) lt.eq #Kd($h$)$ when $h lt.eq g$: #Da fits every kind,
 every kind fits #Ty, a kind fits a meet when it fits either side, a
 meet fits a kind only when both its sides do, and a stuck quantity
-fits only itself. The meet reduces only when forced: $omega$ is its identity, $0$
-absorbs, two literals meet, and a stuck side stays stuck, so no
-declaration order can decide a meet early.
+fits only itself. The meet reduces only when forced: $omega$ is its
+identity, $0$ absorbs, two literals meet, and a stuck side stays stuck,
+so no declaration order can decide a meet early.
 
-A _book_ is an ordered list of declarations. `type D<p..> is Kind(G):`
-declares a family with parameters and a kind, then its constructors,
-each a telescope of fields tipped at `D<p..>`. `assert k: T` declares a
-name at a closed type and a later `def k(x..):` fills it. Until its fill
-a name is an _axiom_: it may appear in types and other dead positions,
-and live code may not consume it. A definition may reference itself
-only through the descent rule of @sec:descent, and never a later name,
-so the reference graph is acyclic and mutual recursion cannot split a
-loop across two definitions. The flattener compiles `match`/`case`
-blocks into a case tree of one-constructor peels @maranget2008,
-uncovered rows becoming the empty match. A match scrutinizes only a
-parameter or a field bound by an enclosing match; a computed scrutinee
-is an error that says to give it its own definition (@sec:proofs).
+A _book_ is an ordered list of declarations. A `type` declares a family
+with parameters and a kind, then its constructors, each a telescope of
+fields tipped at the family. An `assert` declares a name at a closed type
+and a later `def` fills it. Until its fill a name is an _axiom_: it may
+appear in types and other dead positions, and live code may not consume
+it. A definition may reference itself only through the descent rule of
+@sec:descent, and never a later name, so the reference graph is acyclic
+and mutual recursion cannot split a loop across two definitions. The
+flattener compiles `match`/`case` blocks into a case tree of
+one-constructor peels @maranget2008, uncovered rows becoming the empty
+match. A match scrutinizes only a parameter or a field bound by an
+enclosing match; a computed scrutinee is an error that says to give it
+its own definition (@sec:proofs).
 
 == Reduction and Conversion <sec:reduction>
 
@@ -267,51 +247,66 @@ accepts nothing (@sec:price).
 
 == Typing <sec:typing>
 
-#figure(placement: top, scope: "parent", caption: [Typing, the rules
-that differ from the textbook. #JJ($Gamma$, $q$, $t$, $T$, $pi$) reads:
-under the book and context $Gamma$, at demand $q in {0, 1}$, $t$ has
-type $T$ and consumes $pi$, a map from variables to quantities. A dot is
-a measure the rule drops. $pi + pi'$ adds pointwise ($1 + 1 = omega$),
-$pi union.sq pi'$ takes the pointwise maximum, $q' tri q$ is $0$ when
-$q' = 0$ and $q$ otherwise, and $r dot q'$ is $0$, $q'$ or $q' + q'$ as
-$r$ is $0$, $1$ or $omega$. In #smallcaps[ref], a live reference needs a
-filled or native body, and a self-reference needs its pending spine to
-descend (@sec:descent). In #smallcaps[mat], $F_i$ and $q_i$ are the
-constructor's fields at the family's parameters. The rest: a
-constructor $C{a_1...}$ at $#fam($D$, $r$) thin p_1...$ with $C in.not r$,
-and a family instance $D thin p_1...$ at $#Kd($G[p_1...]$)$, check each
-argument at the gate like #smallcaps[app]\; a let $q' x = v"; " b$ is
-$(lambda x. thin b) thin v$ with $v$ inferred and its type checked dead
-at $#Kd($q'$)$; ${a == b : A}$ : #Da with all three parts dead, and
-${==}$ proves it when $a equiv b$; $#Kd($g$)$ : #Ty with $g$ dead at
-#Qn, and $g inter.sq h$ : #Qn checks both sides at the ambient demand
-and adds their measures.],
+#figure(kind: image, supplement: [Figure], placement: top,
+scope: "parent", caption: [Typing, the rules that differ from the
+textbook. `Γ ⊢q t : T ▹ π` reads: under the book and context $Gamma$,
+at demand $q in {0, 1}$ ($0$ dead, $1$ live), $t$ has type $T$ and
+consumes $pi$, a map from variables to quantities. $pi + pi'$ adds
+pointwise ($1 + 1 = omega$), $pi union.sq pi'$ takes the maximum, and
+$r dot q'$ is $0$, $q'$ or $q' + q'$ as $r$ is $0$, $1$ or $omega$. In
+#smallcaps[mat], $F_i$ and $q_i$ are the constructor's fields at the
+family's parameters. Conversion, constructors and family instances are
+textbook; a let `q′ x = v` over $b$ is $(lambda x. thin b)(v)$ with $v$
+inferred and its type checked dead at $#Kd($q'$)$.],
 {
-  set text(size: 9.5pt)
-  let gate(a, b) = $#a thin tri thin #b$
-  rules(
-    (rule(JJ($Gamma$, $q$, $x$, $A$, $x^q$), $(x : q' A) in Gamma$),
-     rule(JJ($Gamma$, $q$, $k$, $T$, $uz$), $"book"(k) : T$, $q = 1 arrow.r.double k "filled, self-call descends"$),
-     rule(JJ($Gamma$, $q$, $forall^(q') x:A. thin B$, $#Ty$, $uz$),
-       JJ($Gamma$, $0$, $A$, Kd($q'$), $dot$), JJ($Gamma, x : q' A$, $0$, $B$, $#Ty$, $dot$))),
-    (rule(JJ($Gamma$, $q$, $lambda x. thin f$, $forall^(q') x:A. thin B$, $pi backslash x$),
-       JJ($Gamma, x : q' A$, $q$, $f$, $B$, $pi$), $pi(x) lt.eq q'$),
-     rule(JJ($Gamma$, $q$, $f thin a$, $B[x := a]$, $pi + pi'$),
-       JJ($Gamma$, $q$, $f$, $forall^(q') x:A. thin B$, $pi$),
-       JJ($Gamma$, gate($q'$, $q$), $a$, $A$, $pi'$)),
-     rule(JJ($Gamma$, $q$, $t$, $T$, $pi$), JJ($Gamma$, $q$, $t$, $A$, $pi$), $A lt.eq T$)),
-    (rule(JJ($Gamma$, $q$, $lambda{C: thin h"; " m}$, $forall^(q') s : #fam($D$, $r$) thin p_1.... thin P$, $pi union.sq pi'$),
-       $C in.not r$, $q = 1 arrow.r.double q' eq.not 0$,
-       JJ($Gamma$, $q$, $h$, $forall^(q_i dot q') x_i : F_i. thin P thin (C{x_1...})$, $pi$),
-       JJ($Gamma$, $q$, $m$, $forall^(q') s : #fam($D$, $r union {C}$) thin p_1.... thin P$, $pi'$)),
-     rule(JJ($Gamma$, $q$, $lambda{}$, $forall^(q') s : #fam($D$, $r$) thin p_1.... thin P$, $uz$),
-       $q = 1 arrow.r.double q' eq.not 0$,
-       $#fam($D$, $r$) "has no constructor left, or a live" (x : E) in Gamma "with" E "empty"$)),
-    (rule(JJ($Gamma$, $q$, $% e : P"; " f$, $T$, $pi + pi'$),
-       JJ($Gamma$, $q$, $e$, ${a == b : A}$, $pi$),
-       JJ($Gamma$, $0$, $P$, $forall x:A. thin {a == x : A} arrow.r #Ty$, $dot$),
-       $P thin b thin e lt.eq T$,
-       JJ($Gamma$, $q$, $f$, $P thin a thin {==}$, $pi'$)),),
+  grid(
+    columns: (1fr, 1fr),
+    column-gutter: 8pt,
+```
+(x : q′A) ∈ Γ
+─────────────────────────────────────────── var
+Γ ⊢q x : A ▹ {x ↦ q}
+
+book(k) : T
+q = 1 ⇒ k is filled, and a self-call descends
+─────────────────────────────────────────── ref
+Γ ⊢q k : T ▹ ∅
+
+Γ ⊢₀ A : Kind(q′)     Γ, x : q′A ⊢₀ B : Type
+─────────────────────────────────────────── all
+Γ ⊢q ∀q′x:A. B : Type ▹ ∅
+
+Γ, x : q′A ⊢q f : B ▹ π      π(x) ≤ q′
+─────────────────────────────────────────── lam
+Γ ⊢q λx. f : ∀q′x:A. B ▹ π ∖ x
+
+Γ ⊢q f : ∀q′x:A. B ▹ π     Γ ⊢q″ a : A ▹ π′
+q″ = 0 if q′ = 0, else q
+─────────────────────────────────────────── app
+Γ ⊢q f(a) : B[x ≔ a] ▹ π + π′
+```,
+```
+Γ ⊢₀ A : Type    Γ ⊢₀ a : A    Γ ⊢₀ b : A
+─────────────────────────────────────────── eql
+Γ ⊢q {a == b : A} : Data ▹ ∅
+
+C ∉ r      q = 1 ⇒ q′ ≠ 0
+Γ ⊢q h : ∀(qᵢ·q′)xᵢ:Fᵢ. P(C{x₁…}) ▹ π
+Γ ⊢q m : ∀q′s:D^(r∪{C})<p…>. P ▹ π′
+─────────────────────────────────────────── mat
+Γ ⊢q \{C: h; m} : ∀q′s:D^r<p…>. P ▹ π ⊔ π′
+
+q = 1 ⇒ q′ ≠ 0
+D^r is empty, or a live (x : E) ∈ Γ with E empty
+─────────────────────────────────────────── efq
+Γ ⊢q \{} : ∀q′s:D^r<p…>. P ▹ ∅
+
+Γ ⊢q e : {a == b : A} ▹ π
+Γ ⊢₀ P : ∀x:A. {a == x : A} → Type    P(b, e) ≤ T
+Γ ⊢q f : P(a, {==}) ▹ π′
+─────────────────────────────────────────── rwt
+Γ ⊢q (%e : P) f : T ▹ π + π′
+```,
   )
 }) <fig:typing>
 
@@ -334,30 +329,29 @@ erased binder's uses count at $0$, and a match on an erased scrutinee
 is refused in a live region.
 
 _Reuse is gated, not scaled._ An argument to a binder of quantity $q'$
-checks at demand $q' tri q$, dead if the binder is erased and the
-ambient demand otherwise, and its measure adds once. So a value bound
-once may enter a `+` binder, and the callee copies it: _certify-once_.
-It is licensed because the `+` binder's domain checked against #Da when
-the function type formed, and a #Da value holds nothing affine
-(@sec:kinds). A match hands each field out at the field's quantity
-times the scrutinee's, so a `+` scrutinee makes its plain fields
-reusable.
+checks dead if the binder is erased and at the ambient demand
+otherwise, and its measure adds once. So a value bound once may enter a
+`+` binder, and the callee copies it: _certify-once_. It is licensed
+because the `+` binder's domain checked against #Da when the function
+type formed, and a #Da value holds nothing affine (@sec:kinds). A match
+hands each field out at the field's quantity times the scrutinee's, so
+a `+` scrutinee makes its plain fields reusable.
 
 _Matching is consumption._ A match is a value of function type, and
 applying it consumes the scrutinee. The arm receives the fields at a
-goal specialized to the rebuilt constructor, $P thin (C{x_1...})$:
-dependent elimination with no generated eliminator and no unification.
-The default receives the scrutinee with $C$ peeled onto $r$, and the
-empty match closes the chain when no constructor remains, or when a
-_live_ binder in scope has an emptied type; an erased one proves
-nothing, since dead code inhabits it.
+goal specialized to the rebuilt constructor, $P(C{x_1...})$: dependent
+elimination with no generated eliminator and no unification. The
+default receives the scrutinee with $C$ peeled onto $r$, and the empty
+match closes the chain when no constructor remains, or when a _live_
+binder in scope has an emptied type; an erased one proves nothing,
+since dead code inhabits it.
 
 _Equality is the J axiom with an explicit motive._ From
-$e : {a == b : A}$, a rewrite maps a goal $P thin b thin e$ to the
-obligation $P thin a thin {==}$; the programmer writes $P$, and it
-checks dead. The evidence runs, so it checks at the ambient demand. An
-equation is #Da: its evidence is erased, and a closed live proof
-normalizes to `{==}`, so copying it copies nothing.
+$e : {a == b : A}$, a rewrite maps a goal $P(b, e)$ to the obligation
+$P(a, {==})$; the programmer writes $P$, and it checks dead. The
+evidence runs, so it checks at the ambient demand. An equation is #Da:
+its evidence is erased, and a closed live proof normalizes to `{==}`,
+so copying it copies nothing.
 
 == Kinds Are Earned <sec:kinds>
 
@@ -371,22 +365,18 @@ checks a binder of quantity $q$ against $#Kd($q$)$ and a _live_ field
 against the declared $#Kd($G$)$; the tip must be the family applied to
 its own parameters, in order. From the base library:
 
-```
+```bend
 type List<a, -A: Kind(a)> is Kind(a):
   Nil{}
   Con{head: A, tail: List<a, A>}
-
-type Sigma<a, b, -A: Kind(a),
-           -B: @-x: A -> Kind(b)>
-  is Kind(a <&> b):
-  Tuple{fst: A, snd: B(fst)}
 ```
 
-A list is as reusable as its element; a pair is reusable when both
-halves are. `Nat`, `Bool`, `U32` and `String` are #Da\; `Array`, the IO
-handles and the effect type are #Ty. A recursive occurrence is assumed
-at the declared kind, with no fixed point: a live value is a finite
-tree, so the invariant that a #Da value holds nothing affine follows by
+A list is as reusable as its element, and the dependent pair
+`Sigma<a, b, A, B>` is `Kind(a <&> b)`: reusable when both halves are.
+`Nat`, `Bool`, `U32` and `String` are #Da\; `Array`, the IO handles and
+the effect type are #Ty. A recursive occurrence is assumed at the
+declared kind, with no fixed point: a live value is a finite tree, so
+the invariant that a #Da value holds nothing affine follows by
 induction on the value. Values never weaken with their kinds:
 `List<&2, Nat>` and `List<&1, Nat>` are different types. Generic code
 takes the quantity as an erased parameter (`forall -a: Quant`), under
@@ -426,11 +416,12 @@ binder twice, so the measure saturates to $omega$, and a plain binder
 refuses it. The only binder that admits two uses is `+x`, and `+x` forms
 only over a #Da type. No function type is #Da:
 
-```
+```bend
 assert dupf:
   forall +f: Nat -> Nat
   Nat
-
+```
+```
 - expected : Data
 - observed : Type
 ```
@@ -445,7 +436,7 @@ Impredicativity and #Ty : #Ty do no harm on their own.
 There is no positivity check. A HOAS-style term type is a fine
 declaration, and its evaluator is a fine program:
 
-```
+```bend
 type Trm is Type:
   Lam{f: Trm -> Trm}
   Num{n: U32}
@@ -484,10 +475,10 @@ no live proof, and a rewrite through it yields a value whose type is a
 stuck rewrite: nothing applies it. The _meet_ charges both operands, so
 `q <&> &2` is not a free copy of `q`. A _quantity cast_ fails at
 conversion: `@x: A -> B` and `@-x: A -> B` are different types. A _base
-name_ cannot be refilled by a later file, and a _foreign fill_ must
-answer the base library's `IO` type, so no import line can spell a
-duplicator. A _circular fill_ of `Forge(T): Data` is a live self-call
-with no shrinking column, refused by descent.
+name_ cannot be refilled by a later file, a _foreign fill_ must answer
+the base library's `IO` type, and a _circular fill_ of
+`Forge(T): Data` is a live self-call with no shrinking column, refused
+by descent.
 
 == The Claims, and Their Price <sec:price>
 
@@ -514,8 +505,7 @@ array) is declared #Ty, never #Da\; this is a property of the base
 library, not a rule. A compiler may drop a copy the source spelled,
 never add one @bendrt2026. QTT avoids the question by scaling the
 argument's measure, which it can afford because $omega$ is its default;
-with $1$ as the default, scaling would leave only closed data
-reusable.
+with $1$ as the default, scaling would leave only closed data reusable.
 
 One escape hatch exists and is always disclosed. A definition marked
 `@unsafe` skips descent and forms its `+` binders at any kind; the
@@ -534,16 +524,16 @@ The match is the eliminator. Matching a parameter refines the claim in
 each arm: the goal in the `1n+p` arm of a claim about `a` is the claim
 at `1n+p`, evaluated, with stuck self-calls refolded to source form.
 The induction hypothesis is the recursive call, and descent makes it
-valid. There is no unification, and there are no metavariables,
-implicit arguments or tactics: the assert of a helper _is_ the motive
-of its match, which is why a computed scrutinee must go to its own
-definition. Rewriting is J with the motive written out: given
+valid. With no unification and no metavariables, the assert of a
+helper _is_ the motive of its match, which is why a computed scrutinee
+must go to its own definition. Rewriting is J with the motive written
+out: given
 `e : {a == b : T}`, the motive marks with `_` the places where `b`
 stands, the goal must be the motive at `b`, and the body proves it at
 `a`. So one states an equation with the term to eliminate on the
-right. The whole idiom, checked by Bend:
+right:
 
-```
+```bend
 def add(a: Nat, b: Nat) -> Nat:
   match a:
     case 0n:
@@ -562,7 +552,16 @@ def zero(a):
     case 1n+p:
       %zero(p) : {1n+p == 1n+_ : Nat}
       {==}
+```
 
+The successor goal is `{1n+p == 1n+add(p, 0n)}`; the hypothesis
+`zero(p)` proves `{p == add(p, 0n)}`, and the rewrite folds
+`add(p, 0n)` back into `p`, leaving reflexivity. Commutativity needs
+its hypothesis `b` twice, in the lemma `succ`
+(`{1n+add(a, b) == add(a, 1n+b)}`, by the same induction) and in the
+induction hypothesis:
+
+```bend
 assert comm:
   forall  a: Nat
   forall +b: Nat
@@ -578,15 +577,10 @@ def comm(a, b):
       {==}
 ```
 
-In the successor arm of `zero` the goal evaluates to
-`{1n+p == 1n+add(p, 0n)}`; the hypothesis `zero(p)` proves
-`{p == add(p, 0n)}`, and the rewrite folds `add(p, 0n)` back into `p`,
-leaving reflexivity. `comm` needs `b` twice, in the lemma `succ`
-(`{1n+add(a, b) == add(a, 1n+b)}`, by the same induction) and in the
-hypothesis; `Nat` is #Da, so `+b` licenses it. This is the idiom that
-affinity alone forbids and the kind restores. Statements are free: at
-demand $0$ a theorem may quantify over functions and repeat variables
-at will. Affinity constrains what runs, never what is said.
+`Nat` is #Da, so `+b` licenses it. This is the idiom that affinity
+alone forbids and the kind restores. Statements are free: at demand $0$
+a theorem may quantify over functions and repeat variables at will.
+Affinity constrains what runs, never what is said.
 
 = Erasure and the Runtime <sec:erasure>
 

@@ -1,5 +1,5 @@
 // BendRT: A Parallel Runtime for CPUs and GPUs
-// Build: typst compile main.typ ../../../docs/BendRT.pdf
+// Build: typst compile --root .. main.typ ../../../docs/BendRT.pdf
 //
 // Solarized-light theme for the site build. Set solarized = false for a
 // plain black-on-white document: colors revert and NOTHING else changes.
@@ -13,7 +13,7 @@
 #let solgreen = if solarized { rgb("#859900") } else { rgb("#1A6B27") }
 
 // Page and text. Two columns; the title block spans both via a parent-
-// scoped float, the native mechanism for full-width front matter.
+// scoped float.
 #set page(
   paper: "us-letter",
   margin: (x: 54pt, top: 66pt, bottom: 60pt),
@@ -23,7 +23,7 @@
     let p = counter(page).get().first()
     if p > 1 {
       set text(size: 8pt)
-      if calc.even(p) [#p #h(1fr) Victor Taelin] else [BendRT #h(1fr) #p]
+      if calc.even(p) [#p #h(1fr) Victor Taelin] else [BendRT: A Parallel Runtime for CPUs and GPUs #h(1fr) #p]
     }
   },
 )
@@ -38,30 +38,23 @@
 #set heading(numbering: "1.1")
 #show heading: it => {
   set text(fill: solfg)
-  if it.level == 1 {
-    block(above: 1.4em, below: 0.7em, text(size: 12pt, weight: "bold", {
+  let big = it.level == 1
+  block(above: if big { 1.4em } else { 1.2em }, below: if big { 0.7em } else { 0.6em },
+    text(size: if big { 12pt } else { 10pt }, weight: "bold", {
       if it.numbering != none {
         counter(heading).display(it.numbering)
-        h(0.9em)
+        h(if big { 0.9em } else { 0.7em })
       }
       it.body
     }))
-  } else {
-    block(above: 1.2em, below: 0.6em, text(size: 10pt, weight: "bold", {
-      if it.numbering != none {
-        counter(heading).display(it.numbering)
-        h(0.7em)
-      }
-      it.body
-    }))
-  }
 }
 
-// Code blocks: shaded, monospace, unbreakable, no syntax coloring.
+// Code blocks: shaded, monospace, unbreakable, highlighted.
+#set raw(syntaxes: "../bend.sublime-syntax")
 #show raw.where(block: true): it => block(
   breakable: false,
   fill: solhi, inset: 6pt, radius: 2pt, width: 100%,
-  text(font: "DejaVu Sans Mono", size: 7.7pt, it))
+  text(font: "DejaVu Sans Mono", size: 7.5pt, it))
 #show raw.where(block: false): it => box(
   fill: solhi, inset: (x: 2pt), outset: (y: 2pt), radius: 1pt,
   text(font: "DejaVu Sans Mono", size: 0.82em, it))
@@ -158,8 +151,7 @@ interaction nets @lafont1997 @taelin2024hvm2 here; there are none.
 
 = The Program and Its Contract <sec:contract>
 
-#block(breakable: false)[
-```
+```bend
 import Base
 
 type Tree is Type:
@@ -186,7 +178,6 @@ def main() -> IO(Unit):
   t = build(20n, 0)
   IO.print(U32.show(sum!(t)))
 ```
-]
 
 The program builds a tree of $2^20$ leaves and sums it. Two marks
 carry all the parallelism Bend has. The _fork let_ `l r = f(x) g(y)`
@@ -222,32 +213,25 @@ lift into definitions `f$c` over their captures, so a closure is a
 definition applied to all but one of its arguments.
 
 Two whole-program analyses then decide the memory traffic. _Share
-inference_ marks the constructor types that wear reference counts: a
+inference_ finds the constructor types that wear reference counts: a
 type is _hot_ when some binder of it is used more than once, when a
 hot type's live field reaches it, or when it is boxed in an array;
 everything else is built and consumed through plain stores and loads.
-_Borrow inference_ marks the arguments a callee only reads: each live
+_Borrow inference_ finds the arguments a callee only reads: each live
 argument of a datatype starts borrowed and flips to owned on any
 escape, to a fixpoint. A borrowed argument is lent raw and read in
-place, a field read off it is itself borrowed, and an argument lent
-to a forked call must outlive the fork: held by the join, or itself
-borrowed by the caller. A fold over a reused tree costs no count
-traffic.
-
-Two more passes are load-bearing and get one sentence each. The
-inliner runs the checker's own evaluator on a call under a view of the
-book that exposes only the callee, and keeps the result when it is a
-small fork-free case tree. Fusion splices a non-recursive callee into
-its caller at a tail or a cut, and spins a self-recursive callee that
-returns a word or one flat record as a loop in place, so the record
-never allocates.
+place, so a fold over a reused tree costs no count traffic. A small
+fork-free callee is inlined by running the checker's own evaluator on
+the call; the rest is left to the emitter.
 
 == The Segment
 
-Each definition becomes one _segment_ of the worklist function. For
-`sum` the emitter prints (locals renamed, unboxing elided):
+Each definition becomes one _segment_ of the worklist function.
+@lst:sum shows what the emitter prints for `sum`.
 
-```
+#figure(placement: top, caption: [The segments of `sum`, locals
+renamed and unboxing elided.],
+```c
 WL_CASE(FID_SUM) {
   Term t = r0;
   WL_SPIN
@@ -288,7 +272,7 @@ WL_CASE(FID_SUM_S_0) {  // after sum(r)
 WL_CASE(FID_SUM_J) {
   WL_RET(U32_BIN(r0, +, r1));
 }
-```
+```) <lst:sum>
 
 Three things happen here. The match takes ownership: `Tree` is not
 hot, so the arm reads both fields and frees the node with two stores
@@ -308,53 +292,35 @@ segments, and the C source of every effect it imports; `--threads`,
 
 = Memory <sec:memory>
 
-== The Term Word
+== Terms and the Corpus <sec:heap>
 
-A term is one 64-bit word: bit 63 flags a counted redirect, bits
-62--56 hold the tag, bits 55--40 a 16-bit aux, and bits 39--0 a heap
-location in words. The tags are a raw word (a `u32`, `f32` bits, or a
-`Nat` below $2^48$), a _packed_ constructor (no field, or one
-word-sized field, carried in the location bits), a constructor (aux
-the constructor id, the node its fields), a closure (aux the segment
-id, the node its captured arguments), a task (@sec:cube), a _buffer_
-of packed 32-bit cells, and an _array_ of one term per word. `HOLE`,
-all ones, marks an undelivered task slot. A raw word, a packed
-constructor and `HOLE` are _trivial_: copied freely, never counted,
-never collected.
+A term is one 64-bit word: a tag, a 16-bit aux (constructor or
+segment id) and a 40-bit heap location. A machine word, a `Nat` below
+$2^48$ and a constructor with at most one word-sized field are
+_packed_ into the word itself and never touch the heap; a constructor,
+a closure, a task, and a flat _block_ (an array) point at a node.
+`HOLE`, all ones, marks an undelivered task slot.
 
-== The Corpus and the Allocator <sec:heap>
-
-Every executor shares one flat array of words, the _corpus_: a 96-word
-header, a scratch region per lane (its ring counters and allocator
-words, persisted across GPU dispatches), the $2^14$ task rings of
-@sec:cube, the device value stacks, and the heap, with per-lane words
-strided so that device accesses coalesce. The host reserves 8 TB and
-pages fault in on touch; the GPU fixes its span before the first
-dispatch (@sec:gpu). Both processors address the same words.
-
-The heap is carved into 128-word pages off one global bump counter,
-checked against one cap. Each lane keeps a free-list head and a partly
-used _quantum_ for each of nine size classes, $2^0$ to $2^8$ words: an
-allocation pops its class, else bumps its quantum, else claims fresh
-pages, and a free is two stores. Larger spans are whole pages and
-recycle through one shared stack per class. Every free is exact: a
-match frees the node it consumed, or hands it to its arm as a _spare_
-for a build of the same class, and a small free never crosses a
-thread. Exhaustion is fail-stop: a claim past the cap
-posts a numbered error into the header, once, and answers page zero,
-because a GPU lane cannot be killed; the doomed write lands inside the
-program's own span, which the next poll abandons.
+Every executor shares one flat array of words, the _corpus_: a header,
+a scratch region per lane, the $2^14$ task rings of @sec:cube, the
+device value stacks, and the heap. The host reserves 8 TB and pages
+fault in on touch; the GPU fixes its span before the first dispatch
+(@sec:gpu). Both processors address the same words. Each lane owns a
+free list per size class and bumps fresh pages off one global counter,
+so an allocation is a pop or a bump and a free is two stores; a small
+free never crosses a thread. Exhaustion is fail-stop: a claim past the
+cap posts a numbered error into the header and the round abandons.
 
 == Ownership at Run Time <sec:ownership>
 
 Generated code moves values. Three operations cover the cases where it
 cannot. _Take_ consumes a value at a match: read the fields, free the
 node. _Keep_ gives a value a second owner and is emitted exactly at a
-binder's second use: the first keep mints a _redirect_, one class-zero
-word holding the node's address and a count, and turns the local into
-a pointer at it; the count lives there, never on the node, so an
+binder's second use: the first keep mints a _redirect_, one word
+holding the node's address and a count, and turns the local into a
+pointer at it; the count lives there, never on the node, so an
 unshared value carries no count anywhere. _Drop_ releases an owner: a
-trivial term costs nothing, a counted pointer decrements and only the
+packed term costs nothing, a counted pointer decrements and only the
 last one collects, a sole owner collects at once. Take respects
 sharing: at count one it collapses the redirect and owns the node;
 above one it copies the fields out and releases its pointer. Every
@@ -363,11 +329,11 @@ field read never races a free. Only hot types pay any of this, and
 they seal every stored field with a count at build time.
 
 Drop is the runtime's only collector: an iterative walk that threads
-its worklist through the nodes being freed, the first word of each
-displaced by the parent link, so it allocates nothing and runs from
-any code on either processor. There is no tracing, no epoch and no
-deep copy anywhere: a `+` variable is emitted at every use, and each
-extra use is the share or the borrow the compiler placed.
+its worklist through the nodes being freed, so it allocates nothing
+and runs from any code on either processor. There is no tracing, no
+epoch and no deep copy anywhere: a `+` variable is emitted at every
+use, and each extra use is the share or the borrow the compiler
+placed.
 
 == Arrays <sec:arrays>
 
@@ -452,14 +418,12 @@ round.], {
 The frontier lives in the _cube_: $2^14$ rings arranged as a 128 by
 128 square, one ring per lane, the same on every target; a single
 thread serves the whole square when parallelism is off. A ring is a
-fixed FIFO of 1024 slots. A push fetch-adds the put counter, writes
-the slot's low half, then release-stores the high half with the lap
-parity in its top bit, which the consumer's acquire load checks. Each
-ring has one consumer per phase, the lane that owns it. The square is stored
-slot-major, so a row and a column are both $O(1)$ index maps, and
-_flipping_ the cube, turning the rows one phase filled into the
-columns the next phase drains, swaps the indexer and moves no task
-(@fig:cube).
+fixed FIFO of 1024 slots with one producer step, a fetch-add and two
+stores, and one consumer per phase, the lane that owns it. The square
+is stored slot-major, so a row and a column are both $O(1)$ index
+maps, and _flipping_ the cube, turning the rows one phase filled into
+the columns the next phase drains, swaps the indexer and moves no
+task (@fig:cube).
 
 == Grow and Work
 
@@ -503,8 +467,7 @@ that never forks never opens it.
 Count what crosses a lane. A push is one fetch-add and two stores. A
 delivery is one release fetch-sub on the join's own node. A page claim
 is one fetch-add on the global cursor, once per quantum. That is all:
-no shared deque, no lock on the task path, no compare-and-swap loop
-but the huge-page stack and the error word, no migration, no
+no shared deque, no lock on the task path, no migration, no
 rebalance, and no task is ever re-read to be placed elsewhere. Every
 phase is a closed step, which is what lets the same phase bodies run
 as persistent host threads and as device dispatches.
@@ -547,12 +510,9 @@ continues on the CPU. The marked call's subtree forks on the device
 along its own fork lets. Met anywhere else the mark degrades: in the
 parallel world it spawns a task rather than nesting, in the sequential
 world it is inert, and without a device it is inert everywhere. The
-CPU and the GPU never compute at the same time.
-
-One semantics extends to floats: both sides compile with contraction
-off, the device with safe math and precise roots and transcendentals,
-and division by zero follows the base library's laws everywhere. All
-three executors print the same bytes, and the harness checks it.
+CPU and the GPU never compute at the same time. Floats follow one
+semantics on every executor (contraction off, safe math on the
+device), and the harness checks that all three print the same bytes.
 
 = Effects <sec:io>
 
@@ -579,8 +539,9 @@ garbage collector: one function per live definition, naturals as
 tagged objects, closures as unary functions. A tail call returns a
 jump thunk that the caller's loop drives, forks run sequentially, and
 a request unwinds to the loop as a thrown value. `bend file.bend` runs
-this backend in memory, and a Bun plugin makes `import "./file.bend"`
-a module, so a Bend program is also a JavaScript library.
+this backend in memory, and a loader makes `import "./file.bend"` a
+module under node and Bun, so a Bend program is also a JavaScript
+library.
 
 = Results <sec:eval>
 

@@ -14,14 +14,14 @@ That's it. All else is fluff. Bend addresses both. And nothing else.
 
 ![Single-core benchmarks](docs/assets/single_core.svg)
 
-Strong types, linearity and purity lets Bend compete with hand-written C in
+Strong types, linearity and purity let Bend compete with hand-written C in
 single-core performance, and it scales to thousands of CPU or GPU threads, with
-near-ideal speedups, near-zero programmer effort. Compared to Bend 1, v2 is up
-to 100x faster, supports f32, u32, mutable arrays, up to 8 TB of heap memory,
-all with zero interaction net overhead. The compiler is still new, so, expect
-bugs and defective programs (where it under-performs C or CUDA). These will be
-fixed as the pipeline matures. If you ever come across one, please write an
-issue.
+near-ideal speedups, near-zero programmer effort. Compared to Bend 1, this
+version is up to 100x faster, supports f32, u32, mutable arrays, up to 8 TB of
+heap memory, all with zero interaction net overhead. The compiler is still new,
+so, expect bugs and defective programs (where it under-performs C or CUDA).
+These will be fixed as the pipeline matures. If you ever come across one, please
+write an issue.
 
 ## Bend4 checks FAST
 
@@ -51,7 +51,7 @@ your agent: "before stopping, **prove that your code is correct**". It outputs:
 ```python
 # CLAIM: no sequence of trades can result in cloned assets
 assert no_cloned_assets:
-  forall t: &List<Trade>
+  forall t: +List<Trade>
   forall g: Game
   {assets(run(t, g)) == assets(g) : Bag}
 
@@ -142,15 +142,12 @@ For more examples, check:
 - [bend2/base.bend](bend2/base.bend): the base library.
 - [bench/runtime](bench/runtime): all the benchmarks.
 
-To learn more, read:
-- [GUIDE.md](docs/GUIDE.md): a complete guide.
-
 # Get Started
 
 ### 1. Install:
 
 ```bash
-# needs Bun 1.3+ (https://bun.com) and macOS on Apple Silicon
+# needs Bun 1.3+ (https://bun.com) and a C compiler; Metal or CUDA for the GPU
 git clone https://github.com/HigherOrderCO/bend4
 cd bend4
 bun .devs/scripts/install.ts   # puts `bend` on the PATH (~/.bun/bin)
@@ -171,10 +168,9 @@ def main():
 ### 3. Check, Compile, Run:
 
 ```bash
-bend hello.bend               # check + run
-bend hello.bend --to hello.c  # compile to C
-cc -std=c11 -O3 hello.c -o hello -lpthread
-./hello                       # run!
+bend hello.bend             # check + run
+bend hello.bend -o hello    # compile to a native binary (GPU-enabled when Metal or CUDA links)
+./hello                     # run!
 ```
 
 ### 4. Read the Guide:
@@ -183,6 +179,6 @@ Everything else you need is in [Bend's GUIDE.md](docs/GUIDE.md). Read it!
 
 ## Formalization
 
-- Bend's theory is [formalized in Lean](bend2/bend.lean). Read the paper: [BendTT: A Linear Dependent Type Theory](docs/BendTT.pdf).
+- Bend's theory is [formalized in Lean](bend2/bend.lean). Read the paper: [BendTT: An Affine Dependent Type Theory](docs/BendTT.pdf).
 
 - The runtime is also documented. Read the paper: [BendRT: A Parallel Runtime for CPUs and GPUs](docs/BendRT.pdf)
