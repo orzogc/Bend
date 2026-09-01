@@ -110,18 +110,16 @@ BendTT is the type theory of the Bend programming language. It has one
 sort with #Ty : #Ty, no universe hierarchy and datatypes with no
 positivity restriction, and it is consistent. What holds it up is a
 usage discipline: a value is consumed at most once unless the _kind_ of
-its type says otherwise. Every type has a kind $#Kd($q$)$ over a quantity
-$q$; a binder marked `+` may be consumed any number of times, and it
-forms only when its type's kind is $#Da = #Kd($omega$)$. A function type
-is never #Da, and a datatype earns #Da at every constructor. So no
-closure is ever copied, and every known paradox of #Ty : #Ty or of
-negative datatypes copies a closure. Recursion passes one syntactic
-descent over the definition's own case tree. Erased code is free and
-may diverge; nothing promotes it to live. There is no unification and
-there are no tactics: a claim is an `assert`, a proof is the `def` that
-fills it, and the match is the eliminator. We state the calculus, show
-how each attack dies, and describe a Lean 4 mechanization of the
-all-affine fragment.
+its type says otherwise. A binder marked `+` may be consumed any number
+of times, and it forms only at the kind #Da. A function type is never
+#Da, and a datatype earns #Da at every constructor. So no closure is
+ever copied, and every known paradox of #Ty : #Ty or of negative
+datatypes copies a closure. Recursion passes one syntactic descent over
+the definition's own case tree. Erased code is free and may diverge;
+nothing promotes it to live. There is no unification and there are no
+tactics: a claim is an `assert`, a proof is the `def` that fills it, and
+the match is the eliminator. We state the calculus, show how each attack
+dies, and describe a Lean 4 mechanization of the all-affine fragment.
 
 = Introduction <sec:intro>
 
@@ -451,34 +449,31 @@ def app(t: Trm, x: Trm) -> Trm:
 
 Curry's engine, `omega(Lam{f}) = f(Lam{f})`, needs the field `f` twice
 and dies at the counter like `dupf`. A `Data` declaration cannot hold
-the function either: `MkBox{f: Nat -> Nat}` under `type Box is Data`
-fails its field with `expected Data, observed Type`. So a negative field
-sits only in an affine type, where it is used at most once, and a value
-of a negative type is at worst an inert closure.
+the function either: a field of type `Trm -> Trm` under `is Data` fails
+with the same error. So a negative field sits only in an affine type,
+where it is used at most once, and a value of a negative type is at
+worst an inert closure.
 
 == The License Cannot Be Forged
 
 Every attack we know of tries to obtain #Da for something affine. The
-_copy paradox_ is the sharpest. In a theory whose contractible types
+_copy paradox_ is the sharpest: in a theory whose contractible types
 are reusable, the type of copies of $x$, `&y: T -> {x == y : T}`, has
-the single inhabitant `(x, {==})`, and copying that pair copies $x$.
-Here it must be a datatype with a declared kind, and its live field
-`y: T` has kind #Ty, which #Da does not admit: the declaration fails at
-its constructor. A _constructor-local quantity_ fails the same way: a
-constructor that binds its own `L: Quant` and stores a field at
-`Kind(L)` is refused under `Data`, since a local `L` is never assumed
-to be `&2`. A _dead hypothesis_ licenses nothing: an erased `-e: Empty`
-or `-c: Copiable(T)` in scope may never be supplied, and a `+` needs a
-kind that _reduces_ to #Da, which a type stuck on dead evidence never
-does. A _quantity equation_ `{&1 == &2 : Quant}` is a legal type with
-no live proof, and a rewrite through it yields a value whose type is a
-stuck rewrite: nothing applies it. The _meet_ charges both operands, so
-`q <&> &2` is not a free copy of `q`. A _quantity cast_ fails at
-conversion: `@x: A -> B` and `@-x: A -> B` are different types. A _base
-name_ cannot be refilled by a later file, a _foreign fill_ must answer
-the base library's `IO` type, and a _circular fill_ of
-`Forge(T): Data` is a live self-call with no shrinking column, refused
-by descent.
+one inhabitant, `(x, {==})`, and copying that pair copies $x$. Here it
+must be a datatype with a declared kind, and its live field of type $T$
+has kind #Ty, which #Da does not admit: the declaration fails at its
+constructor. A constructor that binds its own quantity `L: Quant` and
+stores a field at `Kind(L)` fails the same way, since a local `L` is
+never assumed to be `&2`. A _dead hypothesis_ licenses nothing: an
+erased `-e: Empty` or `-c: Copiable(T)` in scope may never be supplied,
+and a `+` needs a kind that _reduces_ to #Da, which a type stuck on
+dead evidence never does. A _quantity equation_ `{&1 == &2 : Quant}` is
+a legal type with no live proof, and a rewrite through it yields a value
+whose type is a stuck rewrite that nothing applies. The meet charges
+both operands, so `q <&> &2` is not a free copy of `q`; `@x: A -> B`
+and `@-x: A -> B` are different types at conversion; and a circular
+fill of `Forge(T): Data` is a live self-call with no shrinking column,
+refused by descent.
 
 == The Claims, and Their Price <sec:price>
 
@@ -620,11 +615,11 @@ all-affine fragment.], {
     table.header([Claim], [Theorem]),
     table.hline(stroke: 0.4pt + solfg),
     [Confluence], co[church_rosser_holds],
-    [Subject reduction (weak, measure $lt.eq$)], co[subject_reduction_holds],
+    [Subject reduction (weak)], co[subject_reduction_holds],
     [Progress (live)], co[progress_holds],
     [Normalization (weak, live)], co[normalization_holds],
     [Consistency (live)], co[consistency_holds],
-    [The dead boundary, as a witness], co[consistency_none_boundary],
+    [The dead boundary], co[consistency_none_boundary],
     table.hline(stroke: 0.6pt + solfg),
   )
 }) <tab:claims>

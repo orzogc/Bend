@@ -194,7 +194,7 @@ match consumes its scrutinee, always a parameter or a field of one,
 never a computed value. A def body is flattened at parse into a _case
 tree_, lambdas and constructor matches over leaves, and validation
 annotates every node with its type; erased binders (`-`), types and
-proofs are gone before the compiler sees the term. One law governs
+proofs never reach the emitted code. One law governs
 what follows: a compiler may drop a copy the source spelled, never add
 one.
 
@@ -302,14 +302,13 @@ a closure, a task, and a flat _block_ (an array) point at a node.
 `HOLE`, all ones, marks an undelivered task slot.
 
 Every executor shares one flat array of words, the _corpus_: a header,
-a scratch region per lane, the $2^14$ task rings of @sec:cube, the
-device value stacks, and the heap. The host reserves 8 TB and pages
-fault in on touch; the GPU fixes its span before the first dispatch
-(@sec:gpu). Both processors address the same words. Each lane owns a
-free list per size class and bumps fresh pages off one global counter,
-so an allocation is a pop or a bump and a free is two stores; a small
-free never crosses a thread. Exhaustion is fail-stop: a claim past the
-cap posts a numbered error into the header and the round abandons.
+the $2^14$ task rings of @sec:cube, the lane stacks, and the heap. The
+host reserves 8 TB and pages fault in on touch; the GPU fixes its span
+before the first dispatch (@sec:gpu). Both processors address the same
+words. Each lane allocates from its own free lists and claims fresh
+pages off one global counter, so an allocation is a pop or a bump, a
+free is two stores, and neither crosses a thread. Exhaustion is
+fail-stop: a numbered error in the header, never a hang.
 
 == Ownership at Run Time <sec:ownership>
 
@@ -369,11 +368,9 @@ from the stack and its result from `res`. The exit segment pops the
 task's continuation and delivers `res` into it; a marked call in the
 parallel world returns a spawned task instead of jumping.
 
-Word-typed parameters live in the bank as raw machine words, so
-arithmetic never touches the heap. Recursion depth is bounded by the
-value stack alone, a guarded 2 GB mapping per host worker and a fixed
-window per device lane, and an overflow on either is the same
-numbered error.
+Recursion depth is bounded by the value stack alone: a guarded 2 GB
+mapping per host worker, a fixed window per device lane, and the same
+numbered error on overflow.
 
 = The Task Cube <sec:cube>
 
@@ -441,8 +438,7 @@ deals its children round-robin across the row's rings, and a runnable
 reply, a completed continuation or a spawned marked call, is pushed
 back whole. Tasks whose segment can never fork are skipped: they
 cannot widen the frontier, and they wait for work. A row stops growing
-when every ring in it has work or a sweep grew nothing; on the device
-the lanes vote through two group counters and a barrier.
+when every ring in it has work or a sweep grew nothing.
 
 _Work_ runs at saturation. Every lane drains its column ring, down to a
 snapshot of the put counter taken at the turn's start, in the
@@ -456,11 +452,10 @@ round's frontier. This is the bulk-synchronous rhythm
 then the next wave.
 
 The host pool is up to 128 threads, which claim rows by one fetch-add
-and meet at one barrier per turn. The GPU runs a grow as one dispatch
-of 128 groups (one group while $f < 128$) and a work as one dispatch
-of one thread per lane; between dispatches the host only reads $f$.
-The solo thread opens the pool at a program's first fork; a program
-that never forks never opens it.
+and meet at one barrier per turn; it opens at a program's first fork.
+The GPU runs a grow as a dispatch of 128 groups (seeded by one group
+while $f < 128$) and a work as one thread per lane; between dispatches
+the host only reads $f$.
 
 == Why Nothing Contends
 
@@ -486,15 +481,12 @@ The runtime speaks two device APIs, Metal and CUDA, and the device
 code is not a port: at launch the binary reads _its own source file_
 and compiles it as the shader library on Metal, or through NVRTC on
 CUDA with the binary cached by source hash, so host and device run the
-same functions by construction. One macro family covers the atomics:
-the compiler's on the host, relaxed 32-bit operations bracketed by
-fences on the device, always on the low half of a corpus word, which
-every shared protocol fits.
+same functions by construction.
 
-The span is decided once, before the first dispatch: a `--gpu-memory`
-size, else 2 GB on Metal, where mapping is charged per gigabyte and a
-buffer cannot grow while a kernel runs, and the whole card on CUDA,
-whose managed pages fault in on demand. Metal wraps the host mapping
+The span is decided once, before the first dispatch: `--gpu-memory`,
+else 2 GB on Metal, where mapping is charged per gigabyte and a buffer
+cannot grow under a running kernel, and the whole card on CUDA, whose
+managed pages fault in on demand. Metal wraps the host mapping
 in one zero-copy buffer at the same addresses. A device cannot abort,
 so failure is a protocol: the first failing lane compare-and-swaps its
 error into the header word, every long loop polls that word and
@@ -516,42 +508,40 @@ device), and the harness checks that all three print the same bytes.
 
 = Effects <sec:io>
 
-The type `IO(A)` is a continuation: a function from an erased result
-type `R` and a continuation `A -> IO.OP<R>` to an `IO.OP<R>`, where
-`IO.OP` has two constructors, `Emit` and `Halt`. A foreign
-definition, a def filled by `import` lines naming a `.c` and a `.js`
-file, compiles to one segment that packs its arguments and its
-continuation into a request constructor. The event loop runs on one
-thread: it evaluates `main` to a request through the pure machine,
-runs the effect's C handler on the loop thread, applies the
-continuation to the answer, and evaluates again; `Emit` ends the
-program and `Halt` exits with its code. Effects never run inside an
-evaluator, and the machine performs no IO. The kit ships one file per
-effect (print, environment, files, TCP and UDP sockets); a fallible
-operation answers a `Result` carrying errno, and a handle threads back
-outside the `Result`, so even a failure cannot lose it.
+`IO(A)` is a definition of the base library, not a primitive: a
+continuation over one datatype `IO.OP` with two constructors, `Emit`
+and `Halt`. A foreign definition, a def filled by `import` lines naming
+a `.c` and a `.js` file, compiles to one segment that packs its
+arguments and its continuation into a request. The event loop runs on
+one thread: it evaluates `main` to a request through the pure machine,
+runs the effect's C handler, applies the continuation to the answer,
+and evaluates again; `Emit` ends the program and `Halt` exits with its
+code. Effects never run inside an evaluator, and the machine performs
+no IO. The kit ships one file per effect (print, environment, files,
+TCP and UDP sockets); a fallible operation answers a `Result` carrying
+errno, and a handle threads back outside the `Result`, so even a
+failure cannot lose it.
 
 = The JavaScript Backend <sec:js>
 
 The same carbonized book prints as plain JavaScript over the host's
 garbage collector: one function per live definition, naturals as
 `BigInt`, words as numbers, strings as strings, other constructors as
-tagged objects, closures as unary functions. A tail call returns a
-jump thunk that the caller's loop drives, forks run sequentially, and
-a request unwinds to the loop as a thrown value. `bend file.bend` runs
-this backend in memory, and a loader makes `import "./file.bend"` a
-module under node and Bun, so a Bend program is also a JavaScript
-library.
+tagged objects, closures as unary functions; tail calls trampoline,
+forks run in sequence, and a request unwinds to the loop as a thrown
+value. `bend file.bend` runs this backend in memory, and a loader makes
+a `.bend` file a module under node and Bun, so a Bend program is also a
+JavaScript library.
 
 = Results <sec:eval>
 
 #figure(placement: top, caption: [The pinned suite, `bench/runtime/`
-in the Bend repository. Seconds on one Apple M4 Max (pin of
-2026-08-31, commit `64fc4b7`): one thread, sixteen threads, the
+in the Bend repository: seconds on one Apple M4 Max (pin of
+2026-08-31, commit `64fc4b7`) for one thread, sixteen threads, the
 integrated GPU through Metal, and the hand-written C twin, one C
-function per Bend definition. Every cell is a warm run then a timed
-run on an idle machine, every executor must print the pinned checksum,
-and the numbers are pins diffed against thereafter.],
+function per Bend definition. Each cell is a warm run then a timed run
+on an idle machine, and every executor must print the pinned
+checksum.],
 {
   set text(size: 8.5pt)
   table(
