@@ -280,10 +280,6 @@ export type HTerm = TermOf<HBody>;
 // Env
 export type Env = PMap<HTerm>;
 
-// Fill
-export type Vars = { x: HTerm; up: Vars } | null;
-export type Fill = HTerm | ((vs: Vars) => HTerm);
-
 // Definitions & Book
 export type Ctr  = { k: Name; n: number; T: HTerm }
 export type Ctrs = Array<Ctr>;
@@ -749,130 +745,90 @@ export function term_strip<X>(tm: TermOf<X>): TermOf<X> {
 }
 
 export function term_higher(tm: LTerm, env: Env = Emp<HTerm>()): HTerm {
-  const sc: number[] = [];
-  function at(m: Fill, vs: Vars): HTerm {
-    if (typeof m === "function") {
-      return m(vs);
-    } else {
-      return m;
-    }
-  }
-  function under(is: number[], f: LTerm): Fill {
-    for (const i of is) {
-      sc.push(i);
-    }
-    const m = go(f);
-    sc.length -= is.length;
-    return m;
-  }
-  function mk(xs: Fill[], f: (ys: HTerm[]) => HTerm): Fill {
-    if (xs.every((m) => typeof m !== "function")) {
-      return f(xs as HTerm[]);
-    }
-    return (vs: Vars) => {
-      const ys = new Array<HTerm>(xs.length);
-      for (let j = 0; j < xs.length; j++) {
-        ys[j] = at(xs[j], vs);
+  switch (tm.$) {
+    case "Var": {
+      if (tm.i < 0) {
+        return tm;
       }
-      return f(ys);
-    };
-  }
-  function go(t: LTerm): Fill {
-    switch (t.$) {
-      case "Var": {
-        if (t.i < 0) {
-          return t;
+      const v = pmap_get(env, tm.i);
+      if (v === null) {
+        return Ref(tm.k, tm.s);
+      } else {
+        return v;
+      }
+    }
+    case "Ref": {
+      return Ref(tm.k, tm.s, tm.b);
+    }
+    case "Sub": {
+      const v = term_higher(tm.v, env);
+      return term_higher(tm.f, pmap_set(env, tm.i, v));
+    }
+    case "Let": {
+      const b = tm;
+      const v = b.v.map((x) => term_higher(x, env));
+      return Let(b.k, b.i, v, (xs: HTerm[]) => {
+        let e = env;
+        for (let j = 0; j < xs.length; j++) {
+          e = pmap_set(e, b.i[j], xs[j]);
         }
-        const idx = sc.lastIndexOf(t.i);
-        if (idx < 0) {
-          const v = pmap_get(env, t.i);
-          if (v === null) {
-            return Ref(t.k, t.s);
-          } else {
-            return v;
-          }
-        }
-        const d = sc.length - 1 - idx;
-        return (vs: Vars) => {
-          let p = vs as { x: HTerm; up: Vars };
-          for (let j = 0; j < d; j++) {
-            p = p.up as { x: HTerm; up: Vars };
-          }
-          return p.x;
-        };
-      }
-      case "Ref": {
-        return Ref(t.k, t.s, t.b);
-      }
-      case "Sub": {
-        const v = go(t.v);
-        const m = under([t.i], t.f);
-        return (vs: Vars) => at(m, { x: at(v, vs), up: vs });
-      }
-      case "Let": {
-        const ws = t.v.map(go);
-        const m = under(t.i, t.f);
-        return (vs: Vars) => Let(t.k, t.i, ws.map((w) => at(w, vs)), (xs: HTerm[]) => {
-          let up = vs;
-          for (const x of xs) {
-            up = { x, up };
-          }
-          return at(m, up);
-        }, t.s, t.q);
-      }
-      case "Typ": {
-        return mk([go(t.g)], (ys) => Typ(ys[0], t.s));
-      }
-      case "Qnt":
-      case "Qua": {
-        return t;
-      }
-      case "Min": {
-        return mk([go(t.a), go(t.b)], (ys) => Min(ys[0], ys[1], t.s));
-      }
-      case "All": {
-        const A = go(t.A);
-        const m = under([t.i], t.B);
-        return (vs: Vars) => All(t.q, t.k, t.i, at(A, vs), (x: HTerm) => at(m, { x, up: vs }), t.s);
-      }
-      case "Lam": {
-        const m = under([t.i], t.f);
-        return (vs: Vars) => Lam(t.k, t.i, (x: HTerm) => at(m, { x, up: vs }), t.s);
-      }
-      case "App": {
-        return mk([go(t.f), go(t.x)], (ys) => App(ys[0], ys[1], t.s));
-      }
-      case "ADT": {
-        return mk(t.x.map(go), (ys) => ADT(t.k, ys, t.s, t.r));
-      }
-      case "Ctr": {
-        return mk(t.x.map(go), (ys) => Ctr(t.k, ys, t.s));
-      }
-      case "Mat": {
-        return mk([go(t.h), go(t.m)], (ys) => Mat(t.k, ys[0], ys[1], t.s));
-      }
-      case "Efq": {
-        return Efq(t.s);
-      }
-      case "Eql": {
-        return mk([go(t.a), go(t.b), go(t.T)], (ys) => Eql(ys[0], ys[1], ys[2], t.s));
-      }
-      case "Rfl": {
-        return Rfl(t.s);
-      }
-      case "Rwt": {
-        return mk([go(t.e), go(t.p), go(t.f)], (ys) => Rwt(ys[0], ys[1], ys[2], t.s));
-      }
-      case "Hol": {
-        return Hol(t.k, t.s);
-      }
-      case "Ann": {
-        return mk([go(t.x), go(t.T)], (ys) => Ann(ys[0], ys[1], t.s));
-      }
+        return term_higher(b.f, e);
+      }, b.s, b.q);
+    }
+    case "Typ": {
+      return Typ(term_higher(tm.g, env), tm.s);
+    }
+    case "Qnt":
+    case "Qua": {
+      return tm;
+    }
+    case "Min": {
+      return Min(term_higher(tm.a, env), term_higher(tm.b, env), tm.s);
+    }
+    case "All": {
+      const b = tm;
+      const A = term_higher(b.A, env);
+      return All(b.q, b.k, b.i, A, (x: HTerm) => {
+        return term_higher(b.B, pmap_set(env, b.i, x));
+      }, b.s);
+    }
+    case "Lam": {
+      const b = tm;
+      return Lam(b.k, b.i, (x: HTerm) => {
+        return term_higher(b.f, pmap_set(env, b.i, x));
+      }, b.s);
+    }
+    case "App": {
+      return App(term_higher(tm.f, env), term_higher(tm.x, env), tm.s);
+    }
+    case "ADT": {
+      return ADT(tm.k, tm.x.map((x) => term_higher(x, env)), tm.s, tm.r);
+    }
+    case "Ctr": {
+      return Ctr(tm.k, tm.x.map((x) => term_higher(x, env)), tm.s);
+    }
+    case "Mat": {
+      return Mat(tm.k, term_higher(tm.h, env), term_higher(tm.m, env), tm.s);
+    }
+    case "Efq": {
+      return Efq(tm.s);
+    }
+    case "Eql": {
+      return Eql(term_higher(tm.a, env), term_higher(tm.b, env), term_higher(tm.T, env), tm.s);
+    }
+    case "Rfl": {
+      return Rfl(tm.s);
+    }
+    case "Rwt": {
+      return Rwt(term_higher(tm.e, env), term_higher(tm.p, env), term_higher(tm.f, env), tm.s);
+    }
+    case "Hol": {
+      return Hol(tm.k, tm.s);
+    }
+    case "Ann": {
+      return Ann(term_higher(tm.x, env), term_higher(tm.T, env), tm.s);
     }
   }
-  const m = go(tm);
-  return at(m, null);
 }
 
 export function term_lower(term: HTerm, dep: number = 0): LTerm {
