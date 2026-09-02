@@ -45,7 +45,7 @@ const BEATS = [
   ["say", "%*PROMPT*: \"make it pass through walls!\"", "*RESULT*: the room is surrounded by steel"],
   ["say", "%*PROMPT*: \"make it pass through *anything*!\"", "*RESULT*: the room now kills you"],
   ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
-          "mathematically so"],
+          "because every commit must include a *proof*", "that *laws.bend* still holds"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
   ["say", "*proof languages* are an old tech", "",
           "for *decades*, they've guarded", "CPUs, OS kernels and aircraft", "",
@@ -424,9 +424,16 @@ S.block = (u, dur) => {
 // ------------------------------------------------------------------ code beats
 // what laws.bend is, then the file itself, held long enough to read twice
 S.laws = (u, dur) => {
-  rich("A new file that lists *invariants*", W/2, 140, 30);
+  const x = W/2 - 300, y = 285, h = LAWS_SRC.length*34 + 44;
+  rich("a new file that lists *invariants*", W/2, 140, 30);
   cx.globalAlpha = ease((u - 2.0)/0.4); rich("that AIs are *forced* to respect", W/2, 190, 30);
-  cx.globalAlpha = ease((u - 4.0)/0.5); codeCard(LAWS_SRC, W/2 - 300, 290, 600, 20, 34);
+  cx.globalAlpha = ease((u - 4.0)/0.5);
+  T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
+  codeCard(LAWS_SRC, x, y, 600, 20, 34);
+  const pa = ease((u - 7.5)/0.5);
+  cx.globalAlpha = pa;
+  T("write your rules here", W/2, 650, 26, AMBER, "center", true);
+  bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
   cx.globalAlpha = 1;
 };
 
@@ -741,7 +748,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 14.0,
+const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 15.0,
                 dist: 11.0, eval: 11.5, reduce: 19.0, end: 32.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
