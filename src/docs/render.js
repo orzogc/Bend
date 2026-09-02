@@ -27,32 +27,24 @@ const BEATS = [
   ["say", "consider a game with one law:", "*the player cannot win*"],
   ["intro"],
   ["say", "so far, it works!"],
-  ["say", "now, let's prompt a feature:", "%\"make the map *wrap around*\""],
-  ["say", "normally, what would happen?"],
+  ["say", "now, let's prompt a new feature:", "%\"make the map *wrap around*\""],
   ["walk"],
-  ["say", "the new feature introduced a *bug*"],
-  ["say", "could this have been prevented?"],
+  ["say", "oops! the feature introduced a *bug*"],
+  ["say", "can we avoid that?"],
   ["block"],
-  ["say", "by placing a wall", "the feature works", "and the law holds"],
-  ["say", "imagine a world where AIs", "always respected our laws"],
-  ["say", "#but how?"],
+  ["say", "by placing a wall", "the feature lands", "and the law holds"],
+  ["say", "now, imagine if every bug was avoided", "by some magic that enforced our laws?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
   ["say", "#but what enforces it?"],
-  ["say", "*formal proofs*!"],
-  ["say", "proofs are an old tech", "",
-          "for *decades*, they've secured", "CPUs, OSs, military aircraft", "",
-          "by enabling a proof checker,", "it becomes *impossible* to", "violate *laws.bend*"],
-  ["say", "let's try to break it:"],
-  ["say", "%*PROMPT*: \"add a new teleport spell\"", "*RESULT*: it can't pass through walls", left],
-  ["say", "%*PROMPT*: \"make it pass through walls\"", "*RESULT*: the walls become stones", left],
-  ["say", "%*PROMPT*: \"make it pass through anything\"", "*RESULT*: the room now kills you", left],
-  ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
-          "because editing code is only allowed", "if you prove that *laws.bend* still holds!"],
+  ["say", "#Bend", "%a new programming language", "",
+          "with a built-in *proof system*", "that mechanically enforces *laws.bend*"],
+  ["say", "a law is a *theorem* about your code", "and every edit must come with a *proof*", "",
+          "a proof covers *every* input, *every* path", "and a machine checks it, *step by step*", "",
+          "no proof, *no compile*"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
-  ["say", "so, why aren't proofs everywhere?", "and why use *Bend* specifically?"],
-  ["say", "because proof languages are *slow*"],
-  ["say", "yet, Bend is"],
+  ["say", "but other provers exist", "why use *Bend* specifically?"],
+  ["reveal", "because Bend| is", 34],
   ["reveal", "FAST", 64],
   ["check"],
   ["bench", "gameoflife"],
@@ -67,7 +59,7 @@ const BEATS = [
   ["eval"],
   ["say", "4. Bend combines the *results*"],
   ["reduce"],
-  ["say", "the *entire language* runs in parallel", "",
+  ["say", "the *entire language* is parallel", "",
           "objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
           "*everything runs natively on GPUs*", "~(with CPU cores as a fallback)"],
   ["say", "so, that's Bend:", "a *fast* language", "that *scales* like CUDA", "where AI *can't make mistakes*"],
@@ -423,15 +415,18 @@ S.block = (u, dur) => {
 };
 
 // ------------------------------------------------------------------ code beats
-// the file under its name, then where the rules go
+// what laws.bend is, then the file under its name, then where the rules go
 S.laws = (u, dur) => {
-  const x = W/2 - 300, y = 190, h = LAWS_SRC.length*34 + 44;
+  const x = W/2 - 300, y = 285, h = LAWS_SRC.length*34 + 44;
+  rich("a new file that lists *invariants*", W/2, 140, 30);
+  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that AIs are *forced* to respect", W/2, 190, 30);
+  cx.globalAlpha = ease((u - 4.0)/0.5);
   T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
   codeCard(LAWS_SRC, x, y, 600, 20, 34);
-  const pa = ease((u - 3.0)/0.5);
+  const pa = ease((u - 7.5)/0.5);
   cx.globalAlpha = pa;
-  T("write your rules here", W/2, 575, 26, AMBER, "center", true);
-  bow(W/2, 542, W/2, y + h + 10, 0, AMBER, pa);
+  T("write your rules here", W/2, 650, 26, AMBER, "center", true);
+  bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
   cx.globalAlpha = 1;
 };
 
@@ -748,7 +743,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 11.0,
+const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 15.0,
                 dist: 11.0, eval: 11.5, reduce: 19.0, end: 32.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
