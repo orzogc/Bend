@@ -517,8 +517,20 @@ const deepen = (h, k) => "rgb(" + rgb(h).map(v => Math.max(0, Math.round(255 - (
 function cellBox(x, y, w, h, fill, a) {
   if (a !== undefined) cx.globalAlpha = a;
   const g = clamp(Math.min(w, h)*0.12, 1.2, 8), c = Math.max((w - g)/w*(h - g)/h, 0.3);
-  cx.fillStyle = deepen(fill, 1/c); cx.fillRect(x + g/2, y + g/2, w - g, h - g);
+  cx.fillStyle = deepen(fill, Math.min(1/c, 1.5)); cx.fillRect(x + g/2, y + g/2, w - g, h - g);
   if (a !== undefined) cx.globalAlpha = 1;
+}
+// numbers wear the 2048 ladder: beige for small values, through orange and
+// red, to yellow for the largest. t is the value's place on a log scale from
+// the first partial sum to the final total, so the scale is one across beats.
+const HEAT = [[0, "#eee4da"], [0.15, "#ede0c8"], [0.3, "#f2b179"], [0.45, "#f59563"], [0.6, "#f67c5f"],
+              [0.75, "#f65e3b"], [0.92, "#f65e3b"], [1, "#edc22e"]];
+const NUMI = "#5b4636";                         // ink for numbers on the ladder
+const mix = (h1, h2, f) => "#" + rgb(h1).map((c, k) => Math.round(lerp(c, rgb(h2)[k], f)).toString(16).padStart(2, "0")).join("");
+function heat(v) {
+  const t = clamp(Math.log(v/10)/Math.log(55*N*N/10), 0, 1);
+  let i = 0; while (i + 2 < HEAT.length && t > HEAT[i + 1][0]) i++;
+  return mix(HEAT[i][1], HEAT[i + 1][1], (t - HEAT[i][0])/(HEAT[i + 1][0] - HEAT[i][0]));
 }
 function cellText(s, x, y, w, h, a, color) {
   const fs = fitText(w, h);
@@ -586,6 +598,7 @@ S.dist = (u, dur) => {
 // thread, which finishes its sum alone on the screen.
 const EVAL = ["sum(10)", "10+sum(9)", "19+sum(8)", "27+sum(7)", "34+sum(6)", "40+sum(5)",
               "45+sum(4)", "49+sum(3)", "52+sum(2)", "54+sum(1)", "55+sum(0)", "55"];
+const EVALV = [0, 10, 19, 27, 34, 40, 45, 49, 52, 54, 55, 55];
 const ESTEP = 1.0, E0 = 0.8, DIVE = 6.8, EDONE = E0 + (EVAL.length - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
 S.eval = (u, dur) => {
@@ -596,9 +609,9 @@ S.eval = (u, dur) => {
     if (offscreen(x, y, w, h)) continue;
     const a = c === MID && r === MID ? 1 : others;
     if (a <= 0) continue;
-    cellBox(x, y, w, h, SKY, a);
     const j = clamp(Math.floor((u - E0 - phase(c, r))/ESTEP), 0, EVAL.length - 1);
-    cellText(EVAL[j], x, y, w, h, a);
+    cellBox(x, y, w, h, j ? heat(EVALV[j]) : SKY, a);
+    cellText(EVAL[j], x, y, w, h, a, j ? NUMI : BLUE);
   }
   // the grid's name rides on the grid and leaves the screen as the camera dives
   const [lx, ly] = camr.at(GCEN, 0);
@@ -630,6 +643,7 @@ S.reduce = (u, dur) => {
   const camr = u < R0 ? camLerp(CAME, camFor(0), ease(u/R0)) : camLerp(camFor(j), camFor(j + 1), m);
   const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
   const val = num(LEAF*Math.pow(2, j)), val2 = num(LEAF*Math.pow(2, j + 1));
+  const fill = heat(LEAF*Math.pow(2, j)), fill2 = heat(LEAF*Math.pow(2, j + 1));
   const landed = clamp((p - 0.82)/0.18, 0, 1);
   // the other threads return as the camera pulls back, and leave again once
   // the total is in: the last frame is one cell alone
@@ -642,12 +656,12 @@ S.reduce = (u, dur) => {
     const a = u < R0 && !(c === MID && r === MID) ? others : j >= LEVELS && !(c === 0 && r === 0) ? others : 1;
     if (a <= 0) continue;
     if (!live || (src && p > 0)) { cellBox(x, y, cw, ch, MIST, a); continue; }
-    cellBox(x, y, cw, ch, SKY, a);
-    if (j >= LEVELS) cellText(val, x, y, cw, ch, 1);
-    else if (u < R0) cellText(val, x, y, cw, ch, a);
+    cellBox(x, y, cw, ch, j >= LEVELS || u < R0 ? fill : mix(fill, fill2, landed), a);
+    if (j >= LEVELS) cellText(val, x, y, cw, ch, 1, NUMI);
+    else if (u < R0) cellText(val, x, y, cw, ch, a, NUMI);
     else {
-      cellText(val, x, y, cw, ch, 1 - landed);
-      cellText(val2, x, y, cw, ch, landed);
+      cellText(val, x, y, cw, ch, 1 - landed, NUMI);
+      cellText(val2, x, y, cw, ch, landed, NUMI);
     }
   }
   // the moving half: one sheet of cells sliding onto its neighbours
@@ -657,8 +671,8 @@ S.reduce = (u, dur) => {
     for (let r = r0; r < r0 + chh; r++) for (let c = c0; c < c0 + cw; c++) {
       const [x, y, sw, sh] = blockRect(camr, c + dx, r + dy, 1, 1);
       if (offscreen(x, y, sw, sh)) continue;
-      cellBox(x, y, sw, sh, "#b7cbe6", 1 - landed);
-      cellText(val, x, y, sw, sh, 1 - landed);
+      cellBox(x, y, sw, sh, fill, 1 - landed);
+      cellText(val, x, y, sw, sh, 1 - landed, NUMI);
     }
   }
   // the grid's name is written on the grid, as in the dive: it stays put
