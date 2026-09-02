@@ -22,53 +22,53 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "What is the *ideal programming language*", "for those who *stopped reading code*?"],
-  ["say", "*1. It must be FAST*", "~large codebases must *compile quickly*", "~CPUs & GPUs must exec at *peak speeds*",
-          "*2. Vibe-coding must WORK*", "~agents must write *correct code* in it", "~humans must *keep control* of the code",
-          "/All else is fluff."],
-  ["check"],
-  ["bench", "gameoflife"],
-  ["say", "And it *parallelizes*!"],
-  ["par", "gameoflife"],
-  ["say", "Parallelism is *nearly automatic*.", "The whole language *runs on GPUs*."],
-  ["say", "#How is that possible?"],
-  ["say", "1. The user writes a *parallel call*."],
-  ["example", "call"],
-  ["say", "2. The runtime *spreads the workload*."],
-  ["dist"],
-  ["say", "3. Each core computes a *partial result*."],
-  ["eval"],
-  ["say", "4. An aggregator produces the *final result*."],
-  ["reduce"],
-  ["say", "This is not limited to *simple functions*.", "",
-          "The *entire language* compiles to kernels.", "",
-          "Objects, arrays, allocation, collection,", "pattern matching, closures and recursion.", "",
-          "*Every feature runs natively on the GPU.*"],
-  ["say", "How about *vibe-coding*?"],
-  ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
-  ["say", "#Here's how it works."],
+  ["say", "How to stop an AI agent", "from making mistakes?"],
   ["say", "Consider a game with one law:", "*the player cannot win*"],
   ["intro"],
-  ["say", "So far, it works!"],
-  ["say", "Now, suppose we use this prompt:", "%\"let the player *wrap around*\""],
-  ["say", "#What happens next?"],
-  ["say", "#In other languages:"],
+  ["say", "Now, what if we write this prompt:", "%\"let the player *wrap around*\""],
+  ["say", "#What would happen?"],
   ["walk"],
-  ["say", "Nothing prevents AIs from breaking the law."],
-  ["say", "#In Bend:"],
+  ["say", "As expected, the *law is broken*.", "A new feature introduced a *bug*."],
+  ["say", "Let's try the *same prompt* again.", "Except, now, with *solution* on."],
   ["block"],
-  ["say", "The AI placed a wall!", "The law is preserved."],
-  ["say", "#But why?"],
-  ["say", "Because of:", "#laws.bend"],
+  ["say", "By toggling *solution*,", "the AI placed a wall!", "The law is preserved."],
+  ["say", "But what is *solution*?"],
+  ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "Bend makes it *mathematically impossible*", "to write any code that breaks *laws.bend*."],
-  ["say", "%*PROMPT:* \"Create a teleport skill!\"", "*MODEL:* It will not pass through walls."],
-  ["say", "%*PROMPT:* \"Make it pass through walls!\"", "*MODEL:* The room is now surrounded by steel."],
-  ["say", "%*PROMPT:* \"Make it pass through *anything*!\"", "*MODEL:* The room now kills you."],
-  ["say", "No matter how *crazy* your prompt is,", "the AI is *unable* to break the laws.", "",
-          "It must find a *harmless workaround*,", "so it can write the *demanded proof*."],
-  ["say", "In short,", "*laws.bend* is *AGENTS.md*", "except *backed by proof*."],
+  ["say", "But what enforces it?"],
+  ["say", "#Bend", "%a new programming language"],
+  ["say", "By incorporating a *proof system*,", "Bend mechanically enforces *laws.bend*,",
+          "making it *mathematically inviolable*."],
+  ["say", "%*PROMPT:* \"Create a teleport skill!\"", "*RESULT:* It won't pass through walls."],
+  ["say", "%*PROMPT:* \"Make it pass through walls!\"", "*RESULT:* The room is surrounded by steel."],
+  ["say", "%*PROMPT:* \"Make it pass through *anything*!\"", "*RESULT:* The room now kills you."],
+  ["say", "No matter how *crazy* your prompt is,", "the AI is *unable* to break *laws.bend*.", "",
+          "Mathematically so."],
   ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
+  ["say", "%\"isn't that a big claim?\"", "",
+          "No. Proofs aren't a new technology.", "They have existed since the 1960s.", "",
+          "So, why not other proof languages?"],
+  ["reveal", "Because Bend| is", 34],
+  ["reveal", "FAST", 64],
+  ["check"],
+  ["bench", "gameoflife"],
+  ["say", "And, as a bonus..."],
+  ["say", "it *parallelizes*!"],
+  ["par", "gameoflife", "cpu"],
+  ["say", "*to 10,000's of cores*"],
+  ["par", "gameoflife", "gpu"],
+  ["say", "#Wait, what? How?"],
+  ["say", "1. Mark a *parallel call*."],
+  ["example", "call"],
+  ["say", "2. Distribute the *workload*."],
+  ["dist"],
+  ["say", "3. Execute it *in parallel*."],
+  ["eval"],
+  ["say", "4. Combine the *results*."],
+  ["reduce"],
+  ["say", "The *entire language* compiles to kernels.", "",
+          "objects, arrays, allocator, collector,", "pattern-matching, closures, recursion.", "",
+          "*Everything runs natively on GPUs.*", "~(with CPU threads as a fallback)"],
   ["say", "So, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else."],
   ["end"],
 ];
@@ -140,10 +140,6 @@ function bow(x0, y0, x1, y1, k, color, a, via) {
   cx.lineTo(ex - 13*ux - 7*uy, ey - 13*uy + 7*ux);
   cx.stroke(); cx.lineWidth = 1;
 }
-// a word that swaps at time t0: the old one is gone before the new one comes
-const outA = (u, t0) => 1 - ease((u - t0)/0.25);
-const inA  = (u, t0) => ease((u - t0 - 0.3)/0.3);
-
 // ------------------------------------------------------------------ code
 const KW = new Set(["def", "type", "is", "Data", "match", "case", "import", "as",
                     "forall", "assert", "do", "return"]);
@@ -175,8 +171,7 @@ const SUM_SRC = `def sum(+d: Nat, +i: U32) -> U32:
 
 // laws.bend, for the reader: the namespaces and the equality's braces are
 // left out (that sugar comes later)
-const LAWS_SRC = `# LAW: no sequence of moves results
-# in the player winning the game.
+const LAWS_SRC = `# LAW: no move sequence results in victory
 assert winning_is_a_bug:
   forall moves: List<Move>
   board = init()
@@ -219,26 +214,17 @@ function bar(x, v, vmax, name, color, a, over, mul) {
   T(name, x + BW/2, BASE + 32, 20, color === BLUE ? BLUE : DIM, "center", color === BLUE);
   cx.globalAlpha = 1;
 }
-// one readout above the parallel bars; its arrow bows out to the
-// 16-thread bar at TP, then swings over to the GPU bar at TG
-const TP = 3.5, TG = 7.7;
-const G3 = 100, SPX = slotX(1, 3, G3) + BW + G3/2, SPY = 280;
-function speedup(B, u) {
-  const a = ease((u - TP)/0.6), sw = ease((u - TG)/0.7);
+// one readout straight above a parallel bar: the speedup, the cores it
+// took, and an arrow down to the bar
+const G3 = 100, SPY = 280;
+function speedup(B, v, i, chip, u, t0) {
+  const a = ease((u - t0)/0.6);
   if (a <= 0) return;
-  const dy = 14*(1 - a);
-  const xp = slotX(1, 3, G3) + BW/2, xg = slotX(2, 3, G3) + BW/2;
-  const yp = barTop(B.par, B.seq) - 44, yg = barTop(B.gpu, B.seq) - 44;
-  const readout = (x, n, chip, al) => {
-    cx.globalAlpha = a*al;
-    T(times(B.seq/x) + " faster", SPX, SPY + dy, 24, BLUE, "center", true);
-    rich("with " + n + " *" + chip + "* threads", SPX, SPY + 30 + dy, 20, DIM);
-  };
-  readout(B.par, "16", "CPU", outA(u, TG));
-  readout(B.gpu, "16384", "GPU", inA(u, TG));
+  const x = slotX(i, 3, G3) + BW/2, dy = 14*(1 - a);
   cx.globalAlpha = a;
-  const tx = lerp(xp, xg, sw), ty = lerp(yp, yg, sw);
-  bow(SPX, SPY + 48 + dy, tx, ty, -0.28*clamp((tx - SPX)/60, -1, 1), BLUE, a);
+  T(times(B.seq/v) + " faster", x, SPY + dy, 24, BLUE, "center", true);
+  rich("on *" + chip + "*", x, SPY + 30 + dy, 20, DIM);
+  bow(x, SPY + 48 + dy, x, barTop(v, B.seq) - 44, 0, BLUE, a);
   cx.globalAlpha = 1;
 }
 const S = {};
@@ -266,17 +252,22 @@ S.bench = (u, dur, b) => {
   chart(B, u, 0, true);
   const pa = ease((u - 7.4)/0.5);
   cx.globalAlpha = pa;
-  T("matches C (single-core)", 930, 266, 26, AMBER, "center", true);
+  T("matches C in one core!", 930, 266, 26, AMBER, "center", true);
   bow(940, 290, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
   cx.globalAlpha = 1;
 };
-// the same chart: the rivals leave, then the 16-thread bar rises, then the
-// GPU's, one readout pointing at each in turn
+// the same chart in two halves. CPU: the rivals leave, then the 16-thread
+// bar rises and its readout lands. GPU: the two bars stand, then the GPU's
+// rises and its readout lands.
 S.par = (u, dur, b) => {
-  const B = BENCH[b[2]], vz = chart(B, u, ease((u - 0.8)/0.9), false);
-  bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, ease((u - 2.6)/0.5));
-  bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 6.8)/0.5));
-  speedup(B, u);
+  const B = BENCH[b[2]], gpu = b[3] === "gpu";
+  const vz = chart(B, u, gpu ? 1 : ease((u - 0.8)/0.9), false);
+  bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, gpu ? 1 : ease((u - 2.6)/0.5));
+  if (!gpu) speedup(B, B.par, 1, "16 CPU cores", u, 3.5);
+  else {
+    bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 1.4)/0.5));
+    speedup(B, B.gpu, 2, "16384 GPU threads", u, 2.6);
+  }
 };
 
 // five bars, then the gap between Bend and the field, pointed out
@@ -432,10 +423,9 @@ S.block = (u, dur) => {
 // ------------------------------------------------------------------ code beats
 // what laws.bend is, then the file itself, held long enough to read twice
 S.laws = (u, dur) => {
-  rich("*laws.bend* is a list of *invariants*", W/2, 140, 30);
-  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that models are *forced* to respect.", W/2, 190, 30);
-  cx.globalAlpha = ease((u - 3.8)/0.4); rich("Below is the *winning-is-a-bug* law:", W/2, 270, 30);
-  cx.globalAlpha = ease((u - 5.6)/0.5); codeCard(LAWS_SRC, W/2 - 300, 325, 600, 20, 34);
+  rich("A new file that lists *invariants*", W/2, 140, 30);
+  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that AIs are *forced* to respect.", W/2, 190, 30);
+  cx.globalAlpha = ease((u - 4.0)/0.5); codeCard(LAWS_SRC, W/2 - 300, 290, 600, 20, 34);
   cx.globalAlpha = 1;
 };
 
@@ -558,7 +548,7 @@ function pointer(s, x1, y1, a) {
 // out to their own slots. The boxes come in as the grid gets dense, so the
 // first splits are text alone and the last ones are the cube taking shape.
 const boxA = k => clamp((k - 2)/9, 0, 1);
-const splitDur = k => 1.9*Math.pow(0.82, k);
+const splitDur = k => 1.3*Math.pow(0.8, k);
 const cutDur = d => Math.min(0.6, d*0.7);
 const lab = k => "sum(" + (24 - k) + ")";
 function slotBoxes(k, a) {
@@ -583,7 +573,7 @@ function slotLabels(k, m, a) {
   }
 }
 S.dist = (u, dur) => {
-  let k = 0, t = 1.2;
+  let k = 0, t = 0.8;
   while (k < LEVELS && u >= t + splitDur(k)) { t += splitDur(k); k++; }
   const d = splitDur(k), p = k < LEVELS ? ease((u - (t + d - cutDur(d)))/cutDur(d)) : 0;
   slotBoxes(k, boxA(k));
@@ -604,7 +594,7 @@ S.dist = (u, dur) => {
 const EVAL = ["sum(10,0)", "sum(9,10)", "sum(8,19)", "sum(7,27)", "sum(6,34)", "sum(5,40)",
               "sum(4,45)", "sum(3,49)", "sum(2,52)", "sum(1,54)", "sum(0,55)", "55"];
 const EVALV = [0, 10, 19, 27, 34, 40, 45, 49, 52, 54, 55, 55];
-const ESTEP = 1.0, E0 = 0.8, DIVE = 6.8, EDONE = E0 + (EVAL.length - 1)*ESTEP;
+const ESTEP = 0.7, E0 = 0.8, DIVE = 5.0, EDONE = E0 + (EVAL.length - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
 S.eval = (u, dur) => {
   const p = clamp((u - E0)/DIVE, 0, 1), z = 1 - (1 - p)*(1 - p), camr = camLerp(CAM0, CAME, z);
@@ -722,6 +712,20 @@ S.say = (u, dur, b) => {
   });
 };
 
+// a name written piece by piece: each part lands after the one before
+// it, the whole centred where it will end
+S.reveal = (u, dur, b) => {
+  const parts = b[2].split("|"), size = b[3], bold = size >= 44;
+  font(size, bold);
+  const ws = parts.map(p => cx.measureText(p).width);
+  let x = W/2 - ws.reduce((a, w) => a + w, 0)/2;
+  parts.forEach((p, i) => {
+    cx.globalAlpha = ease((u - i*0.9)/0.4);
+    T(p, x, 372 + size*0.36, size, INK, "left", bold);
+    x += ws[i]; cx.globalAlpha = 1;
+  });
+};
+
 S.end = (u, dur) => {
   T("Bend", W/2, 290, 64, INK, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
@@ -736,15 +740,16 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 17.0,
-                dist: 15.5, eval: 15.0, reduce: 19.0, end: 32.0 };
+const FIXED = { bench: 11.0, par: 7.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 14.0,
+                dist: 11.0, eval: 11.5, reduce: 19.0, end: 32.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
     let t = 0; b.at = ls.map(s => { const a = t; t += READ*cost(s) + 0.4; return a; });
     const d = b.includes(quick) ? t + 0.3 : (t*1.25 + 0.8)*(b.includes(punch) ? 1.3 : 1);
     b.splice(1, 0, Math.max(2.4, d));
-  } else b.splice(1, 0, b[0] === "example" ? EX[b[1]].dur : FIXED[b[0]]);
+  } else b.splice(1, 0, b[0] === "example" ? EX[b[1]].dur
+                       : b[0] === "reveal" ? 0.9*(b[1].split("|").length - 1) + 3.4 : FIXED[b[0]]);
 }
 const T0 = []; let DUR = 0;
 for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
