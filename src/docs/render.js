@@ -439,9 +439,9 @@ def add_zero(a):
       {==}`.split("\n");
 const EX = {
   sum:   { title: "Example program #1", src: SUM_SRC, size: 20, pitch: 32, at: 4.2, dur: 11.5,
-           note: "parallel calls", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: "Parallelism" },
+           note: "parallel calls", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: "Parallelism is near-automatic." },
   proof: { title: "Example program #2", src: ADD_SRC, size: 18, pitch: 28, at: 6.0, dur: 16.0,
-           note: "proof by induction on a", hits: [[9, "%add_zero(p)", 0, true]], foot: "Proofs" },
+           note: "induction hypothesis", hits: [[9, "%add_zero(p)", 0, true]], foot: "Proofs are just programs." },
 };
 S.example = (u, dur, b) => {
   const E = EX[b[2]], w = 800, x = W/2 - w/2, y = 135, h = E.src.length*E.pitch + 44;
