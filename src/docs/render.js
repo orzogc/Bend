@@ -22,26 +22,29 @@ const cost = s => (s = s.replace(/[*+_~#%]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "What is the *best programming language*", "for an era where we *stop reading code*?"],
+  ["say", "What is the ideal *programming language*", "for devs who just *stopped reading code*?"],
   ["say", "*1. It must be FAST*", "~large codebases must *compile quickly*", "~CPUs & GPUs must work at *peak speeds*",
           "*2. Vibe-coding must WORK*", "~agents must write *correct code* in it", "~humans must *retain control* over code",
           "Nothing else matters."],
   ["check"],
   ["bench", "gameoflife"],
-  ["say", "And it parallelizes!"],
+  ["say", "And it *parallelizes*!"],
   ["par", "gameoflife"],
-  ["say", "#Yes, the entire language runs on GPUs."],
+  ["say", "Parallelism is *nearly automatic*.", "The whole language *runs on GPUs*."],
   ["say", "#How is that possible?"],
-  ["say", "#Step 1: Distribution", quick],
+  ["say", "1. The user writes a *parallel call*."],
+  ["example", "call"],
+  ["say", "2. The runtime *spreads the workload*."],
   ["dist"],
-  ["say", "#Step 2: Evaluation", quick],
+  ["say", "3. Each core computes a *partial result*."],
   ["eval"],
-  ["say", "#Step 3: Reduction", quick],
+  ["say", "4. An aggregator produces the *final result*."],
   ["reduce"],
-  ["say", "tasks spread in waves,", "saturating cores dynamically.", "",
-          "the *entire* language runs on GPUs:", "objects, allocation, even closures!", "",
-          "memory is *fully unified* between CPU and GPU.", "passing data between chips is a no-cost op!", "",
-          "parallel programming is easy.", "no threads, mutexes, atomics.", "just fork the call, and done!"],
+  ["say", "Calls spread in waves,", "saturating GPU cores.", "",
+          "Everything compiles to kernels.", "",
+          "Objects, allocation, collection,", "arrays, loops, pattern-matching,", "closures, callbacks, recursion...", "",
+          "When GPU is absent or undesirable,", "the CPU emulates it, via pthreads.", "",
+          "CPU and GPU memory are unified.", "Moving data between devices is", "a zero-cost operation (no-op)."],
   ["say", "How about *vibe-coding*?", "", "Users can prevent AI", "from making mistakes",
           "by demanding *proofs*."],
   ["say", "#How proofs work?"],
@@ -59,10 +62,10 @@ const BEATS = [
   ["say", "#But why?"],
   ["say", "Because of:", "#laws.bend"],
   ["laws"],
-  ["say", "To edit your code, the model must", "prove that *laws.bend* is respected.", "",
-          "Bend enforces that mechanically,", "stopping models from writing bugs.", "",
-          "The same verifier used on provers like", "Lean can now guard your vibe-coded apps!"],
-  ["say", "Rules on *AGENTS.md* are *soft hints*.", "Rules on *laws.bend* are *math truths*."],
+  ["say", "AI models may only *edit your code*", "if they *prove* the laws still hold.", "",
+          "For *any* sequence of moves.", "For *every* reachable state.", "",
+          "Bend's compiler *checks* that proof,", "*blocking* models from merging bugs."],
+  ["say", "*laws.bend* is like *AGENTS.md*,", "except *backed by logical proofs*."],
   ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "So, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else."],
   ["example", "sum"],
@@ -260,8 +263,8 @@ S.bench = (u, dur, b) => {
   chart(B, u, 0, true);
   const pa = ease((u - 7.4)/0.5);
   cx.globalAlpha = pa;
-  T("targets near-C speed", 930, 250, 26, AMBER, "center", true);
-  T("on a single CPU core", 930, 282, 26, AMBER, "center", true);
+  T("near C speeds", 930, 250, 26, AMBER, "center", true);
+  T("on 1 CPU core", 930, 282, 26, AMBER, "center", true);
   bow(940, 305, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
   cx.globalAlpha = 1;
 };
@@ -448,14 +451,16 @@ def add_zero(a):
       %add_zero(p) : {1n+Nat.add(p, 0n) == 1n+_ : Nat}
       {==}`.split("\n");
 const EX = {
+  call:  { src: SUM_SRC, size: 20, pitch: 32, y: 170, at: 2.0, dur: 8.0,
+           note: "parallel calls", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: [] },
   sum:   { title: "Example program #1", src: SUM_SRC, size: 20, pitch: 32, at: 4.2, dur: 11.5,
            note: "parallel calls", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: ["Parallelism is automatic: write parallel calls,", "and Bend spreads the work over every thread."] },
   proof: { title: "Example program #2", src: ADD_SRC, size: 18, pitch: 28, at: 6.0, dur: 16.0,
            note: "induction on a", hits: [[9, "%add_zero(p)", 0, true]], foot: ["Proofs are just programs: state a claim as a type,", "write its proof as a def, and Bend checks it."] },
 };
 S.example = (u, dur, b) => {
-  const E = EX[b[2]], w = 800, x = W/2 - w/2, y = 135, h = E.src.length*E.pitch + 44;
-  rich("*" + E.title + "*", W/2, 96, 30);
+  const E = EX[b[2]], w = 800, x = W/2 - w/2, y = E.y || 135, h = E.src.length*E.pitch + 44;
+  if (E.title) rich("*" + E.title + "*", W/2, 96, 30);
   codeCard(E.src, x, y, w, E.size, E.pitch);
   const a = ease((u - E.at)/0.4), cy = y + h + 50;
   font(E.size); const cw = cx.measureText("M").width;
