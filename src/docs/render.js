@@ -22,7 +22,7 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "how to stop an AI agent", "from making mistakes?"],
+  ["say", "how to stop an *AI agent*", "from *making mistakes*?"],
   ["say", "consider a game with one law:", "*the player cannot win*"],
   ["intro"],
   ["say", "so far, it works!"],
