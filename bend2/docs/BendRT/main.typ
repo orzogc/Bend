@@ -86,10 +86,9 @@
   align(left, block(stroke: 0.5pt + solfg, inset: 6pt, width: 100%, {
     set text(size: 8pt)
     set par(justify: true)
-    align(left)[#smallcaps[AI Disclosure.] Bend and its runtime were designed
-    by the human author. This paper was written with the assistance of
-    Claude (Fable 5.1, Anthropic), from the author's code and design
-    notes, and reviewed by the author.]
+    align(left)[#smallcaps[AI Disclosure.] Bend and BendRT were designed by
+    the human author. This paper was written by Claude Fable 5.1 from the
+    author's code and design notes, and reviewed by the author.]
   }))
   v(2pt)
 })
@@ -172,12 +171,12 @@ def main() -> IO(Unit):
 ```
 
 The program builds a tree of $2^20$ leaves and sums it. Two marks
-carry all the parallelism Bend has. The _fork let_ `l r = f(x) g(y)`
-binds $n$ names to $n$ calls in one statement and means: run these
-calls in parallel; they split the work into roughly equal parts. The
-_mark_ `sum!(t)` means: run this call on the GPU. Nothing else creates
-parallelism, and the runtime trusts the equal-parts promise absolutely
-(@sec:cube).
+carry all the parallelism Bend has. The _parallel let_
+`l r = f(x) g(y)` binds $n$ names to $n$ calls in one statement and
+means: run these calls in parallel; they split the work into roughly
+equal parts. The _mark_ `sum!(t)` means: run this call on the GPU.
+Nothing else creates parallelism, and the runtime trusts the
+equal-parts promise absolutely (@sec:cube).
 
 The checker hands the compiler more than types. A match consumes its
 scrutinee, always a parameter or a field of one, never a computed
@@ -508,11 +507,11 @@ lose it.
 
 = The JavaScript Backend <sec:js>
 
-The same carbonized book prints as plain JavaScript over the host's
-garbage collector: one function per live definition, constructors as
-tagged objects; tail calls trampoline, forks run in sequence, and a
-request unwinds to the loop as a thrown value. `bend file.bend` runs
-this backend in memory, and a loader makes
+The same rewritten definitions (@sec:compile) print as plain
+JavaScript over the host's garbage collector: one function per live
+definition, constructors as tagged objects; tail calls trampoline,
+forks run in sequence, and a request unwinds to the loop as a thrown
+value. `bend file.bend` runs this backend in memory, and a loader makes
 a `.bend` file a module under node and Bun, so a Bend program is also a
 JavaScript library.
 
@@ -576,7 +575,7 @@ contract and the runtime stays wave-structured @valiant1990, which is
 what lets one scheduler run on a GPU at all. Lazy task creation
 @mohr1991 anticipates the work phase: a fork met while draining runs
 as a plain call. GHC's sparks @marlow2009 and Multilisp's futures
-@halstead1985 are hints like the fork let, but back onto stealing
+@halstead1985 are hints like the parallel let, but back onto stealing
 pools and a collected heap.
 
 _Functional GPU compilation._ Futhark @henriksen2017, Accelerate

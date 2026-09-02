@@ -114,9 +114,9 @@ its type says otherwise. A binder marked `+` may be consumed any number
 of times, and it forms only at the kind #Da. A function type is never
 #Da, and a datatype earns #Da at every constructor. So no closure is
 ever copied, and every known paradox of #Ty : #Ty or of negative
-datatypes copies a closure. Recursion passes one syntactic descent over
-the definition's own case tree. Erased code is free and may diverge;
-nothing promotes it to live. Proofs are ordinary definitions: the match
+datatypes copies a closure. Recursion passes one syntactic descent
+test. Erased code is free and may diverge; nothing promotes it to
+live. Proofs are ordinary definitions: the match
 is the eliminator and there are no tactics. We state the calculus, show
 how each attack dies, and describe a Lean 4 mechanization of the
 all-affine fragment.
@@ -124,7 +124,7 @@ all-affine fragment.
 = Introduction <sec:intro>
 
 Bend is a functional language with dependent types and a parallel
-runtime @bendrt2026. Its checker implements BendTT, a type theory that
+runtime @bendrt2026; BendTT is the theory its checker implements. It
 keeps #Ty : #Ty, impredicative quantification and recursive datatypes
 with negative occurrences, and stays consistent. This paper explains
 why.
@@ -134,7 +134,7 @@ paradox and its Hurkens form apply a function-typed value to itself
 @girard1972 @hurkens1995, and Curry's paradox through a negative
 datatype applies a node's field to a copy of the node @curry1942.
 Logics without contraction admit naive comprehension @grishin1982
-@girard1998 @terui2004. BendTT carries that idea into a dependent type
+@terui2004. BendTT carries that idea into a dependent type
 theory, where it replaces the universe hierarchy and the positivity
 check: a live variable is consumed at most once, and a function is
 never an exception.
@@ -153,15 +153,11 @@ hierarchy the theory keeps. Here $1$ is the ordinary binder and $omega$
 is a permission a type earns. One rule shows the difference: an
 argument that enters a `+` binder is counted once, where QTT scales its
 usage by $omega$; @sec:price says what that costs. Everything else is
-chosen to be cheap: one bidirectional pass @dunfieldkrishnaswami2021
-with a usage counter per binder, no unification, one syntactic test per
-self-call, and a dead fragment that costs nothing, may diverge, and is
-erased before the runtime, which moves every value by default.
+cheap: one bidirectional pass @dunfieldkrishnaswami2021 with a usage
+counter per binder, no unification, one syntactic test per self-call,
+and a dead fragment that costs nothing and is erased before the runtime.
 
 = The Calculus <sec:calculus>
-
-The checker is one file, `bend2/bend.ts`; every rule below is a
-derivation comment beside its case.
 
 == Terms, Quantities, Kinds <sec:terms>
 
@@ -212,9 +208,7 @@ it. A definition may reference itself only through the descent rule of
 and mutual recursion cannot split a loop across two definitions. The
 flattener compiles `match`/`case` blocks into a case tree of
 one-constructor peels @maranget2008, uncovered rows becoming the empty
-match. A match scrutinizes only a parameter or a field bound by an
-enclosing match; a computed scrutinee is an error that says to give it
-its own definition (@sec:proofs).
+match.
 
 == Reduction and Conversion <sec:reduction>
 
@@ -237,8 +231,8 @@ domains of a function type swapped, quantities exact, and every part
 that flows both ways (an argument, a parameter, a field, an equation
 endpoint) compared as a symmetric $A equiv B$. Reflexivity uses
 $equiv$: `{==}` does not prove `{Data == Type : Type}`, which J could
-transport into a cast. Conversion may diverge on dead code; a hang
-accepts nothing (@sec:price).
+transport into a cast. Conversion may diverge on dead code
+(@sec:price).
 
 == Typing <sec:typing>
 
@@ -305,7 +299,8 @@ D^r is empty, or a live (x : E) ∈ Γ with E empty
   )
 }) <fig:typing>
 
-@fig:typing gives the rules. Inference synthesizes, checking pushes a
+@fig:typing gives the rules; each is also a derivation comment beside
+its case in `bend2/bend.ts`. Inference synthesizes, checking pushes a
 goal into the introduction forms, and the two meet at conversion. Both
 directions carry a _demand_ $q$: $0$ checks a term dead, $1$ live.
 There is no demand $omega$: a term checked at demand $omega$ would let a
@@ -392,21 +387,21 @@ decreasing one are free, so Ackermann passes: its inner call shrinks the
 first column, its outer call keeps it and shrinks the second. The
 comparison sees through lets, so `+p = p0` keeps `p` a subterm. No sizes
 are computed: this is a minimal member of the structural-recursion
-family @gimenez1994 @abelaltenkirch2002, chosen because it is one pass
-and trivial to audit. Dead demands skip the test, so a type may recurse
+family @gimenez1994, chosen because it is one pass and trivial to
+audit. Dead demands skip the test, so a type may recurse
 freely; that is what makes `R = @-x: R -> Empty` definable, and it is
 harmless because dead code never runs.
 
 = Why It Is Consistent <sec:consistency>
 
-In a functional language there are two ways to loop: self-application
-and recursion. Descent closes the second. This section is about the
-first, and about why the copy license cannot be forged. Every example is
-a test in the repository, and the messages are the checker's own.
+There are two ways to loop: self-application and recursion. Descent
+closes the second. This section is about the first, and why the copy
+license cannot be forged. Every example is a test in the repository,
+and the messages are the checker's own.
 
 == Self-Application Dies at the Counter
 
-$omega = (lambda x. thin x thin x)(lambda x. thin x thin x)$ uses its
+$Omega = (lambda x. thin x thin x)(lambda x. thin x thin x)$ uses its
 binder twice, so the measure saturates to $omega$, and a plain binder
 refuses it. The only binder that admits two uses is `+x`, and `+x` forms
 only over a #Da type. No function type is #Da:
@@ -514,10 +509,10 @@ The match is the eliminator. Matching a parameter refines the claim in
 each arm: the goal in the `1n+p` arm of a claim about `a` is the claim
 at `1n+p`, evaluated, with stuck self-calls refolded to source form.
 The induction hypothesis is the recursive call, and descent makes it
-valid. With no unification and no metavariables, the assert of a
-helper _is_ the motive of its match, which is why a computed scrutinee
-must go to its own definition. Rewriting is J with the motive written
-out: given
+valid. With no unification and no metavariables, a match scrutinizes
+only a parameter or a field, so the assert of a helper _is_ the motive
+of its match: a computed scrutinee goes to its own definition.
+Rewriting is J with the motive written out: given
 `e : {a == b : T}`, the motive marks with `_` the places where `b`
 stands, the goal must be the motive at `b`, and the body proves it at
 `a`. Commutativity of addition, from the lemmas
@@ -558,11 +553,9 @@ said.
 
 The checker elaborates as it checks and hands the compiler the term
 with every node typed @bendrt2026. Erasure drops erased binders,
-arguments and fields; kinds, quantities, function types, family
-instances, equations and reflexivity become nothing; a rewrite compiles
-to its body; a closed live proof is `{==}` and vanishes whole. What
-survives is the live fragment: constructors, lambdas, matches and calls
-over live binders. The runtime then needs no garbage collector: a value
+arguments and fields, and every type, kind, quantity, equation and
+proof; a rewrite compiles to its body. What survives is the live
+fragment: constructors, lambdas, matches and calls over live binders. The runtime then needs no garbage collector: a value
 has one owner, so a match frees its scrutinee as it opens it, arrays
 update in place, and a forked task carries no lock. Where a `+`
 licensed reuse the compiler places a counted share or a borrow, and
@@ -571,57 +564,38 @@ by a term, so the runtime never runs a copy the source did not spell.
 
 = The Mechanization <sec:mech>
 
-`bend2/bend.lean` mechanizes the core in Lean 4 @demoura2021, checked
-with a plain `lean` invocation: about twenty thousand lines, no `sorry`,
-no axiom declarations. Its first part is a specification that mirrors
-`bend.ts` section by section, in de Bruijn syntax; its second part
-proves the claims of @tab:claims.
+`bend2/bend.lean` mechanizes the core in Lean 4 @demoura2021: about
+twenty thousand lines, no `sorry`, no axiom declarations. A de Bruijn
+specification mirrors `bend.ts` section by section; the proofs are
+confluence (#co[church_rosser_holds]), subject reduction for weak
+reduction (#co[subject_reduction_holds]) and, at the live demand,
+progress (#co[progress_holds]), weak normalization
+(#co[normalization_holds]) and consistency (#co[consistency_holds]).
 
-#figure(caption: [Claims and theorems in `bend.lean`, for the
-all-affine fragment.], {
-  set text(size: 9pt)
-  table(
-    columns: (auto, auto),
-    align: (left, left),
-    stroke: none,
-    table.hline(stroke: 0.6pt + solfg),
-    table.header([Claim], [Theorem]),
-    table.hline(stroke: 0.4pt + solfg),
-    [Confluence], co[church_rosser_holds],
-    [Subject reduction (weak)], co[subject_reduction_holds],
-    [Progress (live)], co[progress_holds],
-    [Normalization (weak, live)], co[normalization_holds],
-    [Consistency (live)], co[consistency_holds],
-    [The dead boundary], co[consistency_none_boundary],
-    table.hline(stroke: 0.6pt + solfg),
-  )
-}) <tab:claims>
-
-The scope is exact and narrower than the language. The file mechanizes
-the _all-affine_ fragment: no `+` binder, no #Da, no kinds and no meet;
+The scope is narrower than the language. The file mechanizes the
+_all-affine_ fragment: no `+` binder, no #Da, no kinds and no meet;
 $omega$ exists only inside the measure, where it is always a violation.
 The Data layer of @sec:kinds, certify-once included, is argued in
 @sec:price and audited by the tests; it is not a theorem. The file also
-lists the smaller places where the checker is more permissive than the
-model, such as the empty match under a live emptied binder and descent
-skipped at dead demand. Normalization and consistency are proven with
+lists where the checker is more permissive than the model (the empty
+match under a live emptied binder, descent skipped at dead demand).
+Normalization and consistency are proven with
 recursive definitions included, by a Dershowitz--Manna multiset measure
-@dershowitzmanna1979 over pending references. The boundary is a
-witness, not a caveat: in a well-formed book with a negative type,
-Curry's self-application term checks _dead_ at an empty family
-(`dead_omega_check`) and provably never live. The specification was
-written and reviewed by humans; the proofs were written by an AI system
-and are checked by Lean: trust the checker, audit the statements.
+@dershowitzmanna1979 over pending references. The dead boundary is
+a witness, not a caveat (#co[consistency_none_boundary]): in a
+well-formed book with a negative type, Curry's self-application term
+checks _dead_ at an empty family (#co[dead_omega_check]) and provably
+never live.
 
 = Discussion <sec:discussion>
 
 _What affinity takes away._ Contraction on closures. The standard
-`map`, whose function is applied once per element, is ill-typed: `f`
-would need `+`, and a function type is never #Da. Code is free, so a
-top-level definition may be called any number of times and maps
-specialized to a named function cover the common cases; but the
-closure-heavy style of Haskell does not transfer. Bend accepts this on
-purpose: the runtime wants the same restriction @bendrt2026.
+`map` is ill-typed: `f` is applied once per element, so it would need
+`+`, and no function type is #Da. Code is free, so a top-level
+definition may be called any number of times, and maps over a named
+function cover the common cases; the closure-heavy style of Haskell
+does not transfer. Bend accepts this on purpose: the runtime wants the
+same restriction @bendrt2026.
 
 _What it keeps._ On the program side the baseline is C: first-order
 data, machine words, arrays updated in place, code called by name. That
@@ -644,10 +618,9 @@ mechanized metatheories of practical kernels @abel2018 @sozeau2020
 @carneiro2024, ours proves normalization rather than assuming it.
 
 _Limitations._ The consistency result is syntactic, relative to Lean's
-own foundation, with no semantic model. The Data layer is argued and
-audited, not mechanized; formalizing it is the next planned extension.
-Equality is intensional, with no extensionality principle. And the
-theorems are about the calculus, not the code.
+own foundation, with no semantic model. The Data layer is not yet
+mechanized (@sec:mech). Equality is intensional, with no extensionality
+principle. And the theorems are about the calculus, not the code.
 
 BendTT buys consistency with affinity instead of a universe hierarchy,
 earns reuse from the kind of a type instead of a proof, checks recursion
@@ -657,7 +630,8 @@ the point.
 
 #{
   show heading: set text(size: 12pt)
-  set text(size: 8pt)
+  set text(size: 7.5pt)
+  set par(leading: 0.48em, spacing: 0.48em)
   bibliography("refs.bib",
     title: [References],
     style: "association-for-computing-machinery")

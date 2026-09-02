@@ -19,7 +19,7 @@ single-core performance, and it scales to thousands of CPU or GPU threads, with
 near-ideal speedups, near-zero programmer effort. Compared to Bend 1, this
 version is up to 100x faster, supports f32, u32, mutable arrays, up to 8 TB of
 heap memory, all with zero interaction net overhead. The compiler is still new,
-so, expect bugs and defective programs (where it under-performs C or CUDA).
+so expect bugs and defective programs (where it under-performs C or CUDA).
 These will be fixed as the pipeline matures. If you ever come across one, please
 write an issue.
 
@@ -51,9 +51,9 @@ your agent: "before stopping, **prove that your code is correct**". It outputs:
 ```python
 # CLAIM: no sequence of trades can result in cloned assets
 assert no_cloned_assets:
-  forall t: +List<Trade>
+  forall ts: +List<Trade>
   forall g: Game
-  {assets(run(t, g)) == assets(g) : Bag}
+  {assets(run(ts, g)) == assets(g) : Bag}
 
 # PROOF: the `no_cloned_assets` assert holds.
 def no_cloned_assets(ts, g):
@@ -79,10 +79,7 @@ Bend's **syntax** is, essentially, "Python with dependent types".
 import Base
 
 # Performs effects on the CPU.
-assert main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   do IO<Unit>:
     name : String <- IO.try(String, IO.get_env("USER"))
     IO.print("Hello, " ++ name)
@@ -90,7 +87,7 @@ def main():
 
 **Parallelism** is achieved via divide-and-conquer.
 
-`!` moves data to/from the GPU, with full memory unification.
+`!` runs a call on the GPU. Host and device share one memory: nothing is copied.
 
 ```python
 import Base
@@ -105,11 +102,8 @@ def sum(+d: Nat, +i: U32) -> U32:
       a + b
 
 # Runs sum on the GPU, via `!`.
-assert main:
-  IO(Unit)
-
-def main():
-  result = sum!(24n, 0) # calls on GPU
+def main() -> IO(Unit):
+  result = sum!(24n, 0)
   IO.print(U32.show(result))
 ```
 
@@ -158,10 +152,7 @@ bun .devs/scripts/install.ts   # puts `bend` on the PATH (~/.bun/bin)
 ```python
 import Base
 
-assert main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print("Hello, world!")
 ```
 
