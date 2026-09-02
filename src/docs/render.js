@@ -22,54 +22,55 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "How to stop an AI agent", "from making mistakes?"],
-  ["say", "Consider a game with one law:", "*the player cannot win*"],
+  ["say", "how to stop an AI agent", "from making mistakes?"],
+  ["say", "consider a game with one law:", "*the player cannot win*"],
   ["intro"],
-  ["say", "Now, what if we write this prompt:", "%\"let the player *wrap around*\""],
-  ["say", "#What would happen?"],
+  ["say", "so far, it works!"],
+  ["say", "now, what if we write this prompt:", "%\"let the player *wrap around*\""],
+  ["say", "#what would happen?"],
   ["walk"],
-  ["say", "As expected, the *law is broken*.", "A new feature introduced a *bug*."],
-  ["say", "Let's try the *same prompt* again.", "Except, now, with *solution* on."],
+  ["say", "as expected, the *law was broken*", "new features can introduce *bugs*"],
+  ["say", "let's try the same prompt again", "except, now, with *solution X* on"],
   ["block"],
-  ["say", "By toggling *solution*,", "the AI placed a wall!", "The law is preserved."],
-  ["say", "But what is *solution*?"],
+  ["say", "by toggling *solution X*", "the AI placed a wall", "the law is preserved"],
+  ["say", "but what is *solution X*?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "But what enforces it?"],
+  ["say", "but what enforces it?"],
   ["say", "#Bend", "%a new programming language"],
-  ["say", "By incorporating a *proof system*,", "Bend mechanically enforces *laws.bend*,",
-          "making it *mathematically inviolable*."],
-  ["say", "%*PROMPT:* \"Create a teleport skill!\"", "*RESULT:* It won't pass through walls."],
-  ["say", "%*PROMPT:* \"Make it pass through walls!\"", "*RESULT:* The room is surrounded by steel."],
-  ["say", "%*PROMPT:* \"Make it pass through *anything*!\"", "*RESULT:* The room now kills you."],
-  ["say", "No matter how *crazy* your prompt is,", "the AI is *unable* to break *laws.bend*.", "",
-          "Mathematically so."],
-  ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
+  ["say", "by incorporating a *proof system*,", "Bend mechanically enforces *laws.bend*,",
+          "making it *mathematically inviolable*"],
+  ["say", "%*PROMPT:* \"create a teleport skill\"", "*RESULT:* it won't pass through walls"],
+  ["say", "%*PROMPT:* \"make it pass through walls!\"", "*RESULT:* the room is surrounded by steel"],
+  ["say", "%*PROMPT:* \"make it pass through *anything*!\"", "*RESULT:* the room now kills you"],
+  ["say", "no matter how *crazy* your prompt is,", "the AI is *unable* to break *laws.bend*", "",
+          "mathematically so"],
+  ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
   ["say", "%\"isn't that a big claim?\"", "",
-          "No. Proofs aren't a new technology.", "They have existed since the 1960s.", "",
-          "So, why not other proof languages?"],
-  ["reveal", "Because Bend| is", 34],
+          "no - proofs are not a new tech", "in fact, they date back to the 1960s", "",
+          "so, why not other proof languages?"],
+  ["reveal", "because Bend| is", 34],
   ["reveal", "FAST", 64],
   ["check"],
   ["bench", "gameoflife"],
-  ["say", "And, as a bonus..."],
+  ["say", "and, as a bonus..."],
   ["say", "it *parallelizes*!"],
   ["par", "gameoflife", "cpu"],
   ["say", "*to 10,000's of cores*"],
   ["par", "gameoflife", "gpu"],
-  ["say", "#Wait, what? How?"],
-  ["say", "1. Mark a *parallel call*."],
+  ["say", "#wait, what? how?"],
+  ["say", "1. mark a *parallel call*"],
   ["example", "call"],
-  ["say", "2. Distribute the *workload*."],
+  ["say", "2. distribute the *workload*"],
   ["dist"],
-  ["say", "3. Execute it *in parallel*."],
+  ["say", "3. execute it *in parallel*"],
   ["eval"],
-  ["say", "4. Combine the *results*."],
+  ["say", "4. combine the *results*"],
   ["reduce"],
-  ["say", "The *entire language* compiles to kernels.", "",
-          "objects, arrays, allocator, collector,", "pattern-matching, closures, recursion.", "",
-          "*Everything runs natively on GPUs.*", "~(with CPU threads as a fallback)"],
-  ["say", "So, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else."],
+  ["say", "the *entire language* compiles to kernels", "",
+          "objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
+          "*everything runs natively on GPUs*", "~(with CPU threads as a fallback)"],
+  ["say", "so, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else"],
   ["end"],
 ];
 
@@ -289,20 +290,20 @@ S.check = (u, dur) => {
 
 // ------------------------------------------------------------------ game
 // The board is drawn from the same level main.bend prints: '#' walls, the
-// flag at (1,1), the player at (9,6). Two levels: the room sealed by two
+// flag at (1,1), the player at (8,5). Two levels: the room sealed by two
 // walls and the map's edge (base), and the shipped one, with two more walls
 // on the far edges (far). Pastel tiles on the white page, a title above.
-const GW = 14, GH = 10, TILE = 46, BX = W/2 - GW*TILE/2, BY = 126;
+const GW = 12, GH = 8, TILE = 56, BX = W/2 - GW*TILE/2, BY = 126;
 const PAL = { floor: ["#f5f7fa", "#e9eef4"], wall: "#b9c6da", cap: "#d3dce9", hit: "#f3c6b2", hitcap: "#f9dccf",
               pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441",
               pill: "#fde9e6", rim: "#f0aaa1", pillInk: "#a3302a" };
 function wallsOf(v) {
   const s = new Set(), add = (x, y) => s.add(x + "," + y);
-  for (let y = 0; y <= 3; y++) add(4, y);
-  for (let x = 0; x <= 4; x++) add(x, 3);
+  for (let y = 0; y <= 3; y++) add(3, y);
+  for (let x = 0; x <= 3; x++) add(x, 3);
   if (v === "far") {
-    for (let x = 0; x <= 4; x++) add(x, 9);
-    for (let y = 0; y <= 3; y++) add(13, y);
+    for (let x = 0; x <= 3; x++) add(x, 7);
+    for (let y = 0; y <= 3; y++) add(11, y);
   }
   return s;
 }
@@ -361,7 +362,7 @@ function footer(s, a, color) {
 // A route is a list of cells; every step takes STEP, so the player moves at
 // one speed. A jump of more than one cell is a teleport (off one edge, on
 // at the other) and takes no time.
-const STEP = 0.4;
+const STEP = 0.28;
 const routeDur = r => r.reduce((t, c, i) => i && Math.abs(c[0] - r[i - 1][0]) + Math.abs(c[1] - r[i - 1][1]) <= 1 ? t + STEP : t, 0);
 function routeAt(r, u) {
   let t = 0;
@@ -375,7 +376,7 @@ function routeAt(r, u) {
 }
 const up = (x, y0, y1) => { const p = []; for (let y = y0; y >= y1; y--) p.push([x, y]); return p; };
 // walk a route from t0, then slam three times into the wall past its end
-const BUMP = 0.7, BUMPS = 3;
+const BUMP = 0.5, BUMPS = 3;
 function walkBump(r, dir, wall, u, t0) {
   const v = u - t0, tw = routeDur(r);
   if (v < tw) return routeAt(r, Math.max(v, 0)).concat([null]);
@@ -387,36 +388,36 @@ function walkBump(r, dir, wall, u, t0) {
 
 // the game, introduced: the player and the goal pointed out, the law under
 // the board, then the player walks up to the room and slams into its wall
-const I0 = 6.0;
-const INTRO = up(9, 6, 1).concat([[8, 1], [7, 1], [6, 1], [5, 1]]);
+const I0 = 4.4;
+const INTRO = up(8, 5, 1).concat([[7, 1], [6, 1], [5, 1], [4, 1]]);
 S.intro = (u, dur) => {
-  const [x, y, hit] = walkBump(INTRO, -1, [4, 1], u, I0);
+  const [x, y, hit] = walkBump(INTRO, -1, [3, 1], u, I0);
   gameCard("base", x, y, true, 0, hit);
   const gone = 1 - ease((u - I0 + 0.6)/0.4);
-  cx.globalAlpha = ease((u - 1.0)/0.4)*gone;
-  T("player", 1130, BY + 6.5*TILE + 8, 26, AMBER, "center", true);
-  bow(1072, BY + 6.5*TILE, BX + 10*TILE + 6, BY + 6.5*TILE, 0.15, AMBER);
-  cx.globalAlpha = ease((u - 1.9)/0.4)*gone;
+  cx.globalAlpha = ease((u - 0.8)/0.4)*gone;
+  T("player", 1130, BY + 5.5*TILE + 8, 26, AMBER, "center", true);
+  bow(1072, BY + 5.5*TILE, BX + 9*TILE + 6, BY + 5.5*TILE, 0.15, AMBER);
+  cx.globalAlpha = ease((u - 1.5)/0.4)*gone;
   T("goal", 150, BY + 1.5*TILE + 8, 26, AMBER, "center", true);
   bow(205, BY + 1.5*TILE, BX + TILE - 6, BY + 1.5*TILE, -0.15, AMBER);
   cx.globalAlpha = 1;
-  footer("law: player can't catch the flag", ease((u - 3.2)/0.4), RED);
+  footer("law: player can't catch the flag", ease((u - 2.4)/0.4), RED);
 };
 
 // other languages: the player goes up to the flag's row, right off the
 // edge, in on the left, and takes the flag: the wrap dropped it in the room
-const T0W = 1.8;
-const WIN = up(9, 6, 1).concat([[10, 1], [11, 1], [12, 1], [13, 1], [14, 1], [-1, 1], [0, 1], [1, 1]]);
+const T0W = 1.0;
+const WIN = up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]);
 S.walk = (u, dur) => {
   const [x, y] = routeAt(WIN, Math.max(u - T0W, 0)), done = T0W + routeDur(WIN);
-  gameCard("base", x, y, u < done, ease((u - done - 0.7)/0.4), null);
+  gameCard("base", x, y, u < done, ease((u - done - 0.5)/0.4), null);
 };
 
 // Bend: the same walk on the shipped level meets a wall on the edge, and
 // the player slams into it
-const BLOCK = up(9, 6, 1).concat([[10, 1], [11, 1], [12, 1]]);
+const BLOCK = up(8, 5, 1).concat([[9, 1], [10, 1]]);
 S.block = (u, dur) => {
-  const [x, y, hit] = walkBump(BLOCK, 1, [13, 1], u, 1.2);
+  const [x, y, hit] = walkBump(BLOCK, 1, [11, 1], u, 1.0);
   gameCard("far", x, y, true, 0, hit);
 };
 
@@ -424,7 +425,7 @@ S.block = (u, dur) => {
 // what laws.bend is, then the file itself, held long enough to read twice
 S.laws = (u, dur) => {
   rich("A new file that lists *invariants*", W/2, 140, 30);
-  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that AIs are *forced* to respect.", W/2, 190, 30);
+  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that AIs are *forced* to respect", W/2, 190, 30);
   cx.globalAlpha = ease((u - 4.0)/0.5); codeCard(LAWS_SRC, W/2 - 300, 290, 600, 20, 34);
   cx.globalAlpha = 1;
 };
@@ -740,7 +741,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 11.0, par: 7.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 14.0,
+const FIXED = { bench: 11.0, par: 7.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 14.0,
                 dist: 11.0, eval: 11.5, reduce: 19.0, end: 32.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
