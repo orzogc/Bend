@@ -18,10 +18,10 @@ That's it. Nothing else matters. Bend addresses both. And nothing else.
 
 Strong types, linearity and purity let Bend compete with hand-written C on one
 core and scale to thousands of CPU or GPU threads, with near-ideal speedups at
-near-zero effort. It is up to 100x faster than Bend 1 and supports f32, u32,
-mutable arrays and up to 8 TB of heap, with zero interaction-net overhead. The
-compiler is new: expect bugs and defective programs that under-perform C or
-CUDA. If you find one, please write an issue.
+near-zero effort. It is up to 100x faster than Bend 1, with f32, u32, mutable
+arrays, 8 TB of heap and zero interaction-net overhead. The compiler is new:
+expect bugs and programs that under-perform C or CUDA. If you find one, please
+write an issue.
 
 ## Bend4 checks FAST
 
@@ -30,11 +30,11 @@ CUDA. If you find one, please write an issue.
 ![Checker benchmarks](docs/assets/checker.svg)
 
 As AI models get faster, compile times become the bottleneck of software
-engineering. Other proof languages take minutes to check a medium-sized
-codebase, making proofs unviable. Bend is fully annotated, so checking is one
-linear bidirectional pass: it scales to massive codebases without losing speed,
-and proofs stay practical. The tradeoff is verbosity, but nobody writes code by
-hand anymore, and AI models even like the annotations.
+engineering. Other proof assistants take minutes on a mid-sized codebase, making
+proofs unviable. Bend is fully annotated, so checking is one linear
+bidirectional pass that scales to huge codebases, and proofs stay practical. The
+tradeoff is verbosity, but nobody writes code by hand anymore, and AI models
+like the annotations.
 
 ## Bend4 vibe-coding WORKS (with proof!)
 
@@ -42,10 +42,9 @@ hand anymore, and AI models even like the annotations.
 
 **A:** Just ask your agent to write a **proof**.
 
-Here's how it works. Suppose you wrote a game that must be unbeatable: if the
-player ever grabs the flag, you lose. In other languages, you'd write *tests*.
-But there are infinitely many sequences of moves. You can't test them all. On
-Bend, you state the law in `laws.bend`:
+Suppose you wrote a game that must be unbeatable: if the player grabs the flag,
+you lose. In other languages, you'd write *tests*. But you can't test infinitely
+many sequences of moves. On Bend, you state the law in `laws.bend`:
 
 ```python
 # CLAIM:
@@ -60,8 +59,8 @@ assert winning_is_a_bug:
   {Game.is_won(board) == False{} : Bool}
 ```
 
-Then you ask your agent: "before stopping, **prove that your code is
-correct**". It fills the proof:
+Then ask your agent: "before stopping, **prove the code is correct**". It fills
+the proof:
 
 ```python
 # PROOF: the `winning_is_a_bug` assert holds.
@@ -69,15 +68,15 @@ def Laws.winning_is_a_bug(moves):
   # (LONG. leave this part for the AI!)
 ```
 
-And that's it. Once that proof lands, your code is correct. Mathematically.
-The game is real: [Winning Is A Bug](https://github.com/VictorTaelin/winning_is_a_bug)
-ships with that proof. If you ever see its win screen, the type checker is broken.
+Once the proof lands, your code is correct. Mathematically. The game is real:
+[Winning Is A Bug](https://github.com/VictorTaelin/winning_is_a_bug) ships that
+proof. If you see its win screen, the checker is broken.
 
 > We must stress what this means. This is not a test. This is not an audit.
-> This is a MATHEMATICAL PROOF. This is hard to grasp because it is not a common
-> feature. But that's what it is. Theorem proving is not new, it is just new to
-> a super fast language. With Bend, the same intelligence that disproved the
-> Jacobian Conjecture will now prove that your vibe coded SaaS never displays an
+> This is a MATHEMATICAL PROOF. This is hard to grasp because it is uncommon.
+> But that's what it is. Theorem proving is not new, just new to a super fast
+> language. With Bend, the same intelligence that disproved the Jacobian
+> Conjecture will now prove that your vibe coded SaaS never displays an
 > uncentered div again. And that's beautiful.
 
 **tl;dr with proofs, "make no mistakes" becomes enforceable**
@@ -183,4 +182,4 @@ Everything else you need is in [Bend's GUIDE.md](docs/GUIDE.md). Read it!
 
 - Bend's core is [formalized in Lean](bend2/bend.lean): the all-affine fragment is proven consistent and normalizing with `Type : Type` and negative datatypes. The proof has drifted from the shipped checker in places; resyncing it and mechanizing the full core is in progress. Read the paper: [BendTT: An Affine Dependent Type Theory](docs/BendTT.pdf).
 
-- The runtime is also documented. Read the paper: [BendRT: A Parallel Runtime for CPUs and GPUs](docs/BendRT.pdf)
+- The runtime's paper: [BendRT: A Parallel Runtime for CPUs and GPUs](docs/BendRT.pdf).
