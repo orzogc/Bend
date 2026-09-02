@@ -27,7 +27,7 @@ const BEATS = [
   ["say", "consider a game with one law:", "*the player cannot win*"],
   ["intro"],
   ["say", "so far, it works!"],
-  ["say", "now, let's try this prompt:", "%\"allow the player to *wrap around*\""],
+  ["say", "now, let's prompt a feature:", "%\"allow the player to *wrap around*\""],
   ["say", "normally, what would happen?"],
   ["walk"],
   ["say", "the player wins, *breaking the law*", "new features can introduce *bugs*..."],
