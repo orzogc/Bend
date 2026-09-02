@@ -45,7 +45,7 @@ const BEATS = [
           "Objects, arrays, allocation, collection,", "pattern-matches, closures and recursion.", "",
           "*Every feature runs natively on the GPU.*"],
   ["say", "How about *vibe-coding*?"],
-  ["say", "In Bend,", "you can stop models", "from making mistakes", "by demanding *proofs*."],
+  ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
   ["say", "#Here's how it works."],
   ["say", "Consider a game with one law:", "*the player cannot win*"],
   ["intro"],
