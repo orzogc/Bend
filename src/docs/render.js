@@ -23,7 +23,7 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "how to stop an *AI agent*", "from *making mistakes*?"],
+  ["say", "how to stop *AI agents*", "from *making mistakes*?"],
   ["say", "consider a game with one law:", "*the player cannot win*"],
   ["intro"],
   ["say", "so far, it works!"],
@@ -40,9 +40,9 @@ const BEATS = [
   ["say", "#but what enforces it?"],
   ["say", "Bend has a built-in *proof system*", "that mechanically enforces *laws.bend*,",
           "making it *mathematically inviolable*"],
-  ["say", "%*PROMPT:* \"create a teleport skill\"", "*RESULT:* it won't pass through walls"],
-  ["say", "%*PROMPT:* \"make it pass through walls!\"", "*RESULT:* the room is surrounded by steel"],
-  ["say", "%*PROMPT:* \"make it pass through *anything*!\"", "*RESULT:* the room now kills you"],
+  ["say", "%*PROMPT*: \"create a teleport skill\"", "*RESULT*: it won't pass through walls"],
+  ["say", "%*PROMPT*: \"make it pass through walls!\"", "*RESULT*: the room is surrounded by steel"],
+  ["say", "%*PROMPT*: \"make it pass through *anything*!\"", "*RESULT*: the room now kills you"],
   ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
           "mathematically so"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
@@ -687,7 +687,7 @@ function sayLines(b) {
   return b.slice(2).filter(s => !TAG.has(s)).map(s => s[0] === "~"
     ? { s: s.slice(1), size: 22, pitch: 40, color: DIM }
     : s[0] === "%" ? { s: s.slice(1), size: 34, pitch: 62, color: DIM }
-    : s[0] === "#" ? { s: "*" + s.slice(1) + "*", size: 44, pitch: 78, color: INK }
+    : s[0] === "#" ? { s: "*" + s.slice(1).replace(/([,.:;!?]*)$/, "*$1"), size: 44, pitch: 78, color: INK }
     : s[0] === "/" ? { s: s.slice(1), size: 30, pitch: 56, color: INK, slant: true }
     : s === "" ? { s, size: 34, pitch: 30, color: INK }
     : { s, size: 34, pitch: 62, color: INK });
