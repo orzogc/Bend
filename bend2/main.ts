@@ -71,9 +71,9 @@ function cli_build(bin: string): void {
       "-framework", "Metal", "-framework", "Foundation"]
     : ["-DBEND_CUDA=1", "-I/usr/local/cuda/include",
       "-L/usr/local/cuda/lib64", ...cpu, "-lcuda", "-lnvrtc"];
-  if (child.spawnSync("cc", gpu, { stdio: "ignore" }).status !== 0
-    && child.spawnSync("cc", cpu, { stdio: "inherit" }).status !== 0) {
-    cli_fail("cc failed to build " + bin);
+  if (child.spawnSync("clang", gpu, { stdio: "ignore" }).status !== 0
+    && child.spawnSync("clang", cpu, { stdio: "inherit" }).status !== 0) {
+    cli_fail("clang failed to build " + bin);
   }
 }
 

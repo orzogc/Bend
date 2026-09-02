@@ -149,7 +149,7 @@ For more examples, check:
 ### 1. Install:
 
 ```bash
-# needs Bun 1.3+ (https://bun.com) and a C compiler; Metal or CUDA for the GPU
+# needs Bun 1.3+ (https://bun.com) and clang; Metal or CUDA for the GPU
 git clone https://github.com/HigherOrderCO/bend4
 cd bend4
 bun .devs/scripts/install.ts   # puts `bend` on the PATH (~/.bun/bin)
