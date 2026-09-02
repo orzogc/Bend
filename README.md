@@ -68,9 +68,7 @@ def Laws.winning_is_a_bug(moves):
   # (LONG. leave this part for the AI!)
 ```
 
-Once the proof lands, your code is correct. Mathematically. The game is real:
-[Winning Is A Bug](https://github.com/VictorTaelin/winning_is_a_bug) ships that
-proof. If you see its win screen, the checker is broken.
+Once the proof lands, your code is correct. Mathematically.
 
 > We must stress what this means. This is not a test. This is not an audit.
 > This is a MATHEMATICAL PROOF. This is hard to grasp because it is uncommon.
@@ -80,6 +78,8 @@ proof. If you see its win screen, the checker is broken.
 > uncentered div again. And that's beautiful.
 
 **tl;dr with proofs, "make no mistakes" becomes enforceable**
+
+The full game, proof included: [Winning Is A Bug](https://github.com/VictorTaelin/winning_is_a_bug).
 
 # Examples
 
