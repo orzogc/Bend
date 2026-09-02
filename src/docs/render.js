@@ -17,15 +17,15 @@
 // "quick" is a section title: it holds one breath and no look-back.
 
 const READ = 0.32;
-const cost = s => (s = s.replace(/[*+_~#%]/g, "").trim()) ? s.split(/\s+/)
+const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
                    .reduce((n, w) => n + (/\d/.test(w) ? 2 : 1), 0) : 0;
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "What is the ideal *programming language*", "for devs who just *stopped reading code*?"],
-  ["say", "*1. It must be FAST*", "~large codebases must *compile quickly*", "~CPUs & GPUs must work at *peak speeds*",
-          "*2. Vibe-coding must WORK*", "~agents must write *correct code* in it", "~humans must *retain control* over code",
-          "Nothing else matters."],
+  ["say", "What is the *ideal programming language*", "for those who *stopped reading code*?"],
+  ["say", "*1. It must be FAST*", "~large codebases must *compile quickly*", "~CPUs & GPUs must exec at *peak speeds*",
+          "*2. Vibe-coding must WORK*", "~agents must write *correct code* in it", "~humans must still *retain its control*",
+          "/Nothing else matters."],
   ["check"],
   ["bench", "gameoflife"],
   ["say", "And it *parallelizes*!"],
@@ -264,9 +264,8 @@ S.bench = (u, dur, b) => {
   chart(B, u, 0, true);
   const pa = ease((u - 7.4)/0.5);
   cx.globalAlpha = pa;
-  T("near C speeds", 930, 250, 26, AMBER, "center", true);
-  T("on 1 CPU core", 930, 282, 26, AMBER, "center", true);
-  bow(940, 305, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
+  T("matches C (single-core)", 930, 266, 26, AMBER, "center", true);
+  bow(940, 290, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
   cx.globalAlpha = 1;
 };
 // the same chart: the rivals leave, then the 16-thread bar rises, then the
@@ -677,6 +676,7 @@ function sayLines(b) {
     ? { s: s.slice(1), size: 22, pitch: 40, color: DIM }
     : s[0] === "%" ? { s: s.slice(1), size: 34, pitch: 62, color: DIM }
     : s[0] === "#" ? { s: "*" + s.slice(1) + "*", size: 44, pitch: 78, color: INK }
+    : s[0] === "/" ? { s: s.slice(1), size: 30, pitch: 56, color: INK, slant: true }
     : s === "" ? { s, size: 34, pitch: 30, color: INK }
     : { s, size: 34, pitch: 62, color: INK });
 }
@@ -693,7 +693,9 @@ S.say = (u, dur, b) => {
   ls.forEach((l, i) => {
     if (i) y += gap(i, k);
     cx.globalAlpha = i === 0 ? 1 : ease((u - b.at[i])/0.4);
+    if (l.slant) { cx.save(); cx.transform(1, 0, -0.2, 1, 0.2*y, 0); }
     rich(l.s, W/2, y, l.size*k, l.color);
+    if (l.slant) cx.restore();
     cx.globalAlpha = 1;
   });
 };
@@ -725,7 +727,7 @@ for (const b of BEATS) {
 const T0 = []; let DUR = 0;
 for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
 const SCENES = BEATS.map(b => [b[0] === "say"
-  ? "“" + b[2].replace(/[*+_~#%]/g, "") : b[0] + (b[2] && b[0] !== "say" ? " " + b[2] : ""), b[1]]);
+  ? "“" + b[2].replace(/[*+_~#%/]/g, "") : b[0] + (b[2] && b[0] !== "say" ? " " + b[2] : ""), b[1]]);
 
 // -------------------------------------------------------------------- main
 function draw(t) {
