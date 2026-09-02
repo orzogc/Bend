@@ -65,7 +65,7 @@ async function cli(): Promise<void> {
 }
 
 function cli_build(bin: string): void {
-  const cpu = ["-std=c11", "-O3", bin + ".c", "-lpthread", "-o", bin];
+  const cpu = ["-std=c11", "-O3", bin + ".c", "-lpthread", "-lm", "-o", bin];
   const gpu = process.platform === "darwin"
     ? ["-DBEND_METAL=1", "-x", "objective-c", "-fobjc-arc", ...cpu,
       "-framework", "Metal", "-framework", "Foundation"]
