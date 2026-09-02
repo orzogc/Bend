@@ -54,7 +54,7 @@
 // Ctr    ::= Name "{" [Bind ","?] "}"
 // ADT    ::= "type" Name ("<" [Bind ","?] ">")? "is" Term ":" [Ctr]
 // Clause ::= ("forall" Quant | "exists") Name ":" Term ("where" Term)?
-// Assert ::= "assert" Name ":" [Clause] Term
+// Assert ::= "assert" Name ":" [Clause] Body
 // Def    ::= ("@unsafe")? "def" Name "(" [Bind ","?] ")" ("->" Term)? ":" (Body | ["import" STRING]+)
 // TLD    ::= ADT | Assert | Def
 // Import ::= "import" "Base" | "import" Path "as" Name
@@ -2299,12 +2299,22 @@ export function parse_body(p: Parse, col: number = 0): Body {
   if (parse_at_word(p, "match")) {
     return parse_match(p, col);
   }
-  const q = parse_quant(p);
-  let ts: LTerm[];
+  let q = parse_quant(p);
+  let ts: LTerm[] = [];
   if (q.$ !== "Lone") {
-    ts = [Var(parse_name(p), 0, parse_span(p, beg))];
-    parse_eat(p, "=");
-  } else {
+    // a graded name before "=" opens a let; a graded type (a claim's
+    // result) is a reply, so the sigil is given back
+    const k = char_is_head(parse_peek(p)) ? parse_name(p) : "";
+    parse_skip(p);
+    if (k !== "" && parse_at(p, "=") && !parse_at(p, "==")) {
+      ts = [Var(k, 0, parse_span(p, beg))];
+      parse_eat(p, "=");
+    } else {
+      p.pos = beg;
+      q = Lone();
+    }
+  }
+  if (q.$ === "Lone") {
     ts = [parse_term(p)];
     parse_skip(p);
     while (!parse_nl(p) && char_is_head(parse_peek(p)) && !parse_at_key(p)) {
@@ -2518,7 +2528,7 @@ export function parse_assert(p: Parse, book: Book): void {
     }
     cls.push([all, q, c, parse_open(p, c), A]);
   }
-  let T = parse_term(p);
+  let T = parse_block(p);
   for (let j = cls.length - 1; j >= 0; j--) {
     const [all, q, c, i, A] = cls[j];
     T = all ? All(q, c, i, A, T) : App(App(Ref("Exists"), A), Lam(c, i, T));

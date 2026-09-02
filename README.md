@@ -4,9 +4,11 @@ In the post-AGI economy, what still matters for a programming language? Two thin
 
 1. It must be **fast**. Check and run on CPUs & GPUs at *lightning speed*.
 
-2. Its programs must **work**. Agents using it must produce *correct code*.
+2. Vibe-coding must **work**. Agents using it must produce *correct code*.
 
 That's it. All else is fluff. Bend addresses both. And nothing else.
+
+![Bend, in five minutes](docs/intro.gif)
 
 ## Bend4 runs FAST
 
@@ -37,7 +39,7 @@ scales to massive codebases without losing performance, making proofs truly
 practical. The tradeoff is that Bend is a bit verbose, but nobody is writing
 code anymore, and AI models even appreciate the extra annotations.
 
-## Bend4 programs WORK (with proof!)
+## Bend4 vibe-coding WORKS (with proof!)
 
 **Q:** How can I **trust** AI code without **reading** it?
 
@@ -56,7 +58,9 @@ Bend, you state the law in `laws.bend`:
 # in victory.
 assert winning_is_a_bug:
   forall moves: List<Game.Move>
-  {Game.is_won(Game.apply(Game.init(), moves)) == False{} : Bool}
+  board = Game.init()
+  board = Game.apply(board, moves)
+  {Game.is_won(board) == False{} : Bool}
 ```
 
 Then you ask your agent: "before stopping, **prove that your code is
