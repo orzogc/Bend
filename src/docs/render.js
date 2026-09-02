@@ -69,8 +69,7 @@ const BEATS = [
   ["say", "the *entire language* runs in parallel", "",
           "objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
           "*everything runs natively on GPUs*", "~(with CPU cores as a fallback)"],
-  ["say", "so, that's Bend:", "",
-          "runs as *fast* as C", "*parallelizes* like CUDA", "*blocks* AI from /making mistakes/"],
+  ["say", "so, that's Bend:", "a *fast* language", "that *scales* like CUDA", "where AI *can't make mistakes*"],
   ["end"],
 ];
 
@@ -738,7 +737,7 @@ S.reveal = (u, dur, b) => {
 S.end = (u, dur) => {
   T("Bend", W/2, 290, 64, INK, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
-  T("as fast as C  ·  parallel like CUDA  ·  no AI mistakes", W/2, 360, 24, GREEN, "center");
+  T("fast  ·  scalable  ·  no mistakes", W/2, 360, 24, GREEN, "center");
   cx.globalAlpha = ease((u - 1.8)/0.5);
   T("Python syntax · C speed · CPU and GPU · proofs", W/2, 430, 19, DIM, "center");
   T("github.com/HigherOrderCO/Bend", W/2, 480, 22, "#1a5fd0", "center");
