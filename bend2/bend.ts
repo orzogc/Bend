@@ -2974,6 +2974,9 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
       } else {
         switch (fr.$) {
           case "VAR": {
+            if (tm.$ === "Ctr") {
+              tm = Ctr(tm.k, tm.x.map((x: HTerm) => term_cell(x)), tm.s);
+            }
             fr.l.v = fr.a === undefined ? tm : Ann(tm, fr.a.T, fr.a.s);
             fr.l.i = -2;
             continue main;
