@@ -42,7 +42,7 @@ const BEATS = [
   ["reduce"],
   ["say", "This is not limited to *simple functions*.", "",
           "The *entire language* compiles to kernels.", "",
-          "Objects, arrays, allocation, collection,", "pattern-matches, closures and recursion.", "",
+          "Objects, arrays, allocation, collection,", "pattern matching, closures and recursion.", "",
           "*Every feature runs natively on the GPU.*"],
   ["say", "How about *vibe-coding*?"],
   ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
@@ -50,7 +50,7 @@ const BEATS = [
   ["say", "Consider a game with one law:", "*the player cannot win*"],
   ["intro"],
   ["say", "So far, it works!"],
-  ["say", "Now, suppose we use this prompt:", "\"let the player *wrap around*\""],
+  ["say", "Now, suppose we use this prompt:", "%\"let the player *wrap around*\""],
   ["say", "#What happens next?"],
   ["say", "#In other languages:"],
   ["walk"],
@@ -62,16 +62,14 @@ const BEATS = [
   ["say", "Because of:", "#laws.bend"],
   ["laws"],
   ["say", "Bend makes it *mathematically impossible*", "to write any code that breaks *laws.bend*."],
-  ["say", "\"Create a teleport skill!\"", "It will not pass through walls."],
-  ["say", "\"Make it pass through walls!\"", "The room is now surrounded by steel."],
-  ["say", "\"Make it pass through *anything*!\"", "The room now kills you."],
+  ["say", "%*PROMPT:* \"Create a teleport skill!\"", "*RESULT:* It will not pass through walls."],
+  ["say", "%*PROMPT:* \"Make it pass through walls!\"", "*RESULT:* The room is now surrounded by steel."],
+  ["say", "%*PROMPT:* \"Make it pass through *anything*!\"", "*RESULT:* The room now kills you."],
   ["say", "No matter how crazy your prompt is,", "the AI is unable to break the laws.", "",
           "It must find a harmless workaround,", "so it can write the demanded proof."],
-  ["say", "In short,", "*laws.bend* is *AGENTS.md*", "except *backed by proof*"],
+  ["say", "In short,", "*laws.bend* is *AGENTS.md*", "except *backed by proof*."],
   ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "So, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else."],
-  ["example", "sum"],
-  ["example", "proof"],
   ["end"],
 ];
 
@@ -433,47 +431,20 @@ S.block = (u, dur) => {
 S.laws = (u, dur) => {
   rich("*laws.bend* is a list of *invariants*", W/2, 140, 30);
   cx.globalAlpha = ease((u - 2.0)/0.4); rich("that models are *forced* to respect.", W/2, 190, 30);
-  cx.globalAlpha = ease((u - 3.8)/0.4); rich("Below is the *winning-is-a-bug* law:", W/2, 240, 30);
-  cx.globalAlpha = ease((u - 5.6)/0.5); codeCard(LAWS_SRC, W/2 - 300, 300, 600, 20, 34);
+  cx.globalAlpha = ease((u - 3.8)/0.4); rich("Below is the *winning-is-a-bug* law:", W/2, 270, 30);
+  cx.globalAlpha = ease((u - 5.6)/0.5); codeCard(LAWS_SRC, W/2 - 300, 325, 600, 20, 34);
   cx.globalAlpha = 1;
 };
 
 
 // an example program: its page, a note with arrows into the lines that
 // carry the idea, and the idea's name under it
-const ADD_SRC = `assert add_zero:
-  forall x: Nat
-  {Nat.add(x, 0n) == x : Nat}
-
-def add_zero(x):
-  match x:
-    case 0n:
-      {==}
-    case 1n+xp:
-      %add_zero(xp) : {1n+Nat.add(xp, 0n) == 1n+_ : Nat}
-      {==}`.split("\n");
-// A note is a label and the code spans it points at. It sits below the
-// page ("B", centred, its arrows fanning out) or beside it ("L"/"R", at
-// the height of its first span). A span is [line, needle, nth, tail]: the
-// arrow lands before the needle's head, or past its tail when tail is set.
-// Notes come in one at a time, then the summary under the page.
-const CALL = [{ s: "parallel call", side: "B", hits: [[5, "sum(", 0], [5, "sum(", 1]] }];
 const EX = {
-  call:  { src: SUM_SRC, size: 20, pitch: 32, y: 170, at: 2.0, gap: 1.4, dur: 8.0, notes: CALL, foot: [] },
-  sum:   { title: "Example program #1", src: SUM_SRC, size: 20, pitch: 32, at: 4.2, gap: 1.4, dur: 11.5, notes: CALL,
-           foot: ["Parallelism is automatic: write parallel calls,", "and Bend spreads the work over every thread."] },
-  proof: { title: "Example program #2", src: ADD_SRC, size: 18, pitch: 28, at: 3.0, gap: 1.4, dur: 17.5,
-           notes: [{ s: "theorem", side: "L", hits: [[0, "assert", 0]] },
-                   { s: "x + 0 is x", side: "R", hits: [[2, "{Nat.add(x, 0n) == x : Nat}", 0, true]] },
-                   { s: "proof", side: "L", hits: [[4, "def", 0]] },
-                   { s: "case analysis", side: "R", hits: [[5, "match x:", 0, true]] },
-                   { s: "induction", side: "R", hits: [[9, ": Nat}", 0, true]] },
-                   { s: "reflexivity", side: "L", hits: [[7, "{==}", 0], [10, "{==}", 0]] }],
-           foot: ["Proofs are just programs: state a claim as a type,", "write its proof as a def, and Bend checks it."] },
+  call: { src: SUM_SRC, size: 20, pitch: 32, y: 170, at: 2.0, gap: 1.4, dur: 8.0,
+          notes: [{ s: "parallel call", side: "B", hits: [[5, "sum(", 0], [5, "sum(", 1]] }] },
 };
 S.example = (u, dur, b) => {
-  const E = EX[b[2]], w = 800, x = W/2 - w/2, y = E.y || 135, h = E.src.length*E.pitch + 44;
-  if (E.title) rich("*" + E.title + "*", W/2, 96, 30);
+  const E = EX[b[2]], w = 800, x = W/2 - w/2, y = E.y, h = E.src.length*E.pitch + 44;
   codeCard(E.src, x, y, w, E.size, E.pitch);
   font(E.size); const cw = cx.measureText("M").width;
   const spanX = ([ln, needle, nth, tail]) => {
@@ -504,9 +475,6 @@ S.example = (u, dur, b) => {
     }
     cx.globalAlpha = 1;
   });
-  cx.globalAlpha = ease((u - E.at - E.notes.length*E.gap - 0.4)/0.4);
-  E.foot.forEach((l, i) => T(l, W/2, 640 + i*40, 26, INK, "center", true));
-  cx.globalAlpha = 1;
 };
 // ------------------------------------------------------------------ the cube
 // The GPU is a static 128 x 128 grid of threads: the cube. sum(24) splits in
@@ -746,7 +714,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 17.0,
-                dist: 15.5, eval: 15.0, reduce: 19.0, end: 8.0 };
+                dist: 15.5, eval: 15.0, reduce: 19.0, end: 32.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
