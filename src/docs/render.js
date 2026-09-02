@@ -275,7 +275,7 @@ S.check = (u, dur) => {
   T("3,200 generic instantiations · Apple M4 Max", W/2, 640, 20, DIM, "center");
   const pa = ease((u - 9.2)/0.5);
   cx.globalAlpha = pa;
-  T("up to 1000x faster", 930, 330, 26, AMBER, "center", true);
+  T("up to 100x faster", 930, 330, 26, AMBER, "center", true);
   T("than other checkers", 930, 362, 26, AMBER, "center", true);
   bow(950, 385, slotX(4, 5, 70) + BW/2, BASE - 42, -0.25, AMBER, pa);
   cx.globalAlpha = 1;
