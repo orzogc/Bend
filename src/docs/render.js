@@ -254,8 +254,17 @@ function chart(B, u, go, rise) {
   cx.globalAlpha = 1;
   return vz;
 }
-// four bars, one at a time, then the machine
-S.bench = (u, dur, b) => chart(BENCH[b[2]], u, 0, true);
+// four bars, one at a time, then the machine, then Bend's bar pointed out
+S.bench = (u, dur, b) => {
+  const B = BENCH[b[2]], vmax = Math.max(...B.rivals.map(r => r[1]), B.seq);
+  chart(B, u, 0, true);
+  const pa = ease((u - 7.4)/0.5);
+  cx.globalAlpha = pa;
+  T("targets near-C speed", 930, 250, 26, AMBER, "center", true);
+  T("on a single CPU core", 930, 282, 26, AMBER, "center", true);
+  bow(940, 305, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
+  cx.globalAlpha = 1;
+};
 // the same chart: the rivals leave, then the 16-thread bar rises, then the
 // GPU's, one readout pointing at each in turn
 S.par = (u, dur, b) => {
@@ -697,7 +706,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 9.5, par: 12.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 15.0,
+const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 15.0,
                 dist: 15.5, eval: 15.0, reduce: 19.0, end: 8.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
