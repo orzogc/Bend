@@ -118,11 +118,14 @@ function box(x, y, w, h, r, fill, stroke, lw) {
   if (stroke) { cx.strokeStyle = stroke; cx.lineWidth = lw || 1; cx.stroke(); cx.lineWidth = 1; }
 }
 // a bowed arrow: a curve from (x0,y0) to (x1,y1) that bulges k of its
-// length to the side (k < 0: the other side), drawn up to fraction a of it
-function bow(x0, y0, x1, y1, k, color, a) {
+// length to the side (k < 0: the other side), drawn up to fraction a of it.
+// With via, the curve bends through that control point instead, so the
+// head points the way via -> tip runs.
+function bow(x0, y0, x1, y1, k, color, a, via) {
   const A = a === undefined ? 1 : clamp(a, 0, 1);
   if (A <= 0) return;
-  const dx = x1 - x0, dy = y1 - y0, mx = (x0 + x1)/2 - k*dy, my = (y0 + y1)/2 + k*dx;
+  const dx = x1 - x0, dy = y1 - y0;
+  const [mx, my] = via || [(x0 + x1)/2 - k*dy, (y0 + y1)/2 + k*dx];
   const n = 24, P = [];
   for (let i = 0; i <= n; i++) {
     const t = A*i/n, s = 1 - t;
@@ -460,11 +463,11 @@ S.example = (u, dur, b) => {
     if (n.side === "B") {
       const cy = y + h + 50;
       T(n.s, W/2, cy, 26, AMBER, "center", true);
-      // each arrow leaves from the label's end nearest its span and lands
-      // on the span's second character, so it reads as pointing at the word
+      // each arrow leaves the label sideways and arrives from straight
+      // below, so its head points up at the word
       n.hits.forEach((hit, j) => {
-        const side = n.hits.length > 1 ? (j ? 1 : -1) : 0;
-        bow(W/2 + side*(tw/2 - 10), cy - 30, spanX(hit) + 2*cw, lineY(hit[0]) + 10, side ? -0.2*side : 0.15, AMBER);
+        const side = n.hits.length > 1 ? (j ? 1 : -1) : 0, tx = spanX(hit) + 2*cw;
+        bow(W/2 + side*(tw/2 - 10), cy - 30, tx, lineY(hit[0]) + 10, 0, AMBER, 1, [tx, cy - 30]);
       });
     } else {
       const L = n.side === "L", lx = L ? 120 : W - 120;
