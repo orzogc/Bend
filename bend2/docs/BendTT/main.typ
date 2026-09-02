@@ -351,7 +351,7 @@ type is #Ty, because a closure captures; an equation is #Da\; a family
 has the kind it declares, $#Kd($G$)$ over its parameters. The book
 validator earns the declaration: for each constructor it walks the
 telescope, parameters then fields, in the real constructor context, and
-checks a binder of quantity $q$ against $#Kd($q$)$ and a _live_ field
+checks a binder of quantity $q$ against $#Kd($q$)$ and an affine field
 against the declared $#Kd($G$)$; the tip must be the family applied to
 its own parameters, in order. From the base library:
 

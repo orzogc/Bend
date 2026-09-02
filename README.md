@@ -10,7 +10,7 @@ That's it. All else is fluff. Bend addresses both. And nothing else.
 
 ## Bend4 runs FAST
 
-**Target:** be as fast as C on the CPU, as fast as CUDA in the GPU. **Status:**
+**Target:** be as fast as C on the CPU, as fast as CUDA on the GPU. **Status:**
 
 ![Single-core benchmarks](docs/assets/single_core.svg)
 
@@ -170,6 +170,6 @@ Everything else you need is in [Bend's GUIDE.md](docs/GUIDE.md). Read it!
 
 ## Formalization
 
-- Bend's theory is [formalized in Lean](bend2/bend.lean). Read the paper: [BendTT: An Affine Dependent Type Theory](docs/BendTT.pdf).
+- Bend's core is [formalized in Lean](bend2/bend.lean). Read the paper: [BendTT: An Affine Dependent Type Theory](docs/BendTT.pdf).
 
 - The runtime is also documented. Read the paper: [BendRT: A Parallel Runtime for CPUs and GPUs](docs/BendRT.pdf)

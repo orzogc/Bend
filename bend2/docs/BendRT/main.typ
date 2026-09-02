@@ -494,7 +494,7 @@ device), and the harness checks that all three print the same bytes.
 
 `IO(A)` is a definition of the base library, not a primitive: a
 continuation over one datatype `IO.OP` with two constructors, `Emit`
-and `Halt`. A foreign definition, a def filled by `import` lines naming
+and `Halt`. A _foreign fill_, a def whose body is `import` lines naming
 a `.c` and a `.js` file, compiles to one segment that packs its
 arguments and its continuation into a request. The event loop runs on
 one thread: it evaluates `main` to a request through the pure machine,
@@ -616,10 +616,6 @@ forks and drains a fixed grid of rings without contending. The
 benchmarks show both sides of the bargain: near-C sequential speed and
 large parallel wins when the fork contract holds, and honest losses on
 divergent work.
-
-#heading(numbering: none, outlined: false)[Acknowledgments]
-
-Thanks to the Higher Order Company team for discussions.
 
 #{
   show heading: set text(size: 12pt)
