@@ -238,6 +238,9 @@ export type PMap<Item> =
   | { $: "Emp" }
   | { $: "Bin"; v: Item | null; l: PMap<Item>; r: PMap<Item> };
 
+// List
+export type List<Item> = { k: U32; v: Item; n: List<Item> } | null;
+
 // Quant
 export type Quant =
   | { $: "None" }
@@ -278,7 +281,7 @@ export type HBody = (x: HTerm) => HTerm;
 export type HTerm = TermOf<HBody>;
 
 // Env
-export type Env = PMap<HTerm>;
+export type Env = List<HTerm>;
 
 // Definitions & Book
 export type Ctr  = { k: Name; n: number; T: HTerm }
@@ -550,6 +553,22 @@ export function pmap_to_array<T>(map: PMap<T>, acc: U32 = 0, scl: U32 = 1): Arra
   }
 }
 
+// List
+// =====
+
+export function list_get<T>(list: List<T>, key: U32): T | null {
+  for (let l = list; l !== null; l = l.n) {
+    if (l.k === key) {
+      return l.v;
+    }
+  }
+  return null;
+}
+
+export function list_set<T>(list: List<T>, key: U32, val: T): List<T> {
+  return { k: key, v: val, n: list };
+}
+
 // Quant
 // =====
 
@@ -724,13 +743,13 @@ export function term_strip<X>(tm: TermOf<X>): TermOf<X> {
   return t;
 }
 
-export function term_higher(tm: LTerm, env: Env = Emp<HTerm>()): HTerm {
+export function term_higher(tm: LTerm, env: Env = null): HTerm {
   switch (tm.$) {
     case "Var": {
       if (tm.i < 0) {
         return tm;
       }
-      const v = pmap_get(env, tm.i);
+      const v = list_get(env, tm.i);
       if (v === null) {
         return Ref(tm.k, tm.s);
       } else {
@@ -742,7 +761,7 @@ export function term_higher(tm: LTerm, env: Env = Emp<HTerm>()): HTerm {
     }
     case "Sub": {
       const v = term_higher(tm.v, env);
-      return term_higher(tm.f, pmap_set(env, tm.i, v));
+      return term_higher(tm.f, list_set(env, tm.i, v));
     }
     case "Let": {
       const b = tm;
@@ -750,7 +769,7 @@ export function term_higher(tm: LTerm, env: Env = Emp<HTerm>()): HTerm {
       return Let(b.k, b.i, v, (xs: HTerm[]) => {
         let e = env;
         for (let j = 0; j < xs.length; j++) {
-          e = pmap_set(e, b.i[j], xs[j]);
+          e = list_set(e, b.i[j], xs[j]);
         }
         return term_higher(b.f, e);
       }, b.s, b.q);
@@ -769,13 +788,13 @@ export function term_higher(tm: LTerm, env: Env = Emp<HTerm>()): HTerm {
       const b = tm;
       const A = term_higher(b.A, env);
       return All(b.q, b.k, b.i, A, (x: HTerm) => {
-        return term_higher(b.B, pmap_set(env, b.i, x));
+        return term_higher(b.B, list_set(env, b.i, x));
       }, b.s);
     }
     case "Lam": {
       const b = tm;
       return Lam(b.k, b.i, (x: HTerm) => {
-        return term_higher(b.f, pmap_set(env, b.i, x));
+        return term_higher(b.f, list_set(env, b.i, x));
       }, b.s);
     }
     case "App": {
