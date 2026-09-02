@@ -223,14 +223,13 @@ function speedup(B, u) {
   const readout = (x, n, chip, al) => {
     cx.globalAlpha = a*al;
     T(times(B.seq/x) + " faster", SPX, SPY + dy, 24, BLUE, "center", true);
-    T("with " + n, SPX, SPY + 30 + dy, 20, DIM, "center");
-    rich("*" + chip + "* threads", SPX, SPY + 56 + dy, 20, DIM);
+    rich("with " + n + " *" + chip + "* threads", SPX, SPY + 30 + dy, 20, DIM);
   };
   readout(B.par, "16", "CPU", outA(u, TG));
   readout(B.gpu, "16384", "GPU", inA(u, TG));
   cx.globalAlpha = a;
   const tx = lerp(xp, xg, sw), ty = lerp(yp, yg, sw);
-  bow(SPX, SPY + 74 + dy, tx, ty, -0.28*clamp((tx - SPX)/60, -1, 1), BLUE, a);
+  bow(SPX, SPY + 48 + dy, tx, ty, -0.28*clamp((tx - SPX)/60, -1, 1), BLUE, a);
   cx.globalAlpha = 1;
 }
 const S = {};
