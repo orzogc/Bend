@@ -47,7 +47,7 @@ const BEATS = [
           "mathematically so"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
   ["say", "*proofs* are an old tech", "",
-          "for *decades*, they've guarded", "CPUs, OS kernels and trains", "",
+          "for *decades*, they've guarded", "CPUs, OS kernels and aircraft", "",
           "so, why aren't they everywhere?", "and why use *Bend* instead?"],
   ["reveal", "because they're slow,| and Bend is", 34],
   ["reveal", "FAST", 64],
