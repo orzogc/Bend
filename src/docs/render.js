@@ -30,7 +30,7 @@ const BEATS = [
   ["say", "now, let's prompt a feature:", "%\"allow the player to *wrap around*\""],
   ["say", "normally, what would happen?"],
   ["walk"],
-  ["say", "the player wins, *breaking the law*", "new features can introduce *bugs*..."],
+  ["say", "the new feature introduced a *bug*..."],
   ["say", "in Bend, this happens instead:"],
   ["block"],
   ["say", "the AI placed a wall", "the law is preserved"],
