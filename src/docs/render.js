@@ -22,7 +22,7 @@ const cost = s => (s = s.replace(/[*+_~#%]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "What is the best programming language", "for an era where we stop reading code?"],
+  ["say", "What is the *best programming language*", "for an era where we *stop reading code*?"],
   ["say", "*1. It must be FAST*", "~large codebases must *compile quickly*", "~CPUs & GPUs must work at *peak speeds*",
           "*2. Vibe-coding must WORK*", "~agents must write *correct code* in it", "~humans must *retain control* over code",
           "Nothing else matters."],
@@ -60,8 +60,9 @@ const BEATS = [
   ["say", "Because of:", "#laws.bend"],
   ["laws"],
   ["say", "To edit your code, the model must", "prove that *laws.bend* is respected.", "",
-          "Bend enforces that mechanically,", "stopping models from breaking it."],
-  ["say", "Rules on *AGENTS.md* are *soft hints*.", "Rules on *laws.bend* are *unviolable truths*."],
+          "Bend enforces that mechanically,", "stopping models from writing bugs.", "",
+          "The same verifier used on provers like", "Lean can now guard your vibe-coded apps!"],
+  ["say", "Rules on *AGENTS.md* are *soft hints*.", "Rules on *laws.bend* are *math truths*."],
   ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "So, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else."],
   ["example", "sum"],
