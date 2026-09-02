@@ -440,40 +440,67 @@ S.laws = (u, dur) => {
 // an example program: its page, a note with arrows into the lines that
 // carry the idea, and the idea's name under it
 const ADD_SRC = `assert add_zero:
-  forall a: Nat
-  {Nat.add(a, 0n) == a : Nat}
+  forall x: Nat
+  {Nat.add(x, 0n) == x : Nat}
 
-def add_zero(a):
-  match a:
+def add_zero(x):
+  match x:
     case 0n:
       {==}
-    case 1n+p:
-      %add_zero(p) : {1n+Nat.add(p, 0n) == 1n+_ : Nat}
+    case 1n+xp:
+      %add_zero(xp) : {1n+Nat.add(xp, 0n) == 1n+_ : Nat}
       {==}`.split("\n");
+// A note is a label and the code spans it points at. It sits below the
+// page ("B", centred, its arrows fanning out) or beside it ("L"/"R", at
+// the height of its first span). A span is [line, needle, nth, tail]: the
+// arrow lands before the needle's head, or past its tail when tail is set.
+// Notes come in one at a time, then the summary under the page.
+const CALL = [{ s: "parallel call", side: "B", hits: [[5, "sum(", 0], [5, "sum(", 1]] }];
 const EX = {
-  call:  { src: SUM_SRC, size: 20, pitch: 32, y: 170, at: 2.0, dur: 8.0,
-           note: "parallel call", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: [] },
-  sum:   { title: "Example program #1", src: SUM_SRC, size: 20, pitch: 32, at: 4.2, dur: 11.5,
-           note: "parallel call", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: ["Parallelism is automatic: write parallel calls,", "and Bend spreads the work over every thread."] },
-  proof: { title: "Example program #2", src: ADD_SRC, size: 18, pitch: 28, at: 6.0, dur: 16.0,
-           note: "induction on a", hits: [[9, "%add_zero(p)", 0, true]], foot: ["Proofs are just programs: state a claim as a type,", "write its proof as a def, and Bend checks it."] },
+  call:  { src: SUM_SRC, size: 20, pitch: 32, y: 170, at: 2.0, gap: 1.4, dur: 8.0, notes: CALL, foot: [] },
+  sum:   { title: "Example program #1", src: SUM_SRC, size: 20, pitch: 32, at: 4.2, gap: 1.4, dur: 11.5, notes: CALL,
+           foot: ["Parallelism is automatic: write parallel calls,", "and Bend spreads the work over every thread."] },
+  proof: { title: "Example program #2", src: ADD_SRC, size: 18, pitch: 28, at: 3.0, gap: 1.4, dur: 17.5,
+           notes: [{ s: "theorem", side: "L", hits: [[0, "assert", 0]] },
+                   { s: "x + 0 is x", side: "R", hits: [[2, "{Nat.add(x, 0n) == x : Nat}", 0, true]] },
+                   { s: "proof", side: "L", hits: [[4, "def", 0]] },
+                   { s: "case analysis", side: "R", hits: [[5, "match x:", 0, true]] },
+                   { s: "induction", side: "R", hits: [[9, ": Nat}", 0, true]] },
+                   { s: "reflexivity", side: "L", hits: [[7, "{==}", 0], [10, "{==}", 0]] }],
+           foot: ["Proofs are just programs: state a claim as a type,", "write its proof as a def, and Bend checks it."] },
 };
 S.example = (u, dur, b) => {
   const E = EX[b[2]], w = 800, x = W/2 - w/2, y = E.y || 135, h = E.src.length*E.pitch + 44;
   if (E.title) rich("*" + E.title + "*", W/2, 96, 30);
   codeCard(E.src, x, y, w, E.size, E.pitch);
-  const a = ease((u - E.at)/0.4), cy = y + h + 50;
   font(E.size); const cw = cx.measureText("M").width;
-  cx.globalAlpha = a;
-  T(E.note, W/2, cy, 26, AMBER, "center", true);
-  // a hit is [line, needle, nth, tail]: the arrow lands on the needle's head,
-  // or past its tail when tail is set; two hits fan out from the note's sides
-  E.hits.forEach(([ln, needle, nth, tail], i) => {
+  const spanX = ([ln, needle, nth, tail]) => {
     let c = -1; for (let k = 0; k <= nth; k++) c = E.src[ln].indexOf(needle, c + 1);
-    const col = tail ? c + needle.length + 0.6 : c + 1.5, side = E.hits.length > 1 ? (i ? 1 : -1) : 0;
-    bow(W/2 + 40*side, cy - 30, x + 28 + col*cw, y + 36 + ln*E.pitch + 10, side ? -0.2*side : 0.15, AMBER);
+    return x + 28 + (tail ? c + needle.length : c)*cw;
+  };
+  const lineY = ln => y + 36 + ln*E.pitch;
+  E.notes.forEach((n, i) => {
+    const a = ease((u - E.at - i*E.gap)/0.4);
+    if (a <= 0) return;
+    cx.globalAlpha = a;
+    font(26, true); const tw = cx.measureText(n.s).width;
+    if (n.side === "B") {
+      const cy = y + h + 50;
+      T(n.s, W/2, cy, 26, AMBER, "center", true);
+      n.hits.forEach((hit, j) => {
+        const side = n.hits.length > 1 ? (j ? 1 : -1) : 0;
+        bow(W/2 + 40*side, cy - 30, spanX(hit) + 1.5*cw, lineY(hit[0]) + 10, side ? -0.2*side : 0.15, AMBER);
+      });
+    } else {
+      const L = n.side === "L", lx = L ? 120 : W - 120;
+      const ly = n.hits.reduce((t, hit) => t + lineY(hit[0]), 0)/n.hits.length;
+      T(n.s, lx, ly + 2, 26, AMBER, "center", true);
+      n.hits.forEach(hit =>
+        bow(lx + (L ? 1 : -1)*(tw/2 + 12), ly - 6, spanX(hit) + (hit[3] ? 8 : -8), lineY(hit[0]) - 6, L ? -0.12 : 0.12, AMBER));
+    }
+    cx.globalAlpha = 1;
   });
-  cx.globalAlpha = ease((u - E.at - 2.6)/0.4);
+  cx.globalAlpha = ease((u - E.at - E.notes.length*E.gap - 0.4)/0.4);
   E.foot.forEach((l, i) => T(l, W/2, 640 + i*40, 26, INK, "center", true));
   cx.globalAlpha = 1;
 };

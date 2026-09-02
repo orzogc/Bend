@@ -124,20 +124,18 @@ def main() -> IO(Unit):
 ```python
 import Base
 
-# CLAIM: for all nums a, b and c, a + (b + c) equals (a + b) + c.
-assert add_assoc:
-  forall  a: Nat
-  forall -b: Nat
-  forall -c: Nat
-  {Nat.add(a, Nat.add(b, c)) == Nat.add(Nat.add(a, b), c) : Nat}
+# CLAIM: for every nat x, x + 0 equals x.
+assert add_zero:
+  forall x: Nat
+  {Nat.add(x, 0n) == x : Nat}
 
-# PROOF: induction on `a`, one rewrite (`%`) per step.
-def add_assoc(a, b, c):
-  match a:
+# PROOF: induction on `x`, one rewrite (`%`) per step.
+def add_zero(x):
+  match x:
     case 0n:
       {==}
-    case 1n+p:
-      %add_assoc(p, b, c) : {1n+Nat.add(p, Nat.add(b, c)) == 1n+_ : Nat}
+    case 1n+xp:
+      %add_zero(xp) : {1n+Nat.add(xp, 0n) == 1n+_ : Nat}
       {==}
 ```
 
