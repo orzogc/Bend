@@ -45,7 +45,7 @@ const BEATS = [
           "Objects, arrays, allocation, collection,", "pattern-matches, closures and recursion.", "",
           "*Every feature runs natively on the GPU.*", "",
           "When it is absent, Bend uses CPU cores.", "Memory is unified. Two chips, one heap.",
-          "Moving data between them is free, O(0)."],
+          "Moving data between the two is a no-op."],
   ["say", "How about *vibe-coding*?", "", "Users can prevent AI", "from making mistakes",
           "by demanding *proofs*."],
   ["say", "#How proofs work?"],
