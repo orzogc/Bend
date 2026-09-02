@@ -46,30 +46,29 @@ const BEATS = [
   ["say", "no matter how *crazy* your prompt is,", "the AI is *unable* to break *laws.bend*", "",
           "mathematically so"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
-  ["say", "%\"isn't that a big claim?\"", "",
-          "no - proofs are not a new tech", "in fact, they date back to the 1960s", "",
-          "so, why not other proof languages?"],
+  ["say", "sounds like a miracle?", "",
+          "it isn't! proofs aren't new", "they've existed for decades", "",
+          "so, why aren't proof languages well known?", "and why not use them instead of Bend?"],
   ["reveal", "because Bend| is", 34],
   ["reveal", "FAST", 64],
   ["check"],
   ["bench", "gameoflife"],
-  ["say", "and, as a bonus..."],
-  ["say", "it *parallelizes*!"],
+  ["say", "and it *parallelizes*!"],
   ["par", "gameoflife", "cpu"],
   ["say", "*to 10,000's of cores*"],
   ["par", "gameoflife", "gpu"],
   ["say", "#wait, what? how?"],
-  ["say", "1. mark a *parallel call*"],
+  ["say", "1. you mark a *parallel call*"],
   ["example", "call"],
-  ["say", "2. distribute the *workload*"],
+  ["say", "2. Bend distributes the *workload*"],
   ["dist"],
-  ["say", "3. execute it *in parallel*"],
+  ["say", "3. each core executes a *sub-task*"],
   ["eval"],
-  ["say", "4. combine the *results*"],
+  ["say", "4. Bend combines the *results*"],
   ["reduce"],
-  ["say", "the *entire language* compiles to kernels", "",
+  ["say", "the *entire language* runs in parallel", "",
           "objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
-          "*everything runs natively on GPUs*", "~(with CPU threads as a fallback)"],
+          "*everything runs natively on GPUs*", "~(with CPU cores as a fallback)"],
   ["say", "so, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else"],
   ["end"],
 ];
@@ -253,11 +252,12 @@ S.bench = (u, dur, b) => {
   chart(B, u, 0, true);
   const pa = ease((u - 7.4)/0.5);
   cx.globalAlpha = pa;
-  T("matches C in one core!", 930, 266, 26, AMBER, "center", true);
-  bow(940, 290, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
+  T("competes with C", 930, 250, 26, AMBER, "center", true);
+  T("in a single core", 930, 282, 26, AMBER, "center", true);
+  bow(940, 305, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
   cx.globalAlpha = 1;
 };
-// the same chart in two halves. CPU: the rivals leave, then the 16-thread
+// the same chart in two halves. CPU: the rivals leave, then the 16-core
 // bar rises and its readout lands. GPU: the two bars stand, then the GPU's
 // rises and its readout lands.
 S.par = (u, dur, b) => {
@@ -267,7 +267,7 @@ S.par = (u, dur, b) => {
   if (!gpu) speedup(B, B.par, 1, "16 CPU cores", u, 3.5);
   else {
     bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 1.4)/0.5));
-    speedup(B, B.gpu, 2, "16384 GPU threads", u, 2.6);
+    speedup(B, B.gpu, 2, "16384 GPU cores", u, 2.6);
   }
 };
 
@@ -282,8 +282,8 @@ S.check = (u, dur) => {
   T("3,200 generic instantiations · Apple M4 Max", W/2, 640, 20, DIM, "center");
   const pa = ease((u - 9.2)/0.5);
   cx.globalAlpha = pa;
-  T("up to 100x faster", 930, 330, 26, AMBER, "center", true);
-  T("than other checkers", 930, 362, 26, AMBER, "center", true);
+  T("up to 1000x faster", 930, 330, 26, AMBER, "center", true);
+  T("than other provers", 930, 362, 26, AMBER, "center", true);
   bow(950, 385, slotX(4, 5, 70) + BW/2, BASE - 42, -0.25, AMBER, pa);
   cx.globalAlpha = 1;
 };
@@ -471,8 +471,8 @@ S.example = (u, dur, b) => {
   });
 };
 // ------------------------------------------------------------------ the cube
-// The GPU is a static 128 x 128 grid of threads: the cube. sum(24) splits in
-// two, then four, ... until one task sits on every thread; each thread works
+// The GPU is a static 128 x 128 grid of cores: the cube. sum(24) splits in
+// two, then four, ... until one task sits on every core; each core works
 // its task down to a number; then the numbers flow toward the top-left
 // corner, half the grid at a time, until one cell holds the result.
 //
@@ -488,8 +488,8 @@ const camLerp = (a, b, p) =>
   cam(lerp(a.cpx, b.cpx, p), lerp(a.cpy, b.cpy, p), Math.exp(lerp(Math.log(a.s), Math.log(b.s), p)));
 const CAM0 = cam(GCEN, GCEN, 1);
 const ZOOM = 92;                               // one cell fills 360px
-const CAM1 = cam(CS/2, CS/2, ZOOM);             // the top-left thread, where the result lands
-const MID = 64, CAME = cam((MID + 0.5)*CS, (MID + 0.5)*CS, ZOOM);   // the thread the dive lands on
+const CAM1 = cam(CS/2, CS/2, ZOOM);             // the top-left core, where the result lands
+const MID = 64, CAME = cam((MID + 0.5)*CS, (MID + 0.5)*CS, ZOOM);   // the core the dive lands on
 // a block of the grid, cw x ch cells with its top-left at (c, r), as a rect
 function blockRect(camr, c, r, cw, ch) {
   const [x, y] = camr.at(c*CS, r*CS);
@@ -588,10 +588,10 @@ S.dist = (u, dur) => {
   pointer("That's your GPU!", W/2 + GS/2 + 8, 392, ease((u - (dur - 3.4))/0.5));
 };
 
-// Step 2. Every thread works its sum(10,0) down one call at a time while the
-// camera dives toward one thread: the dive is quick at first, so the text
-// turns readable early, hundreds of threads mid-work, then slows onto one
-// thread, which finishes its sum alone on the screen.
+// Step 2. Every core works its sum(10,0) down one call at a time while the
+// camera dives toward one core: the dive is quick at first, so the text
+// turns readable early, hundreds of cores mid-work, then slows onto one
+// core, which finishes its sum alone on the screen.
 const EVAL = ["sum(10,0)", "sum(9,10)", "sum(8,19)", "sum(7,27)", "sum(6,34)", "sum(5,40)",
               "sum(4,45)", "sum(3,49)", "sum(2,52)", "sum(1,54)", "sum(0,55)", "55"];
 const EVALV = [0, 10, 19, 27, 34, 40, 45, 49, 52, 54, 55, 55];
@@ -613,13 +613,13 @@ S.eval = (u, dur) => {
   const [lx, ly] = camr.at(GCEN, 0);
   cx.globalAlpha = others; T("your GPU", lx, ly - 18, 24, INK, "center", true);
   const [ex, ey] = CAME.at((MID + 1)*CS, (MID + 0.5)*CS);
-  pointer("one GPU thread", ex + 6, ey + 12, ease((u - E0 - DIVE - 0.2)/0.5));
+  pointer("one GPU core", ex + 6, ey + 12, ease((u - E0 - DIVE - 0.2)/0.5));
   cx.globalAlpha = ease((u - EDONE - 0.3)/0.4);
   T("partial result", W/2, 600, 24, AMBER, "center", true);
   cx.globalAlpha = 1;
 };
 
-// Step 3. The camera pulls back to the whole cube, every thread holding its
+// Step 3. The camera pulls back to the whole cube, every core holding its
 // 55. Then the numbers flow: the right half of the grid slides onto the left
 // half and lands, each cell adding what arrived; then the bottom half onto
 // the top; and so on, the live region shrinking toward the top-left corner
@@ -642,7 +642,7 @@ S.reduce = (u, dur) => {
   const v1 = LEAF*Math.pow(2, j), v2 = LEAF*Math.pow(2, j + 1);
   const fill = heat(v1), fill2 = heat(v2), ink1 = ink(v1), ink2 = ink(v2);
   const landed = clamp((p - 0.82)/0.18, 0, 1);
-  // the other threads return as the camera pulls back, and leave again once
+  // the other cores return as the camera pulls back, and leave again once
   // the total is in: the last frame is one cell alone
   const others = u < R0 ? clamp(u/0.6, 0, 1) : j < LEVELS ? 1 : 1 - ease((u - t - 0.5)/0.6);
   // the static grid: empty cells faint, live cells blue
