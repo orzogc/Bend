@@ -43,7 +43,7 @@ const BEATS = [
   ["say", "%*PROMPT:* \"create a teleport skill\"", "*RESULT:* it won't pass through walls"],
   ["say", "%*PROMPT:* \"make it pass through walls!\"", "*RESULT:* the room is surrounded by steel"],
   ["say", "%*PROMPT:* \"make it pass through *anything*!\"", "*RESULT:* the room now kills you"],
-  ["say", "no matter how *crazy* your prompt is,", "the AI is *unable* to break *laws.bend*", "",
+  ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
           "mathematically so"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
   ["say", "*proofs* are an old tech", "",
