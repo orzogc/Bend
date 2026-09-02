@@ -48,7 +48,7 @@ const BEATS = [
           "because every commit must include a *proof*", "that *laws.bend* still holds"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
   ["say", "*proof languages* are an old tech", "",
-          "for *decades*, they've guarded", "CPUs, OS kernels and aircraft", "",
+          "for *decades*, they've secured", "CPUs, kernels, military aircraft", "",
           "so, why aren't they everywhere?", "and why use *Bend* instead of them?"],
   ["reveal", "because they're slow,| and Bend is", 34],
   ["reveal", "FAST", 64],
