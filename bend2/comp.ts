@@ -1430,7 +1430,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
               ? expr(c2, s.x, null, (c3, x) => k2(c3, (f) =>
                 (env) => Bend.App(rb(f)(env), x(env), s.s)))
               : k2(c2, (f) => (env) => Bend.App(rb(f)(env), s.x, s.s));
-            if (!call_is(cb, s.f)) {
+            if (!m.args.includes(s.x) || !call_is(cb, s.f)) {
               return go(s.f, app);
             }
             return expr(caps, s.f, null, (c2, g) => app(c2, () => g));
