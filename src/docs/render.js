@@ -54,9 +54,7 @@ const BEATS = [
   ["check"],
   ["bench", "gameoflife"],
   ["say", "and it *parallelizes*!"],
-  ["par", "gameoflife", "cpu"],
-  ["say", "*to 10,000's of cores*"],
-  ["par", "gameoflife", "gpu"],
+  ["par", "gameoflife"],
   ["say", "#wait, what? how?"],
   ["say", "1. you mark a *parallel call*"],
   ["example", "call"],
@@ -221,7 +219,7 @@ function bar(x, v, vmax, name, color, a, over, mul) {
 }
 // one readout straight above a parallel bar: the speedup, the cores it
 // took, and an arrow down to the bar
-const G3 = 100, SPY = 280;
+const G3 = 150, SPY = 280;
 function speedup(B, v, i, chip, u, t0) {
   const a = ease((u - t0)/0.6);
   if (a <= 0) return;
@@ -262,18 +260,14 @@ S.bench = (u, dur, b) => {
   bow(940, 305, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
   cx.globalAlpha = 1;
 };
-// the same chart in two halves. CPU: the rivals leave, then the 16-core
-// bar rises and its readout lands. GPU: the two bars stand, then the GPU's
-// rises and its readout lands.
+// the same chart: the rivals leave, then the 16-core bar rises and its
+// readout lands, then the GPU's bar and readout; both readouts stay
 S.par = (u, dur, b) => {
-  const B = BENCH[b[2]], gpu = b[3] === "gpu";
-  const vz = chart(B, u, gpu ? 1 : ease((u - 0.8)/0.9), false);
-  bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, gpu ? 1 : ease((u - 2.6)/0.5));
-  if (!gpu) speedup(B, B.par, 1, "16 CPU cores", u, 3.5);
-  else {
-    bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 1.4)/0.5));
-    speedup(B, B.gpu, 2, "16384 GPU cores", u, 2.6);
-  }
+  const B = BENCH[b[2]], vz = chart(B, u, ease((u - 0.8)/0.9), false);
+  bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, ease((u - 2.6)/0.5));
+  speedup(B, B.par, 1, "16 CPU cores", u, 3.5);
+  bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 6.8)/0.5));
+  speedup(B, B.gpu, 2, "16384 GPU cores", u, 7.7);
 };
 
 // five bars, then the gap between Bend and the field, pointed out
@@ -746,7 +740,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 11.0, par: 7.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 14.0,
+const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 14.0,
                 dist: 11.0, eval: 11.5, reduce: 19.0, end: 32.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
