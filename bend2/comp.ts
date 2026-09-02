@@ -920,7 +920,7 @@ function call_eta(cb: Carb, t: HTerm): HTerm | null {
   const n = pre.n - m.all.length;
   const intr = intr_of(cb, m.t.k) !== undefined;
   const last = live_doms(cb.book, pre).at(-1)?.[2] ?? null;
-  const direct = last === null || lay_of(cb.book, last).ks.length === 1;
+  const direct = last === null || lay_of(cb.book, last).arms === null;
   if (n === 1 && !intr && direct) {
     cb.dyn.add(m.t.k);
     return null;
