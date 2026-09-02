@@ -31,7 +31,7 @@ const BEATS = [
   ["say", "And it parallelizes!"],
   ["par", "gameoflife"],
   ["say", "#The entire language runs on GPUs."],
-  ["say", "#How that works?"],
+  ["say", "#How is that possible?"],
   ["say", "#Step 1: Distribution", quick],
   ["dist"],
   ["say", "#Step 2: Evaluation", quick],
