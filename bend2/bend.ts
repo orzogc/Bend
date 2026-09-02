@@ -2523,7 +2523,7 @@ export function parse_def_body(p: Parse, book: Book, k: Name, def: Def, vars: PV
   }
   const b = parse_body(p);
   parse_close(p, n0);
-  def.v = term_higher(body_flatten(b, vars, () => p.sc.frs++));
+  def.v = term_higher(term_lower(term_higher(body_flatten(b, vars, () => p.sc.frs++))));
   book.order.push(k);
 }
 
