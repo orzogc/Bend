@@ -22,7 +22,7 @@ const cost = s => (s = s.replace(/[*+_~#%]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "In the dawn of AGI,", "what is still relevant", "to a programming language?"],
+  ["say", "What is the best programming language", "for an era where we stop reading code?"],
   ["say", "*1. It must be FAST*", "~large codebases must *compile quickly*", "~CPUs & GPUs must work at *peak speeds*",
           "*2. Vibe-coding must WORK*", "~agents must write *correct code* in it", "~humans must *retain control* over code",
           "Nothing else matters."],
