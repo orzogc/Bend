@@ -592,12 +592,12 @@ S.dist = (u, dur) => {
   pointer("That's your GPU!", W/2 + GS/2 + 8, 392, ease((u - (dur - 3.4))/0.5));
 };
 
-// Step 2. Every thread works its sum(10) down one step at a time while the
+// Step 2. Every thread works its sum(10,0) down one call at a time while the
 // camera dives toward one thread: the dive is quick at first, so the text
 // turns readable early, hundreds of threads mid-work, then slows onto one
 // thread, which finishes its sum alone on the screen.
-const EVAL = ["sum(10)", "10+sum(9)", "19+sum(8)", "27+sum(7)", "34+sum(6)", "40+sum(5)",
-              "45+sum(4)", "49+sum(3)", "52+sum(2)", "54+sum(1)", "55+sum(0)", "55"];
+const EVAL = ["sum(10,0)", "sum(9,10)", "sum(8,19)", "sum(7,27)", "sum(6,34)", "sum(5,40)",
+              "sum(4,45)", "sum(3,49)", "sum(2,52)", "sum(1,54)", "sum(0,55)", "55"];
 const EVALV = [0, 10, 19, 27, 34, 40, 45, 49, 52, 54, 55, 55];
 const ESTEP = 1.0, E0 = 0.8, DIVE = 6.8, EDONE = E0 + (EVAL.length - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
