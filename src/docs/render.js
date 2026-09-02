@@ -24,8 +24,8 @@ const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, qui
 const BEATS = [
   ["say", "What is the *ideal programming language*", "for those who *stopped reading code*?"],
   ["say", "*1. It must be FAST*", "~large codebases must *compile quickly*", "~CPUs & GPUs must exec at *peak speeds*",
-          "*2. Vibe-coding must WORK*", "~agents must write *correct code* in it", "~humans must still *retain its control*",
-          "/Nothing else matters."],
+          "*2. Vibe-coding must WORK*", "~agents must write *correct code* in it", "~humans must *keep control* of the code",
+          "/All else is fluff."],
   ["check"],
   ["bench", "gameoflife"],
   ["say", "And it *parallelizes*!"],
