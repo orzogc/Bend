@@ -52,7 +52,7 @@ const BEATS = [
   ["say", "Consider a game with one law:", "*the player cannot win*"],
   ["intro"],
   ["say", "So far, it works!"],
-  ["say", "Now, let's try a prompt:", "\"let the player *wrap around*\""],
+  ["say", "Now, suppose we use this prompt:", "\"let the player *wrap around*\""],
   ["say", "#What happens next?"],
   ["say", "#In other languages:"],
   ["walk"],
