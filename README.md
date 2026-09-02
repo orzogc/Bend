@@ -170,6 +170,6 @@ Everything else you need is in [Bend's GUIDE.md](docs/GUIDE.md). Read it!
 
 ## Formalization
 
-- Bend's core is [formalized in Lean](bend2/bend.lean). Read the paper: [BendTT: An Affine Dependent Type Theory](docs/BendTT.pdf).
+- Bend's core is [formalized in Lean](bend2/bend.lean): the all-affine fragment is proven consistent and normalizing with `Type : Type` and negative datatypes. The proof has drifted from the shipped checker in places; resyncing it and mechanizing the full core is in progress. Read the paper: [BendTT: An Affine Dependent Type Theory](docs/BendTT.pdf).
 
 - The runtime is also documented. Read the paper: [BendRT: A Parallel Runtime for CPUs and GPUs](docs/BendRT.pdf)

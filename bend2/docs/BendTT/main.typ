@@ -572,14 +572,17 @@ reduction (#co[subject_reduction_holds]) and, at the live demand,
 progress (#co[progress_holds]), weak normalization
 (#co[normalization_holds]) and consistency (#co[consistency_holds]).
 
-The scope is narrower than the language. The file mechanizes the
-_all-affine_ fragment: no `+` binder, no #Da, no kinds and no meet;
-$omega$ exists only inside the measure, where it is always a violation.
-The Data layer of @sec:kinds, certify-once included, is argued in
-@sec:price and audited by the tests; it is not a theorem. The file also
-lists where the checker is more permissive than the model (the empty
-match under a live emptied binder, descent skipped at dead demand).
-Normalization and consistency are proven with
+The scope is narrower than the language, and the model has drifted
+from the shipped checker. The file mechanizes the _all-affine_
+fragment: no `+` binder, no #Da, no kinds and no meet; $omega$ exists
+only inside the measure, where it is always a violation. The Data layer
+of @sec:kinds is argued in @sec:price and audited by the tests, not
+proven; and `bend.ts` has moved past the model in places, some listed
+in the file (the empty match under a live emptied binder, descent
+skipped at dead demand), some not. We are resyncing the two and
+extending the proof to the full core. What the file proves stands: a
+calculus with #Ty : #Ty and negative datatypes, consistent and
+normalizing, guarded by affinity alone. Normalization and consistency are proven with
 recursive definitions included, by a Dershowitz--Manna multiset measure
 @dershowitzmanna1979 over pending references. The dead boundary is
 a witness, not a caveat (#co[consistency_none_boundary]): in a
@@ -601,8 +604,8 @@ _What it keeps._ On the program side the baseline is C: first-order
 data, machine words, arrays updated in place, code called by name. That
 fragment passes through affinity untouched. On the proof side the reach
 is larger: statements are erased and cost nothing, and live proofs draw
-their reuse from #Da, which is where induction lives. Nothing prevents
-adding a universe hierarchy later; but Bend needs affinity anyway, and
+their reuse from #Da, which is where induction lives. A universe
+hierarchy could be added later; but Bend needs affinity anyway, and
 #Ty : #Ty buys impredicative encodings and type-computing definitions
 no predicative hierarchy accepts.
 
@@ -618,8 +621,8 @@ mechanized metatheories of practical kernels @abel2018 @sozeau2020
 @carneiro2024, ours proves normalization rather than assuming it.
 
 _Limitations._ The consistency result is syntactic, relative to Lean's
-own foundation, with no semantic model. The Data layer is not yet
-mechanized (@sec:mech). Equality is intensional, with no extensionality
+own foundation, with no semantic model. The mechanization covers the
+all-affine fragment and lags the shipped checker (@sec:mech). Equality is intensional, with no extensionality
 principle. And the theorems are about the calculus, not the code.
 
 BendTT buys consistency with affinity instead of a universe hierarchy,
