@@ -452,9 +452,9 @@ def add_zero(a):
       {==}`.split("\n");
 const EX = {
   call:  { src: SUM_SRC, size: 20, pitch: 32, y: 170, at: 2.0, dur: 8.0,
-           note: "parallel calls", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: [] },
+           note: "parallel call", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: [] },
   sum:   { title: "Example program #1", src: SUM_SRC, size: 20, pitch: 32, at: 4.2, dur: 11.5,
-           note: "parallel calls", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: ["Parallelism is automatic: write parallel calls,", "and Bend spreads the work over every thread."] },
+           note: "parallel call", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: ["Parallelism is automatic: write parallel calls,", "and Bend spreads the work over every thread."] },
   proof: { title: "Example program #2", src: ADD_SRC, size: 18, pitch: 28, at: 6.0, dur: 16.0,
            note: "induction on a", hits: [[9, "%add_zero(p)", 0, true]], foot: ["Proofs are just programs: state a claim as a type,", "write its proof as a def, and Bend checks it."] },
 };
