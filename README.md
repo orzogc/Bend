@@ -6,7 +6,7 @@ In the post-AGI economy, what still matters for a programming language? Two thin
 
 2. Vibe-coding must **work**. Agents using it must produce *correct code*.
 
-That's it. All else is fluff. Bend addresses both. And nothing else.
+That's it. Nothing else matters. Bend addresses both. And nothing else.
 
 ![Bend, in five minutes](docs/intro.gif)
 
@@ -16,14 +16,12 @@ That's it. All else is fluff. Bend addresses both. And nothing else.
 
 ![Single-core benchmarks](docs/assets/single_core.svg)
 
-Strong types, linearity and purity let Bend compete with hand-written C in
-single-core performance, and it scales to thousands of CPU or GPU threads, with
-near-ideal speedups, near-zero programmer effort. Compared to Bend 1, this
-version is up to 100x faster, supports f32, u32, mutable arrays, up to 8 TB of
-heap memory, all with zero interaction net overhead. The compiler is still new,
-so expect bugs and defective programs (where it under-performs C or CUDA).
-These will be fixed as the pipeline matures. If you ever come across one, please
-write an issue.
+Strong types, linearity and purity let Bend compete with hand-written C on one
+core and scale to thousands of CPU or GPU threads, with near-ideal speedups at
+near-zero effort. It is up to 100x faster than Bend 1 and supports f32, u32,
+mutable arrays and up to 8 TB of heap, with zero interaction-net overhead. The
+compiler is new: expect bugs and defective programs that under-perform C or
+CUDA. If you find one, please write an issue.
 
 ## Bend4 checks FAST
 
@@ -31,13 +29,12 @@ write an issue.
 
 ![Checker benchmarks](docs/assets/checker.svg)
 
-As AI models become faster, compilation times become a critical bottleneck on
-the software engineering process. Alternative proof languages often take several
-minutes to check a medium sized codebase, making proofs unviable. Since Bend is
-fully annotated, checking is done by a linear bidirectional pass, meaning it
-scales to massive codebases without losing performance, making proofs truly
-practical. The tradeoff is that Bend is a bit verbose, but nobody is writing
-code anymore, and AI models even appreciate the extra annotations.
+As AI models get faster, compile times become the bottleneck of software
+engineering. Other proof languages take minutes to check a medium-sized
+codebase, making proofs unviable. Bend is fully annotated, so checking is one
+linear bidirectional pass: it scales to massive codebases without losing speed,
+and proofs stay practical. The tradeoff is verbosity, but nobody writes code by
+hand anymore, and AI models even like the annotations.
 
 ## Bend4 vibe-coding WORKS (with proof!)
 

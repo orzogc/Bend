@@ -4738,21 +4738,17 @@ INLINE Loc task_tail(Term t) {
 }
 
 INLINE Term task_deliver(Corpus H, Term cont, u32 idx, THR Term* v, u32 n) {
-  if (cont == TERM_HOLE) {
-    for (u32 j = 0; j < WL_RESW; j += 1) {
-      if (j < n) {
-        H[H_ROOT_WORD + j] = v[j];
-      }
+  Loc at = cont == TERM_HOLE ? H_ROOT_WORD : term_loc(cont) + idx;
+  for (u32 j = 0; j < WL_RESW; j += 1) {
+    if (j < n) {
+      H[at + j] = v[j];
     }
+  }
+  if (cont == TERM_HOLE) {
     a32_store_rel(a32_at(H, H_ROOT_DONE), n + 1);
     return 0;
   }
   Loc tl = task_tail(cont);
-  for (u32 j = 0; j < WL_RESW; j += 1) {
-    if (j < n) {
-      H[term_loc(cont) + idx + j] = v[j];
-    }
-  }
   if (a32_sub_rel(a32_at(H, tl + 1), 1) == 1) {
     a32_acq(a32_at(H, tl + 1));
     return cont;
@@ -4919,7 +4915,11 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
       heap_free(e, cls_fit(wn + 2), wa);
       WL_DYN(wf);
     }
-    return task_deliver(e.mem, cont, idx, res, resn);
+    Term rv[WL_RESW];
+    for (u32 j = 0; j < WL_RESW; j += 1) {
+      rv[j] = res[j];
+    }
+    return task_deliver(e.mem, cont, idx, rv, resn);
   }
 
 #if DEVICE
