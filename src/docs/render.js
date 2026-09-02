@@ -23,14 +23,15 @@ const cost = s => (s = s.replace(/[*+_~#%]/g, "").trim()) ? s.split(/\s+/)
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
   ["say", "In the dawn of AGI,", "what is still relevant", "to a programming language?"],
-  ["say", "*1. It must be FAST*", "~large codebases must compile quickly", "~programs must fill available compute",
-          "*2. Vibe-coding must WORK*", "~agents must write correct code in it", "~humans must still retain full control",
-          "All else is fluff."],
+  ["say", "*1. It must be FAST*", "~large codebases must *compile quickly*", "~CPUs & GPUs must work at *peak speeds*",
+          "*2. Vibe-coding must WORK*", "~agents must write *correct code* in it", "~humans must *retain control* over code",
+          "Nothing else matters."],
   ["check"],
   ["bench", "gameoflife"],
   ["say", "And it parallelizes!"],
   ["par", "gameoflife"],
   ["say", "#The entire language runs on GPUs."],
+  ["say", "#How that works?"],
   ["say", "#Step 1: Distribution", quick],
   ["dist"],
   ["say", "#Step 2: Evaluation", quick],
@@ -41,7 +42,6 @@ const BEATS = [
           "the *entire* language runs on GPUs:", "objects, allocation, even closures!", "",
           "memory is *fully unified* between CPU and GPU.", "passing data between chips is a no-cost op!", "",
           "parallel programming is easy.", "no threads, mutexes, atomics.", "just fork the call, and done!"],
-  ["psum"],
   ["say", "How about *vibe-coding*?", "", "Users can prevent AI", "from making mistakes",
           "by demanding *proofs*."],
   ["say", "#How proofs work?"],
@@ -61,9 +61,11 @@ const BEATS = [
   ["laws"],
   ["say", "To edit your code, the model must", "prove that *laws.bend* is respected.", "",
           "Bend enforces that mechanically,", "stopping models from breaking it."],
-  ["say", "Laws on *AGENTS.md* are *soft hints*.", "Laws on *laws.bend* are *unviolable truths*.", "",
-          "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
+  ["say", "Rules on *AGENTS.md* are *soft hints*.", "Rules on *laws.bend* are *unviolable truths*."],
+  ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "So, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else."],
+  ["example", "sum"],
+  ["example", "proof"],
   ["end"],
 ];
 
@@ -183,8 +185,8 @@ const BENCH = {
   gameoflife: { title: "game of life", rivals: [["TypeScript", 18.778], ["Lean", 13.922], ["C", 6.821]],
                 seq: 5.458, par: 0.475, gpu: 0.082 },
 };
-const CHECK = [["Isabelle", 300, true], ["Agda", 300, true], ["Lean", 35.818],
-               ["Rocq", 2.876], ["Bend", 0.287]];
+const CHECK = [["Isabelle", 300, true], ["Agda", 300, true], ["Lean", 18.356],
+               ["Rocq", 5.951], ["Bend", 0.344]];
 
 const secs = s => (s >= 10 ? s.toFixed(1) : s.toFixed(2)) + "s";
 const times = x => (x >= 10 ? Math.round(x) : x.toFixed(1)) + "x";
@@ -264,13 +266,13 @@ S.par = (u, dur, b) => {
 
 // five bars, then the gap between Bend and the field, pointed out
 S.check = (u, dur) => {
-  const vmax = 2*35.818;
+  const vmax = 2*18.356;
   rich("Bend compiles *FAST*", W/2, 96, 30);
   CHECK.forEach(([name, v, over], i) =>
     bar(slotX(i, 5, 70), over ? vmax : v, vmax, name, name === "Bend" ? BLUE : GRAY,
         ease((u - 1.0 - i*1.3)/0.5), over));
   cx.globalAlpha = ease((u - 7.8)/0.5);
-  T("12,800 definitions · Apple M4 Max", W/2, 640, 20, DIM, "center");
+  T("3,200 generic instantiations · Apple M4 Max", W/2, 640, 20, DIM, "center");
   const pa = ease((u - 9.2)/0.5);
   cx.globalAlpha = pa;
   T("up to 1000x faster", 930, 330, 26, AMBER, "center", true);
@@ -422,19 +424,42 @@ S.laws = (u, dur) => {
 };
 
 
-S.psum = (u, dur) => {
-  rich("*Example program*", W/2, 96, 30);
-  const x = W/2 - 400, y = 170, size = 20, pitch = 32, h = SUM_SRC.length*pitch + 44;
-  codeCard(SUM_SRC, x, y, 800, size, pitch);
-  const a = ease((u - 4.2)/0.4), cy = y + h + 70;
-  if (a <= 0) return;
-  font(size); const cw = cx.measureText("M").width;
-  const ly = y + 36 + 5*pitch, l = SUM_SRC[5];
-  const c1 = l.indexOf("sum("), c2 = l.indexOf("sum(", c1 + 1);
+// an example program: its page, a note with arrows into the lines that
+// carry the idea, and the idea's name under it
+const ADD_SRC = `assert add_zero:
+  forall a: Nat
+  {Nat.add(a, 0n) == a : Nat}
+
+def add_zero(a):
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      %add_zero(p) : {1n+Nat.add(p, 0n) == 1n+_ : Nat}
+      {==}`.split("\n");
+const EX = {
+  sum:   { title: "Example program #1", src: SUM_SRC, size: 20, pitch: 32, at: 4.2, dur: 11.5,
+           note: "parallel calls", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: "Parallelism" },
+  proof: { title: "Example program #2", src: ADD_SRC, size: 18, pitch: 28, at: 6.0, dur: 16.0,
+           note: "proof by induction on a", hits: [[9, "%add_zero(p)", 0, true]], foot: "Proofs" },
+};
+S.example = (u, dur, b) => {
+  const E = EX[b[2]], w = 800, x = W/2 - w/2, y = 135, h = E.src.length*E.pitch + 44;
+  rich("*" + E.title + "*", W/2, 96, 30);
+  codeCard(E.src, x, y, w, E.size, E.pitch);
+  const a = ease((u - E.at)/0.4), cy = y + h + 50;
+  font(E.size); const cw = cx.measureText("M").width;
   cx.globalAlpha = a;
-  T("parallel calls", W/2, cy, 26, AMBER, "center", true);
-  bow(W/2 - 40, cy - 30, x + 28 + (c1 + 1.5)*cw, ly + 10, 0.2, AMBER);
-  bow(W/2 + 40, cy - 30, x + 28 + (c2 + 1.5)*cw, ly + 10, -0.2, AMBER);
+  T(E.note, W/2, cy, 26, AMBER, "center", true);
+  // a hit is [line, needle, nth, tail]: the arrow lands on the needle's head,
+  // or past its tail when tail is set; two hits fan out from the note's sides
+  E.hits.forEach(([ln, needle, nth, tail], i) => {
+    let c = -1; for (let k = 0; k <= nth; k++) c = E.src[ln].indexOf(needle, c + 1);
+    const col = tail ? c + needle.length + 0.6 : c + 1.5, side = E.hits.length > 1 ? (i ? 1 : -1) : 0;
+    bow(W/2 + 40*side, cy - 30, x + 28 + col*cw, y + 36 + ln*E.pitch + 10, side ? -0.2*side : 0.15, AMBER);
+  });
+  cx.globalAlpha = ease((u - E.at - 2.6)/0.4);
+  T(E.foot, W/2, 668, 30, INK, "center", true);
   cx.globalAlpha = 1;
 };
 // ------------------------------------------------------------------ the cube
@@ -672,14 +697,14 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { bench: 9.5, par: 12.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 15.0,
-                psum: 10.0, dist: 15.5, eval: 15.0, reduce: 19.0, end: 8.0 };
+                dist: 15.5, eval: 15.0, reduce: 19.0, end: 8.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
     let t = 0; b.at = ls.map(s => { const a = t; t += READ*cost(s) + 0.4; return a; });
     const d = b.includes(quick) ? t + 0.3 : (t*1.25 + 0.8)*(b.includes(punch) ? 1.3 : 1);
     b.splice(1, 0, Math.max(2.4, d));
-  } else b.splice(1, 0, FIXED[b[0]]);
+  } else b.splice(1, 0, b[0] === "example" ? EX[b[1]].dur : FIXED[b[0]]);
 }
 const T0 = []; let DUR = 0;
 for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
