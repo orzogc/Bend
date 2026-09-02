@@ -616,7 +616,7 @@ end
 -- SpineLt β qs j cols args: from column position j on, LIVE columns
 -- compare EQ left to right until one is a strict subterm; an erased
 -- column is skipped — erased data cannot be matched live and never
--- carries the decrease, only spurious mismatch (bend.ts infer-app's
+-- carries the decrease, only spurious mismatch (bend.ts infer-ref's
 -- descent loop with lhs.qs; a missing quantity counts live)
 inductive SpineLt (β : Book) (qs : List Quant) : Nat → List Term → List Term → Prop
   | here  : qs.getD j .Lone ≠ .None → PLt β t c →
@@ -786,7 +786,7 @@ inductive Term.Value (β : Book) : Term → Prop
 
 -- ============================================================================
 -- §9 Check (== bend.ts Check: one bidirectional judgment; the
--- descent guard follows, mirroring infer-app's self-call rule and
+-- descent guard follows, mirroring infer-ref's self-call rule and
 -- the lhs threading)
 -- ============================================================================
 
