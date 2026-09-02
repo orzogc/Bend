@@ -274,7 +274,7 @@ static Term io_str(Env e, const char* p, uint64_t n) {
   while (n > 0) {
     n -= 1;
     Loc loc = heap_alloc(e, 1);
-    e.mem[loc]     = term_pak(CID_CHR, (uint8_t)p[n]);
+    e.mem[loc]     = (uint8_t)p[n];
     e.mem[loc + 1] = io_seal(e, s, IO_HOTS & 1);
     s = term_ctr(CID_SCON, loc);
   }
