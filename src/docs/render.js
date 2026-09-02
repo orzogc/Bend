@@ -65,8 +65,8 @@ const BEATS = [
   ["say", "%*PROMPT:* \"Create a teleport skill!\"", "*RESULT:* It will not pass through walls."],
   ["say", "%*PROMPT:* \"Make it pass through walls!\"", "*RESULT:* The room is now surrounded by steel."],
   ["say", "%*PROMPT:* \"Make it pass through *anything*!\"", "*RESULT:* The room now kills you."],
-  ["say", "No matter how crazy your prompt is,", "the AI is unable to break the laws.", "",
-          "It must find a harmless workaround,", "so it can write the demanded proof."],
+  ["say", "No matter how *crazy* your prompt is,", "the AI is *unable* to break the laws.", "",
+          "It must find a *harmless workaround*,", "so it can write the *demanded proof*."],
   ["say", "In short,", "*laws.bend* is *AGENTS.md*", "except *backed by proof*."],
   ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "So, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else."],
@@ -506,8 +506,8 @@ function blockRect(camr, c, r, cw, ch) {
 }
 const offscreen = (x, y, w, h) => x + w < 0 || x > W || y + h < 0 || y > H;
 // text in a cell is one fixed fraction of the cell, whatever it says; it
-// is skipped once it would be under 6px
-const fitText = (w, h) => Math.min(w, h)*0.14;
+// is skipped once it would be under 5px
+const fitText = (w, h) => Math.min(w, h)*0.17;
 // the gap between cells never drops under 1.2px, so the lattice reads at
 // any zoom; tiny cells deepen their fill by the share the gap takes, so a
 // block keeps its colour on average as the camera moves
@@ -520,21 +520,26 @@ function cellBox(x, y, w, h, fill, a) {
   cx.fillStyle = deepen(fill, Math.min(1/c, 1.5)); cx.fillRect(x + g/2, y + g/2, w - g, h - g);
   if (a !== undefined) cx.globalAlpha = 1;
 }
-// numbers wear the 2048 ladder: beige for small values, through orange and
-// red, to yellow for the largest. t is the value's place on a log scale from
-// the first partial sum to the final total, so the scale is one across beats.
-const HEAT = [[0, "#eee4da"], [0.15, "#ede0c8"], [0.3, "#f2b179"], [0.45, "#f59563"], [0.6, "#f67c5f"],
-              [0.75, "#f65e3b"], [0.92, "#f65e3b"], [1, "#edc22e"]];
-const NUMI = "#5b4636";                         // ink for numbers on the ladder
+// Numbers wear 2048's tiles (gabrielecirulli/2048, style/main.css): the 2
+// and 4 tiles' beige while the values are small, the 8..64 climb from orange
+// to red over the levels where the numbers can be read, and the 2048 yellow
+// for the total alone. Text is 2048's: dark on beige, near-white from 8 up.
+const TILES = ["#eee4da", "#ede0c8", "#f2b179", "#f59563", "#f67c5f", "#f65e3b", "#edc22e"];
 const mix = (h1, h2, f) => "#" + rgb(h1).map((c, k) => Math.round(lerp(c, rgb(h2)[k], f)).toString(16).padStart(2, "0")).join("");
-function heat(v) {
-  const t = clamp(Math.log(v/10)/Math.log(55*N*N/10), 0, 1);
-  let i = 0; while (i + 2 < HEAT.length && t > HEAT[i + 1][0]) i++;
-  return mix(HEAT[i][1], HEAT[i + 1][1], (t - HEAT[i][0])/(HEAT[i + 1][0] - HEAT[i][0]));
+// a value's rung on the tiles, fractional: its reduce level (log2 of value / leaf) mapped
+// so levels 0..6 span the beiges, 6..13 the orange-to-red, 13..14 the yellow
+function rung(v) {
+  const l = clamp(Math.log2(v/LEAF), 0, LEVELS);
+  return l < 6 ? l/6 : l < 13 ? 2 + (l - 6)*3/7 : 5 + (l - 13);
 }
+function heat(v) {
+  const t = rung(v), i = Math.min(Math.floor(t), TILES.length - 2);
+  return mix(TILES[i], TILES[i + 1], t - i);
+}
+const ink = v => rung(v) < 1.5 ? "#776e65" : "#f9f6f2";
 function cellText(s, x, y, w, h, a, color) {
   const fs = fitText(w, h);
-  if (fs < 6 || a <= 0) return;
+  if (fs < 5 || a <= 0) return;
   cx.globalAlpha = a;
   T(s, x + w/2, y + h/2 + fs*0.36, fs, color || BLUE, "center", true);
   cx.globalAlpha = 1;
@@ -611,7 +616,7 @@ S.eval = (u, dur) => {
     if (a <= 0) continue;
     const j = clamp(Math.floor((u - E0 - phase(c, r))/ESTEP), 0, EVAL.length - 1);
     cellBox(x, y, w, h, j ? heat(EVALV[j]) : SKY, a);
-    cellText(EVAL[j], x, y, w, h, a, j ? NUMI : BLUE);
+    cellText(EVAL[j], x, y, w, h, a, j ? ink(EVALV[j]) : BLUE);
   }
   // the grid's name rides on the grid and leaves the screen as the camera dives
   const [lx, ly] = camr.at(GCEN, 0);
@@ -634,7 +639,7 @@ const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
 function camFor(j) {
   if (j >= LEVELS) return CAM1;
   const [w, h] = region(j);
-  return cam(w*CS/2, h*CS/2, Math.min(0.78*W/(w*CS), 0.78*H/(h*CS), ZOOM));
+  return cam(w*CS/2, h*CS/2, Math.min(0.84*W/(w*CS), 0.84*H/(h*CS), ZOOM));
 }
 S.reduce = (u, dur) => {
   let j = 0, t = R0;
@@ -643,7 +648,8 @@ S.reduce = (u, dur) => {
   const camr = u < R0 ? camLerp(CAME, camFor(0), ease(u/R0)) : camLerp(camFor(j), camFor(j + 1), m);
   const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
   const val = num(LEAF*Math.pow(2, j)), val2 = num(LEAF*Math.pow(2, j + 1));
-  const fill = heat(LEAF*Math.pow(2, j)), fill2 = heat(LEAF*Math.pow(2, j + 1));
+  const v1 = LEAF*Math.pow(2, j), v2 = LEAF*Math.pow(2, j + 1);
+  const fill = heat(v1), fill2 = heat(v2), ink1 = ink(v1), ink2 = ink(v2);
   const landed = clamp((p - 0.82)/0.18, 0, 1);
   // the other threads return as the camera pulls back, and leave again once
   // the total is in: the last frame is one cell alone
@@ -657,11 +663,11 @@ S.reduce = (u, dur) => {
     if (a <= 0) continue;
     if (!live || (src && p > 0)) { cellBox(x, y, cw, ch, MIST, a); continue; }
     cellBox(x, y, cw, ch, j >= LEVELS || u < R0 ? fill : mix(fill, fill2, landed), a);
-    if (j >= LEVELS) cellText(val, x, y, cw, ch, 1, NUMI);
-    else if (u < R0) cellText(val, x, y, cw, ch, a, NUMI);
+    if (j >= LEVELS) cellText(val, x, y, cw, ch, 1, ink1);
+    else if (u < R0) cellText(val, x, y, cw, ch, a, ink1);
     else {
-      cellText(val, x, y, cw, ch, 1 - landed, NUMI);
-      cellText(val2, x, y, cw, ch, landed, NUMI);
+      cellText(val, x, y, cw, ch, 1 - landed, ink1);
+      cellText(val2, x, y, cw, ch, landed, ink2);
     }
   }
   // the moving half: one sheet of cells sliding onto its neighbours
@@ -672,7 +678,7 @@ S.reduce = (u, dur) => {
       const [x, y, sw, sh] = blockRect(camr, c + dx, r + dy, 1, 1);
       if (offscreen(x, y, sw, sh)) continue;
       cellBox(x, y, sw, sh, fill, 1 - landed);
-      cellText(val, x, y, sw, sh, 1 - landed, NUMI);
+      cellText(val, x, y, sw, sh, 1 - landed, ink1);
     }
   }
   // the grid's name is written on the grid, as in the dive: it stays put
