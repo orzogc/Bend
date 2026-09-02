@@ -439,9 +439,9 @@ def add_zero(a):
       {==}`.split("\n");
 const EX = {
   sum:   { title: "Example program #1", src: SUM_SRC, size: 20, pitch: 32, at: 4.2, dur: 11.5,
-           note: "parallel calls", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: "Parallelism is near-automatic." },
+           note: "parallel calls", hits: [[5, "sum(", 0], [5, "sum(", 1]], foot: ["Parallelism is automatic: write parallel calls,", "and Bend spreads the work over every thread."] },
   proof: { title: "Example program #2", src: ADD_SRC, size: 18, pitch: 28, at: 6.0, dur: 16.0,
-           note: "induction hypothesis", hits: [[9, "%add_zero(p)", 0, true]], foot: "Proofs are just programs." },
+           note: "induction on a", hits: [[9, "%add_zero(p)", 0, true]], foot: ["Proofs are just programs: state a claim as a type,", "write its proof as a def, and Bend checks it."] },
 };
 S.example = (u, dur, b) => {
   const E = EX[b[2]], w = 800, x = W/2 - w/2, y = 135, h = E.src.length*E.pitch + 44;
@@ -459,7 +459,7 @@ S.example = (u, dur, b) => {
     bow(W/2 + 40*side, cy - 30, x + 28 + col*cw, y + 36 + ln*E.pitch + 10, side ? -0.2*side : 0.15, AMBER);
   });
   cx.globalAlpha = ease((u - E.at - 2.6)/0.4);
-  T(E.foot, W/2, 668, 30, INK, "center", true);
+  E.foot.forEach((l, i) => T(l, W/2, 640 + i*40, 26, INK, "center", true));
   cx.globalAlpha = 1;
 };
 // ------------------------------------------------------------------ the cube
