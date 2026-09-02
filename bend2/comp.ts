@@ -118,7 +118,7 @@ type File = {
   cb: Carb;
   cids: Map<string, [number, number]>;
   tabs: Map<string, number>;
-  spins: [string, string][];
+  spins: [string, string, Set<string>][];
   spun: Map<string, string>;
   reqs: string;
   resw: number;
@@ -2714,7 +2714,8 @@ function emit_native(fl: File, ck: Call, ers: HTerm[]): string {
   const ret = def_ret(fl.cb, ck.k);
   const outer = { seg: fl.seg, spares: fl.spares, loop: fl.loop,
     uses: fl.uses, tab: fl.tab, brwl: fl.brwl, fuel: fl.fuel };
-  Object.assign(fl, { seg: { ...fl.seg, lines: [] }, spares: [], tab: 2,
+  const refs = new Set<string>();
+  Object.assign(fl, { seg: { ...fl.seg, lines: [], refs }, spares: [], tab: 2,
     uses: new Map(), brwl: new Set(fl.brwl) });
   const vals = emit_params(fl, ck.k);
   const { params: sp, ks } = fl.loop as Loop;
@@ -2726,8 +2727,9 @@ function emit_native(fl: File, ck: Call, ers: HTerm[]): string {
   ...dst.ws.map((v, j) => `  ${lay_c(ret.ks[j])} ${v} = 0;`),
   "  WL_SPIN", ...fl.seg.lines, "    break;", "  }",
   ...dst.ws.map((v, j) => `  o[${j}] = ${v};`),
-  "  return 1;", "}"].join("\n")]);
+  "  return 1;", "}"].join("\n"), refs]);
   Object.assign(fl, outer);
+  refs.forEach((r) => fl.seg.refs.add(r));
   return name;
 }
 
@@ -3342,7 +3344,8 @@ export function compile_book(book: Bend.Book): string {
   compile_reqs(fl);
   const live = new Set<string>();
   const grab = (fid: string) => live.has(fid) || (live.add(fid)
-    && fl.segs.find((s) => s.fid === fid)?.refs.forEach(grab));
+    && (fl.segs.find((s) => s.fid === fid)?.refs
+      ?? fl.spins.find((s) => s[0] === fid)?.[2])?.forEach(grab));
   grab(seg_fid("main"));
   fl.segs = fl.segs.filter((s) =>
     live.has(s.fid) || def_foreign(cb.book.tlds[s.def]));
