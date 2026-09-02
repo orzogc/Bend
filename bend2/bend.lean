@@ -12,7 +12,7 @@
 -- of a consistent proof language with Type:Type and negative recursive types.
 -- The core insight is that we exploit linear types to forbid the contraction of
 -- functions, while still allowing cloning lower order values. This inhibits the
--- source of most paradoxes: Girard's, Russel's, Curry's and the like all are
+-- source of most paradoxes: Girard's, Russell's, Curry's and the like all are
 -- manifestations of self-replicating lambdas (like `λf.f(f) λf.f(f)`), which
 -- are not representable in this theory. With this, the consistency becomes
 -- relatively trivial, and the only reason this file is massive is that the
@@ -24,9 +24,10 @@
 -- BEND-CORE — the bend2-core affine calculus
 -- ============================================================================
 --
--- The ground truth of the Bend core (the core sections of
--- bend2/bend.ts, Types through Valid): language, reduction, typing,
--- descent, and the claims. PART I is the SPEC — the parts a human must
+-- A model of the Bend core (the core sections of bend2/bend.ts, Types
+-- through Valid): language, reduction, typing, descent, and the claims.
+-- The model has drifted from the shipped checker; the divergences are
+-- listed below, and a resync covering the full core is in progress. PART I is the SPEC — the parts a human must
 -- read. PART II is the metatheory appendix proving the claims.
 --
 -- THE HEADLINE. A dependent calculus with Type : Type, impredicativity,
@@ -41,7 +42,7 @@
 -- layer, whose + binder, + field and certify-once promotion have no
 -- counterpart here, and whose usage metatheory holds only for weak
 -- by-value reduction of closed terms and rests on three invariants
--- outside the checker — see NOT MODELED (2). This file mechanizes the
+-- outside the checker — see divergence (2). This file mechanizes the
 -- all-&1 fragment. Every live self-call
 -- descends lexicographically on the definition's own case-tree
 -- columns, and no rule coerces dead to live. In a functional language
@@ -65,8 +66,7 @@
 -- and carrier are dead, Rfl proves conversion, Rwt rewrites through a
 -- motive that is dead.
 --
--- THE MAP. Part I mirrors bend2/bend.ts's core section by section,
--- one to one:
+-- THE MAP. Part I mirrors bend2/bend.ts's core section by section:
 --
 --   bend.ts section   | here          | contents
 --   ------------------|---------------|--------------------------------
@@ -78,18 +78,19 @@
 --                     |               | shift, subst, Closed, the J
 --                     |               | motive, the lhs algebra (lhs_ext)
 --   Ctx, Ctrs, Book   | §5 Ctx/Book   | get, tld, adt, defn, ctr
---   (term_compare)    | §6 Compare    | PEq/PLt (EQ/LT verdicts),
+--   Compare           | §6 Compare    | PEq/PLt (EQ/LT verdicts),
 --                     |               | SpineLt (the descent loop)
 --   Tele              | §7 Tele       | FTele, WTele, STele, shapes
---   Equal             | §8 Equal      | Step/Red (wnf/snf), Conv (equal)
+--   WNF, SNF          | §8 Equal      | Step/Red (wnf/snf), Conv (compare)
 --   Check             | §9 Check      | the one judgment (infer+check)
---   (infer-app, lhs)  | §10 Descent   | Guard (the self-call rule),
+--   LHS, (infer-ref)  | §10 Descent   | Guard (the self-call rule),
 --                     |               | Tree (the lhs threading)
 --   Valid             | §11 Valid     | Book.Ok (book_valid)
 --   (header claims)   | §12 Claims    | the five claims as Props
 --
--- NOT MODELED. Char, PMap, Show, Parse, Flatten and the import system
--- are parsing and pipeline concerns with no counterpart here;
+-- NOT MODELED. Char, PMap, the number sections (Nat, Word, U32, F32),
+-- Show, Parse, Flatten and the import system are parsing and pipeline
+-- concerns with no counterpart here;
 -- U32/SCon/SNil string literals are base.bend constructors, not
 -- calculus.
 --
@@ -215,8 +216,7 @@
 -- walls proved below are NOT unconditional there. It is always
 -- disclosed — cli_report prints "with K annotated as unsafe." — so a
 -- book that reports a clean verdict uses none, and for those books the
--- list above is the whole of the difference. The #[halts] pragma left
--- the language; @unsafe is what remains.
+-- list above is the whole of the difference.
 --
 -- MODELED faithfully: Rwt is
 -- the J axiom (two-binder motive: goal P(b, e), body P(a, {==})); the
@@ -572,7 +572,7 @@ where go : List CtrD → Nat → Option CtrD
   | _ :: cs, c + 1 => go cs c
 
 -- ============================================================================
--- §6 Compare (== bend.ts term_compare and the infer-app
+-- §6 Compare (== bend.ts Compare and the infer-ref
 -- descent loop: EQ columns then one strict subterm, erased columns
 -- skipped)
 -- ============================================================================
@@ -670,7 +670,7 @@ def AdtD.Shape (A : AdtD) : Prop :=
 
 
 -- ============================================================================
--- §8 Equal (== bend.ts WNF/SNF/Equal: reduction at two strengths;
+-- §8 Equal (== bend.ts WNF/SNF/Compare: reduction at two strengths;
 -- conversion is joinability of strong runs, eta and drefS included
 -- — the header's MODELED-faithfully items)
 -- ============================================================================
@@ -941,7 +941,7 @@ inductive Check (β : Book) : Quant → Ctx → Term → Term → Uses → Prop
           Check β q Γ t B π
 
 -- ============================================================================
--- §10 Descent (== bend.ts infer-app self-call + lhs threading:
+-- §10 Descent (== bend.ts infer-ref self-call + lhs threading:
 -- Guard at the leaves, Tree walks the case tree)
 -- ============================================================================
 
