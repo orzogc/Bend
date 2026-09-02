@@ -63,10 +63,13 @@ const BEATS = [
   ["say", "#But why?"],
   ["say", "Because of:", "#laws.bend"],
   ["laws"],
-  ["say", "AI models may only *edit your code*", "if they *prove* the laws still hold.", "",
-          "For *any* sequence of moves.", "For *every* reachable state.", "",
-          "Bend's compiler *checks* that proof,", "*blocking* models from merging bugs."],
-  ["say", "*laws.bend* is like *AGENTS.md*,", "except *backed by logical proofs*."],
+  ["say", "Bend makes it *mathematically impossible*", "to write any code that breaks *laws.bend*."],
+  ["say", "\"Create a teleport skill!\"", "It will not pass through walls."],
+  ["say", "\"Make it pass through walls!\"", "The room is now surrounded by steel."],
+  ["say", "\"Make it pass through *anything*!\"", "The room now kills you."],
+  ["say", "No matter how crazy your prompt is,", "the AI is unable to break the laws.", "",
+          "It must find a harmless workaround,", "so it can write the demanded proof."],
+  ["say", "In short,", "*laws.bend* is *AGENTS.md*", "except *backed by proof*"],
   ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "So, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else."],
   ["example", "sum"],
@@ -430,9 +433,10 @@ S.block = (u, dur) => {
 // ------------------------------------------------------------------ code beats
 // what laws.bend is, then the file itself, held long enough to read twice
 S.laws = (u, dur) => {
-  rich("*laws.bend* is a list of invariants", W/2, 160, 30);
-  cx.globalAlpha = ease((u - 2.2)/0.4); rich("that models are *forced* to respect:", W/2, 210, 30);
-  cx.globalAlpha = ease((u - 4.2)/0.5); codeCard(LAWS_SRC, W/2 - 300, 280, 600, 20, 34);
+  rich("*laws.bend* is a list of *invariants*", W/2, 140, 30);
+  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that models are *forced* to respect.", W/2, 190, 30);
+  cx.globalAlpha = ease((u - 3.8)/0.4); rich("Below is the *winning-is-a-bug* law:", W/2, 240, 30);
+  cx.globalAlpha = ease((u - 5.6)/0.5); codeCard(LAWS_SRC, W/2 - 300, 300, 600, 20, 34);
   cx.globalAlpha = 1;
 };
 
@@ -743,7 +747,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 15.0,
+const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 17.0,
                 dist: 15.5, eval: 15.0, reduce: 19.0, end: 8.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
