@@ -487,9 +487,11 @@ S.example = (u, dur, b) => {
     if (n.side === "B") {
       const cy = y + h + 50;
       T(n.s, W/2, cy, 26, AMBER, "center", true);
+      // each arrow leaves from the label's end nearest its span and lands
+      // on the span's second character, so it reads as pointing at the word
       n.hits.forEach((hit, j) => {
         const side = n.hits.length > 1 ? (j ? 1 : -1) : 0;
-        bow(W/2 + 40*side, cy - 30, spanX(hit) + 1.5*cw, lineY(hit[0]) + 10, side ? -0.2*side : 0.15, AMBER);
+        bow(W/2 + side*(tw/2 - 10), cy - 30, spanX(hit) + 2*cw, lineY(hit[0]) + 10, side ? -0.2*side : 0.15, AMBER);
       });
     } else {
       const L = n.side === "L", lx = L ? 120 : W - 120;
