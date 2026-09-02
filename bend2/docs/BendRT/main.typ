@@ -123,17 +123,18 @@ affine: a live value is consumed at most once unless its binder is
 marked `+`, and a `+` binder forms only at the kind `Data`, which
 excludes functions, arrays and handles. The theory paper argues that
 this wall makes the language consistent. This paper argues that it
-also makes the language fast: the runtime gets for free what runtimes
-for functional languages usually pay most for. A garbage collector
-exists because nobody knows when a value's last owner leaves; under
-affinity the one owner is the match that consumes it, so deallocation
-is compiled code. Work stealing exists because tasks are cheap to make
-and hard to place; under affinity a task owns its arguments, so a fork
-moves memory and never shares it, and the only cross-thread protocol
-is delivering an answer into a join. A GPU wants flat memory, no
-recursion and no runtime; under affinity the evaluator needs no
-collector, and with one discipline on calls no C stack either, so the
-C file is also the shader.
+also makes the language fast. The costs that runtimes for functional
+languages pay most for all come from not knowing who owns a value, and
+affinity settles ownership at compile time. Other runtimes need a
+garbage collector because nobody knows when a value's last owner
+leaves; in Bend the one owner is the match that consumes it, so
+deallocation is compiled code. They need work stealing because tasks
+are cheap to make and hard to place; in Bend a task owns its
+arguments, so a fork moves memory and never shares it, and the only
+cross-thread protocol is delivering an answer into a join. They stay
+off the GPU, which wants flat memory, no recursion and no runtime;
+Bend's evaluator needs no collector, and with one discipline on calls
+no C stack either, so the C file is also the shader.
 
 We follow one program from source to C, to tasks, to the GPU dispatch
 that runs it. Readers of the author's earlier runtimes may expect
