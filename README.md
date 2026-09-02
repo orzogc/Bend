@@ -43,24 +43,34 @@ code anymore, and AI models even appreciate the extra annotations.
 
 **A:** Just ask your agent to write a **proof**.
 
-Here's how it works. Suppose you implemented a trading game, and you wanted to
-prevent bugs like cloning assets. In other languages, you'd write *tests*. But
-there are infinitely many game states. You can't test them all. On Bend, you ask
-your agent: "before stopping, **prove that your code is correct**". It outputs:
+Here's how it works. Suppose you wrote a game that must be unbeatable: if the
+player ever grabs the flag, you lose. In other languages, you'd write *tests*.
+But there are infinitely many sequences of moves. You can't test them all. On
+Bend, you state the law in `laws.bend`:
 
 ```python
-# CLAIM: no sequence of trades can result in cloned assets
-assert no_cloned_assets:
-  forall ts: +List<Trade>
-  forall g: Game
-  {assets(run(ts, g)) == assets(g) : Bag}
+# CLAIM:
+# For any sequence of moves,
+# applying it to the initial
+# game state doesn't result
+# in victory.
+assert winning_is_a_bug:
+  forall moves: List<Game.Move>
+  {Game.is_won(Game.apply(Game.init(), moves)) == False{} : Bool}
+```
 
-# PROOF: the `no_cloned_assets` assert holds.
-def no_cloned_assets(ts, g):
+Then you ask your agent: "before stopping, **prove that your code is
+correct**". It fills the proof:
+
+```python
+# PROOF: the `winning_is_a_bug` assert holds.
+def Laws.winning_is_a_bug(moves):
   # (LONG. leave this part for the AI!)
 ```
 
 And that's it. Once that proof lands, your code is correct. Mathematically.
+The game is real: [Winning Is A Bug](https://github.com/VictorTaelin/winning_is_a_bug)
+ships with that proof. If you ever see its win screen, the type checker is broken.
 
 > We must stress what this means. This is not a test. This is not an audit.
 > This is a MATHEMATICAL PROOF. This is hard to grasp because it is not a common
