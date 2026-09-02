@@ -41,7 +41,8 @@ const BEATS = [
           "the *entire* language runs on GPUs:", "objects, allocation, even closures!", "",
           "memory is *fully unified* between CPU and GPU.", "passing data between chips is a no-cost op!", "",
           "parallel programming is easy.", "no threads, mutexes, atomics.", "just fork the call, and done!"],
-  ["say", "Ok, but what about *correctness*?", "", "Users can prevent AI", "from making mistakes",
+  ["psum"],
+  ["say", "How about *vibe-coding*?", "", "Users can prevent AI", "from making mistakes",
           "by demanding *proofs*."],
   ["say", "#How proofs work?"],
   ["say", "Consider a game with one law:", "*the player cannot win*"],
@@ -154,6 +155,14 @@ function codeCard(lines, x, y, w, size, pitch) {
   box(x, y, w, lines.length*pitch + 44, 10, "#ffffff", EDGE, 1.5);
   lines.forEach((l, i) => codeLine(l, x + 28, y + 36 + i*pitch, size));
 }
+
+const SUM_SRC = `def sum(+d: Nat, +i: U32) -> U32:
+  match d:
+    case 0n:
+      i
+    case 1n+p:
+      a b = sum(p, i * 2) sum(p, i * 2 + 1)
+      a + b`.split("\n");
 
 // laws.bend, for the reader: the namespaces and the equality's braces are
 // left out (that sugar comes later)
@@ -408,12 +417,27 @@ S.block = (u, dur) => {
 // what laws.bend is, then the file itself, held long enough to read twice
 S.laws = (u, dur) => {
   rich("*laws.bend* is a list of invariants", W/2, 160, 30);
-  cx.globalAlpha = ease((u - 2.2)/0.4); rich("that models are forced to respect:", W/2, 210, 30);
+  cx.globalAlpha = ease((u - 2.2)/0.4); rich("that models are *forced* to respect:", W/2, 210, 30);
   cx.globalAlpha = ease((u - 4.2)/0.5); codeCard(LAWS_SRC, W/2 - 300, 280, 600, 20, 34);
   cx.globalAlpha = 1;
 };
 
 
+S.psum = (u, dur) => {
+  rich("*Example program*", W/2, 96, 30);
+  const x = W/2 - 400, y = 170, size = 20, pitch = 32, h = SUM_SRC.length*pitch + 44;
+  codeCard(SUM_SRC, x, y, 800, size, pitch);
+  const a = ease((u - 4.2)/0.4), cy = y + h + 70;
+  if (a <= 0) return;
+  font(size); const cw = cx.measureText("M").width;
+  const ly = y + 36 + 5*pitch, l = SUM_SRC[5];
+  const c1 = l.indexOf("sum("), c2 = l.indexOf("sum(", c1 + 1);
+  cx.globalAlpha = a;
+  T("parallel calls", W/2, cy, 26, AMBER, "center", true);
+  bow(W/2 - 40, cy - 30, x + 28 + (c1 + 1.5)*cw, ly + 10, 0.2, AMBER);
+  bow(W/2 + 40, cy - 30, x + 28 + (c2 + 1.5)*cw, ly + 10, -0.2, AMBER);
+  cx.globalAlpha = 1;
+};
 // ------------------------------------------------------------------ the cube
 // The GPU is a static 128 x 128 grid of threads: the cube. sum(24) splits in
 // two, then four, ... until one task sits on every thread; each thread works
@@ -649,7 +673,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { bench: 9.5, par: 12.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 15.0,
-                dist: 15.5, eval: 15.0, reduce: 19.0, end: 8.0 };
+                psum: 10.0, dist: 15.5, eval: 15.0, reduce: 19.0, end: 8.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
