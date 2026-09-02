@@ -23,10 +23,7 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "Bend is a programming language", "",
-          "... that runs as *fast* as C", "... that *parallelizes* like CUDA",
-          "... that *blocks* AI from /making mistakes/"],
-  ["say", "let's first tackle AI mistakes"],
+  ["say", "how to stop an *AI agent*", "from *making mistakes*?"],
   ["say", "consider a game with one law:", "*the player cannot win*"],
   ["intro"],
   ["say", "so far, it works!"],
@@ -40,8 +37,9 @@ const BEATS = [
   ["say", "#but why?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "by incorporating a *proof system*,", "Bend mechanically enforces *laws.bend*,",
-          "making it *mathematically inviolable*"],
+  ["say", "#but what enforces it?"],
+  ["say", "Bend is a *programming language*", "with a built-in *proof system*", "",
+          "it mechanically enforces *laws.bend*,", "making it *mathematically inviolable*"],
   ["say", "%*PROMPT:* \"create a teleport skill\"", "*RESULT:* it won't pass through walls"],
   ["say", "%*PROMPT:* \"make it pass through walls!\"", "*RESULT:* the room is surrounded by steel"],
   ["say", "%*PROMPT:* \"make it pass through *anything*!\"", "*RESULT:* the room now kills you"],
