@@ -3,8 +3,9 @@
 // Rules: a screen is EITHER one sentence OR one picture, never both.
 // One new thing per beat, held long enough to read it out loud twice.
 // In a sentence, *stars* mark the words that carry the idea, +plus+ is
-// green, _under_ is red, a line that starts with ~ is a dim aside, a line
-// that starts with # is a title, and an empty line is a breath of space.
+// green, _under_ is red, /slash/ leans, a line that starts with ~ is a dim
+// aside, a line that starts with # is a title, and an empty line is a
+// breath of space.
 // Twin lines are written to the same length, so a slide reads as one block.
 //
 // PACING BASELINE, measured on a real reader: a new word costs 0.32s to read;
@@ -22,22 +23,23 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
 const BEATS = [
-  ["say", "how to stop an *AI agent*", "from *making mistakes*?"],
+  ["say", "Bend is a programming language", "",
+          "... that runs as *fast* as C", "... that *parallelizes* like CUDA",
+          "... that *blocks* AI from /making mistakes/"],
+  ["say", "let's first tackle AI mistakes"],
   ["say", "consider a game with one law:", "*the player cannot win*"],
   ["intro"],
   ["say", "so far, it works!"],
-  ["say", "now, what if we write this prompt:", "%\"let the player *wrap around*\""],
-  ["say", "#what would happen?"],
+  ["say", "now, let's try this prompt:", "%\"allow the player to *wrap around*\""],
+  ["say", "normally, what would happen?"],
   ["walk"],
-  ["say", "as expected, the *law was broken*", "new features can introduce *bugs*"],
-  ["say", "let's try the same prompt again", "except, now, with *solution X* on"],
+  ["say", "the player wins, *breaking the law*", "new features can introduce *bugs*..."],
+  ["say", "in Bend, this happens instead:"],
   ["block"],
-  ["say", "by toggling *solution X*", "the AI placed a wall", "the law is preserved"],
-  ["say", "but what is *solution X*?"],
+  ["say", "the AI placed a wall", "the law is preserved"],
+  ["say", "#but why?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "but what enforces it?"],
-  ["say", "#Bend", "%a new programming language"],
   ["say", "by incorporating a *proof system*,", "Bend mechanically enforces *laws.bend*,",
           "making it *mathematically inviolable*"],
   ["say", "%*PROMPT:* \"create a teleport skill\"", "*RESULT:* it won't pass through walls"],
@@ -69,7 +71,8 @@ const BEATS = [
   ["say", "the *entire language* runs in parallel", "",
           "objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
           "*everything runs natively on GPUs*", "~(with CPU cores as a fallback)"],
-  ["say", "so, that's Bend:", "a language that is *fast*", "where *vibe-coding works*", "and not much else"],
+  ["say", "so, that's Bend:", "",
+          "runs as *fast* as C", "*parallelizes* like CUDA", "*blocks* AI from /making mistakes/"],
   ["end"],
 ];
 
@@ -94,22 +97,26 @@ function T(s, x, y, size, color, align, bold) {
   font(size, bold); cx.fillStyle = color; cx.textAlign = align || "left";
   cx.fillText(s, x, y); cx.textAlign = "left";
 }
-// centred sentence with emphasis: *bold*  +green+  _red_
+// centred sentence with emphasis: *bold*  +green+  _red_  /oblique/
+// (Menlo has no italic, so an oblique run is the text leaned by a skew)
 function rich(s, x, y, size, color) {
   const toks = [];
   for (let i = 0; i < s.length; ) {
-    const c = s[i], j = "*+_".includes(c) ? s.indexOf(c, i + 1) : -1;
+    const c = s[i], j = "*+_/".includes(c) ? s.indexOf(c, i + 1) : -1;
     if (j > i) { toks.push([s.slice(i + 1, j), c]); i = j + 1; continue; }
-    let e = i + 1; while (e < s.length && !"*+_".includes(s[e])) e++;
+    let e = i + 1; while (e < s.length && !"*+_/".includes(s[e])) e++;
     toks.push([s.slice(i, e), ""]); i = e;
   }
+  const bold = m => !!m && m !== "/";
   let total = 0;
-  toks.forEach(([p, m]) => { font(size, !!m); total += cx.measureText(p).width; });
+  toks.forEach(([p, m]) => { font(size, bold(m)); total += cx.measureText(p).width; });
   let px = x - total/2;
   toks.forEach(([p, m]) => {
-    font(size, !!m);
+    font(size, bold(m));
     cx.fillStyle = m === "+" ? GREEN : m === "_" ? RED : m === "*" ? INK : (color || INK);
+    if (m === "/") { cx.save(); cx.transform(1, 0, -0.2, 1, 0.2*y, 0); }
     cx.fillText(p, px, y); px += cx.measureText(p).width;
+    if (m === "/") cx.restore();
   });
 }
 function box(x, y, w, h, r, fill, stroke, lw) {
@@ -401,7 +408,7 @@ S.intro = (u, dur) => {
   T("goal", 150, BY + 1.5*TILE + 8, 26, AMBER, "center", true);
   bow(205, BY + 1.5*TILE, BX + TILE - 6, BY + 1.5*TILE, -0.15, AMBER);
   cx.globalAlpha = 1;
-  footer("law: player can't catch the flag", ease((u - 2.4)/0.4), RED);
+  footer("law: player can't win", ease((u - 2.4)/0.4), RED);
 };
 
 // other languages: the player goes up to the flag's row, right off the
@@ -699,7 +706,7 @@ S.say = (u, dur, b) => {
   const ls = sayLines(b);
   const gap = (i, k) => k*((ls[i - 1].pitch + ls[i].pitch)/2 + (ls[i - 1].size === 22 && ls[i].size !== 22 ? 18 : 0));
   let k = 1, hgt = 0;
-  ls.forEach(l => { font(l.size, true); k = Math.min(k, (W - 120)/cx.measureText(l.s.replace(/[*+_]/g, "")).width); });
+  ls.forEach(l => { font(l.size, true); k = Math.min(k, (W - 120)/cx.measureText(l.s.replace(/[*+_/]/g, "")).width); });
   ls.forEach((l, i) => { if (i) hgt += gap(i, 1); });
   k = Math.min(k, (H - 130)/hgt);
   let y = 372 - hgt*k/2 + 12*k;
@@ -730,7 +737,7 @@ S.reveal = (u, dur, b) => {
 S.end = (u, dur) => {
   T("Bend", W/2, 290, 64, INK, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
-  T("fast  ·  vibe-coding works  ·  and nothing else", W/2, 360, 24, GREEN, "center");
+  T("as fast as C  ·  parallel like CUDA  ·  no AI mistakes", W/2, 360, 24, GREEN, "center");
   cx.globalAlpha = ease((u - 1.8)/0.5);
   T("Python syntax · C speed · CPU and GPU · proofs", W/2, 430, 19, DIM, "center");
   T("github.com/HigherOrderCO/Bend", W/2, 480, 22, "#1a5fd0", "center");
