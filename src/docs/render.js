@@ -30,8 +30,7 @@ const BEATS = [
   ["bench", "gameoflife"],
   ["say", "And it parallelizes!"],
   ["par", "gameoflife"],
-  ["psum"],
-  ["say", "#How it works?"],
+  ["say", "#The entire language runs on GPUs."],
   ["say", "#Step 1: Distribution", quick],
   ["dist"],
   ["say", "#Step 2: Evaluation", quick],
@@ -165,14 +164,6 @@ assert winning_is_a_bug:
   board = init()
   board = apply(board, moves)
   is_won(board) == False`.split("\n");
-
-const SUM_SRC = `def sum(+d: Nat, +i: U32) -> U32:
-  match d:
-    case 0n:
-      i
-    case 1n+p:
-      a b = sum(p, i * 2) sum(p, i * 2 + 1)
-      a + b`.split("\n");
 
 // ------------------------------------------------------------------ benches
 // Every number is a pin from bench/runtime/_pin_apple_m4_max_.txt and
@@ -422,21 +413,6 @@ S.laws = (u, dur) => {
   cx.globalAlpha = 1;
 };
 
-S.psum = (u, dur) => {
-  rich("Parallelism is *near-automatic*", W/2, 96, 30);
-  const x = W/2 - 400, y = 170, size = 20, pitch = 32, h = SUM_SRC.length*pitch + 44;
-  codeCard(SUM_SRC, x, y, 800, size, pitch);
-  const a = ease((u - 4.2)/0.4), cy = y + h + 70;
-  if (a <= 0) return;
-  font(size); const cw = cx.measureText("M").width;
-  const ly = y + 36 + 5*pitch, l = SUM_SRC[5];
-  const c1 = l.indexOf("sum("), c2 = l.indexOf("sum(", c1 + 1);
-  cx.globalAlpha = a;
-  T("parallel calls", W/2, cy, 26, AMBER, "center", true);
-  bow(W/2 - 40, cy - 30, x + 28 + (c1 + 1.5)*cw, ly + 10, 0.2, AMBER);
-  bow(W/2 + 40, cy - 30, x + 28 + (c2 + 1.5)*cw, ly + 10, -0.2, AMBER);
-  cx.globalAlpha = 1;
-};
 
 // ------------------------------------------------------------------ the cube
 // The GPU is a static 128 x 128 grid of threads: the cube. sum(24) splits in
@@ -673,7 +649,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { bench: 9.5, par: 12.5, check: 14.0, intro: 14.5, walk: 10.5, block: 9.0, laws: 15.0,
-                psum: 10.0, dist: 15.5, eval: 15.0, reduce: 19.0, end: 8.0 };
+                dist: 15.5, eval: 15.0, reduce: 19.0, end: 8.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
