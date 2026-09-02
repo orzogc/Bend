@@ -21,7 +21,7 @@ const READ = 0.32;
 const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
                    .reduce((n, w) => n + (/\d/.test(w) ? 2 : 1), 0) : 0;
 
-const co = "co", punch = "punch", quick = "quick", TAG = new Set([co, punch, quick]);
+const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
 const BEATS = [
   ["say", "how to stop *AI agents*", "from *making mistakes*?"],
   ["say", "consider a game with one law:", "*the player cannot win*"],
@@ -30,26 +30,27 @@ const BEATS = [
   ["say", "now, let's prompt a feature:", "%\"make the map *wrap around*\""],
   ["say", "normally, what would happen?"],
   ["walk"],
-  ["say", "the new feature introduced a *bug*..."],
-  ["say", "*Bend* is a new programming language"],
-  ["say", "in Bend, this happens instead:"],
+  ["say", "the new feature introduced a *bug*"],
+  ["say", "could this have been prevented?"],
   ["block"],
-  ["say", "the AI placed a wall", "the law is preserved"],
-  ["say", "#but why?"],
+  ["say", "by placing a wall", "the feature works", "and the law holds"],
+  ["say", "imagine a world where AIs", "always respected our laws"],
+  ["say", "#but how?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
   ["say", "#but what enforces it?"],
-  ["say", "Bend has a built-in *proof system*", "that mechanically enforces *laws.bend*,",
-          "making it *mathematically inviolable*"],
-  ["say", "%*PROMPT*: \"create a teleport skill\"", "*RESULT*: it won't pass through walls"],
-  ["say", "%*PROMPT*: \"make it pass through walls!\"", "*RESULT*: the room is surrounded by steel"],
-  ["say", "%*PROMPT*: \"make it pass through *anything*!\"", "*RESULT*: the room now kills you"],
+  ["say", "*formal proofs*!"],
+  ["say", "proofs are an old tech", "",
+          "for *decades*, they've secured", "CPUs, OSs, military aircraft", "",
+          "by enabling a proof checker,", "it becomes *impossible* to", "violate *laws.bend*"],
+  ["say", "let's try to break it:"],
+  ["say", "%*PROMPT*: \"add a new teleport spell\"", "*RESULT*: it can't pass through walls", left],
+  ["say", "%*PROMPT*: \"make it pass through walls\"", "*RESULT*: the walls become stones", left],
+  ["say", "%*PROMPT*: \"make it pass through anything\"", "*RESULT*: the room now kills you", left],
   ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
-          "because every commit must include a *proof*", "that *laws.bend* still holds"],
+          "because editing code is only allowed", "if you prove that *laws.bend* still holds!"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
-  ["say", "*proof languages* are an old tech", "",
-          "for *decades*, they've secured", "CPUs, kernels, military aircraft", "",
-          "so, why aren't they everywhere?", "and why use *Bend* specifically?"],
+  ["say", "so, why aren't proofs everywhere?", "and why use *Bend* specifically?"],
   ["say", "because proof languages are *slow*"],
   ["say", "yet, Bend is"],
   ["reveal", "FAST", 64],
@@ -422,18 +423,15 @@ S.block = (u, dur) => {
 };
 
 // ------------------------------------------------------------------ code beats
-// what laws.bend is, then the file itself, held long enough to read twice
+// the file under its name, then where the rules go
 S.laws = (u, dur) => {
-  const x = W/2 - 300, y = 285, h = LAWS_SRC.length*34 + 44;
-  rich("a new file that lists *invariants*", W/2, 140, 30);
-  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that AIs are *forced* to respect", W/2, 190, 30);
-  cx.globalAlpha = ease((u - 4.0)/0.5);
+  const x = W/2 - 300, y = 190, h = LAWS_SRC.length*34 + 44;
   T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
   codeCard(LAWS_SRC, x, y, 600, 20, 34);
-  const pa = ease((u - 7.5)/0.5);
+  const pa = ease((u - 3.0)/0.5);
   cx.globalAlpha = pa;
-  T("write your rules here", W/2, 650, 26, AMBER, "center", true);
-  bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
+  T("write your rules here", W/2, 575, 26, AMBER, "center", true);
+  bow(W/2, 542, W/2, y + h + 10, 0, AMBER, pa);
   cx.globalAlpha = 1;
 };
 
@@ -701,20 +699,22 @@ function sayLines(b) {
     : { s, size: 34, pitch: 62, color: INK });
 }
 // a slide too wide or too tall for the screen shrinks as a whole, so its
-// lines keep their proportions
+// lines keep their proportions. Lines are centred, or share a left edge
+// when the slide is tagged left (the block itself stays centred).
 S.say = (u, dur, b) => {
-  const ls = sayLines(b);
+  const ls = sayLines(b), L = b.includes(left);
   const gap = (i, k) => k*((ls[i - 1].pitch + ls[i].pitch)/2 + (ls[i - 1].size === 22 && ls[i].size !== 22 ? 18 : 0));
-  let k = 1, hgt = 0;
-  ls.forEach(l => { font(l.size, true); k = Math.min(k, (W - 120)/cx.measureText(l.s.replace(/[*+_/]/g, "")).width); });
+  const ws = ls.map(l => { font(l.size, true); return cx.measureText(l.s.replace(/[*+_/]/g, "")).width; });
+  let k = Math.min(1, (W - 120)/Math.max(...ws)), hgt = 0;
   ls.forEach((l, i) => { if (i) hgt += gap(i, 1); });
   k = Math.min(k, (H - 130)/hgt);
   let y = 372 - hgt*k/2 + 12*k;
+  const x0 = W/2 - Math.max(...ws)*k/2;
   ls.forEach((l, i) => {
     if (i) y += gap(i, k);
     cx.globalAlpha = i === 0 ? 1 : ease((u - b.at[i])/0.4);
     if (l.slant) { cx.save(); cx.transform(1, 0, -0.2, 1, 0.2*y, 0); }
-    rich(l.s, W/2, y, l.size*k, l.color);
+    rich(l.s, L ? x0 + ws[i]*k/2 : W/2, y, l.size*k, l.color);
     if (l.slant) cx.restore();
     cx.globalAlpha = 1;
   });
@@ -748,7 +748,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 15.0,
+const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 11.0,
                 dist: 11.0, eval: 11.5, reduce: 19.0, end: 32.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
