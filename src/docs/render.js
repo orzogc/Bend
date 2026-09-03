@@ -282,7 +282,7 @@ S.check = (u, dur) => {
 const GW = 12, GH = 8, TILE = 56, BX = W/2 - GW*TILE/2, BY = 126;
 const PAL = { floor: ["#f5f7fa", "#e9eef4"], wall: "#b9c6da", cap: "#d3dce9", hit: "#f3c6b2", hitcap: "#f9dccf",
               pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441",
-              win: "#cf2230", winRim: "#8e1620", winInk: "#ffffff" };
+              win: "#fde9e6", winRim: "#f0aaa1", winInk: "#a3302a" };
 function wallsOf(v) {
   const s = new Set(), add = (x, y) => s.add(x + "," + y);
   for (let y = 0; y <= 3; y++) add(3, y);
@@ -333,6 +333,7 @@ function gameCard(v, px, py, flag, hit) {
   cx.restore();
 }
 // a line under the board
+const LAW = "LAW: player can't win.";
 function footer(s, a, color) {
   if (a <= 0) return;
   cx.globalAlpha = a; T(s, W/2, 664, 26, color || INK, "center", true); cx.globalAlpha = 1;
@@ -379,23 +380,25 @@ S.intro = (u, dur) => {
   T("Goal", 150, BY + 1.5*TILE + 8, 26, AMBER, "center", true);
   bow(205, BY + 1.5*TILE, BX + TILE - 6, BY + 1.5*TILE, -0.15, AMBER);
   cx.globalAlpha = 1;
-  footer("Law: player can't win", ease((u - 2.0)/0.4), RED);
+  footer(LAW, ease((u - 2.0)/0.4), GREEN);
 };
 
 // laws.bend off: the player goes up to the flag's row, right off the
 // edge, in on the left, and takes the flag: the wrap dropped it in the
-// room. Victory pops on the board once the flag is gone.
+// room. Victory pops on the board once the flag is gone, and the law
+// under the board turns red.
 const T0W = 0.6;
 const WIN = up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]);
 S.walk = (u, dur) => {
   const [x, y] = routeAt(WIN, Math.max(u - T0W, 0)), done = T0W + routeDur(WIN);
   gameCard("base", x, y, u < done, null);
   const pa = ease((u - done - 0.3)/0.4);
+  footer(LAW, 1, pa > 0 ? RED : GREEN);
   if (pa > 0) {
     const py = BY + GH*TILE/2 - 40;
     cx.globalAlpha = pa;
     box(W/2 - 150, py, 300, 80, 14, PAL.win, PAL.winRim, 1.5);
-    T("VICTORY!", W/2, py + 51, 30, PAL.winInk, "center", true);
+    T("YOU WON >:(", W/2, py + 51, 30, PAL.winInk, "center", true);
     cx.globalAlpha = 1;
   }
 };
@@ -406,6 +409,7 @@ const BLOCK = up(8, 5, 1).concat([[9, 1], [10, 1]]);
 S.block = (u, dur) => {
   const [x, y, hit] = walkBump(BLOCK, 1, [11, 1], u, T0W);
   gameCard("far", x, y, true, hit);
+  footer(LAW, 1, GREEN);
 };
 
 // ------------------------------------------------------------------ code beats
