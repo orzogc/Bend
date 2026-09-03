@@ -80,6 +80,7 @@
 // Index  | x "[" i "]" ("<-" v)?      | Array.get(U32, x, i), ..set(..)
 // Fill   | D "<" [A ","?] ">"         | D<&1.., A..>
 // Plus   | "+" D ("<" [A ","?] ">")?  | D<&2.., A..>
+// Ops    | "(" a "+" b ":" T ")"      | T.add(a, b)
 //
 // every word the parser dispatches on is reserved and names nothing:
 // def, type, assert, match, case, do, return, forall, exists, where,
@@ -102,6 +103,13 @@
 // bind tighter than "->". a rewrite "%e@E : P; f" binds e and "_" inside
 // its motive P; "%E : P; f" is the nameless form: the equation binder is
 // spelled "" and cannot be referenced.
+//
+// an operator is a method with no namespace: the ": T" before the ")"
+// around it names T's head as its namespace, and nested parens
+// inherit, so (a + b * c : U32) is U32.add(a, U32.mul(b, c)) and an
+// argument is f((a + b : U32)); an index x[i + 1] is U32's; with no
+// parens it is Nat's; braces only annotate. || && ++ <> & | are
+// fixed, and equality is a call: T.is_eq(a, b).
 //
 // juxtaposition laws: a call or index suffix may be spaced but a
 // newline ends the spine. after a term, "<" takes one argument above
@@ -310,7 +318,7 @@ export type Body  = Match | Local | Reply
 // Parser
 export type Loc   = number;
 export type Scope = { stk: Array<[Name, number]>; frs: number; };
-export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; };
+export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; os: Array<{ k: Name }>; };
 export type Span  = { src: string; beg: Loc; end: Loc; };
 
 // Machine
@@ -758,7 +766,7 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
       }
     }
     case "Ref": {
-      return Ref(tm.k, tm.s, tm.b);
+      return Ref(tm.k[0] === "." ? "Nat" + tm.k : tm.k, tm.s, tm.b);
     }
     case "Sub": {
       const v = term_higher(tm.v, env);
@@ -1514,7 +1522,7 @@ const KEYWORDS = new Set([
 const QUAS: Record<string, Quant> = { "0": None(), "1": Lone(), "2": Many() };
 
 export function parse_new(book: Book, dir: string, str: string, ns: string = "", al: Record<Name, Name> = Object.create(null)): Parse {
-  return { book, dir, str, pos: 0, sc: { stk: [], frs: 0 }, ns, al };
+  return { book, dir, str, pos: 0, sc: { stk: [], frs: 0 }, ns, al, os: [] };
 }
 
 export function parse_col(src: string, pos: Loc): number {
@@ -1801,7 +1809,7 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
     }
     case "(": {
       parse_bump(p);
-      return parse_term_tup(p, beg);
+      return parse_term_tup(p, beg, p.os.length);
     }
     case "[": {
       parse_bump(p);
@@ -1873,37 +1881,25 @@ export function parse_term_base_word(p: Parse, k: Name, beg: Loc): LTerm {
 }
 
 const INFIX_OPS: Array<[string, number, Bool, Name]> = [
-  ["==.",  4, false, "F32.is_eq"],
-  ["!=.",  4, false, "F32.is_ne"],
-  ["<=.",  4, false, "F32.is_le"],
-  [">=.",  4, false, "F32.is_ge"],
-  ["<.",   4, false, "F32.is_lt"],
-  [">.",   4, false, "F32.is_gt"],
-  [".|.",  6, false, "U32.or"],
-  [".^.",  7, false, "U32.xor"],
-  [".&.",  8, false, "U32.and"],
-  ["+.",  10, false, "F32.add"],
-  ["-.",  10, false, "F32.sub"],
-  ["*.",  11, false, "F32.mul"],
-  ["/.",  11, false, "F32.div"],
-  ["%.",  11, false, "F32.mod"],
+  [".|.",  6, false, ".or"],
+  [".^.",  7, false, ".xor"],
+  [".&.",  8, false, ".and"],
   ["||",   2, false, "Bool.or"],
   ["&&",   3, false, "Bool.and"],
-  ["<=",   4, false, "U32.is_le"],
-  [">=",   4, false, "U32.is_ge"],
+  ["<=",   4, false, ".is_le"],
+  [">=",   4, false, ".is_ge"],
   ["<>",   5, true,  ""],
   ["++",   5, true,  "String.append"],
-  ["<<",   9, false, "U32.shln"],
-  [">>",   9, false, "U32.shrn"],
+  ["<<",   9, false, ".shln"],
+  [">>",   9, false, ".shrn"],
   ["&",    1, true,  ""],
   ["|",    1, true,  ""],
-  [">",    4, false, "U32.is_gt"],
-  ["+n",  10, false, "Nat.add"],
-  ["+",   10, false, "U32.add"],
-  ["-",   10, false, "U32.sub"],
-  ["*",   11, false, "U32.mul"],
-  ["/",   11, false, "U32.div"],
-  ["%",   11, false, "U32.mod"],
+  [">",    4, false, ".is_gt"],
+  ["+",   10, false, ".add"],
+  ["-",   10, false, ".sub"],
+  ["*",   11, false, ".mul"],
+  ["/",   11, false, ".div"],
+  ["%",   11, false, ".mod"],
 ];
 
 export function parse_infx_find(p: Parse): [string, number, Bool, Name] | null {
@@ -1913,9 +1909,6 @@ export function parse_infx_find(p: Parse): [string, number, Bool, Name] | null {
     }
     const nx = p.str[p.pos + op[0].length] ?? "";
     if ((op[0] === "-" || op[0] === "+") && (nx === ">" || char_is_head(nx))) {
-      continue;
-    }
-    if (op[0] === "+n" && char_is_name(nx)) {
       continue;
     }
     if (op[0][0] === ">" && !/\s/.test(p.str[p.pos - 1] ?? " ")) {
@@ -1978,9 +1971,11 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     }
     if (parse_at(p, "[")) {
       parse_bump(p);
+      const n0 = p.os.length;
       const ix = parse_term(p);
       parse_eat(p, "]");
       const s = parse_grow(p, out);
+      parse_term_ns(p, p.os.splice(n0), Ref("U32", s));
       parse_skip(p);
       if (!parse_nl(p) && parse_take(p, "<-")) {
         const v = parse_term(p, 2);
@@ -1992,7 +1987,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
       }
       continue;
     }
-    if (parse_at(p, "<") && !"-=<.>".includes(p.str[p.pos + 1] ?? "") && !parse_at(p, "<&>")
+    if (parse_at(p, "<") && !"-=<>".includes(p.str[p.pos + 1] ?? "") && !parse_at(p, "<&>")
       && (lvl <= 4 || /\S/.test(p.str[p.pos - 1] ?? ""))) {
       parse_bump(p);
       const a = parse_term(p, 5);
@@ -2014,7 +2009,9 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
         }
         out = ADT(k, xs, s);
       } else {
-        out = App(App(Ref("U32.is_lt", s), out, s), a, s);
+        const f = { $: "Ref" as const, k: ".is_lt", s };
+        p.os.push(f);
+        out = App(App(f, out, s), a, s);
       }
       continue;
     }
@@ -2054,8 +2051,23 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     } else if (op[0] === "|") {
       out = App(App(Ref("Or", s), out, s), b, s);
     } else {
-      out = App(App(Ref(op[3], s), out, s), b, s);
+      const f = { $: "Ref" as const, k: op[3], s };
+      if (op[3][0] === ".") {
+        p.os.push(f);
+      }
+      out = App(App(f, out, s), b, s);
     }
+  }
+}
+
+export function parse_term_ns(p: Parse, fs: Array<{ k: Name }>, T: LTerm): void {
+  // the parens' ": T" names the methods (.add) pushed on p.os inside them
+  const h = term_unapply(T)[0];
+  for (const f of fs) {
+    if (h.$ !== "Var" && h.$ !== "Ref" && h.$ !== "ADT") {
+      throw Err(p.book, ctx_nil(), "a type name after : (the operators' namespace)", undefined, h.s);
+    }
+    f.k = parse_reso(p, h.k + f.k);
   }
 }
 
@@ -2090,15 +2102,18 @@ export function parse_term_all(p: Parse, exi: boolean): LTerm {
   return All(q, k, i, A, B);
 }
 
-export function parse_term_tup(p: Parse, beg: Loc): LTerm {
+export function parse_term_tup(p: Parse, beg: Loc, n0: number): LTerm {
   parse_skip(p);
   const b = parse_body(p, parse_col(p.str, p.pos) - 1);
   parse_skip(p);
   if (b.$ === "Reply" && parse_take(p, ",")) {
-    const rest = parse_term_tup(p, beg);
+    const rest = parse_term_tup(p, beg, n0);
     return Ctr("Tuple", [b.x, rest], parse_span(p, beg));
   }
   const out = body_flatten(b, [], () => p.sc.frs++);
+  if (parse_take(p, ":")) {
+    parse_term_ns(p, p.os.splice(n0), parse_term(p));
+  }
   parse_eat(p, ")");
   return out;
 }

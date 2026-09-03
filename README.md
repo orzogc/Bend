@@ -108,8 +108,8 @@ def sum(+d: Nat, +i: U32) -> U32:
     case 0n:
       i
     case 1n+p:
-      a b = sum(p, i * 2) sum(p, i * 2 + 1)
-      a + b
+      a b = sum(p, (i * 2 : U32)) sum(p, (i * 2 + 1 : U32))
+      (a + b : U32)
 
 # Runs sum on the GPU, via `!`.
 def main() -> IO(Unit):

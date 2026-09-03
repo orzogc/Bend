@@ -27,7 +27,7 @@ def http_body.go(s, e, w):
         case True{}:
           SCon{Chr{a}, t}
         case False{}:
-          +w2 = w * 256 + a
+          +w2 = (w * 256 + a : U32)
           http_body.go(t, U32.is_eq(w2, 218762506), w2)
 
 assert http_body:

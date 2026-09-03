@@ -57,7 +57,7 @@ assert seed:
   U32
 
 def seed(i):
-  prng((i + 1) * 2654435761)
+  prng(((i + 1) * 2654435761 : U32))
 
 # placeholder seed: the line seed salted by the template position
 assert salt:
@@ -66,7 +66,7 @@ assert salt:
   U32
 
 def salt(s, k):
-  prng(U32.xor(s, k * 2654435761))
+  prng(U32.xor(s, (k * 2654435761 : U32)))
 
 # the operator: + - * / by the two low bits of the seed
 assert op.pick:
@@ -106,7 +106,7 @@ def ident(n, t, rest):
       rest
     case 1n+p:
       +u = prng(t)
-      SCon{Chr{97 + (u % 26)}, ident(p, u, rest)}
+      SCon{Chr{(97 + u % 26 : U32)}, ident(p, u, rest)}
 
 # a number: n random decimal digits, one prng step each
 assert num:
@@ -121,7 +121,7 @@ def num(n, t, rest):
       rest
     case 1n+p:
       +u = prng(t)
-      SCon{Chr{48 + (u % 10)}, num(p, u, rest)}
+      SCon{Chr{(48 + u % 10 : U32)}, num(p, u, rest)}
 
 # one placeholder in front of the rest of the line: an identifier of
 # 1 + (t & 7) letters, a number of 1 + t % 6 digits, an operator, or
@@ -136,9 +136,9 @@ assert expand:
 def expand(sl, c, t, rest):
   match sl:
     case Id{}:
-      ident(U32.to_nat(1 + U32.and(t, 7)), t, rest)
+      ident(U32.to_nat((1 + U32.and(t, 7) : U32)), t, rest)
     case Nm{}:
-      num(U32.to_nat(1 + (t % 6)), t, rest)
+      num(U32.to_nat((1 + t % 6 : U32)), t, rest)
     case Op{}:
       op(t, rest)
     case Lit{}:
@@ -192,7 +192,7 @@ def gen(tpl, s, k):
     case SNil{}:
       SNil{}
     case SCon{Chr{c}, u}:
-      gen.at(c, salt(s, k), gen(u, s, k + 1))
+      gen.at(c, salt(s, k), gen(u, s, (k + 1 : U32)))
 
 assert tpl:
   String
@@ -234,7 +234,7 @@ assert mix:
   U32
 
 def mix(acc, kind, x):
-  U32.xor(acc * 2654435761, kind * 40503 + x)
+  U32.xor((acc * 2654435761 : U32), (kind * 40503 + x : U32))
 
 # FNV-1a: one letter into the identifier hash
 assert fnv:
@@ -243,7 +243,7 @@ assert fnv:
   U32
 
 def fnv(h, c):
-  U32.xor(h, c) * 16777619
+  (U32.xor(h, c) * 16777619 : U32)
 
 # the machine: (mode, acc) steps over one classified character; a
 # letter extends an identifier, a digit a number, and anything else
@@ -260,7 +260,7 @@ def step.at(m, k, c, acc):
     case Gap{} Letter{}:
       (InId{fnv(2166136261, c)}, acc)
     case Gap{} Digit{}:
-      (InNm{c - 48}, acc)
+      (InNm{(c - 48 : U32)}, acc)
     case Gap{} Space{}:
       (Gap{}, acc)
     case Gap{} Punct{}:
@@ -268,7 +268,7 @@ def step.at(m, k, c, acc):
     case InId{h} Letter{}:
       (InId{fnv(h, c)}, acc)
     case InId{h} Digit{}:
-      (InNm{c - 48}, mix(acc, 1, h))
+      (InNm{(c - 48 : U32)}, mix(acc, 1, h))
     case InId{h} Space{}:
       (Gap{}, mix(acc, 1, h))
     case InId{h} Punct{}:
@@ -276,7 +276,7 @@ def step.at(m, k, c, acc):
     case InNm{v} Letter{}:
       (InId{fnv(2166136261, c)}, mix(acc, 2, v))
     case InNm{v} Digit{}:
-      (InNm{v * 10 + (c - 48)}, acc)
+      (InNm{(v * 10 + (c - 48) : U32)}, acc)
     case InNm{v} Space{}:
       (Gap{}, mix(acc, 2, v))
     case InNm{v} Punct{}:
@@ -340,8 +340,8 @@ def batch(d, i):
     case 0n:
       line(i)
     case 1n+p:
-      a b = batch(p, i) batch(p, i + U32.shln(1, p))
-      a + b
+      a b = batch(p, i) batch(p, (i + U32.shln(1, p) : U32))
+      (a + b : U32)
 
 assert size.small:
   Nat
