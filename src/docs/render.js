@@ -51,7 +51,7 @@ const BEATS = [
   ["block"],
   ["say", "The rules in *laws.bend* are enforced by the same",
           "algorithm used in proof assistants such as Lean.", "",
-          "It is *mathematically impossible* for AIs to",
+          "It's *mathematically impossible* for AI agents to",
           "break its laws. Edits demand correctness proofs.", "",
           "Models either *make no mistakes*, or *fail loudly*."],
   ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
