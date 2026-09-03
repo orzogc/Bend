@@ -3,7 +3,7 @@
 // Rules: a screen is EITHER one sentence OR one picture, never both.
 // One new thing per beat, held long enough to read it out loud twice.
 // In a sentence, *stars* mark the words that carry the idea, +plus+ is
-// green, _under_ is red, /slash/ leans, a line that starts with ~ is a dim
+// green, /slash/ leans, a line that starts with ~ is a dim
 // aside, a line that starts with # is a title, and an empty line is a
 // breath of space.
 // Twin lines are written to the same length, so a slide reads as one block.
@@ -18,7 +18,7 @@
 // "quick" is a section title: it holds one breath and no look-back.
 
 const READ = 0.32;
-const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
+const cost = s => (s = s.replace(/[*+~#%/]/g, "").trim()) ? s.split(/\s+/)
                    .reduce((n, w) => n + (/\d/.test(w) ? 2 : 1), 0) : 0;
 
 const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
@@ -76,14 +76,14 @@ function T(s, x, y, size, color, align, bold) {
   font(size, bold); cx.fillStyle = color; cx.textAlign = align || "left";
   cx.fillText(s, x, y); cx.textAlign = "left";
 }
-// centred sentence with emphasis: *bold*  +green+  _red_  /oblique/
+// centred sentence with emphasis: *bold*  +green+  /oblique/
 // (Menlo has no italic, so an oblique run is the text leaned by a skew)
 function rich(s, x, y, size, color) {
   const toks = [];
   for (let i = 0; i < s.length; ) {
-    const c = s[i], j = "*+_/".includes(c) ? s.indexOf(c, i + 1) : -1;
+    const c = s[i], j = "*+/".includes(c) ? s.indexOf(c, i + 1) : -1;
     if (j > i) { toks.push([s.slice(i + 1, j), c]); i = j + 1; continue; }
-    let e = i + 1; while (e < s.length && !"*+_/".includes(s[e])) e++;
+    let e = i + 1; while (e < s.length && !"*+/".includes(s[e])) e++;
     toks.push([s.slice(i, e), ""]); i = e;
   }
   const bold = m => !!m && m !== "/";
@@ -92,7 +92,7 @@ function rich(s, x, y, size, color) {
   let px = x - total/2;
   toks.forEach(([p, m]) => {
     font(size, bold(m));
-    cx.fillStyle = m === "+" ? GREEN : m === "_" ? RED : m === "*" ? INK : (color || INK);
+    cx.fillStyle = m === "+" ? GREEN : m === "*" ? INK : (color || INK);
     if (m === "/") { cx.save(); cx.transform(1, 0, -0.2, 1, 0.2*y, 0); }
     cx.fillText(p, px, y); px += cx.measureText(p).width;
     if (m === "/") cx.restore();
@@ -651,7 +651,7 @@ function sayLines(b) {
 S.say = (u, dur, b) => {
   const ls = sayLines(b), L = b.includes(left);
   const gap = (i, k) => k*((ls[i - 1].pitch + ls[i].pitch)/2 + (ls[i - 1].size === 22 && ls[i].size !== 22 ? 18 : 0));
-  const ws = ls.map(l => { font(l.size, true); return cx.measureText(l.s.replace(/[*+_/]/g, "")).width; });
+  const ws = ls.map(l => { font(l.size, true); return cx.measureText(l.s.replace(/[*+/]/g, "")).width; });
   let k = Math.min(1, (W - 120)/Math.max(...ws)), hgt = 0;
   ls.forEach((l, i) => { if (i) hgt += gap(i, 1); });
   k = Math.min(k, (H - 130)/hgt);
@@ -708,7 +708,7 @@ for (const b of BEATS) {
 const T0 = []; let DUR = 0;
 for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
 const SCENES = BEATS.map(b => [b[0] === "say"
-  ? "“" + b[2].replace(/[*+_~#%/]/g, "") : b[0] + (b[2] && !TAG.has(b[2]) ? " " + b[2] : ""), b[1]]);
+  ? "“" + b[2].replace(/[*+~#%/]/g, "") : b[0] + (b[2] && !TAG.has(b[2]) ? " " + b[2] : ""), b[1]]);
 
 // -------------------------------------------------------------------- main
 function draw(t) {
