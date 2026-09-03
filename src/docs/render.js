@@ -23,8 +23,9 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
 const BEATS = [
-  ["say", "#Bend: a new language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
+  ["say", "#a new programming language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
           "- that *PROVES* like Lean", "- where vibe-coding *WORKS*", left],
+  ["say", "#introducing: Bend 2"],
   ["check"],
   ["bench", "gameoflife"],
   ["par", "gameoflife", co],
@@ -32,18 +33,22 @@ const BEATS = [
   ["dist"],
   ["eval", co],
   ["reduce", co],
+  ["say", "the *entire language* is parallel", "",
+          "objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
+          "*everything runs natively on GPUs*", "~(with CPU cores as a fallback)"],
   ["say", "how about *vibe-coding*?"],
-  ["say", "users *enforce their laws*", "which AI can *never break*", "by demanding *math proofs*"],
+  ["say", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*"],
+  ["say", "#how?"],
+  ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "to edit code, the AI must *prove*", "that every law *still holds true*", "",
-          "Bend *checks* it mechanically", "without a proof, *no compile*"],
-  ["say", "for example, a game with this law:", "*the player must never win the game*"],
+  ["say", "to edit code, the AI must *prove*", "that every law *still holds true*",
+          "proofs are checked *mechanically*", "so, breaking laws is *impossible*"],
+  ["say", "consider a game with one law:", "*the player cannot win*"],
   ["intro"],
   ["say", "let's prompt a new feature:", "%\"make the map *wrap around*\""],
   ["walk"],
   ["block"],
-  ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
-          "breaking a law is not just *hard*", "it is *mathematically impossible*"],
+  ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
   ["say", "and that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
           "that *proves* like Lean", "where vibe-coding *works*"],
@@ -372,7 +377,7 @@ const WIN = up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 
 S.walk = (u, dur) => {
   const [x, y] = routeAt(WIN, Math.max(u - T0W, 0)), done = T0W + routeDur(WIN);
   gameCard("base", x, y, u < done, null, "in *other languages*:");
-  footer("the player wins: the law is broken", ease((u - done - 0.5)/0.4), RED);
+  footer("the player won. the law is broken!", ease((u - done - 0.5)/0.4), RED);
 };
 
 // Bend: the same walk on the shipped level meets a wall on the edge, and
@@ -381,7 +386,7 @@ const BLOCK = up(8, 5, 1).concat([[9, 1], [10, 1]]);
 S.block = (u, dur) => {
   const [x, y, hit] = walkBump(BLOCK, 1, [11, 1], u, T0W);
   gameCard("far", x, y, true, hit, "in *Bend*:");
-  footer("the AI placed a wall: the law holds", ease((u - T0W - routeDur(BLOCK) - BUMPS*BUMP - 0.3)/0.4), GREEN);
+  footer("the AI placed a wall. the law holds!", ease((u - T0W - routeDur(BLOCK) - BUMPS*BUMP - 0.3)/0.4), GREEN);
 };
 
 // ------------------------------------------------------------------ code beats
@@ -654,6 +659,20 @@ S.say = (u, dur, b) => {
   });
 };
 
+// a name written piece by piece: each part lands after the one before
+// it, the whole centred where it will end
+S.reveal = (u, dur, b) => {
+  const parts = b[2].split("|"), size = b[3], bold = size >= 44;
+  font(size, bold);
+  const ws = parts.map(p => cx.measureText(p).width);
+  let x = W/2 - ws.reduce((a, w) => a + w, 0)/2;
+  parts.forEach((p, i) => {
+    cx.globalAlpha = ease((u - i*0.9)/0.4);
+    T(p, x, 372 + size*0.36, size, INK, "left", bold);
+    x += ws[i]; cx.globalAlpha = 1;
+  });
+};
+
 S.end = (u, dur) => {
   T("Bend", W/2, 290, 64, INK, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
@@ -676,7 +695,7 @@ for (const b of BEATS) {
     let t = 0; b.at = ls.map(s => { const a = t; t += READ*cost(s) + 0.4; return a; });
     const d = b.includes(quick) ? t + 0.3 : (t*1.25 + 0.8)*(b.includes(punch) ? 1.3 : 1);
     b.splice(1, 0, Math.max(2.4, d));
-  } else b.splice(1, 0, FIXED[b[0]]);
+  } else b.splice(1, 0, b[0] === "reveal" ? 0.9*(b[1].split("|").length - 1) + 3.4 : FIXED[b[0]]);
 }
 const T0 = []; let DUR = 0;
 for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
