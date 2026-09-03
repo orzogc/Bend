@@ -29,28 +29,29 @@ const BEATS = [
   ["check"],
   ["bench", "gameoflife"],
   ["par", "gameoflife", co],
-  ["say", "#Parallelism is near-automatic"],
+  ["say", "#Parallelism is near-automatic."],
   ["dist"],
   ["eval", co],
   ["reduce", co],
-  ["say", "*The entire language can run on GPUs*", "",
-          "Objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "and more!"],
+  ["say", "*The entire language can run on GPUs.*", "",
+          "Objects, arrays, allocator, collector,", "pattern-matching, closures, recursion,", "and more!"],
   ["say", "How about *vibe-coding*?"],
-  ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*"],
+  ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
   ["say", "#How?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "*laws.bend* is *AGENTS.md*", "except backed by *proof*"],
+  ["say", "*laws.bend* is *AGENTS.md*", "except backed by *proof*."],
   ["say", "Consider a game with one law:", "%\"*the player cannot win*\""],
   ["intro"],
   ["say", "Let's prompt a new feature:", "%\"make the map *wrap around*\""],
   ["walk"],
   ["block"],
-  ["say", "No matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
-          "It must craft a *harmless workaround*", "that satisfies Bend's *proof checker*"],
+  ["say", "No matter how *crazy* your prompt is,", "the AI *can't* make the game winnable.", "",
+          "It is *mathematically impossible*.", "",
+          "It must craft a *harmless workaround*", "that satisfies Bend's *proof checker*."],
   ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "And that's Bend 2:", "a language *fast* like C", "that *scales* like CUDA",
-          "that *proves* like Lean", "where vibe-coding *works*"],
+          "that *proves* like Lean", "where vibe-coding *works*."],
   ["end"],
 ];
 
@@ -404,13 +405,13 @@ S.block = (u, dur) => {
 S.laws = (u, dur) => {
   const x = W/2 - 300, y = 285, h = LAWS_SRC.length*34 + 44;
   rich("A new file that lists *invariants*", W/2, 140, 30);
-  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that models are *forced* to follow", W/2, 190, 30);
+  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that models are *forced* to follow.", W/2, 190, 30);
   cx.globalAlpha = ease((u - 4.0)/0.5);
   T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
   codeCard(LAWS_SRC, x, y, 600, 20, 34);
   const pa = ease((u - 7.5)/0.5);
   cx.globalAlpha = pa;
-  T("Rules here are unbreakable", W/2, 650, 26, AMBER, "center", true);
+  T("Rules here are unbreakable.", W/2, 650, 26, AMBER, "center", true);
   bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
   cx.globalAlpha = 1;
 };
