@@ -54,7 +54,7 @@ const BEATS = [
   ["say", "Oops! The player won.", "The new feature *broke the law*.", red],
   ["say", "With *laws.bend*:"],
   ["block"],
-  ["say", "The AI placed a /wall/!", "Feature landed, *law preserved*.", green],
+  ["say", "The AI placed a /wall/!", "Feature landed with *laws intact*.", green],
   ["say", "The rules in *laws.bend* are enforced with the same",
           "algorithm used in proof assistants such as Lean.", "",
           "It is *mathematically impossible* for AI agents to",
