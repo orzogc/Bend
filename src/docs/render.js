@@ -23,62 +23,29 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
 const BEATS = [
-  ["say", "how to stop *AI agents*", "from *making mistakes*?"],
-  ["say", "consider a game with one law:", "*the player cannot win*"],
-  ["intro"],
-  ["say", "so far, it works!"],
-  ["say", "now, let's prompt a new feature:", "%\"make the map *wrap around*\""],
-  ["walk"],
-  ["say", "oops! the feature introduced a *bug*"],
-  ["say", "the law was only in our *heads*", "the AI *never saw it*"],
-  ["say", "what if we could *write it down*", "in a way that *can't be broken*?"],
-  ["reveal", "laws|.|bend", 64],
-  ["laws"],
-  ["say", "now, the same prompt again:", "%\"make the map *wrap around*\""],
-  ["block"],
-  ["say", "the AI placed a *wall*", "the feature lands", "the law holds"],
-  ["say", "#but what enforces it?"],
-  ["say", "#Bend", "%a new programming language", "",
-          "with a built-in *proof system*", "that mechanically enforces *laws.bend*"],
-  ["say", "#what is a proof?"],
-  ["say", "let's answer one question:", "%\"where can the player *ever* go?\""],
-  ["cover"],
-  ["say", "*that* is a proof", "", "not a few paths *tried*", "but *every* path *covered*"],
-  ["say", "#and who checks it?"],
-  ["say", "a *proof checker*:", "a small program that verifies", "each step of the proof", "",
-          "like grading a *sudoku* answer:", "hard to solve, *trivial* to check"],
-  ["say", "the AI *writes* the proof", "the checker *verifies* it", "",
-          "a wrong proof is *rejected*", "and the code *won't compile*"],
-  ["term"],
-  ["say", "so the AI can't touch the *law*", "it must fix the *code*"],
-  ["say", "%*PROMPT*: \"add a new teleport spell\"", "*RESULT*: it can't pass through walls", left],
-  ["say", "%*PROMPT*: \"make it pass through walls\"", "*RESULT*: the walls become stones", left],
-  ["say", "%*PROMPT*: \"make it pass through anything\"", "*RESULT*: the room now kills you", left],
-  ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable"],
-  ["say", "in short,", "*laws.bend* is *AGENTS.md*", "except *backed by proof*"],
-  ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
-  ["say", "*proofs* are an old tech", "", "for *decades*, they've secured",
-          "CPUs, OSs, military aircraft", "", "so, why aren't they everywhere?"],
-  ["say", "because proof languages are *slow*"],
-  ["reveal", "and Bend| is", 34],
-  ["reveal", "FAST", 64],
+  ["say", "in the dawn of AGI,", "what still matters", "for a programming language?"],
+  ["say", "1. it must be *FAST*", "", "2. vibe-coding must *WORK*"],
   ["check"],
   ["bench", "gameoflife"],
-  ["say", "and it *scales*!"],
   ["par", "gameoflife"],
-  ["say", "#wait, what? how?"],
-  ["say", "1. you mark a *parallel call*"],
-  ["example", "call"],
-  ["say", "2. Bend *distributes* the workload"],
+  ["say", "#how Bend parallelizes?"],
   ["dist"],
-  ["say", "3. each core executes a *leaf task*"],
-  ["eval"],
-  ["say", "4. Bend combines the *results*"],
-  ["reduce"],
-  ["say", "the *entire language* is parallel", "",
-          "objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
-          "*everything runs natively on GPUs*", "~(with CPU cores as a fallback)"],
-  ["say", "so, that's Bend:", "a *fast* language", "that *scales* like CUDA", "where AI *can't make mistakes*"],
+  ["eval", co],
+  ["reduce", co],
+  ["say", "how about *vibe-coding*?"],
+  ["say", "in Bend, users can *enforce laws*", "that AI *cannot break*", "by demanding *proofs*"],
+  ["laws"],
+  ["say", "to edit your code, the AI must *prove*", "that every law *still holds*", "",
+          "Bend *checks* that proof mechanically", "no proof, *no compile*"],
+  ["say", "for example, consider a game with one law:", "*the player cannot win*"],
+  ["intro"],
+  ["say", "now, let's prompt a feature:", "%\"make the map *wrap around*\""],
+  ["walk"],
+  ["block"],
+  ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
+          "breaking a law is not *hard*", "it is *mathematically impossible*"],
+  ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
+  ["say", "and that's Bend:", "a *fast* language", "that *scales* like CUDA", "where AI *can't make mistakes*"],
   ["end"],
 ];
 
@@ -174,14 +141,6 @@ function codeCard(lines, x, y, w, size, pitch) {
   lines.forEach((l, i) => codeLine(l, x + 28, y + 36 + i*pitch, size));
 }
 
-const SUM_SRC = `def sum(+d: Nat, +i: U32) -> U32:
-  match d:
-    case 0n:
-      i
-    case 1n+p:
-      a b = sum(p, i * 2) sum(p, i * 2 + 1)
-      a + b`.split("\n");
-
 // laws.bend, for the reader: the namespaces and the equality's braces are
 // left out (that sugar comes later)
 const LAWS_SRC = `# LAW: no move sequence results in victory
@@ -250,11 +209,11 @@ function chart(B, u, go, rise) {
   const vmax = Math.max(...all.map(r => r[1])), vz = lerp(vmax, B.seq, go);
   rich("Bend runs *FAST*", W/2, 96, 30);
   all.forEach(([name, v], i) => {
-    const a = rise ? ease((u - 1.0 - i*1.3)/0.5) : 1;
+    const a = rise ? ease((u - 1.0 - i*1.0)/0.5) : 1;
     if (i < 3) bar(slotX(i, 4, 70), v, vmax, name, GRAY, a, false, 1 - go);
     else bar(lerp(slotX(3, 4, 70), slotX(0, 3, G3), go), v, vz, "Bend", BLUE, a);
   });
-  cx.globalAlpha = rise ? ease((u - 6.4)/0.5) : 1;
+  cx.globalAlpha = rise ? ease((u - 5.2)/0.5) : 1;
   T(B.title + " · Apple M4 Max", W/2, 640, 20, DIM, "center");
   cx.globalAlpha = 1;
   return vz;
@@ -263,7 +222,7 @@ function chart(B, u, go, rise) {
 S.bench = (u, dur, b) => {
   const B = BENCH[b[2]], vmax = Math.max(...B.rivals.map(r => r[1]), B.seq);
   chart(B, u, 0, true);
-  const pa = ease((u - 7.4)/0.5);
+  const pa = ease((u - 6.2)/0.5);
   cx.globalAlpha = pa;
   T("competes with C", 930, 250, 26, AMBER, "center", true);
   T("in a single core", 930, 282, 26, AMBER, "center", true);
@@ -273,11 +232,11 @@ S.bench = (u, dur, b) => {
 // the same chart: the rivals leave, then the 16-core bar rises and its
 // readout lands, then the GPU's bar and readout; both readouts stay
 S.par = (u, dur, b) => {
-  const B = BENCH[b[2]], vz = chart(B, u, ease((u - 0.8)/0.9), false);
-  bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, ease((u - 2.6)/0.5));
-  speedup(B, B.par, 1, "16 CPU cores", u, 3.5);
-  bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 6.8)/0.5));
-  speedup(B, B.gpu, 2, "16384 GPU cores", u, 7.7);
+  const B = BENCH[b[2]], vz = chart(B, u, ease((u - 0.6)/0.9), false);
+  bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, ease((u - 2.0)/0.5));
+  speedup(B, B.par, 1, "16 CPU cores", u, 2.8);
+  bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 5.6)/0.5));
+  speedup(B, B.gpu, 2, "16384 GPU cores", u, 6.4);
 };
 
 // five bars, then the gap between Bend and the field, pointed out
@@ -286,10 +245,10 @@ S.check = (u, dur) => {
   rich("Bend compiles *FAST*", W/2, 96, 30);
   CHECK.forEach(([name, v, over], i) =>
     bar(slotX(i, 5, 70), over ? vmax : v, vmax, name, name === "Bend" ? BLUE : GRAY,
-        ease((u - 1.0 - i*1.3)/0.5), over));
-  cx.globalAlpha = ease((u - 7.8)/0.5);
+        ease((u - 1.0 - i*1.0)/0.5), over));
+  cx.globalAlpha = ease((u - 6.2)/0.5);
   T("3,200 generic instantiations · Apple M4 Max", W/2, 640, 20, DIM, "center");
-  const pa = ease((u - 9.2)/0.5);
+  const pa = ease((u - 7.4)/0.5);
   cx.globalAlpha = pa;
   T("up to 1000x faster", 930, 330, 26, AMBER, "center", true);
   T("than other provers", 930, 362, 26, AMBER, "center", true);
@@ -304,8 +263,7 @@ S.check = (u, dur) => {
 // on the far edges (far). Pastel tiles on the white page, a title above.
 const GW = 12, GH = 8, TILE = 56, BX = W/2 - GW*TILE/2, BY = 126;
 const PAL = { floor: ["#f5f7fa", "#e9eef4"], wall: "#b9c6da", cap: "#d3dce9", hit: "#f3c6b2", hitcap: "#f9dccf",
-              pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441",
-              pill: "#fde9e6", rim: "#f0aaa1", pillInk: "#a3302a" };
+              pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441" };
 function wallsOf(v) {
   const s = new Set(), add = (x, y) => s.add(x + "," + y);
   for (let y = 0; y <= 3; y++) add(3, y);
@@ -340,10 +298,10 @@ function player(px, py) {
   cx.restore();
 }
 // the screenshot: the title and the board. flag says whether the flag is
-// still there, pill is the alpha of the banner, hit a wall tile lit by a bump
-function gameCard(v, px, py, flag, pill, hit) {
+// still there, hit a wall tile lit by a bump, head a heading over the board
+function gameCard(v, px, py, flag, hit, head) {
   const walls = wallsOf(v);
-  spaced("WINNING IS A BUG", W/2, 96, 22, PAL.gold, 6);
+  if (head) rich(head, W/2, 98, 30); else spaced("WINNING IS A BUG", W/2, 96, 22, PAL.gold, 6);
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
     if (!walls.has(x + "," + y)) { tile(x, y, PAL.floor[(x + y) % 2]); continue; }
     const lit = hit && hit[0] === x && hit[1] === y;
@@ -354,14 +312,6 @@ function gameCard(v, px, py, flag, pill, hit) {
   if (flag) drawFlag(BX + TILE, BY + TILE);
   player(BX + px*TILE, BY + py*TILE);
   cx.restore();
-  if (pill > 0) {
-    const py0 = BY + GH*TILE/2 - 48;
-    cx.globalAlpha = pill;
-    box(W/2 - 170, py0, 340, 96, 14, PAL.pill, PAL.rim, 1.5);
-    T("PLAYER WON", W/2, py0 + 41, 24, PAL.pillInk, "center", true);
-    T("LAW BROKEN", W/2, py0 + 76, 24, PAL.pillInk, "center", true);
-    cx.globalAlpha = 1;
-  }
 }
 // a line under the board
 function footer(s, a, color) {
@@ -371,7 +321,7 @@ function footer(s, a, color) {
 // A route is a list of cells; every step takes STEP, so the player moves at
 // one speed. A jump of more than one cell is a teleport (off one edge, on
 // at the other) and takes no time.
-const STEP = 0.28;
+const STEP = 0.22;
 const routeDur = r => r.reduce((t, c, i) => i && Math.abs(c[0] - r[i - 1][0]) + Math.abs(c[1] - r[i - 1][1]) <= 1 ? t + STEP : t, 0);
 function routeAt(r, u) {
   let t = 0;
@@ -385,7 +335,7 @@ function routeAt(r, u) {
 }
 const up = (x, y0, y1) => { const p = []; for (let y = y0; y >= y1; y--) p.push([x, y]); return p; };
 // walk a route from t0, then slam three times into the wall past its end
-const BUMP = 0.5, BUMPS = 3;
+const BUMP = 0.4, BUMPS = 3;
 function walkBump(r, dir, wall, u, t0) {
   const v = u - t0, tw = routeDur(r);
   if (v < tw) return routeAt(r, Math.max(v, 0)).concat([null]);
@@ -397,128 +347,40 @@ function walkBump(r, dir, wall, u, t0) {
 
 // the game, introduced: the player and the goal pointed out, the law under
 // the board, then the player walks up to the room and slams into its wall
-const I0 = 4.4;
+const I0 = 3.0;
 const INTRO = up(8, 5, 1).concat([[7, 1], [6, 1], [5, 1], [4, 1]]);
 S.intro = (u, dur) => {
   const [x, y, hit] = walkBump(INTRO, -1, [3, 1], u, I0);
-  gameCard("base", x, y, true, 0, hit);
+  gameCard("base", x, y, true, hit);
   const gone = 1 - ease((u - I0 + 0.6)/0.4);
-  cx.globalAlpha = ease((u - 0.8)/0.4)*gone;
+  cx.globalAlpha = ease((u - 0.6)/0.4)*gone;
   T("player", 1130, BY + 5.5*TILE + 8, 26, AMBER, "center", true);
   bow(1072, BY + 5.5*TILE, BX + 9*TILE + 6, BY + 5.5*TILE, 0.15, AMBER);
-  cx.globalAlpha = ease((u - 1.5)/0.4)*gone;
+  cx.globalAlpha = ease((u - 1.3)/0.4)*gone;
   T("goal", 150, BY + 1.5*TILE + 8, 26, AMBER, "center", true);
   bow(205, BY + 1.5*TILE, BX + TILE - 6, BY + 1.5*TILE, -0.15, AMBER);
   cx.globalAlpha = 1;
-  footer("law: player can't win", ease((u - 2.4)/0.4), RED);
+  footer("law: player can't win", ease((u - 2.0)/0.4), RED);
 };
 
 // other languages: the player goes up to the flag's row, right off the
-// edge, in on the left, and takes the flag: the wrap dropped it in the room
-const T0W = 1.0;
+// edge, in on the left, and takes the flag: the wrap dropped it in the
+// room. The verdict lands under the board once the flag is gone.
+const T0W = 0.6;
 const WIN = up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]);
 S.walk = (u, dur) => {
   const [x, y] = routeAt(WIN, Math.max(u - T0W, 0)), done = T0W + routeDur(WIN);
-  gameCard("base", x, y, u < done, ease((u - done - 0.5)/0.4), null);
+  gameCard("base", x, y, u < done, null, "in *other languages*:");
+  footer("the player wins: the law is broken", ease((u - done - 0.5)/0.4), RED);
 };
 
 // Bend: the same walk on the shipped level meets a wall on the edge, and
-// the player slams into it
+// the player slams into it; the verdict lands once the slams end
 const BLOCK = up(8, 5, 1).concat([[9, 1], [10, 1]]);
 S.block = (u, dur) => {
-  const [x, y, hit] = walkBump(BLOCK, 1, [11, 1], u, 1.0);
-  gameCard("far", x, y, true, 0, hit);
-};
-
-// where can the player ever go? First the tests: three paths tried, one
-// after another, dotted from where the player stands. Then the proof: the
-// cells the player can reach flood green from its cell, ring by ring, and
-// stop at the walls and the map's edge. The flag's room never turns green.
-const TESTS = [
-  [[8, 5], [8, 4], [8, 3], [8, 2], [7, 2], [6, 2], [5, 2], [5, 1], [5, 0]],
-  [[8, 5], [7, 5], [6, 5], [5, 5], [5, 6], [5, 7], [4, 7], [3, 7], [2, 7], [1, 7]],
-  [[8, 5], [9, 5], [10, 5], [11, 5], [11, 4], [11, 3], [11, 2], [11, 1], [10, 1], [9, 1]],
-];
-const C0 = 1.0, CGAP = 1.5, CDRAW = 1.0, F0 = 6.2, RING = 0.16;
-// the distance of every cell from the player, walking the base level
-const REACH = (() => {
-  const walls = wallsOf("base"), d = {}, q = [[8, 5]];
-  d["8,5"] = 0;
-  for (let i = 0; i < q.length; i++) {
-    const [x, y] = q[i];
-    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
-      const k = nx + "," + ny;
-      if (nx < 0 || ny < 0 || nx >= GW || ny >= GH || walls.has(k) || k in d) continue;
-      d[k] = d[x + "," + y] + 1; q.push([nx, ny]);
-    }
-  }
-  return d;
-})();
-const cc = ([x, y]) => [BX + (x + 0.5)*TILE, BY + (y + 0.5)*TILE];
-// a dotted trail along a path, drawn up to fraction a, a dot at its tip
-function trail(r, a) {
-  if (a <= 0) return;
-  const n = (r.length - 1)*clamp(a, 0, 1), P = [];
-  for (let i = 0; i < r.length; i++) {
-    if (i > n) { const [ax, ay] = cc(r[i - 1]), [bx, by] = cc(r[i]), f = n - (i - 1); P.push([lerp(ax, bx, f), lerp(ay, by, f)]); break; }
-    P.push(cc(r[i]));
-  }
-  cx.strokeStyle = BLUE; cx.lineWidth = 5; cx.lineCap = "round"; cx.setLineDash([0.1, 11]);
-  cx.beginPath(); P.forEach(([x, y], i) => i ? cx.lineTo(x, y) : cx.moveTo(x, y)); cx.stroke();
-  cx.setLineDash([]); cx.lineWidth = 1;
-  const [tx, ty] = P[P.length - 1];
-  cx.fillStyle = BLUE; cx.beginPath(); cx.arc(tx, ty, 7, 0, Math.PI*2); cx.fill();
-}
-// one line under the board at a time: each fades out as the next lands
-function captions(u, cs) {
-  cs.forEach(([s, t, color], i) => {
-    const nxt = cs[i + 1], a = ease((u - t)/0.4)*(nxt ? 1 - ease((u - nxt[1] + 0.5)/0.4) : 1);
-    if (a <= 0) return;
-    cx.globalAlpha = a;
-    if (color) T(s, W/2, 664, 26, color, "center", true); else rich(s, W/2, 664, 26, INK);
-    cx.globalAlpha = 1;
-  });
-}
-S.cover = (u, dur) => {
-  gameCard("base", 8, 5, true, 0, null);
-  const gone = 1 - ease((u - F0 + 0.8)/0.5);
-  // the proof: reached cells turn green ring by ring; the room, red once done
-  const room = ease((u - 9.2)/0.5);
-  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
-    const d = REACH[x + "," + y];
-    const g = d === undefined ? 0 : ease((u - F0 - d*RING)/0.3);
-    const r = x < 3 && y < 3 ? room : 0;
-    if (g <= 0 && r <= 0) continue;
-    const base = PAL.floor[(x + y) % 2];
-    tile(x, y, g > 0 ? mix(base, "#3fbf7a", 0.34*g) : mix(base, "#e8563f", 0.30*r));
-  }
-  // the tests: three trails, one after another
-  cx.globalAlpha = gone;
-  TESTS.forEach((r, i) => trail(r, (u - C0 - i*CGAP)/CDRAW));
-  cx.globalAlpha = 1;
-  drawFlag(BX + TILE, BY + TILE); player(BX + 8*TILE, BY + 5*TILE);
-  captions(u, [["a *test* tries one path", 0.6], ["a *proof* covers every path", F0 - 0.4],
-               ["the flag is *never* reached", 9.4, RED]]);
-};
-
-// the checker's verdict: the wrap-around edit fails the check, the wall
-// edit passes it. Both are the checker's real words.
-const TERM_BAD = ["Error:", "- expected : False{}", "- observed : True{}", "Location: winning_is_a_bug"];
-const TERM_OK = ["All 333 definitions check."];
-S.term = (u, dur) => {
-  const x = W/2 - 340, y = 290, w = 680, size = 22, pitch = 36, T2 = 5.6;
-  const a1 = 1 - ease((u - T2 + 0.3)/0.4), a2 = ease((u - T2 + 0.1)/0.4);
-  const label = (s, a) => { if (a > 0) { cx.globalAlpha = a; rich(s, W/2, 200, 30); cx.globalAlpha = 1; } };
-  label("after the *wrap-around* edit", a1); label("after the *wall* edit", a2);
-  box(x, y, w, lerp(TERM_BAD.length + 1, TERM_OK.length + 1, ease((u - T2 - 0.6)/0.6))*pitch + 44, 10, "#ffffff", EDGE, 1.5);
-  const prompt = (a) => { if (a <= 0) return; cx.globalAlpha = a;
-    T("$", x + 28, y + 36, size, DIM); T("bend --check", x + 28 + 2*13.3, y + 36, size, INK, "left", true); cx.globalAlpha = 1; };
-  prompt(Math.max(ease((u - 0.8)/0.4)*a1, a2*ease((u - T2 - 0.4)/0.4)));
-  cx.globalAlpha = a1*ease((u - 2.2)/0.4);
-  TERM_BAD.forEach((l, i) => T(l, x + 28, y + 36 + (i + 1)*pitch, size, RED));
-  cx.globalAlpha = a2*ease((u - T2 - 1.8)/0.4);
-  TERM_OK.forEach((l, i) => T(l, x + 28, y + 36 + (i + 1)*pitch, size, GREEN, "left", true));
-  cx.globalAlpha = 1;
+  const [x, y, hit] = walkBump(BLOCK, 1, [11, 1], u, T0W);
+  gameCard("far", x, y, true, hit, "in *Bend*:");
+  footer("the AI placed a wall: the law holds", ease((u - T0W - routeDur(BLOCK) - BUMPS*BUMP - 0.3)/0.4), GREEN);
 };
 
 // ------------------------------------------------------------------ code beats
@@ -537,46 +399,6 @@ S.laws = (u, dur) => {
   cx.globalAlpha = 1;
 };
 
-
-// an example program: its page, a note with arrows into the lines that
-// carry the idea, and the idea's name under it
-const EX = {
-  call: { src: SUM_SRC, size: 20, pitch: 32, y: 170, at: 2.0, gap: 1.4, dur: 8.0,
-          notes: [{ s: "parallel call", side: "B", hits: [[5, "sum(", 0], [5, "sum(", 1]] }] },
-};
-S.example = (u, dur, b) => {
-  const E = EX[b[2]], w = 800, x = W/2 - w/2, y = E.y, h = E.src.length*E.pitch + 44;
-  codeCard(E.src, x, y, w, E.size, E.pitch);
-  font(E.size); const cw = cx.measureText("M").width;
-  const spanX = ([ln, needle, nth, tail]) => {
-    let c = -1; for (let k = 0; k <= nth; k++) c = E.src[ln].indexOf(needle, c + 1);
-    return x + 28 + (tail ? c + needle.length : c)*cw;
-  };
-  const lineY = ln => y + 36 + ln*E.pitch;
-  E.notes.forEach((n, i) => {
-    const a = ease((u - E.at - i*E.gap)/0.4);
-    if (a <= 0) return;
-    cx.globalAlpha = a;
-    font(26, true); const tw = cx.measureText(n.s).width;
-    if (n.side === "B") {
-      const cy = y + h + 50;
-      T(n.s, W/2, cy, 26, AMBER, "center", true);
-      // each arrow leaves the label sideways and arrives from straight
-      // below, so its head points up at the word
-      n.hits.forEach((hit, j) => {
-        const side = n.hits.length > 1 ? (j ? 1 : -1) : 0, tx = spanX(hit) + 2*cw;
-        bow(W/2 + side*(tw/2 - 10), cy - 30, tx, lineY(hit[0]) + 10, 0, AMBER, 1, [tx, cy - 30]);
-      });
-    } else {
-      const L = n.side === "L", lx = L ? 120 : W - 120;
-      const ly = n.hits.reduce((t, hit) => t + lineY(hit[0]), 0)/n.hits.length;
-      T(n.s, lx, ly + 2, 26, AMBER, "center", true);
-      n.hits.forEach(hit =>
-        bow(lx + (L ? 1 : -1)*(tw/2 + 12), ly - 6, spanX(hit) + (hit[3] ? 8 : -8), lineY(hit[0]) - 6, L ? -0.12 : 0.12, AMBER));
-    }
-    cx.globalAlpha = 1;
-  });
-};
 // ------------------------------------------------------------------ the cube
 // The GPU is a static 128 x 128 grid of cores: the cube. sum(24) splits in
 // two, then four, ... until one task sits on every core; each core works
@@ -656,7 +478,7 @@ function pointer(s, x1, y1, a) {
 // out to their own slots. The boxes come in as the grid gets dense, so the
 // first splits are text alone and the last ones are the cube taking shape.
 const boxA = k => clamp((k - 2)/9, 0, 1);
-const splitDur = k => 1.3*Math.pow(0.8, k);
+const splitDur = k => 0.9*Math.pow(0.8, k);
 const cutDur = d => Math.min(0.6, d*0.7);
 const lab = k => "sum(" + (24 - k) + ")";
 function slotBoxes(k, a) {
@@ -681,7 +503,7 @@ function slotLabels(k, m, a) {
   }
 }
 S.dist = (u, dur) => {
-  let k = 0, t = 0.8;
+  let k = 0, t = 0.5;
   while (k < LEVELS && u >= t + splitDur(k)) { t += splitDur(k); k++; }
   const d = splitDur(k), p = k < LEVELS ? ease((u - (t + d - cutDur(d)))/cutDur(d)) : 0;
   slotBoxes(k, boxA(k));
@@ -692,7 +514,7 @@ S.dist = (u, dur) => {
   }
   const [cols, rows] = dims(p > 0.5 ? k + 1 : k), n = cols*rows;
   T(n === 1 ? "1 task" : num(n) + " tasks", W/2, 660, 24, INK, "center");
-  pointer("That's your GPU!", W/2 + GS/2 + 8, 392, ease((u - (dur - 3.4))/0.5));
+  pointer("that's your GPU!", W/2 + GS/2 + 8, 392, ease((u - (dur - 3.0))/0.5));
 };
 
 // Step 2. Every core works its sum(10,0) down one call at a time while the
@@ -702,7 +524,7 @@ S.dist = (u, dur) => {
 const EVAL = ["sum(10,0)", "sum(9,10)", "sum(8,19)", "sum(7,27)", "sum(6,34)", "sum(5,40)",
               "sum(4,45)", "sum(3,49)", "sum(2,52)", "sum(1,54)", "sum(0,55)", "55"];
 const EVALV = [0, 10, 19, 27, 34, 40, 45, 49, 52, 54, 55, 55];
-const ESTEP = 0.7, E0 = 0.8, DIVE = 5.0, EDONE = E0 + (EVAL.length - 1)*ESTEP;
+const ESTEP = 0.5, E0 = 0.5, DIVE = 3.5, EDONE = E0 + (EVAL.length - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
 S.eval = (u, dur) => {
   const p = clamp((u - E0)/DIVE, 0, 1), z = 1 - (1 - p)*(1 - p), camr = camLerp(CAM0, CAME, z);
@@ -731,8 +553,8 @@ S.eval = (u, dur) => {
 // half and lands, each cell adding what arrived; then the bottom half onto
 // the top; and so on, the live region shrinking toward the top-left corner
 // while the camera follows it in, until one cell holds the total.
-const R0 = 2.6, LEAF = 55;
-const flowDur = j => 0.35 + 1.3*Math.pow(j/13, 2);
+const R0 = 1.8, LEAF = 55;
+const flowDur = j => 0.22 + 0.8*Math.pow(j/13, 2);
 const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
 function camFor(j) {
   if (j >= LEVELS) return CAM1;
@@ -822,20 +644,6 @@ S.say = (u, dur, b) => {
   });
 };
 
-// a name written piece by piece: each part lands after the one before
-// it, the whole centred where it will end
-S.reveal = (u, dur, b) => {
-  const parts = b[2].split("|"), size = b[3], bold = size >= 44;
-  font(size, bold);
-  const ws = parts.map(p => cx.measureText(p).width);
-  let x = W/2 - ws.reduce((a, w) => a + w, 0)/2;
-  parts.forEach((p, i) => {
-    cx.globalAlpha = ease((u - i*0.9)/0.4);
-    T(p, x, 372 + size*0.36, size, INK, "left", bold);
-    x += ws[i]; cx.globalAlpha = 1;
-  });
-};
-
 S.end = (u, dur) => {
   T("Bend", W/2, 290, 64, INK, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
@@ -850,21 +658,20 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 11.0, par: 12.5, check: 13.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 13.5, cover: 12.0, term: 9.5,
-                dist: 10.0, eval: 10.5, reduce: 16.0, end: 32.0 };
+const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: 7.5, eval: 8.5, reduce: 12.0,
+                laws: 12.0, intro: 8.0, walk: 6.0, block: 6.5, end: 24.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
     let t = 0; b.at = ls.map(s => { const a = t; t += READ*cost(s) + 0.4; return a; });
     const d = b.includes(quick) ? t + 0.3 : (t*1.25 + 0.8)*(b.includes(punch) ? 1.3 : 1);
     b.splice(1, 0, Math.max(2.4, d));
-  } else b.splice(1, 0, b[0] === "example" ? EX[b[1]].dur
-                       : b[0] === "reveal" ? 0.9*(b[1].split("|").length - 1) + 3.4 : FIXED[b[0]]);
+  } else b.splice(1, 0, FIXED[b[0]]);
 }
 const T0 = []; let DUR = 0;
 for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
 const SCENES = BEATS.map(b => [b[0] === "say"
-  ? "“" + b[2].replace(/[*+_~#%/]/g, "") : b[0] + (b[2] && b[0] !== "say" ? " " + b[2] : ""), b[1]]);
+  ? "“" + b[2].replace(/[*+_~#%/]/g, "") : b[0] + (b[2] && !TAG.has(b[2]) ? " " + b[2] : ""), b[1]]);
 
 // -------------------------------------------------------------------- main
 function draw(t) {
