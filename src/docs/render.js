@@ -35,7 +35,7 @@ const BEATS = [
   ["say", "*The entire language can run on GPUs.*", "",
           "Objects, arrays, allocator, collector,", "pattern-matching, closures, recursion.", "",
           "*Everything* compiles to *kernels*!"],
-  ["say", "Bend is fast in a single CPU core.", "It scales to massive GPU clusters."],
+  ["say", "Bend is fast in a single CPU core.", "And scales to massive GPU clusters."],
   ["say", "How about *vibe-coding*?"],
   ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
   ["say", "#How?"],
