@@ -57,7 +57,7 @@
 // Assert ::= "assert" Name ":" [Clause] Body
 // Def    ::= ("@unsafe")? "def" Name "(" [Bind ","?] ")" ("->" Term)? ":" (Body | ["import" STRING]+)
 // TLD    ::= ADT | Assert | Def
-// Import ::= "import" "Base" | "import" Path "as" Name
+// Import ::= "import" "Base" | "import" Path "as" Name   (Path ends in .bend)
 // Book   ::= [Import] [TLD]
 //
 // SUGARS
@@ -1030,7 +1030,8 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
   seen.set(real, null);
   const dir   = file.slice(0, file.lastIndexOf("/") + 1);
   const al    : Record<Name, Name> = Object.create(null);
-  const lines = fs.readFileSync(file, "utf8").split("\n");
+  const text  = fs.readFileSync(file, "utf8");
+  const lines = text.split("\n");
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i].trim();
     const m = line.match(/^import(\s.*|)$/);
@@ -1043,6 +1044,10 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
         await book_load(book, BASE_BEND, "", seen);
       } else {
         const rel = path.posix.normalize(h[1]);
+        if (!rel.endsWith(".bend")) {
+          const beg = text.split("\n", i).join("\n").length + (i && 1) + lines[i].indexOf(h[1]);
+          throw Err(book, ctx_nil(), "an import of a .bend file", "'" + h[1] + "'", { src: text, beg, end: beg });
+        }
         let at  = dir + rel;
         let sub = path.posix.join(path.posix.dirname(ns), rel);
         if (rel.startsWith("/")) {
