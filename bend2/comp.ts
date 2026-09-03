@@ -147,6 +147,8 @@ type HLet = Of<"Let">;
 
 type UMap = Bend.PMap<number>;
 
+type Level = [string, HTerm, () => Val[]];
+
 type Call = {
   k: Bend.Name;
   args: HTerm[];
@@ -3028,11 +3030,11 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
   const { arms, end } = mat_arms(x);
   const native = OPTIMIZED[adt.k]?.C;
   const ret = lay_of(fl.book, all.B(DUMMY));
+  const sw = s.ws[0];
   if (adt.k === "Bool" && arms.length === 2 && rest.length === 0) {
     const { True: hT, False: hF } = Object.fromEntries(arms);
     const [eT, eF] = [hT, hF].map((h) => eq_set(fl, h));
     const [mT, mF] = [eT, eF].map((e) => e && eq_mask(e.ks));
-    const sw = s.ws[0];
     if (mT != null && mF != null && mT.K === mF.K && eT!.p === eF!.p) {
       const p = val_word(bind_pop(fl, eT!.p));
       return emit_put(fl, dst, val_new([`U32_BIN(U32_BIN(${p}, |, (${sw} != 0`
@@ -3067,54 +3069,39 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
         const id = fl.tabs.get(key) ?? fl.tabs.size;
         fl.tabs.set(key, id);
         return emit_put(fl, dst, val_new(
-          [`TAB_AT(TAB_${id}, ${s.ws[0]}, ${ls.length - 1})`], ret));
+          [`TAB_AT(TAB_${id}, ${sw}, ${ls.length - 1})`], ret));
       }
     }
   }
-  const hs = arms.map(([, h]) => h);
-  const emits = arms.map(([k, h]) => () => {
-    let fields: Val[];
+  const lv: Level[] = arms.map(([k, h]): Level => {
     if (native !== undefined) {
-      fields = (native.elim?.[k] ?? []).map((t) =>
-        val_new([tpl(t)([s.ws[0]])], lay));
-    } else if (adt.k === "Array") {
-      const el = lay_of(fl.book, arr_elem(fl.book, adt.x[0]));
-      fields = k === "ALeaf" ? [arr_leaf(fl, s.ws[0], el)]
-        : [0, 1].map((hi) => val_new([`blk_half(e, ${s.ws[0]}, ${hi})`], BOX));
-    } else if (lay_box(lay)) {
-      fields = node_fields(fl, s.ws[0], lay_node(fl.book, k), s, true);
-    } else {
-      fields = lay_arm(lay, k).fs.map((f) => val_field(s, f));
-    }
-    bind_arm(fl, h, hs);
-    emit_body(fl, h, null, ers, [...fields, ...rest], dst);
-  });
-  const conds = arms.map(([k]) => {
-    if (native !== undefined) {
-      return tpl(native.cond?.[k] ?? die("no native test: " + k))([s.ws[0]]);
+      return [tpl(native.cond?.[k] ?? die("no native test: " + k))([sw]), h,
+        () => (native.elim?.[k] ?? []).map((t) =>
+          val_new([tpl(t)([sw])], lay))];
     }
     if (adt.k === "Array") {
-      const { lgs } = lay_arr(lay_of(fl.book, arr_elem(fl.book, adt.x[0])));
-      return `term_aux(${s.ws[0]}) ${k === "ALeaf" ? "==" : "!="} ${lgs}`;
+      const el = lay_of(fl.book, arr_elem(fl.book, adt.x[0]));
+      return [`term_aux(${sw}) ${k === "ALeaf" ? "==" : "!="} ${
+        lay_arr(el).lgs}`, h, () => k === "ALeaf" ? [arr_leaf(fl, sw, el)]
+        : [0, 1].map((hi) => val_new([`blk_half(e, ${sw}, ${hi})`], BOX))];
     }
     if (lay_box(lay)) {
-      return `term_aux(${s.ws[0]}) == ${cid_reg(fl, k)}`;
+      return [`term_aux(${sw}) == ${cid_reg(fl, k)}`, h,
+        () => node_fields(fl, sw, lay_node(fl.book, k), s, true)];
     }
-    return `${s.ws[0]} == ${lay_idx(lay, k)}`;
+    return [`${sw} == ${lay_idx(lay, k)}`, h,
+      () => lay_arm(lay, k).fs.map((f) => val_field(s, f))];
   });
   if (end !== null || arms.length < total) {
-    const last: HTerm = end ?? Bend.Efq();
-    hs.push(last);
-    emits.push(() => {
-      bind_arm(fl, last, hs);
-      emit_body(fl, last, null, ers, [s, ...rest], dst);
-    });
+    lv.push(["", end ?? Bend.Efq(), () => [s]]);
   }
+  const hs = lv.map(([, h]) => h);
   const spares = fl.spares;
-  const arms2 = emits.map((go) => () => {
+  const arms2 = lv.map(([, h, fs]) => () => {
     fl.spares = spares.slice();
     const uses = new Map(fl.uses);
-    go();
+    bind_arm(fl, h, hs);
+    emit_body(fl, h, null, ers, [...fs(), ...rest], dst);
     if (dst !== null) {
       spare_flush(fl);
     }
@@ -3124,7 +3111,7 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
   if (arms2.length === 1 || total === 1) {
     return arms2[0]();
   }
-  emit_chain(fl, (i) => conds[i], arms2);
+  emit_chain(fl, (i) => lv[i][0], arms2);
 }
 
 function emit_stuck(fl: File): void {
