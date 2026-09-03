@@ -29,27 +29,26 @@ const BEATS = [
   ["check"],
   ["bench", "gameoflife"],
   ["par", "gameoflife", co],
-  ["say", "#The whole language can run on GPUs"],
+  ["say", "#Parallelism is near-automatic"],
   ["dist"],
   ["eval", co],
   ["reduce", co],
-  ["say", "The *entire language* is parallel", "",
-          "Objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
-          "*Everything runs natively on GPUs*", "~(with CPU cores as a fallback)"],
+  ["say", "Objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
+          "*The entire language runs on GPUs*", "~(with CPU cores as a fallback)"],
   ["say", "How about *vibe-coding*?"],
   ["say", "You can *stop models*", "from *making mistakes*", "by demanding *proofs*"],
   ["say", "#How?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "To edit code, the AI must *prove*", "that every law *still holds true*",
-          "Proofs are checked *mechanically*", "So, breaking laws is *impossible*"],
-  ["say", "Consider a game with one law:", "*the player cannot win*"],
+  ["say", "*LAWS.bend* is *AGENTS.md*", "except backed by *proof*"],
+  ["say", "Consider a game with one law:", "%\"*the player cannot win*\""],
   ["intro"],
   ["say", "Let's prompt a new feature:", "%\"make the map *wrap around*\""],
   ["walk"],
   ["block"],
-  ["say", "No matter how *crazy* your prompt is,", "the AI *can't* make the game winnable"],
-  ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
+  ["say", "No matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
+          "It must craft a *harmless workaround*", "that satisfies Bend's *proof checker*"],
+  ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
           "that *proves* like Lean", "where vibe-coding *works*"],
   ["end"],
@@ -269,7 +268,8 @@ S.check = (u, dur) => {
 // on the far edges (far). Pastel tiles on the white page, a title above.
 const GW = 12, GH = 8, TILE = 56, BX = W/2 - GW*TILE/2, BY = 126;
 const PAL = { floor: ["#f5f7fa", "#e9eef4"], wall: "#b9c6da", cap: "#d3dce9", hit: "#f3c6b2", hitcap: "#f9dccf",
-              pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441" };
+              pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441",
+              win: "#fff6da", winRim: "#efd28a", winInk: "#8a6a1e" };
 function wallsOf(v) {
   const s = new Set(), add = (x, y) => s.add(x + "," + y);
   for (let y = 0; y <= 3; y++) add(3, y);
@@ -377,7 +377,15 @@ const WIN = up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 
 S.walk = (u, dur) => {
   const [x, y] = routeAt(WIN, Math.max(u - T0W, 0)), done = T0W + routeDur(WIN);
   gameCard("base", x, y, u < done, null, "In *other languages*:");
-  footer("The player won. The law is broken!", ease((u - done - 0.5)/0.4), RED);
+  const pa = ease((u - done - 0.3)/0.4);
+  if (pa > 0) {
+    const py = BY + GH*TILE/2 - 40;
+    cx.globalAlpha = pa;
+    box(W/2 - 150, py, 300, 80, 14, PAL.win, PAL.winRim, 1.5);
+    T("Victory!", W/2, py + 51, 30, PAL.winInk, "center", true);
+    cx.globalAlpha = 1;
+  }
+  footer("Oops. The player won. The law is broken!", ease((u - done - 1.3)/0.4), RED);
 };
 
 // Bend: the same walk on the shipped level meets a wall on the edge, and
@@ -400,7 +408,7 @@ S.laws = (u, dur) => {
   codeCard(LAWS_SRC, x, y, 600, 20, 34);
   const pa = ease((u - 7.5)/0.5);
   cx.globalAlpha = pa;
-  T("Write your rules here", W/2, 650, 26, AMBER, "center", true);
+  T("Any rule here is unviolable", W/2, 650, 26, AMBER, "center", true);
   bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
   cx.globalAlpha = 1;
 };
@@ -423,7 +431,7 @@ const camLerp = (a, b, p) =>
   cam(lerp(a.cpx, b.cpx, p), lerp(a.cpy, b.cpy, p), Math.exp(lerp(Math.log(a.s), Math.log(b.s), p)));
 const CAM0 = cam(GCEN, GCEN, 1);
 // the grid's caption and its pointer, at alpha a: the whole grid is
-// always seen at scale 1, so both sit at fixed places
+// seen at scale 1 in the split and the dive, so both sit at fixed places
 function gridTag(n, a) {
   if (a <= 0) return;
   cx.globalAlpha = a;
@@ -541,7 +549,7 @@ S.dist = (u, dur) => {
 const EVAL = ["sum(10,0)", "sum(9,10)", "sum(8,19)", "sum(7,27)", "sum(6,34)", "sum(5,40)",
               "sum(4,45)", "sum(3,49)", "sum(2,52)", "sum(1,54)", "sum(0,55)", "55"];
 const EVALV = [0, 10, 19, 27, 34, 40, 45, 49, 52, 54, 55, 55];
-const ESTEP = 0.5, E0 = 0.5, ED = 1.2, DIVE = 3.5, EDONE = E0 + (EVAL.length - 1)*ESTEP;
+const ESTEP = 0.5, E0 = 0.5, ED = 0.8, DIVE = 3.5, EDONE = E0 + (EVAL.length - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
 S.eval = (u, dur) => {
   const p = clamp((u - ED)/DIVE, 0, 1), z = 1 - (1 - p)*(1 - p), camr = camLerp(CAM0, CAME, z);
@@ -569,7 +577,7 @@ S.eval = (u, dur) => {
 // half and lands, each cell adding what arrived; then the bottom half onto
 // the top; and so on, the live region shrinking toward the top-left corner
 // while the camera follows it in, until one cell holds the total.
-const ZO = 1.6, R0 = 2.8, LEAF = 55;
+const ZO = 1.4, R0 = 1.8, LEAF = 55;
 const flowDur = j => 0.22 + 0.8*Math.pow(j/13, 2);
 const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
 function camFor(j) {
@@ -617,9 +625,6 @@ S.reduce = (u, dur) => {
       cellText(val, x, y, sw, sh, 1 - landed, ink1);
     }
   }
-  // the caption and the pointer return with the whole grid, and leave
-  // with the first fold
-  gridTag(N*N, ease((u - ZO + 0.4)/0.5)*(1 - ease((u - R0)/0.6)));
   cx.globalAlpha = ease((u - (dur - 3.0))/0.4);
   T("Final result!", W/2, 600, 24, GREEN, "center", true);
   cx.globalAlpha = 1;
@@ -687,8 +692,8 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: 8.0, eval: 8.5, reduce: 13.0,
-                laws: 12.0, intro: 8.0, walk: 6.0, block: 6.5, end: 24.0 };
+const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: 8.0, eval: 8.0, reduce: 12.0,
+                laws: 12.0, intro: 8.0, walk: 7.0, block: 6.5, end: 24.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
