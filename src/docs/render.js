@@ -23,7 +23,7 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
 const BEATS = [
-  ["say", "#Introducing: Bend 2"],
+  ["say", "#Introducing Bend 2"],
   ["say", "#A new language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
           "- that *PROVES* like Lean", "- where vibe-coding *WORKS*", left],
   ["check"],
@@ -33,14 +33,14 @@ const BEATS = [
   ["dist"],
   ["eval", co],
   ["reduce", co],
-  ["say", "Objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
-          "*The entire language runs on GPUs*", "~(with CPU cores as a fallback)"],
+  ["say", "*The entire language can run on GPUs*", "",
+          "Objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "and more!"],
   ["say", "How about *vibe-coding*?"],
-  ["say", "You can *stop models*", "from *making mistakes*", "by demanding *proofs*"],
+  ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*"],
   ["say", "#How?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "*LAWS.bend* is *AGENTS.md*", "except backed by *proof*"],
+  ["say", "*laws.bend* is *AGENTS.md*", "except backed by *proof*"],
   ["say", "Consider a game with one law:", "%\"*the player cannot win*\""],
   ["intro"],
   ["say", "Let's prompt a new feature:", "%\"make the map *wrap around*\""],
@@ -126,23 +126,25 @@ function bow(x0, y0, x1, y1, k, color, a, via) {
   cx.stroke(); cx.lineWidth = 1;
 }
 // ------------------------------------------------------------------ code
-const KW = new Set(["def", "type", "is", "Data", "match", "case", "import", "as",
-                    "forall", "assert", "do", "return"]);
+const KW = new Set(["def", "type", "is", "Data", "match", "case", "import", "as", "assert", "do", "return"]);
+const QUANT = new Set(["forall", "exists"]), CTR = new Set(["True", "False"]);
+const COMMENT = "#5a8f4e", PURPLE = "#6f42c1", ORANGE = "#c2410c";
 function codeLine(s, x, y, size) {
   font(size);
   const re = /("[^"]*"|#.*$|[A-Za-z_][A-Za-z0-9_.]*|\d+n?|\s+|.)/g;
   let m, px = x;
   while ((m = re.exec(s)) !== null) {
-    const t = m[0], kw = KW.has(t);
+    const t = m[0], kw = KW.has(t) || QUANT.has(t);
     font(size, kw);
-    cx.fillStyle = t[0] === "#" ? DIM : t[0] === "\"" ? GREEN : kw ? BLUE : INK;
+    cx.fillStyle = t[0] === "#" ? COMMENT : t[0] === "\"" ? GREEN : KW.has(t) ? BLUE
+                 : QUANT.has(t) ? PURPLE : CTR.has(t) ? ORANGE : INK;
     cx.fillText(t, px, y); px += cx.measureText(t).width;
   }
   font(size);
 }
-// a file card: a white page with the lines
+// a file card: a gray page with the lines
 function codeCard(lines, x, y, w, size, pitch) {
-  box(x, y, w, lines.length*pitch + 44, 10, "#ffffff", EDGE, 1.5);
+  box(x, y, w, lines.length*pitch + 44, 10, CARD, EDGE, 1.5);
   lines.forEach((l, i) => codeLine(l, x + 28, y + 36 + i*pitch, size));
 }
 
@@ -402,7 +404,7 @@ S.block = (u, dur) => {
 S.laws = (u, dur) => {
   const x = W/2 - 300, y = 285, h = LAWS_SRC.length*34 + 44;
   rich("A new file that lists *invariants*", W/2, 140, 30);
-  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that AIs are *forced* to respect", W/2, 190, 30);
+  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that models are *forced* to follow", W/2, 190, 30);
   cx.globalAlpha = ease((u - 4.0)/0.5);
   T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
   codeCard(LAWS_SRC, x, y, 600, 20, 34);
