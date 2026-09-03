@@ -23,34 +23,34 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
 const BEATS = [
-  ["say", "#a new programming language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
+  ["say", "#Introducing: Bend 2"],
+  ["say", "#A new language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
           "- that *PROVES* like Lean", "- where vibe-coding *WORKS*", left],
-  ["say", "#introducing: Bend 2"],
   ["check"],
   ["bench", "gameoflife"],
   ["par", "gameoflife", co],
-  ["say", "#the whole language can run on GPUs"],
+  ["say", "#The whole language can run on GPUs"],
   ["dist"],
   ["eval", co],
   ["reduce", co],
-  ["say", "the *entire language* is parallel", "",
-          "objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
-          "*everything runs natively on GPUs*", "~(with CPU cores as a fallback)"],
-  ["say", "how about *vibe-coding*?"],
-  ["say", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*"],
-  ["say", "#how?"],
+  ["say", "The *entire language* is parallel", "",
+          "Objects, arrays, allocator, collector", "pattern-matching, closures, recursion", "",
+          "*Everything runs natively on GPUs*", "~(with CPU cores as a fallback)"],
+  ["say", "How about *vibe-coding*?"],
+  ["say", "You can *stop models*", "from *making mistakes*", "by demanding *proofs*"],
+  ["say", "#How?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "to edit code, the AI must *prove*", "that every law *still holds true*",
-          "proofs are checked *mechanically*", "so, breaking laws is *impossible*"],
-  ["say", "consider a game with one law:", "*the player cannot win*"],
+  ["say", "To edit code, the AI must *prove*", "that every law *still holds true*",
+          "Proofs are checked *mechanically*", "So, breaking laws is *impossible*"],
+  ["say", "Consider a game with one law:", "*the player cannot win*"],
   ["intro"],
-  ["say", "let's prompt a new feature:", "%\"make the map *wrap around*\""],
+  ["say", "Let's prompt a new feature:", "%\"make the map *wrap around*\""],
   ["walk"],
   ["block"],
-  ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable"],
-  ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
-  ["say", "and that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
+  ["say", "No matter how *crazy* your prompt is,", "the AI *can't* make the game winnable"],
+  ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
+  ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
           "that *proves* like Lean", "where vibe-coding *works*"],
   ["end"],
 ];
@@ -230,7 +230,7 @@ S.bench = (u, dur, b) => {
   chart(B, u, 0, true);
   const pa = ease((u - 6.2)/0.5)*(1 - ease((u - dur + 0.6)/0.4));
   cx.globalAlpha = pa;
-  T("competes with C", 930, 250, 26, AMBER, "center", true);
+  T("Competes with C", 930, 250, 26, AMBER, "center", true);
   T("in a single core", 930, 282, 26, AMBER, "center", true);
   bow(940, 305, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
   cx.globalAlpha = 1;
@@ -256,7 +256,7 @@ S.check = (u, dur) => {
   T("3,200 generic instantiations · Apple M4 Max", W/2, 640, 20, DIM, "center");
   const pa = ease((u - 7.4)/0.5);
   cx.globalAlpha = pa;
-  T("up to 100x faster", 930, 330, 26, AMBER, "center", true);
+  T("Up to 100x faster", 930, 330, 26, AMBER, "center", true);
   T("than other provers", 930, 362, 26, AMBER, "center", true);
   bow(950, 385, slotX(4, 5, 70) + BW/2, BASE - 42, -0.25, AMBER, pa);
   cx.globalAlpha = 1;
@@ -360,13 +360,13 @@ S.intro = (u, dur) => {
   gameCard("base", x, y, true, hit);
   const gone = 1 - ease((u - I0 + 0.6)/0.4);
   cx.globalAlpha = ease((u - 0.6)/0.4)*gone;
-  T("player", 1130, BY + 5.5*TILE + 8, 26, AMBER, "center", true);
+  T("Player", 1130, BY + 5.5*TILE + 8, 26, AMBER, "center", true);
   bow(1072, BY + 5.5*TILE, BX + 9*TILE + 6, BY + 5.5*TILE, 0.15, AMBER);
   cx.globalAlpha = ease((u - 1.3)/0.4)*gone;
-  T("goal", 150, BY + 1.5*TILE + 8, 26, AMBER, "center", true);
+  T("Goal", 150, BY + 1.5*TILE + 8, 26, AMBER, "center", true);
   bow(205, BY + 1.5*TILE, BX + TILE - 6, BY + 1.5*TILE, -0.15, AMBER);
   cx.globalAlpha = 1;
-  footer("law: player can't win", ease((u - 2.0)/0.4), RED);
+  footer("Law: player can't win", ease((u - 2.0)/0.4), RED);
 };
 
 // other languages: the player goes up to the flag's row, right off the
@@ -376,8 +376,8 @@ const T0W = 0.6;
 const WIN = up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]);
 S.walk = (u, dur) => {
   const [x, y] = routeAt(WIN, Math.max(u - T0W, 0)), done = T0W + routeDur(WIN);
-  gameCard("base", x, y, u < done, null, "in *other languages*:");
-  footer("the player won. the law is broken!", ease((u - done - 0.5)/0.4), RED);
+  gameCard("base", x, y, u < done, null, "In *other languages*:");
+  footer("The player won. The law is broken!", ease((u - done - 0.5)/0.4), RED);
 };
 
 // Bend: the same walk on the shipped level meets a wall on the edge, and
@@ -385,22 +385,22 @@ S.walk = (u, dur) => {
 const BLOCK = up(8, 5, 1).concat([[9, 1], [10, 1]]);
 S.block = (u, dur) => {
   const [x, y, hit] = walkBump(BLOCK, 1, [11, 1], u, T0W);
-  gameCard("far", x, y, true, hit, "in *Bend*:");
-  footer("the AI placed a wall. the law holds!", ease((u - T0W - routeDur(BLOCK) - BUMPS*BUMP - 0.3)/0.4), GREEN);
+  gameCard("far", x, y, true, hit, "In *Bend*:");
+  footer("The AI placed a wall. The law holds!", ease((u - T0W - routeDur(BLOCK) - BUMPS*BUMP - 0.3)/0.4), GREEN);
 };
 
 // ------------------------------------------------------------------ code beats
 // what laws.bend is, then the file under its name, then where the rules go
 S.laws = (u, dur) => {
   const x = W/2 - 300, y = 285, h = LAWS_SRC.length*34 + 44;
-  rich("a new file that lists *invariants*", W/2, 140, 30);
+  rich("A new file that lists *invariants*", W/2, 140, 30);
   cx.globalAlpha = ease((u - 2.0)/0.4); rich("that AIs are *forced* to respect", W/2, 190, 30);
   cx.globalAlpha = ease((u - 4.0)/0.5);
   T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
   codeCard(LAWS_SRC, x, y, 600, 20, 34);
   const pa = ease((u - 7.5)/0.5);
   cx.globalAlpha = pa;
-  T("write your rules here", W/2, 650, 26, AMBER, "center", true);
+  T("Write your rules here", W/2, 650, 26, AMBER, "center", true);
   bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
   cx.globalAlpha = 1;
 };
@@ -428,7 +428,7 @@ function gridTag(n, a) {
   if (a <= 0) return;
   cx.globalAlpha = a;
   T(n === 1 ? "1 task" : num(n) + " tasks", W/2, 660, 24, INK, "center");
-  pointer("that's your GPU!", W/2 + GS/2 + 8, 392, a);
+  pointer("That's your GPU!", W/2 + GS/2 + 8, 392, a);
   cx.globalAlpha = 1;
 }
 const ZOOM = 92;                               // one cell fills 360px
@@ -530,7 +530,7 @@ S.dist = (u, dur) => {
   }
   const [cols, rows] = dims(p > 0.5 ? k + 1 : k), n = cols*rows;
   T(n === 1 ? "1 task" : num(n) + " tasks", W/2, 660, 24, INK, "center");
-  pointer("that's your GPU!", W/2 + GS/2 + 8, 392, ease((u - DALL - 0.3)/0.5));
+  pointer("That's your GPU!", W/2 + GS/2 + 8, 392, ease((u - DALL - 0.3)/0.5));
 };
 
 // Step 2. Every core works its sum(10,0) down one call at a time while the
@@ -558,9 +558,9 @@ S.eval = (u, dur) => {
   // the caption and the pointer stay as the dive begins, and fade with it
   gridTag(N*N, 1 - ease((u - ED)/0.5));
   const [ex, ey] = CAME.at((MID + 1)*CS, (MID + 0.5)*CS);
-  pointer("one GPU core", ex + 6, ey + 12, ease((u - ED - DIVE - 0.2)/0.5));
+  pointer("One GPU core", ex + 6, ey + 12, ease((u - ED - DIVE - 0.2)/0.5));
   cx.globalAlpha = ease((u - EDONE - 0.3)/0.4);
-  T("partial result", W/2, 600, 24, AMBER, "center", true);
+  T("Partial result", W/2, 600, 24, AMBER, "center", true);
   cx.globalAlpha = 1;
 };
 
@@ -621,7 +621,7 @@ S.reduce = (u, dur) => {
   // with the first fold
   gridTag(N*N, ease((u - ZO + 0.4)/0.5)*(1 - ease((u - R0)/0.6)));
   cx.globalAlpha = ease((u - (dur - 3.0))/0.4);
-  T("final result!", W/2, 600, 24, GREEN, "center", true);
+  T("Final result!", W/2, 600, 24, GREEN, "center", true);
   cx.globalAlpha = 1;
 };
 
