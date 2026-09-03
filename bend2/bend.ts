@@ -1025,24 +1025,27 @@ const BASE_BEND  = fs.realpathSync(url.fileURLToPath(new URL("./base.bend", impo
 const BEND_STORE = path.resolve(process.env.BEND_STORE ?? path.join(os.homedir(), ".bend", "store"));
 const BEND_HUB   = process.env.BEND_HUB ?? "https://proofmarket.com";
 
-export async function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>): Promise<number> {
+export async function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>, spn?: Span): Promise<number> {
   if (file.startsWith(BEND_STORE + "/") && !fs.existsSync(file)) {
     const sub = file.slice(BEND_STORE.length + 1);
     const res = await fetch(BEND_HUB + "/api/v1/files/" + sub);
     if (!res.ok) {
-      throw Err(book, ctx_nil(), "a published package (" + BEND_HUB + " has no " + sub + ")");
+      throw Err(book, ctx_nil(), "a published package (" + BEND_HUB + " has no " + sub + ")", undefined, spn);
     }
     fs.mkdirSync(path.dirname(file), { recursive: true });
     fs.writeFileSync(file, await res.text());
   }
+  if (!fs.existsSync(file)) {
+    throw Err(book, ctx_nil(), "no such file: " + file, undefined, spn);
+  }
   const real = fs.realpathSync(file);
   const done = seen.get(real);
   if (done === null) {
-    throw Err(book, ctx_nil(), "an acyclic import graph (a cycle reaches " + file + ")");
+    throw Err(book, ctx_nil(), "an import cycle through " + file, undefined, spn);
   }
   if (done !== undefined) {
     if (done !== ns) {
-      throw Err(book, ctx_nil(), "one namespace per file (" + file + " is both '" + done + "' and '" + ns + "')");
+      throw Err(book, ctx_nil(), "one namespace per file (" + file + " is both '" + done + "' and '" + ns + "')", undefined, spn);
     }
     return book.order.length;
   }
@@ -1056,16 +1059,17 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
     const m = line.match(/^import(\s.*|)$/);
     if (m !== null) {
       const h = m[1].match(/^\s+(\S+)(?:\s+as\s+([A-Za-z_][A-Za-z0-9_]*))?\s*(?:#.*)?$/);
+      const beg = text.split("\n", i).join("\n").length + (i && 1) + lines[i].indexOf(h === null ? line : h[1]);
+      const sp  = { src: text, beg, end: beg };
       if (h === null || (h[2] === undefined && h[1] !== "Base")) {
-        throw Err(book, ctx_nil(), "an import ('import Base', or 'import <path> as <Name>')");
+        throw Err(book, ctx_nil(), "an import ('import Base', or 'import <path> as <Name>')", "'" + line + "'", sp);
       }
       if (h[2] === undefined) {
-        await book_load(book, BASE_BEND, "", seen);
+        await book_load(book, BASE_BEND, "", seen, sp);
       } else {
         const rel = path.posix.normalize(h[1]);
         if (!rel.endsWith(".bend")) {
-          const beg = text.split("\n", i).join("\n").length + (i && 1) + lines[i].indexOf(h[1]);
-          throw Err(book, ctx_nil(), "an import of a .bend file", "'" + h[1] + "'", { src: text, beg, end: beg });
+          throw Err(book, ctx_nil(), "an import of a .bend file", "'" + h[1] + "'", sp);
         }
         let at  = dir + rel;
         let sub = path.posix.join(path.posix.dirname(ns), rel);
@@ -1078,7 +1082,7 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
           sub = rel;
         }
         al[h[2]] = sub.replace(/\.bend$/, "");
-        await book_load(book, at, al[h[2]], seen);
+        await book_load(book, at, al[h[2]], seen, sp);
       }
       lines[i] = "";
       continue;
