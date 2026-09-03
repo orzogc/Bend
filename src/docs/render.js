@@ -23,7 +23,6 @@ const cost = s => (s = s.replace(/[*+~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
 const BEATS = [
-  ["say", "#Bend 2"],
   ["say", "#A new language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
           "- that *PROVES* like Lean", "- where vibe-coding *WORKS*", left],
   ["check"],
@@ -34,24 +33,28 @@ const BEATS = [
   ["eval", co],
   ["reduce", co],
   ["say", "*The entire language can run on GPUs.*", "",
-          "Objects, arrays, allocator, collector,", "pattern-matching, closures, recursion,", "and more!"],
+          "Objects, arrays, allocator, collector,", "pattern-matching, closures, recursion.", "",
+          "All of it compiles to kernels!"],
+  ["say", "It runs fast in a single CPU core.", "It scales to massive GPU clusters."],
   ["say", "How about *vibe-coding*?"],
-  ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
+  ["say", "You can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
   ["say", "#How?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
   ["say", "*laws.bend* is *AGENTS.md*", "except backed by *proof*."],
-  ["say", "Consider a game with one law:", "%\"*the player cannot win*\""],
+  ["say", "#Example"],
+  ["say", "Consider a game with one law:", "%\"the player can't win\""],
   ["intro"],
-  ["say", "Let's prompt a new feature:", "%\"make the map *wrap around*\""],
+  ["say", "So far, it works!"],
+  ["say", "Let's *prompt* a new feature:", "%\"make the map wrap around\""],
   ["walk"],
   ["block"],
-  ["say", "The \"winning_is_a_bug\" law forced the AI to place walls.", "",
-          "Otherwise, it wouldn't be able to prove *laws.bend* holds.", "",
-          "And Bend demands such proof before merging code changes."],
-  ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
-  ["say", "And that's Bend 2:", "a language *fast* like C", "that *scales* like CUDA",
-          "that *proves* like Lean", "where vibe-coding *works*."],
+  ["say", "The rules in *laws.bend* are enforced by the same",
+          "algorithm used in proof assistants such as Lean.", "",
+          "It is *mathematically impossible* for AIs to",
+          "break its laws. Edits demand correctness proofs.", "",
+          "Models either *make no mistakes*, or *fail loudly*."],
+  ["say", "That language is *Bend*.", punch],
   ["end"],
 ];
 
@@ -167,8 +170,10 @@ const BENCH = {
   gameoflife: { title: "game of life", rivals: [["TypeScript", 18.778], ["Lean", 13.922], ["C", 6.821]],
                 seq: 5.458, par: 0.475, gpu: 0.082 },
 };
+// the language goes unnamed until the last slide: its bars say "New"
+const NEW = "New";
 const CHECK = [["Isabelle", 300, true], ["Agda", 300, true], ["Lean", 18.356],
-               ["Rocq", 5.951], ["Bend", 0.344]];
+               ["Rocq", 5.951], [NEW, 0.344]];
 
 const secs = s => (s >= 10 ? s.toFixed(1) : s.toFixed(2)) + "s";
 const times = x => (x >= 10 ? Math.round(x) : x.toFixed(1)) + "x";
@@ -213,13 +218,13 @@ const S = {};
 // go climbs the rivals fade, Bend slides to the left slot and the axis
 // zooms onto it. Returns the axis.
 function chart(B, u, go, rise) {
-  const all = B.rivals.concat([["Bend", B.seq]]);
+  const all = B.rivals.concat([[NEW, B.seq]]);
   const vmax = Math.max(...all.map(r => r[1])), vz = lerp(vmax, B.seq, go);
-  rich("Bend runs *FAST*", W/2, 96, 30);
+  rich("It runs *FAST*", W/2, 96, 30);
   all.forEach(([name, v], i) => {
     const a = rise ? ease((u - 1.0 - i*1.0)/0.5) : 1;
     if (i < 3) bar(slotX(i, 4, 70), v, vmax, name, GRAY, a, false, 1 - go);
-    else bar(lerp(slotX(3, 4, 70), slotX(0, 3, G3), go), v, vz, "Bend", BLUE, a);
+    else bar(lerp(slotX(3, 4, 70), slotX(0, 3, G3), go), v, vz, NEW, BLUE, a);
   });
   cx.globalAlpha = rise ? ease((u - 5.2)/0.5) : 1;
   T(B.title + " · Apple M4 Max", W/2, 640, 20, DIM, "center");
@@ -241,18 +246,18 @@ S.bench = (u, dur, b) => {
 // readout lands, then the GPU's bar and readout; both readouts stay
 S.par = (u, dur, b) => {
   const B = BENCH[b[2]], vz = chart(B, u, ease((u - 0.6)/0.9), false);
-  bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, ease((u - 2.0)/0.5));
+  bar(slotX(1, 3, G3), B.par, vz, NEW, BLUE, ease((u - 2.0)/0.5));
   speedup(B, B.par, 1, "16 CPU cores", u, 2.8);
-  bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 5.6)/0.5));
+  bar(slotX(2, 3, G3), B.gpu, vz, NEW, BLUE, ease((u - 5.6)/0.5));
   speedup(B, B.gpu, 2, "16384 GPU cores", u, 6.4);
 };
 
 // five bars, then the gap between Bend and the field, pointed out
 S.check = (u, dur) => {
   const vmax = 2*18.356;
-  rich("Bend compiles *FAST*", W/2, 96, 30);
+  rich("It compiles *FAST*", W/2, 96, 30);
   CHECK.forEach(([name, v, over], i) =>
-    bar(slotX(i, 5, 70), over ? vmax : v, vmax, name, name === "Bend" ? BLUE : GRAY,
+    bar(slotX(i, 5, 70), over ? vmax : v, vmax, name, name === NEW ? BLUE : GRAY,
         ease((u - 1.0 - i*1.0)/0.5), over));
   cx.globalAlpha = ease((u - 6.2)/0.5);
   T("3,200 generic instantiations · Apple M4 Max", W/2, 640, 20, DIM, "center");
@@ -379,7 +384,7 @@ const T0W = 0.6;
 const WIN = up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]);
 S.walk = (u, dur) => {
   const [x, y] = routeAt(WIN, Math.max(u - T0W, 0)), done = T0W + routeDur(WIN);
-  gameCard("base", x, y, u < done, null, "In *other languages*:");
+  gameCard("base", x, y, u < done, null, "Without *laws.bend*:");
   const pa = ease((u - done - 0.3)/0.4);
   if (pa > 0) {
     const py = BY + GH*TILE/2 - 40;
@@ -396,7 +401,7 @@ S.walk = (u, dur) => {
 const BLOCK = up(8, 5, 1).concat([[9, 1], [10, 1]]);
 S.block = (u, dur) => {
   const [x, y, hit] = walkBump(BLOCK, 1, [11, 1], u, T0W);
-  gameCard("far", x, y, true, hit, "In *Bend*:");
+  gameCard("far", x, y, true, hit, "With *laws.bend*:");
   footer("The AI placed a wall. The law holds!", ease((u - T0W - routeDur(BLOCK) - BUMPS*BUMP - 0.3)/0.4), GREEN);
 };
 
@@ -411,7 +416,7 @@ S.laws = (u, dur) => {
   codeCard(LAWS_SRC, x, y, 600, 20, 34);
   const pa = ease((u - 7.5)/0.5);
   cx.globalAlpha = pa;
-  T("Rules here are unbreakable.", W/2, 650, 26, AMBER, "center", true);
+  T("Write your rules here.", W/2, 650, 26, AMBER, "center", true);
   bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
   cx.globalAlpha = 1;
 };
@@ -433,14 +438,15 @@ function cam(cpx, cpy, s) {
 const camLerp = (a, b, p) =>
   cam(lerp(a.cpx, b.cpx, p), lerp(a.cpy, b.cpy, p), Math.exp(lerp(Math.log(a.s), Math.log(b.s), p)));
 const CAM0 = cam(GCEN, GCEN, 1);
-// the grid's caption and its pointer, at alpha a: the whole grid is
-// seen at scale 1 in the split and the dive, so both sit at fixed places
-function gridTag(n, a) {
-  if (a <= 0) return;
-  cx.globalAlpha = a;
+// the grid's caption at alpha ac and its pointer at alpha ap: the whole
+// grid is seen at scale 1 in the split and the dive, so both sit at fixed
+// places
+function gridTag(n, ac, ap) {
+  if (ac <= 0) return;
+  cx.globalAlpha = ac;
   T(n === 1 ? "1 task" : num(n) + " tasks", W/2, 660, 24, INK, "center");
-  pointer("That's your GPU!", W/2 + GS/2 + 8, 392, a);
   cx.globalAlpha = 1;
+  pointer("GPU", W/2 + GS/2 + 8, 392, ap);
 }
 const ZOOM = 92;                               // one cell fills 360px
 const CAM1 = cam(CS/2, CS/2, ZOOM);             // the top-left core, where the result lands
@@ -466,23 +472,25 @@ function cellBox(x, y, w, h, fill, a) {
   cx.fillStyle = deepen(fill, Math.min(1/c, 1.5)); cx.fillRect(x + g/2, y + g/2, w - g, h - g);
   if (a !== undefined) cx.globalAlpha = 1;
 }
-// Numbers wear 2048's tiles (gabrielecirulli/2048, style/main.css): the 2
-// and 4 tiles' beige while the values are small, the 8..64 climb from orange
-// to red over the levels where the numbers can be read, and the 2048 yellow
-// for the total alone. Text is 2048's: dark on beige, near-white from 8 up.
+// Numbers wear 2048's tiles (gabrielecirulli/2048, style/main.css), one
+// even climb over the whole run: a core's sum goes from the 2 tile's beige
+// to the 8 tile's orange as it counts up to 55, then the folds carry the
+// totals from that orange to the 64 tile's red, and the final result alone
+// wears the 2048 yellow. Text is 2048's: dark on the beiges,
+// near-white from the orange up.
 const TILES = ["#eee4da", "#ede0c8", "#f2b179", "#f59563", "#f67c5f", "#f65e3b", "#edc22e"];
 const mix = (h1, h2, f) => "#" + rgb(h1).map((c, k) => Math.round(lerp(c, rgb(h2)[k], f)).toString(16).padStart(2, "0")).join("");
-// a value's rung on the tiles, fractional: its reduce level (log2 of value / leaf) mapped
-// so levels 0..6 span the beiges, 6..13 the orange-to-red, 13..14 the yellow
+// a value's rung on the tiles, fractional: 0..2 while the leaf counts up,
+// 2..5 over the fold levels (log2 of value / leaf) but the last, which is 6
 function rung(v) {
   const l = clamp(Math.log2(v/LEAF), 0, LEVELS);
-  return l < 6 ? l/6 : l < 13 ? 2 + (l - 6)*3/7 : 5 + (l - 13);
+  return v <= LEAF ? 2*v/LEAF : l < LEVELS - 1 ? 2 + 3*l/(LEVELS - 1) : 5 + (l - LEVELS + 1);
 }
 function heat(v) {
   const t = rung(v), i = Math.min(Math.floor(t), TILES.length - 2);
   return mix(TILES[i], TILES[i + 1], t - i);
 }
-const ink = v => rung(v) < 1.5 ? "#776e65" : "#f9f6f2";
+const ink = v => rung(v) < 2 ? "#776e65" : "#f9f6f2";
 function cellText(s, x, y, w, h, a, color) {
   const fs = fitText(w, h);
   if (fs < 5 || a <= 0) return;
@@ -490,12 +498,13 @@ function cellText(s, x, y, w, h, a, color) {
   T(s, x + w/2, y + h/2 + fs*0.36, fs, color || BLUE, "center", true);
   cx.globalAlpha = 1;
 }
-// a label to the right of a picture, its arrow bowing in to the edge
+// a label to the right of a picture, its arrow leaving from under the
+// label's first letters and bowing in to the edge
 function pointer(s, x1, y1, a) {
   if (a <= 0) return;
   cx.globalAlpha = a;
   T(s, 1075, 300, 26, AMBER, "center", true);
-  bow(1020, 322, x1, y1, -0.3, AMBER, a);
+  bow(1075 - cx.measureText(s).width/2 + 10, 322, x1, y1, -0.3, AMBER, a);
   cx.globalAlpha = 1;
 }
 
@@ -539,9 +548,8 @@ S.dist = (u, dur) => {
     slotBoxes(k + 1, boxA(k + 1)*p);
     slotLabels(k + 1, ease(p), clamp((p - 0.3)/0.5, 0, 1));
   }
-  const [cols, rows] = dims(p > 0.5 ? k + 1 : k), n = cols*rows;
-  T(n === 1 ? "1 task" : num(n) + " tasks", W/2, 660, 24, INK, "center");
-  pointer("That's your GPU!", W/2 + GS/2 + 8, 392, ease((u - DALL - 0.3)/0.5));
+  const [cols, rows] = dims(p > 0.5 ? k + 1 : k);
+  gridTag(cols*rows, 1, ease((u - DALL - 0.2)/0.4));
 };
 
 // Step 2. Every core works its sum(10,0) down one call at a time while the
@@ -552,7 +560,7 @@ S.dist = (u, dur) => {
 const EVAL = ["sum(10,0)", "sum(9,10)", "sum(8,19)", "sum(7,27)", "sum(6,34)", "sum(5,40)",
               "sum(4,45)", "sum(3,49)", "sum(2,52)", "sum(1,54)", "sum(0,55)", "55"];
 const EVALV = [0, 10, 19, 27, 34, 40, 45, 49, 52, 54, 55, 55];
-const ESTEP = 0.5, E0 = 0.5, ED = 0.8, DIVE = 3.5, EDONE = E0 + (EVAL.length - 1)*ESTEP;
+const ESTEP = 0.5, E0 = 0.5, ED = 0.4, DIVE = 3.5, EDONE = E0 + (EVAL.length - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
 S.eval = (u, dur) => {
   const p = clamp((u - ED)/DIVE, 0, 1), z = 1 - (1 - p)*(1 - p), camr = camLerp(CAM0, CAME, z);
@@ -567,21 +575,26 @@ S.eval = (u, dur) => {
     cellText(EVAL[j], x, y, w, h, a, j ? ink(EVALV[j]) : BLUE);
   }
   // the caption and the pointer stay as the dive begins, and fade with it
-  gridTag(N*N, 1 - ease((u - ED)/0.5));
+  const g = 1 - ease((u - ED)/0.4);
+  gridTag(N*N, g, g);
   const [ex, ey] = CAME.at((MID + 1)*CS, (MID + 0.5)*CS);
-  pointer("One GPU core", ex + 6, ey + 12, ease((u - ED - DIVE - 0.2)/0.5));
+  pointer("GPU core", ex + 6, ey + 12, ease((u - ED - DIVE - 0.2)/0.5));
   cx.globalAlpha = ease((u - EDONE - 0.3)/0.4);
   T("Partial result", W/2, 600, 24, AMBER, "center", true);
   cx.globalAlpha = 1;
 };
 
 // Step 3. The camera pulls back to the whole cube, every core holding its
-// 55. Then the numbers flow: the right half of the grid slides onto the left
-// half and lands, each cell adding what arrived; then the bottom half onto
-// the top; and so on, the live region shrinking toward the top-left corner
-// while the camera follows it in, until one cell holds the total.
-const ZO = 1.4, R0 = 1.8, LEAF = 55;
-const flowDur = j => 0.22 + 0.8*Math.pow(j/13, 2);
+// 55. Then the numbers fold, the way 2048's tiles do: the right half of the
+// grid slides, as one opaque sheet, onto the left half; the moment it lands
+// it is gone, and every cell it covered pops, lit, with the doubled sum;
+// then the camera closes in on the half that is left. Then the bottom half
+// onto the top; and so on, until one cell holds the total. A fold takes
+// flowDur: the slide is its first SLIDE, the pop the next POP, and the
+// camera moves over its last part.
+const ZO = 1.2, R0 = 1.5, LEAF = 55, SLIDE = 0.55, POP = 0.2;
+const flowDur = j => 0.5 - 0.15*j/(LEVELS - 1);
+const RDONE = (() => { let t = R0; for (let j = 0; j < LEVELS; j++) t += flowDur(j); return t; })();
 const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
 function camFor(j) {
   if (j >= LEVELS) return CAM1;
@@ -591,44 +604,44 @@ function camFor(j) {
 S.reduce = (u, dur) => {
   let j = 0, t = R0;
   while (j < LEVELS && u >= t + flowDur(j)) { t += flowDur(j); j++; }
-  const p = j < LEVELS ? clamp((u - t)/flowDur(j), 0, 1) : 1, m = ease(p);
-  const camr = u < R0 ? camLerp(CAME, camFor(0), ease(u/ZO)) : camLerp(camFor(j), camFor(j + 1), m);
+  const folding = u >= R0 && j < LEVELS, p = folding ? clamp((u - t)/flowDur(j), 0, 1) : 1;
+  const slide = ease(p/SLIDE), q = clamp((p - SLIDE)/POP, 0, 1), landed = p >= SLIDE;
+  const camr = u < R0 ? camLerp(CAME, camFor(0), ease(u/ZO))
+             : camLerp(camFor(j), camFor(j + 1), ease((p - SLIDE)/(1 - SLIDE)));
   const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
-  const val = num(LEAF*Math.pow(2, j)), val2 = num(LEAF*Math.pow(2, j + 1));
-  const v1 = LEAF*Math.pow(2, j), v2 = LEAF*Math.pow(2, j + 1);
+  const v1 = LEAF*Math.pow(2, j), v2 = 2*v1, val = num(v1), val2 = num(v2);
   const fill = heat(v1), fill2 = heat(v2), ink1 = ink(v1), ink2 = ink(v2);
-  const landed = clamp((p - 0.82)/0.18, 0, 1);
+  const pop = 1 + 0.12*Math.sin(Math.PI*q), lit = mix(fill2, "#ffffff", 0.3*Math.sin(Math.PI*q));
   // the other cores return as the camera pulls back, and leave again once
   // the total is in: the last frame is one cell alone
   const others = u < R0 ? clamp(u/0.6, 0, 1) : j < LEVELS ? 1 : 1 - ease((u - t - 0.5)/0.6);
-  // the static grid: empty cells faint, live cells blue
+  // the static grid: empty cells faint, live cells on their tile
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const [x, y, cw, ch] = blockRect(camr, c, r, 1, 1);
     if (offscreen(x, y, cw, ch)) continue;
     const live = c < w && r < h, src = live && (vert ? c >= w/2 : r >= h/2);
     const a = u < R0 && !(c === MID && r === MID) ? others : j >= LEVELS && !(c === 0 && r === 0) ? others : 1;
     if (a <= 0) continue;
-    if (!live || (src && p > 0)) { cellBox(x, y, cw, ch, MIST, a); continue; }
-    cellBox(x, y, cw, ch, j >= LEVELS || u < R0 ? fill : mix(fill, fill2, landed), a);
-    if (j >= LEVELS) cellText(val, x, y, cw, ch, 1, ink1);
-    else if (u < R0) cellText(val, x, y, cw, ch, a, ink1);
-    else {
-      cellText(val, x, y, cw, ch, 1 - landed, ink1);
-      cellText(val2, x, y, cw, ch, landed, ink2);
-    }
+    if (!live || (src && folding)) { cellBox(x, y, cw, ch, MIST, a); continue; }
+    if (!landed || !folding) { cellBox(x, y, cw, ch, fill, a); cellText(val, x, y, cw, ch, a, ink1); continue; }
+    const px = x - (pop - 1)*cw/2, py = y - (pop - 1)*ch/2, pw = cw*pop, ph = ch*pop;
+    cellBox(px, py, pw, ph, lit, a); cellText(val2, px, py, pw, ph, a, ink2);
   }
-  // the moving half: one sheet of cells sliding onto its neighbours
-  if (j < LEVELS && p > 0) {
-    const dx = vert ? -w/2*m : 0, dy = vert ? 0 : -h/2*m;
+  // the moving half: one opaque sheet of cells sliding onto its neighbours
+  if (folding && !landed) {
+    const dx = vert ? -w/2*slide : 0, dy = vert ? 0 : -h/2*slide;
     const c0 = vert ? w/2 : 0, r0 = vert ? 0 : h/2, cw = vert ? w/2 : w, chh = vert ? h : h/2;
+    const [bx, by, bw, bh] = blockRect(camr, c0 + dx, r0 + dy, cw, chh);
+    cx.save(); cx.shadowColor = "rgba(21,26,32,0.35)"; cx.shadowBlur = 28;
+    cx.fillStyle = BG; cx.fillRect(bx, by, bw, bh); cx.restore();
     for (let r = r0; r < r0 + chh; r++) for (let c = c0; c < c0 + cw; c++) {
       const [x, y, sw, sh] = blockRect(camr, c + dx, r + dy, 1, 1);
       if (offscreen(x, y, sw, sh)) continue;
-      cellBox(x, y, sw, sh, fill, 1 - landed);
-      cellText(val, x, y, sw, sh, 1 - landed, ink1);
+      cellBox(x, y, sw, sh, fill);
+      cellText(val, x, y, sw, sh, 1, ink1);
     }
   }
-  cx.globalAlpha = ease((u - (dur - 3.0))/0.4);
+  cx.globalAlpha = ease((u - RDONE - 0.8)/0.4);
   T("Final result!", W/2, 600, 24, GREEN, "center", true);
   cx.globalAlpha = 1;
 };
@@ -682,7 +695,7 @@ S.reveal = (u, dur, b) => {
 };
 
 S.end = (u, dur) => {
-  T("Bend 2", W/2, 290, 64, INK, "center", true);
+  T("Bend", W/2, 290, 64, INK, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
   T("fast  ·  scalable  ·  no mistakes", W/2, 360, 24, GREEN, "center");
   cx.globalAlpha = ease((u - 1.8)/0.5);
@@ -695,8 +708,8 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: 8.0, eval: 8.0, reduce: 12.0,
-                laws: 12.0, intro: 8.0, walk: 7.0, block: 6.5, end: 24.0 };
+const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: DALL + 1.5, eval: EDONE + 1.9,
+                reduce: RDONE + 3.0, laws: 12.0, intro: 8.0, walk: 7.0, block: 6.5, end: 24.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
