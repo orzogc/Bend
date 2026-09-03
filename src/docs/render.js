@@ -30,21 +30,37 @@ const BEATS = [
   ["say", "now, let's prompt a new feature:", "%\"make the map *wrap around*\""],
   ["walk"],
   ["say", "oops! the feature introduced a *bug*"],
-  ["say", "can we avoid that?"],
-  ["block"],
-  ["say", "by placing a wall", "the feature lands", "and the law holds"],
-  ["say", "now, imagine if every bug was avoided", "by some magic that enforced our laws?"],
+  ["say", "the law was only in our *heads*", "the AI *never saw it*"],
+  ["say", "what if we could *write it down*", "in a way that *can't be broken*?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
+  ["say", "now, the same prompt again:", "%\"make the map *wrap around*\""],
+  ["block"],
+  ["say", "the AI placed a *wall*", "the feature lands", "the law holds"],
   ["say", "#but what enforces it?"],
   ["say", "#Bend", "%a new programming language", "",
           "with a built-in *proof system*", "that mechanically enforces *laws.bend*"],
-  ["say", "a law is a *theorem* about your code", "and every edit must come with a *proof*", "",
-          "a proof covers *every* input, *every* path", "and a machine checks it, *step by step*", "",
-          "no proof, *no compile*"],
+  ["say", "#what is a proof?"],
+  ["say", "let's answer one question:", "%\"where can the player *ever* go?\""],
+  ["cover"],
+  ["say", "*that* is a proof", "", "not a few paths *tried*", "but *every* path *covered*"],
+  ["say", "#and who checks it?"],
+  ["say", "a *proof checker*:", "a small program that verifies", "each step of the proof", "",
+          "like grading a *sudoku* answer:", "hard to solve, *trivial* to check"],
+  ["say", "the AI *writes* the proof", "the checker *verifies* it", "",
+          "a wrong proof is *rejected*", "and the code *won't compile*"],
+  ["term"],
+  ["say", "so the AI can't touch the *law*", "it must fix the *code*"],
+  ["say", "%*PROMPT*: \"add a new teleport spell\"", "*RESULT*: it can't pass through walls", left],
+  ["say", "%*PROMPT*: \"make it pass through walls\"", "*RESULT*: the walls become stones", left],
+  ["say", "%*PROMPT*: \"make it pass through anything\"", "*RESULT*: the room now kills you", left],
+  ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable"],
+  ["say", "in short,", "*laws.bend* is *AGENTS.md*", "except *backed by proof*"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
-  ["say", "but other provers exist", "why use *Bend* specifically?"],
-  ["reveal", "because Bend| is", 34],
+  ["say", "*proofs* are an old tech", "", "for *decades*, they've secured",
+          "CPUs, OSs, military aircraft", "", "so, why aren't they everywhere?"],
+  ["say", "because proof languages are *slow*"],
+  ["reveal", "and Bend| is", 34],
   ["reveal", "FAST", 64],
   ["check"],
   ["bench", "gameoflife"],
@@ -414,6 +430,97 @@ S.block = (u, dur) => {
   gameCard("far", x, y, true, 0, hit);
 };
 
+// where can the player ever go? First the tests: three paths tried, one
+// after another, dotted from where the player stands. Then the proof: the
+// cells the player can reach flood green from its cell, ring by ring, and
+// stop at the walls and the map's edge. The flag's room never turns green.
+const TESTS = [
+  [[8, 5], [8, 4], [8, 3], [8, 2], [7, 2], [6, 2], [5, 2], [5, 1], [5, 0]],
+  [[8, 5], [7, 5], [6, 5], [5, 5], [5, 6], [5, 7], [4, 7], [3, 7], [2, 7], [1, 7]],
+  [[8, 5], [9, 5], [10, 5], [11, 5], [11, 4], [11, 3], [11, 2], [11, 1], [10, 1], [9, 1]],
+];
+const C0 = 1.0, CGAP = 1.5, CDRAW = 1.0, F0 = 6.2, RING = 0.16;
+// the distance of every cell from the player, walking the base level
+const REACH = (() => {
+  const walls = wallsOf("base"), d = {}, q = [[8, 5]];
+  d["8,5"] = 0;
+  for (let i = 0; i < q.length; i++) {
+    const [x, y] = q[i];
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      const k = nx + "," + ny;
+      if (nx < 0 || ny < 0 || nx >= GW || ny >= GH || walls.has(k) || k in d) continue;
+      d[k] = d[x + "," + y] + 1; q.push([nx, ny]);
+    }
+  }
+  return d;
+})();
+const cc = ([x, y]) => [BX + (x + 0.5)*TILE, BY + (y + 0.5)*TILE];
+// a dotted trail along a path, drawn up to fraction a, a dot at its tip
+function trail(r, a) {
+  if (a <= 0) return;
+  const n = (r.length - 1)*clamp(a, 0, 1), P = [];
+  for (let i = 0; i < r.length; i++) {
+    if (i > n) { const [ax, ay] = cc(r[i - 1]), [bx, by] = cc(r[i]), f = n - (i - 1); P.push([lerp(ax, bx, f), lerp(ay, by, f)]); break; }
+    P.push(cc(r[i]));
+  }
+  cx.strokeStyle = BLUE; cx.lineWidth = 5; cx.lineCap = "round"; cx.setLineDash([0.1, 11]);
+  cx.beginPath(); P.forEach(([x, y], i) => i ? cx.lineTo(x, y) : cx.moveTo(x, y)); cx.stroke();
+  cx.setLineDash([]); cx.lineWidth = 1;
+  const [tx, ty] = P[P.length - 1];
+  cx.fillStyle = BLUE; cx.beginPath(); cx.arc(tx, ty, 7, 0, Math.PI*2); cx.fill();
+}
+// one line under the board at a time: each fades out as the next lands
+function captions(u, cs) {
+  cs.forEach(([s, t, color], i) => {
+    const nxt = cs[i + 1], a = ease((u - t)/0.4)*(nxt ? 1 - ease((u - nxt[1] + 0.5)/0.4) : 1);
+    if (a <= 0) return;
+    cx.globalAlpha = a;
+    if (color) T(s, W/2, 664, 26, color, "center", true); else rich(s, W/2, 664, 26, INK);
+    cx.globalAlpha = 1;
+  });
+}
+S.cover = (u, dur) => {
+  gameCard("base", 8, 5, true, 0, null);
+  const gone = 1 - ease((u - F0 + 0.8)/0.5);
+  // the proof: reached cells turn green ring by ring; the room, red once done
+  const room = ease((u - 9.2)/0.5);
+  for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
+    const d = REACH[x + "," + y];
+    const g = d === undefined ? 0 : ease((u - F0 - d*RING)/0.3);
+    const r = x < 3 && y < 3 ? room : 0;
+    if (g <= 0 && r <= 0) continue;
+    const base = PAL.floor[(x + y) % 2];
+    tile(x, y, g > 0 ? mix(base, "#3fbf7a", 0.34*g) : mix(base, "#e8563f", 0.30*r));
+  }
+  // the tests: three trails, one after another
+  cx.globalAlpha = gone;
+  TESTS.forEach((r, i) => trail(r, (u - C0 - i*CGAP)/CDRAW));
+  cx.globalAlpha = 1;
+  drawFlag(BX + TILE, BY + TILE); player(BX + 8*TILE, BY + 5*TILE);
+  captions(u, [["a *test* tries one path", 0.6], ["a *proof* covers every path", F0 - 0.4],
+               ["the flag is *never* reached", 9.4, RED]]);
+};
+
+// the checker's verdict: the wrap-around edit fails the check, the wall
+// edit passes it. Both are the checker's real words.
+const TERM_BAD = ["Error:", "- expected : False{}", "- observed : True{}", "Location: winning_is_a_bug"];
+const TERM_OK = ["All 333 definitions check."];
+S.term = (u, dur) => {
+  const x = W/2 - 340, y = 290, w = 680, size = 22, pitch = 36, T2 = 5.6;
+  const a1 = 1 - ease((u - T2 + 0.3)/0.4), a2 = ease((u - T2 + 0.1)/0.4);
+  const label = (s, a) => { if (a > 0) { cx.globalAlpha = a; rich(s, W/2, 200, 30); cx.globalAlpha = 1; } };
+  label("after the *wrap-around* edit", a1); label("after the *wall* edit", a2);
+  box(x, y, w, lerp(TERM_BAD.length + 1, TERM_OK.length + 1, ease((u - T2 - 0.6)/0.6))*pitch + 44, 10, "#ffffff", EDGE, 1.5);
+  const prompt = (a) => { if (a <= 0) return; cx.globalAlpha = a;
+    T("$", x + 28, y + 36, size, DIM); T("bend --check", x + 28 + 2*13.3, y + 36, size, INK, "left", true); cx.globalAlpha = 1; };
+  prompt(Math.max(ease((u - 0.8)/0.4)*a1, a2*ease((u - T2 - 0.4)/0.4)));
+  cx.globalAlpha = a1*ease((u - 2.2)/0.4);
+  TERM_BAD.forEach((l, i) => T(l, x + 28, y + 36 + (i + 1)*pitch, size, RED));
+  cx.globalAlpha = a2*ease((u - T2 - 1.8)/0.4);
+  TERM_OK.forEach((l, i) => T(l, x + 28, y + 36 + (i + 1)*pitch, size, GREEN, "left", true));
+  cx.globalAlpha = 1;
+};
+
 // ------------------------------------------------------------------ code beats
 // what laws.bend is, then the file under its name, then where the rules go
 S.laws = (u, dur) => {
@@ -743,8 +850,8 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { bench: 11.0, par: 12.5, check: 14.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 15.0,
-                dist: 11.0, eval: 11.5, reduce: 19.0, end: 32.0 };
+const FIXED = { bench: 11.0, par: 12.5, check: 13.0, intro: 10.5, walk: 7.5, block: 7.0, laws: 13.5, cover: 12.0, term: 9.5,
+                dist: 10.0, eval: 10.5, reduce: 16.0, end: 32.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
