@@ -23,7 +23,7 @@ const cost = s => (s = s.replace(/[*+~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
 const BEATS = [
-  ["say", "#A new language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
+  ["say", "#Bend: a new language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
           "- that *PROVES* like Lean", "- where vibe-coding *WORKS*", left],
   ["check"],
   ["bench", "gameoflife"],
@@ -35,9 +35,9 @@ const BEATS = [
   ["say", "*The entire language can run on GPUs.*", "",
           "Objects, arrays, allocator, collector,", "pattern-matching, closures, recursion.", "",
           "All of it compiles to kernels!"],
-  ["say", "It runs fast in a single CPU core.", "It scales to massive GPU clusters."],
+  ["say", "Bend is fast in a single CPU core.", "It scales to massive GPU clusters."],
   ["say", "How about *vibe-coding*?"],
-  ["say", "You can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
+  ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
   ["say", "#How?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
@@ -54,7 +54,8 @@ const BEATS = [
           "It is *mathematically impossible* for AIs to",
           "break its laws. Edits demand correctness proofs.", "",
           "Models either *make no mistakes*, or *fail loudly*."],
-  ["say", "That language is *Bend*.", punch],
+  ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
+          "that *proves* like Lean", "where vibe-coding *works*."],
   ["end"],
 ];
 
@@ -170,10 +171,8 @@ const BENCH = {
   gameoflife: { title: "game of life", rivals: [["TypeScript", 18.778], ["Lean", 13.922], ["C", 6.821]],
                 seq: 5.458, par: 0.475, gpu: 0.082 },
 };
-// the language goes unnamed until the last slide: its bars say "New"
-const NEW = "New";
 const CHECK = [["Isabelle", 300, true], ["Agda", 300, true], ["Lean", 18.356],
-               ["Rocq", 5.951], [NEW, 0.344]];
+               ["Rocq", 5.951], ["Bend", 0.344]];
 
 const secs = s => (s >= 10 ? s.toFixed(1) : s.toFixed(2)) + "s";
 const times = x => (x >= 10 ? Math.round(x) : x.toFixed(1)) + "x";
@@ -218,13 +217,13 @@ const S = {};
 // go climbs the rivals fade, Bend slides to the left slot and the axis
 // zooms onto it. Returns the axis.
 function chart(B, u, go, rise) {
-  const all = B.rivals.concat([[NEW, B.seq]]);
+  const all = B.rivals.concat([["Bend", B.seq]]);
   const vmax = Math.max(...all.map(r => r[1])), vz = lerp(vmax, B.seq, go);
-  rich("It runs *FAST*", W/2, 96, 30);
+  rich("Bend runs *FAST*", W/2, 96, 30);
   all.forEach(([name, v], i) => {
     const a = rise ? ease((u - 1.0 - i*1.0)/0.5) : 1;
     if (i < 3) bar(slotX(i, 4, 70), v, vmax, name, GRAY, a, false, 1 - go);
-    else bar(lerp(slotX(3, 4, 70), slotX(0, 3, G3), go), v, vz, NEW, BLUE, a);
+    else bar(lerp(slotX(3, 4, 70), slotX(0, 3, G3), go), v, vz, "Bend", BLUE, a);
   });
   cx.globalAlpha = rise ? ease((u - 5.2)/0.5) : 1;
   T(B.title + " · Apple M4 Max", W/2, 640, 20, DIM, "center");
@@ -246,18 +245,18 @@ S.bench = (u, dur, b) => {
 // readout lands, then the GPU's bar and readout; both readouts stay
 S.par = (u, dur, b) => {
   const B = BENCH[b[2]], vz = chart(B, u, ease((u - 0.6)/0.9), false);
-  bar(slotX(1, 3, G3), B.par, vz, NEW, BLUE, ease((u - 2.0)/0.5));
+  bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, ease((u - 2.0)/0.5));
   speedup(B, B.par, 1, "16 CPU cores", u, 2.8);
-  bar(slotX(2, 3, G3), B.gpu, vz, NEW, BLUE, ease((u - 5.6)/0.5));
+  bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 5.6)/0.5));
   speedup(B, B.gpu, 2, "16384 GPU cores", u, 6.4);
 };
 
 // five bars, then the gap between Bend and the field, pointed out
 S.check = (u, dur) => {
   const vmax = 2*18.356;
-  rich("It compiles *FAST*", W/2, 96, 30);
+  rich("Bend compiles *FAST*", W/2, 96, 30);
   CHECK.forEach(([name, v, over], i) =>
-    bar(slotX(i, 5, 70), over ? vmax : v, vmax, name, name === NEW ? BLUE : GRAY,
+    bar(slotX(i, 5, 70), over ? vmax : v, vmax, name, name === "Bend" ? BLUE : GRAY,
         ease((u - 1.0 - i*1.0)/0.5), over));
   cx.globalAlpha = ease((u - 6.2)/0.5);
   T("3,200 generic instantiations · Apple M4 Max", W/2, 640, 20, DIM, "center");
