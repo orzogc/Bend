@@ -23,29 +23,30 @@ const cost = s => (s = s.replace(/[*+_~#%/]/g, "").trim()) ? s.split(/\s+/)
 
 const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
 const BEATS = [
-  ["say", "in the dawn of AGI,", "what still matters", "for a programming language?"],
-  ["say", "1. it must be *FAST*", "", "2. vibe-coding must *WORK*"],
+  ["say", "#Bend: a new language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
+          "- that *PROVES* like Lean", "- where vibe-coding *WORKS*", left],
   ["check"],
   ["bench", "gameoflife"],
-  ["par", "gameoflife"],
-  ["say", "#how Bend parallelizes?"],
+  ["par", "gameoflife", co],
+  ["say", "#the whole language can run on GPUs"],
   ["dist"],
   ["eval", co],
   ["reduce", co],
   ["say", "how about *vibe-coding*?"],
-  ["say", "in Bend, users can *enforce laws*", "that AI *cannot break*", "by demanding *proofs*"],
+  ["say", "users *enforce their laws*", "which AI can *never break*", "by demanding *math proofs*"],
   ["laws"],
-  ["say", "to edit your code, the AI must *prove*", "that every law *still holds*", "",
-          "Bend *checks* that proof mechanically", "no proof, *no compile*"],
-  ["say", "for example, consider a game with one law:", "*the player cannot win*"],
+  ["say", "to edit code, the AI must *prove*", "that every law *still holds true*", "",
+          "Bend *checks* it mechanically", "without a proof, *no compile*"],
+  ["say", "for example, a game with this law:", "*the player must never win the game*"],
   ["intro"],
-  ["say", "now, let's prompt a feature:", "%\"make the map *wrap around*\""],
+  ["say", "let's prompt a new feature:", "%\"make the map *wrap around*\""],
   ["walk"],
   ["block"],
   ["say", "no matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
-          "breaking a law is not *hard*", "it is *mathematically impossible*"],
+          "breaking a law is not just *hard*", "it is *mathematically impossible*"],
   ["say", "with *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+", punch],
-  ["say", "and that's Bend:", "a *fast* language", "that *scales* like CUDA", "where AI *can't make mistakes*"],
+  ["say", "and that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
+          "that *proves* like Lean", "where vibe-coding *works*"],
   ["end"],
 ];
 
@@ -222,7 +223,7 @@ function chart(B, u, go, rise) {
 S.bench = (u, dur, b) => {
   const B = BENCH[b[2]], vmax = Math.max(...B.rivals.map(r => r[1]), B.seq);
   chart(B, u, 0, true);
-  const pa = ease((u - 6.2)/0.5);
+  const pa = ease((u - 6.2)/0.5)*(1 - ease((u - dur + 0.6)/0.4));
   cx.globalAlpha = pa;
   T("competes with C", 930, 250, 26, AMBER, "center", true);
   T("in a single core", 930, 282, 26, AMBER, "center", true);
@@ -250,7 +251,7 @@ S.check = (u, dur) => {
   T("3,200 generic instantiations · Apple M4 Max", W/2, 640, 20, DIM, "center");
   const pa = ease((u - 7.4)/0.5);
   cx.globalAlpha = pa;
-  T("up to 1000x faster", 930, 330, 26, AMBER, "center", true);
+  T("up to 100x faster", 930, 330, 26, AMBER, "center", true);
   T("than other provers", 930, 362, 26, AMBER, "center", true);
   bow(950, 385, slotX(4, 5, 70) + BW/2, BASE - 42, -0.25, AMBER, pa);
   cx.globalAlpha = 1;
@@ -416,6 +417,15 @@ function cam(cpx, cpy, s) {
 const camLerp = (a, b, p) =>
   cam(lerp(a.cpx, b.cpx, p), lerp(a.cpy, b.cpy, p), Math.exp(lerp(Math.log(a.s), Math.log(b.s), p)));
 const CAM0 = cam(GCEN, GCEN, 1);
+// the grid's caption and its pointer, at alpha a: the whole grid is
+// always seen at scale 1, so both sit at fixed places
+function gridTag(n, a) {
+  if (a <= 0) return;
+  cx.globalAlpha = a;
+  T(n === 1 ? "1 task" : num(n) + " tasks", W/2, 660, 24, INK, "center");
+  pointer("that's your GPU!", W/2 + GS/2 + 8, 392, a);
+  cx.globalAlpha = 1;
+}
 const ZOOM = 92;                               // one cell fills 360px
 const CAM1 = cam(CS/2, CS/2, ZOOM);             // the top-left core, where the result lands
 const MID = 64, CAME = cam((MID + 0.5)*CS, (MID + 0.5)*CS, ZOOM);   // the core the dive lands on
@@ -479,6 +489,7 @@ function pointer(s, x1, y1, a) {
 // first splits are text alone and the last ones are the cube taking shape.
 const boxA = k => clamp((k - 2)/9, 0, 1);
 const splitDur = k => 0.9*Math.pow(0.8, k);
+const D0 = 0.5, DALL = (() => { let t = D0; for (let k = 0; k < LEVELS; k++) t += splitDur(k); return t; })();
 const cutDur = d => Math.min(0.6, d*0.7);
 const lab = k => "sum(" + (24 - k) + ")";
 function slotBoxes(k, a) {
@@ -503,7 +514,7 @@ function slotLabels(k, m, a) {
   }
 }
 S.dist = (u, dur) => {
-  let k = 0, t = 0.5;
+  let k = 0, t = D0;
   while (k < LEVELS && u >= t + splitDur(k)) { t += splitDur(k); k++; }
   const d = splitDur(k), p = k < LEVELS ? ease((u - (t + d - cutDur(d)))/cutDur(d)) : 0;
   slotBoxes(k, boxA(k));
@@ -514,20 +525,21 @@ S.dist = (u, dur) => {
   }
   const [cols, rows] = dims(p > 0.5 ? k + 1 : k), n = cols*rows;
   T(n === 1 ? "1 task" : num(n) + " tasks", W/2, 660, 24, INK, "center");
-  pointer("that's your GPU!", W/2 + GS/2 + 8, 392, ease((u - (dur - 3.0))/0.5));
+  pointer("that's your GPU!", W/2 + GS/2 + 8, 392, ease((u - DALL - 0.3)/0.5));
 };
 
 // Step 2. Every core works its sum(10,0) down one call at a time while the
-// camera dives toward one core: the dive is quick at first, so the text
-// turns readable early, hundreds of cores mid-work, then slows onto one
-// core, which finishes its sum alone on the screen.
+// camera, after a moment on the whole grid, dives toward one core: the
+// dive is quick at first, so the text turns readable early, hundreds of
+// cores mid-work, then slows onto one core, which finishes its sum alone
+// on the screen.
 const EVAL = ["sum(10,0)", "sum(9,10)", "sum(8,19)", "sum(7,27)", "sum(6,34)", "sum(5,40)",
               "sum(4,45)", "sum(3,49)", "sum(2,52)", "sum(1,54)", "sum(0,55)", "55"];
 const EVALV = [0, 10, 19, 27, 34, 40, 45, 49, 52, 54, 55, 55];
-const ESTEP = 0.5, E0 = 0.5, DIVE = 3.5, EDONE = E0 + (EVAL.length - 1)*ESTEP;
+const ESTEP = 0.5, E0 = 0.5, ED = 1.2, DIVE = 3.5, EDONE = E0 + (EVAL.length - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
 S.eval = (u, dur) => {
-  const p = clamp((u - E0)/DIVE, 0, 1), z = 1 - (1 - p)*(1 - p), camr = camLerp(CAM0, CAME, z);
+  const p = clamp((u - ED)/DIVE, 0, 1), z = 1 - (1 - p)*(1 - p), camr = camLerp(CAM0, CAME, z);
   const others = 1 - clamp((p - 0.82)/0.18, 0, 1);
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     const [x, y, w, h] = blockRect(camr, c, r, 1, 1);
@@ -538,11 +550,10 @@ S.eval = (u, dur) => {
     cellBox(x, y, w, h, j ? heat(EVALV[j]) : SKY, a);
     cellText(EVAL[j], x, y, w, h, a, j ? ink(EVALV[j]) : BLUE);
   }
-  // the grid's name rides on the grid and leaves the screen as the camera dives
-  const [lx, ly] = camr.at(GCEN, 0);
-  cx.globalAlpha = others; T("your GPU", lx, ly - 18, 24, INK, "center", true);
+  // the caption and the pointer stay as the dive begins, and fade with it
+  gridTag(N*N, 1 - ease((u - ED)/0.5));
   const [ex, ey] = CAME.at((MID + 1)*CS, (MID + 0.5)*CS);
-  pointer("one GPU core", ex + 6, ey + 12, ease((u - E0 - DIVE - 0.2)/0.5));
+  pointer("one GPU core", ex + 6, ey + 12, ease((u - ED - DIVE - 0.2)/0.5));
   cx.globalAlpha = ease((u - EDONE - 0.3)/0.4);
   T("partial result", W/2, 600, 24, AMBER, "center", true);
   cx.globalAlpha = 1;
@@ -553,19 +564,19 @@ S.eval = (u, dur) => {
 // half and lands, each cell adding what arrived; then the bottom half onto
 // the top; and so on, the live region shrinking toward the top-left corner
 // while the camera follows it in, until one cell holds the total.
-const R0 = 1.8, LEAF = 55;
+const ZO = 1.6, R0 = 2.8, LEAF = 55;
 const flowDur = j => 0.22 + 0.8*Math.pow(j/13, 2);
 const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
 function camFor(j) {
   if (j >= LEVELS) return CAM1;
   const [w, h] = region(j);
-  return cam(w*CS/2, h*CS/2, Math.min(0.84*W/(w*CS), 0.84*H/(h*CS), ZOOM));
+  return cam(w*CS/2, h*CS/2, Math.min(0.84*W/(w*CS), 0.7*H/(h*CS), ZOOM));
 }
 S.reduce = (u, dur) => {
   let j = 0, t = R0;
   while (j < LEVELS && u >= t + flowDur(j)) { t += flowDur(j); j++; }
   const p = j < LEVELS ? clamp((u - t)/flowDur(j), 0, 1) : 1, m = ease(p);
-  const camr = u < R0 ? camLerp(CAME, camFor(0), ease(u/R0)) : camLerp(camFor(j), camFor(j + 1), m);
+  const camr = u < R0 ? camLerp(CAME, camFor(0), ease(u/ZO)) : camLerp(camFor(j), camFor(j + 1), m);
   const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
   const val = num(LEAF*Math.pow(2, j)), val2 = num(LEAF*Math.pow(2, j + 1));
   const v1 = LEAF*Math.pow(2, j), v2 = LEAF*Math.pow(2, j + 1);
@@ -601,10 +612,9 @@ S.reduce = (u, dur) => {
       cellText(val, x, y, sw, sh, 1 - landed, ink1);
     }
   }
-  // the grid's name is written on the grid, as in the dive: it stays put
-  // over the grid's top edge while the camera moves
-  const [lx, ly] = camr.at(GCEN, 0);
-  cx.globalAlpha = others; T("your GPU", lx, ly - 18, 24, INK, "center", true);
+  // the caption and the pointer return with the whole grid, and leave
+  // with the first fold
+  gridTag(N*N, ease((u - ZO + 0.4)/0.5)*(1 - ease((u - R0)/0.6)));
   cx.globalAlpha = ease((u - (dur - 3.0))/0.4);
   T("final result!", W/2, 600, 24, GREEN, "center", true);
   cx.globalAlpha = 1;
@@ -658,7 +668,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: 7.5, eval: 8.5, reduce: 12.0,
+const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: 8.0, eval: 8.5, reduce: 13.0,
                 laws: 12.0, intro: 8.0, walk: 6.0, block: 6.5, end: 24.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
