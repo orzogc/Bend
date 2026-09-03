@@ -3675,6 +3675,7 @@ using namespace metal;
 #define OUTLINE static
 #define CONSTV  constant
 #define DEVICE  1
+#define CLZ(x)  clz(x)
 #define A32(p)  ((DEV atomic_uint*)(p))
 #define RLX     memory_order_relaxed
 #define FENCE() atomic_thread_fence(mem_flags::mem_device, memory_order_seq_cst)
@@ -3697,6 +3698,7 @@ using namespace metal;
 #define OUTLINE static __attribute__((noinline))
 #define CONSTV  static const
 #define DEVICE  1
+#define CLZ(x)  (u32)__clz((int)(x))
 #define FENCE() __threadfence()
 #define BAR()   __syncthreads()
 #define BARD()  \
@@ -3714,6 +3716,7 @@ using namespace metal;
 #define OUTLINE static __attribute__((noinline))
 #define CONSTV  static const
 #define DEVICE  0
+#define CLZ(x)  (u32)__builtin_clz(x)
 #define FENCE() __atomic_thread_fence(__ATOMIC_SEQ_CST)
 
 #define BEND_GPU (BEND_METAL || BEND_CUDA)
@@ -4116,11 +4119,7 @@ INLINE bool err_spun(Corpus H, THR u32* n, u32 mask) {
 // ===
 
 INLINE Cls cls_fit(u32 words) {
-  Cls c = 0;
-  while ((1u << c) < words) {
-    c += 1;
-  }
-  return c;
+  return words > 1 ? 32 - CLZ(words - 1) : 0;
 }
 
 // Page
@@ -4326,7 +4325,7 @@ INLINE bool term_triv(Term t) {
 
 static void term_drop(Env e, Term t);
 
-INLINE Term rfc_wrap(Env e, Term t, u32 cnt) {
+OUTLINE Term rfc_wrap(Env e, Term t, u32 cnt) {
   #ifdef CLO_SHR
   if (term_tag(t) == TAG_TSK) {
   #else
