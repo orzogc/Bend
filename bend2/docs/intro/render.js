@@ -431,9 +431,8 @@ S.laws = (u, dur) => {
 // ------------------------------------------------------------------ the cube
 // The GPU is a static 128 x 128 grid of cores: the cube. sum(24) splits in
 // two, then four, ... until one task sits on every core; each core works
-// its task down to a number; then the numbers fold, pairwise, in rounds,
-// the live square contracting into the top-left corner until one cell holds
-// the result.
+// its task down to a number; then the numbers fold, pairwise, the live
+// region collapsing into the top-left corner until one cell holds the result.
 //
 // One camera serves all three beats. Grid coordinates put (0,0) at the
 // grid's top-left corner and CS is one cell; at scale 1 with the camera on
@@ -594,52 +593,61 @@ S.eval = (u, dur) => {
 
 // Step 3. The camera pulls back to the whole cube, every core holding its
 // 55. Then the numbers fold, pairwise, the way Bend's runtime joins
-// results, in rounds: every odd column slides onto the even one beside it
-// and the two become one cell holding the sum; then every odd row onto the
-// even one above it; then the survivors contract toward the top-left
-// corner, both ways at once, into a square half the size; then the camera
-// zooms to fit it. The region stays square, so nothing squeezes. Seven
-// rounds take the cube to one cell holding the total.
-const ZO = 1.2, R0 = 1.5, LEAF = 55, ROUNDS = 7;
-const PH = [0.25, 0.25, 0.3, 0.2], ROUND = PH.reduce((a, b) => a + b, 0);   // columns, rows, contract, zoom
-const RDONE = R0 + ROUNDS*ROUND;
-const camN = n => cam(n*CS/2, n*CS/2, Math.min(0.84*W/(n*CS), 0.7*H/(n*CS), ZOOM));
+// results: neighbouring cells drift together and fuse, like two bubbles,
+// into one cell holding the sum, which swells for a moment; then the fused
+// cells close ranks, so the live region halves, in width and in height by
+// turns, collapsing into the top-left corner; then the camera zooms to fit
+// what is left, and nothing else moves while it does. The last cell ends
+// up alone and large. A fold's phases are PH: approach, fuse, close ranks,
+// zoom.
+const ZO = 1.2, R0 = 1.5, LEAF = 55;
+const PH = [0.18, 0.07, 0.15, 0.15], FOLD = PH.reduce((a, b) => a + b, 0);
+const RDONE = R0 + LEVELS*FOLD;
+const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
+function camAt(j) {
+  const [w, h] = region(j);
+  return cam(w*CS/2, h*CS/2, Math.min(0.84*W/(w*CS), 0.7*H/(h*CS), ZOOM));
+}
 S.reduce = (u, dur) => {
-  const done = u >= RDONE, r = done ? ROUNDS : clamp(Math.floor((u - R0)/ROUND), 0, ROUNDS - 1);
-  const n = N >> r, v = LEAF*Math.pow(4, r), folding = u >= R0 && !done;
-  let q = folding ? u - R0 - r*ROUND : 0, ph = 0;
+  const done = u >= RDONE, j = done ? LEVELS : clamp(Math.floor((u - R0)/FOLD), 0, LEVELS - 1);
+  const folding = u >= R0 && !done;
+  let q = folding ? u - R0 - j*FOLD : 0, ph = 0;
   while (folding && ph < 3 && q >= PH[ph]) { q -= PH[ph]; ph++; }
   const p = folding ? ease(q/PH[ph]) : 0;
-  const camr = u < R0 ? camLerp(CAME, camN(N), ease(u/ZO))
-             : folding && ph === 3 ? camLerp(camN(n), camN(n/2), p) : camN(n);
+  const camr = u < R0 ? camLerp(CAME, camAt(0), ease(u/ZO))
+             : folding && ph === 3 ? camLerp(camAt(j), camAt(j + 1), p) : camAt(j);
+  const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
+  const v1 = LEAF*Math.pow(2, j), v2 = 2*v1, val = num(v1), val2 = num(v2);
+  const fill = heat(v1), fill2 = heat(v2), swell = 1 + 0.08*Math.sin(Math.PI*p);
   // the other cores return as the camera pulls back, and leave once the
   // total is in: the last frame is one cell alone
   const others = u < R0 ? clamp(u/0.6, 0, 1) : done ? 1 - ease((u - RDONE - 0.4)/0.6) : 1;
   // the lattice of empty cores under everything
-  for (let rr = 0; rr < N; rr++) for (let c = 0; c < N; c++) {
-    const [x, y, cw, ch] = blockRect(camr, c, rr, 1, 1);
+  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
+    const [x, y, cw, ch] = blockRect(camr, c, r, 1, 1);
     if (offscreen(x, y, cw, ch)) continue;
-    const a = u < R0 && !(c === MID && rr === MID) ? others : done && !(c === 0 && rr === 0) ? others : 1;
+    const a = u < R0 && !(c === MID && r === MID) ? others : done && !(c === 0 && r === 0) ? others : 1;
     if (a > 0) cellBox(x, y, cw, ch, MIST, a);
   }
-  // the live cells of this round, by phase: a rider (odd column, then odd
-  // row) slides onto its neighbour and is gone once landed, the neighbour
-  // holds the doubled sum, and the survivors contract toward the corner
-  for (let rr = 0; rr < n; rr++) for (let c = 0; c < n; c++) {
-    const oc = c % 2 === 1, or = rr % 2 === 1;
-    if (folding && ((ph >= 1 && oc) || (ph >= 2 && or))) continue;
-    let gc = c, gr = rr, val = v;
-    if (folding && ph === 0) { if (oc) gc -= p; }
-    else if (folding && ph === 1) { val = 2*v; if (or) gr -= p; }
-    else if (folding && ph === 2) { val = 4*v; gc = lerp(c, c/2, p); gr = lerp(rr, rr/2, p); }
-    else if (folding) { val = 4*v; gc = c/2; gr = rr/2; }
-    const [x, y, cw, ch] = blockRect(camr, gc, gr, 1, 1);
+  // the live cells: a pair drifts to its midpoint and fuses there (the
+  // odd one is gone once fused), the fused cell swells, then slides to
+  // its closed-ranks slot
+  for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
+    const i = vert ? c : r, odd = i % 2 === 1, k = Math.floor(i/2), mid = 2*k + 0.5;
+    if (folding && odd && ph >= 1) continue;
+    let g = i, sc = 1, fused = false, ta = 1;       // ta: the number fades as the pair closes in
+    if (folding && ph === 0) { g = lerp(i, mid, p); ta = 1 - ease(1.5*p); }
+    else if (folding && ph === 1) { g = mid; sc = swell; fused = true; }
+    else if (folding && ph === 2) { g = lerp(mid, k, p); fused = true; }
+    else if (folding) { g = k; fused = true; }
+    const gc = vert ? g : c, gr = vert ? r : g;
+    let [x, y, cw, ch] = blockRect(camr, gc, gr, 1, 1);
     if (offscreen(x, y, cw, ch)) continue;
-    const a = u < R0 && !(c === MID && rr === MID) ? others : 1;
+    const a = u < R0 && !(c === MID && r === MID) ? others : 1;
     if (a <= 0) continue;
-    if (folding && ((ph === 0 && oc) || (ph === 1 && or))) { cx.fillStyle = BG; cx.fillRect(x, y, cw, ch); }   // a rider's halo
-    cellBox(x, y, cw, ch, heat(val), a);
-    cellText(num(val), x, y, cw, ch, a, TINK);
+    x -= (sc - 1)*cw/2; y -= (sc - 1)*ch/2; cw *= sc; ch *= sc;
+    cellBox(x, y, cw, ch, fused ? fill2 : fill, a);
+    cellText(fused ? val2 : val, x, y, cw, ch, a*ta, TINK);
   }
   cx.globalAlpha = ease((u - RDONE - 0.8)/0.4);
   T("Final result!", W/2, 600, 24, GREEN, "center", true);
