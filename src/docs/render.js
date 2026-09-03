@@ -49,7 +49,7 @@ const BEATS = [
   ["say", "No matter how *crazy* your prompt is,", "the AI *can't* make the game winnable", "",
           "It must craft a *harmless workaround*", "that satisfies Bend's *proof checker*"],
   ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
-  ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
+  ["say", "And that's Bend 2:", "a language *fast* like C", "that *scales* like CUDA",
           "that *proves* like Lean", "where vibe-coding *works*"],
   ["end"],
 ];
@@ -679,7 +679,7 @@ S.reveal = (u, dur, b) => {
 };
 
 S.end = (u, dur) => {
-  T("Bend", W/2, 290, 64, INK, "center", true);
+  T("Bend 2", W/2, 290, 64, INK, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
   T("fast  ·  scalable  ·  no mistakes", W/2, 360, 24, GREEN, "center");
   cx.globalAlpha = ease((u - 1.8)/0.5);
