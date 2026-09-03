@@ -408,7 +408,7 @@ S.laws = (u, dur) => {
   codeCard(LAWS_SRC, x, y, 600, 20, 34);
   const pa = ease((u - 7.5)/0.5);
   cx.globalAlpha = pa;
-  T("Any rule here is unviolable", W/2, 650, 26, AMBER, "center", true);
+  T("Rules here are unbreakable", W/2, 650, 26, AMBER, "center", true);
   bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
   cx.globalAlpha = 1;
 };
