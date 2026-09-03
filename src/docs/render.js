@@ -15,13 +15,15 @@
 // 25% of the whole reading time, the look-back over the finished slide. A
 // picture beat is given the seconds its motion needs plus a HOLD of >= 2.5s.
 // A slide marked "punch" is a punchline: it holds 30% longer. A slide marked
-// "quick" is a section title: it holds one breath and no look-back.
+// "quick" is a section title: it holds one breath and no look-back. A slide
+// marked "red" or "green" is written in that ink.
 
 const READ = 0.32;
 const cost = s => (s = s.replace(/[*+~#%/]/g, "").trim()) ? s.split(/\s+/)
                    .reduce((n, w) => n + (/\d/.test(w) ? 2 : 1), 0) : 0;
 
-const co = "co", punch = "punch", quick = "quick", left = "left", TAG = new Set([co, punch, quick, left]);
+const co = "co", punch = "punch", quick = "quick", left = "left", red = "red", green = "green";
+const TAG = new Set([co, punch, quick, left, red, green]);
 const BEATS = [
   ["say", "#Bend is a new language", "- that's *FAST* like C", "- that *SCALES* like CUDA",
           "- that *PROVES* like Lean", "- where vibe-coding *WORKS*", left],
@@ -46,9 +48,13 @@ const BEATS = [
   ["say", "Consider a game with one law:", "%\"the player can't win\""],
   ["intro"],
   ["say", "So far, it works!"],
-  ["say", "Let's *prompt* a new feature:", "%\"make the map wrap around\""],
+  ["say", "Now, let's *prompt* a new feature:", "%\"let the map wrap around\""],
+  ["say", "With *laws.bend* OFF:"],
   ["walk"],
+  ["say", "Oops! The player won. The new feature *broke the law*.", red],
+  ["say", "With *laws.bend* ON:"],
   ["block"],
+  ["say", "The AI placed a /wall/! Feature landed, *law preserved*.", green],
   ["say", "The rules in *laws.bend* are enforced with the same",
           "algorithm used in proof assistants such as Lean.", "",
           "It is *mathematically impossible* for AI agents to",
@@ -96,7 +102,7 @@ function rich(s, x, y, size, color) {
   let px = x - total/2;
   toks.forEach(([p, m]) => {
     font(size, bold(m));
-    cx.fillStyle = m === "+" ? GREEN : m === "*" ? INK : (color || INK);
+    cx.fillStyle = m === "+" ? GREEN : (color || INK);
     if (m === "/") { cx.save(); cx.transform(1, 0, -0.2, 1, 0.2*y, 0); }
     cx.fillText(p, px, y); px += cx.measureText(p).width;
     if (m === "/") cx.restore();
@@ -276,7 +282,7 @@ S.check = (u, dur) => {
 const GW = 12, GH = 8, TILE = 56, BX = W/2 - GW*TILE/2, BY = 126;
 const PAL = { floor: ["#f5f7fa", "#e9eef4"], wall: "#b9c6da", cap: "#d3dce9", hit: "#f3c6b2", hitcap: "#f9dccf",
               pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441",
-              win: "#fff6da", winRim: "#efd28a", winInk: "#8a6a1e" };
+              win: "#cf2230", winRim: "#8e1620", winInk: "#ffffff" };
 function wallsOf(v) {
   const s = new Set(), add = (x, y) => s.add(x + "," + y);
   for (let y = 0; y <= 3; y++) add(3, y);
@@ -311,10 +317,10 @@ function player(px, py) {
   cx.restore();
 }
 // the screenshot: the title and the board. flag says whether the flag is
-// still there, hit a wall tile lit by a bump, head a heading over the board
-function gameCard(v, px, py, flag, hit, head) {
+// still there, hit a wall tile lit by a bump
+function gameCard(v, px, py, flag, hit) {
   const walls = wallsOf(v);
-  if (head) rich(head, W/2, 98, 30); else spaced("WINNING IS A BUG", W/2, 96, 22, PAL.gold, 6);
+  spaced("WINNING IS A BUG", W/2, 96, 22, PAL.gold, 6);
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
     if (!walls.has(x + "," + y)) { tile(x, y, PAL.floor[(x + y) % 2]); continue; }
     const lit = hit && hit[0] === x && hit[1] === y;
@@ -376,32 +382,30 @@ S.intro = (u, dur) => {
   footer("Law: player can't win", ease((u - 2.0)/0.4), RED);
 };
 
-// other languages: the player goes up to the flag's row, right off the
+// laws.bend off: the player goes up to the flag's row, right off the
 // edge, in on the left, and takes the flag: the wrap dropped it in the
-// room. The verdict lands under the board once the flag is gone.
+// room. Victory pops on the board once the flag is gone.
 const T0W = 0.6;
 const WIN = up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]);
 S.walk = (u, dur) => {
   const [x, y] = routeAt(WIN, Math.max(u - T0W, 0)), done = T0W + routeDur(WIN);
-  gameCard("base", x, y, u < done, null, "Without *laws.bend*:");
+  gameCard("base", x, y, u < done, null);
   const pa = ease((u - done - 0.3)/0.4);
   if (pa > 0) {
     const py = BY + GH*TILE/2 - 40;
     cx.globalAlpha = pa;
     box(W/2 - 150, py, 300, 80, 14, PAL.win, PAL.winRim, 1.5);
-    T("Victory!", W/2, py + 51, 30, PAL.winInk, "center", true);
+    T("VICTORY!", W/2, py + 51, 30, PAL.winInk, "center", true);
     cx.globalAlpha = 1;
   }
-  footer("Oops. The player won. The law is broken!", ease((u - done - 1.3)/0.4), RED);
 };
 
-// Bend: the same walk on the shipped level meets a wall on the edge, and
-// the player slams into it; the verdict lands once the slams end
+// laws.bend on: the same walk on the shipped level meets a wall on the
+// edge, and the player slams into it
 const BLOCK = up(8, 5, 1).concat([[9, 1], [10, 1]]);
 S.block = (u, dur) => {
   const [x, y, hit] = walkBump(BLOCK, 1, [11, 1], u, T0W);
-  gameCard("far", x, y, true, hit, "With *laws.bend*:");
-  footer("The AI placed a wall. The law holds!", ease((u - T0W - routeDur(BLOCK) - BUMPS*BUMP - 0.3)/0.4), GREEN);
+  gameCard("far", x, y, true, hit);
 };
 
 // ------------------------------------------------------------------ code beats
@@ -659,7 +663,7 @@ function sayLines(b) {
 // lines keep their proportions. Lines are centred, or share a left edge
 // when the slide is tagged left (the block itself stays centred).
 S.say = (u, dur, b) => {
-  const ls = sayLines(b), L = b.includes(left);
+  const ls = sayLines(b), L = b.includes(left), tint = b.includes(red) ? RED : b.includes(green) ? GREEN : null;
   const gap = (i, k) => k*((ls[i - 1].pitch + ls[i].pitch)/2 + (ls[i - 1].size === 22 && ls[i].size !== 22 ? 18 : 0));
   const ws = ls.map(l => { font(l.size, true); return cx.measureText(l.s.replace(/[*+/]/g, "")).width; });
   let k = Math.min(1, (W - 120)/Math.max(...ws)), hgt = 0;
@@ -671,7 +675,7 @@ S.say = (u, dur, b) => {
     if (i) y += gap(i, k);
     cx.globalAlpha = i === 0 ? 1 : ease((u - b.at[i])/0.4);
     if (l.slant) { cx.save(); cx.transform(1, 0, -0.2, 1, 0.2*y, 0); }
-    rich(l.s, L ? x0 + ws[i]*k/2 : W/2, y, l.size*k, l.color);
+    rich(l.s, L ? x0 + ws[i]*k/2 : W/2, y, l.size*k, tint || l.color);
     if (l.slant) cx.restore();
     cx.globalAlpha = 1;
   });
@@ -706,7 +710,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: DALL + 1.5, eval: EDONE + 1.9,
-                reduce: RDONE + 3.0, laws: 12.0, intro: 8.0, walk: 7.0, block: 6.5, end: 24.0 };
+                reduce: RDONE + 3.0, laws: 12.0, intro: 8.0, walk: 5.5, block: 5.0, end: 24.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
