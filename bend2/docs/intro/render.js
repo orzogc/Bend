@@ -649,7 +649,7 @@ function sayLines(b) {
   return b.slice(2).filter(s => !TAG.has(s)).map(s => s[0] === "~"
     ? { s: s.slice(1), size: 22, pitch: 40, color: DIM }
     : s[0] === "%" ? { s: s.slice(1), size: 34, pitch: 62, color: DIM }
-    : s[0] === "#" ? { s: "*" + s.slice(1).replace(/([,.:;!?]*)$/, "*$1"), size: 44, pitch: 78, color: INK }
+    : s[0] === "#" ? { s: "*" + s.slice(1).replace(/([,.:;]*)$/, "*$1"), size: 44, pitch: 78, color: INK }
     : s[0] === "/" ? { s: s.slice(1), size: 30, pitch: 56, color: INK, slant: true }
     : s === "" ? { s, size: 34, pitch: 30, color: INK }
     : { s, size: 34, pitch: 62, color: INK });
