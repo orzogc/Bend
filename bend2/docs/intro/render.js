@@ -48,7 +48,7 @@ const BEATS = [
   ["say", "Consider a game with one law:", "%\"the player can't win\""],
   ["intro"],
   ["say", "So far, it works!"],
-  ["say", "Now, let's *prompt* a new feature:", "%\"let the map wrap around\""],
+  ["say", "Now, let's *prompt* a new feature:", "%\"make the map wrap around\""],
   ["say", "Without *laws.bend*:"],
   ["walk"],
   ["say", "Oops! The player won.", "The new feature *broke the law*.", red],
