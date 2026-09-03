@@ -6,7 +6,7 @@ const { createCanvas } = require("canvas");
 const fs = require("fs"), path = require("path"), { spawn, spawnSync } = require("child_process");
 const { draw, setCtx, DUR, SCENES, T0 } = require("./render.js");
 
-const W = 1280, H = 720, FPS = 30, OUT = path.join(__dirname, "..", "..", "docs");
+const W = 1280, H = 720, FPS = 30, OUT = path.join(__dirname, "..", "..", "..", "docs");
 const cv = createCanvas(W, H);
 setCtx(cv.getContext("2d"));
 
