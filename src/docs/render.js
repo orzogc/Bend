@@ -49,12 +49,12 @@ const BEATS = [
   ["intro"],
   ["say", "So far, it works!"],
   ["say", "Now, let's *prompt* a new feature:", "%\"let the map wrap around\""],
-  ["say", "With *laws.bend* OFF:"],
+  ["say", "Without *laws.bend*:"],
   ["walk"],
-  ["say", "Oops! The player won. The new feature *broke the law*.", red],
-  ["say", "With *laws.bend* ON:"],
+  ["say", "Oops! The player won.", "The new feature *broke the law*.", red],
+  ["say", "With *laws.bend*:"],
   ["block"],
-  ["say", "The AI placed a /wall/! Feature landed, *law preserved*.", green],
+  ["say", "The AI placed a /wall/!", "Feature landed, *law preserved*.", green],
   ["say", "The rules in *laws.bend* are enforced with the same",
           "algorithm used in proof assistants such as Lean.", "",
           "It is *mathematically impossible* for AI agents to",
@@ -714,7 +714,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: DALL + 1.5, eval: EDONE + 1.9,
-                reduce: RDONE + 3.0, laws: 12.0, intro: 8.0, walk: 5.5, block: 5.0, end: 24.0 };
+                reduce: RDONE + 3.0, laws: 12.0, intro: 8.0, walk: 6.3, block: 5.8, end: 24.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
