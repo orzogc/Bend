@@ -149,6 +149,8 @@ type UMap = Bend.PMap<number>;
 
 type Level = [string, HTerm, () => Val[]];
 
+type Chain = [HTerm, number | null][];
+
 type Call = {
   k: Bend.Name;
   args: HTerm[];
@@ -385,31 +387,16 @@ const OPTIMIZED: Record<Bend.Name, Optim> = Object.setPrototypeOf({
     C: {
       intr: {
         Zero: "0",
-        Succ: ([p]: string[]) => /^\d+(?:ull)?$/.test(p)
-          ? (BigInt(p.replace("ull", "")) + 1n) + "ull"
-          : `nat_chk(e, ${p} + 1)`,
-      },
-      elim: {
-        Succ: ["($0 - 1)"],
-      },
-      cond: {
-        Zero: "$0 == 0",
-        Succ: "$0 != 0",
+        Succ: tpl_nat("ull", "nat_chk(e, $0 + 1)"),
       },
     },
     JS: {
       intr: {
         Zero: "0n",
-        Succ: ([p]: string[]) => /^\d+n$/.test(p)
-          ? (BigInt(p.slice(0, -1)) + 1n) + "n"
-          : "nat_chk(" + p + " + 1n)",
+        Succ: tpl_nat("n", "nat_chk($0 + 1n)"),
       },
       elim: {
         Succ: ["($0 - 1n)"],
-      },
-      cond: {
-        Zero: "$0 === 0n",
-        Succ: "$0 !== 0n",
       },
     },
   },
@@ -706,6 +693,11 @@ function tpl(t: string): (xs: string[]) => string {
 
 function tpl_run(t: Gen, xs: string[]): string {
   return typeof t === "string" ? tpl(t)(xs) : t(xs);
+}
+
+function tpl_nat(u: string, f: string): Gen {
+  return ([p]) => /^\d/.test(p) ? (BigInt(parseInt(p)) + 1n) + u
+    : tpl(f)([p]);
 }
 
 // Memo
@@ -1071,8 +1063,7 @@ function lay_cyclic(book: Bend.Book, k: Bend.Name): boolean {
 function lay_node(book: Bend.Book, k: Bend.Name): Lay {
   return memo(NODES, k, () => {
     const ctr = book.ctrs[k];
-    const As = ctr === undefined ? []
-      : ctr_tail(book, ctr).filter(live_dom).map(([, , A]) => A);
+    const As = ctr === undefined ? [] : ctr_doms(book, ctr);
     return lay_pack([{ k, fs: lay_fields(book, As) }]);
   });
 }
@@ -1158,15 +1149,14 @@ function mat_head(t: HTerm): boolean {
   return t.$ === "Mat" || t.$ === "Efq";
 }
 
-function mat_arms(t: HTerm):
-  { arms: [Bend.Name, HTerm][]; end: HTerm | null } {
+function mat_arms(t: HTerm): { arms: [Bend.Name, HTerm][]; end: HTerm } {
   const arms: [Bend.Name, HTerm][] = [];
   let cur = t;
   for (let m = Bend.term_strip(cur); m.$ === "Mat"; m = Bend.term_strip(cur)) {
     arms.push([m.k, m.h]);
     cur = m.m;
   }
-  return { arms, end: Bend.term_strip(cur).$ === "Efq" ? null : cur };
+  return { arms, end: cur };
 }
 
 // Quant
@@ -2091,7 +2081,7 @@ function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
           });
           walk(h, null, [...fs, ...args.slice(1)]);
         }
-        if (end !== null) {
+        if (Bend.term_strip(end).$ !== "Efq") {
           walk(end, null, args);
         }
         return;
@@ -2306,11 +2296,11 @@ function val_unbox(fl: File, v: Val, lay: Lay): Val {
 
 // Arr
 // ===
-function arr_elem(book: Bend.Book, A: HTerm): HTerm {
+function arr_elem(book: Bend.Book, A: HTerm): Lay {
   if (ty_adt(book, A) === null) {
     die("an open Array element type");
   }
-  return A;
+  return lay_of(book, A);
 }
 
 function arr_flush(fl: File, a: string): void {
@@ -2749,7 +2739,7 @@ function emit_intr(fl: File, it: Intr, x: HTerm,
   const args = m.args.map((a) => emit_expr(fl, a, null));
   if (it.call === true && it.C === undefined && it.parts === undefined) {
     return arr_op(fl, eff_name(k),
-      lay_of(fl.book, arr_elem(fl.book, m.all[0])), args);
+      arr_elem(fl.book, m.all[0]), args);
   }
   const ws = args.map((v) => val_word(val_new(val_own(fl, v), v.lay)));
   if (it.parts !== undefined) {
@@ -2783,7 +2773,7 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null): Val {
       : tpl_run(fn, vs.map(val_word))], lay);
   }
   if (adt.k === "Array") {
-    const el = lay_of(fl.book, arr_elem(fl.book, adt.x[0]));
+    const el = arr_elem(fl.book, adt.x[0]);
     const vs = flds.map((f) => emit_expr(fl, f, null));
     return val_new([x.k === "ALeaf" ? arr_new(fl, "0", vs[0], el)
       : `blk_node(e, ${val_own(fl, vs[0])[0]}, ${val_own(fl, vs[1])[0]})`],
@@ -2853,10 +2843,10 @@ function emit_unfold(fl: File, s: HTerm): HTerm | null {
       }
       const { arms, end } = mat_arms(w);
       const arm = arms.find(([k]) => k === c.k);
-      if (arm === undefined && end === null) {
+      if (arm === undefined && Bend.term_strip(end).$ === "Efq") {
         return null;
       }
-      b = arm === undefined ? end as HTerm : arm[1];
+      b = arm === undefined ? end : arm[1];
       xs = arm === undefined ? xs
         : [...ctr_flds(fl.book, c.k, c.x), ...xs.slice(1)];
       hit = true;
@@ -3013,6 +3003,56 @@ function emit_fork(fl: File, x: HLet): void {
   emit_jump(fl, margs[0], calls[0].k);
 }
 
+function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
+  const js = fl.decl === "const";
+  let s = Bend.term_strip(t);
+  while (s.$ === "Lam") {
+    s = Bend.term_strip(term_open(s).b);
+  }
+  s = emit_fold(fl, s) ?? s;
+  if (term_const(s)) {
+    return js ? js_expr(fl, s, ty) : val_word(emit_expr(fl, s, ty));
+  }
+  const m = term_spine(fl, s);
+  const it = m.t.$ === "Ref" ? intr_of(fl, m.t.k) : undefined;
+  if (typeof it?.C !== "string" || TAB_BAD.test(it.C)) {
+    return null;
+  }
+  const xs = m.args.map((a) => emit_row(fl, a, null));
+  if (xs.includes(null)) {
+    return null;
+  }
+  return tpl_run(js ? it.JS : it.C, xs as string[]);
+}
+
+function emit_tab(fl: File, rows: Chain | null, ty: HTerm): number | null {
+  const ret = lay_of(fl.book, ty);
+  if (rows === null || ret.ks.length !== 1 || ret.ks[0] === "box") {
+    return null;
+  }
+  const ls = rows.map(([t]) => emit_row(fl, t, ty));
+  if (ls.includes(null)) {
+    return null;
+  }
+  const key = ls.join(", ");
+  const id = fl.tabs.get(key) ?? fl.tabs.size;
+  fl.tabs.set(key, id);
+  return id;
+}
+
+function emit_nat(x: HTerm): Chain {
+  const ls: Chain = [];
+  for (let m = x, n = 0; ; n++) {
+    const { arms, end } = mat_arms(m);
+    const { Zero, Succ } = Object.fromEntries(arms);
+    ls.push([Zero ?? end, Zero ? null : n]);
+    m = Bend.term_strip(Succ ?? end);
+    if (Succ === undefined || m.$ !== "Mat") {
+      return [...ls, [Succ ?? end, Succ ? n + 1 : n]];
+    }
+  }
+}
+
 function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
   ty: HTerm | null, ers: HTerm[], args: Val[], dst: Dst): void {
   if (x.$ === "Efq") {
@@ -3028,7 +3068,6 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
   const s = val_hold(fl, val_to(fl, args[0], lay), "s");
   const total = Bend.book_adt(fl.book, adt, Bend.Emp()).c.length;
   const { arms, end } = mat_arms(x);
-  const native = OPTIMIZED[adt.k]?.C;
   const ret = lay_of(fl.book, all.B(DUMMY));
   const sw = s.ws[0];
   if (adt.k === "Bool" && arms.length === 2 && rest.length === 0) {
@@ -3041,59 +3080,32 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
         + ` ? ${mT.m}u : ${mF.m}u)), ==, ${mT.K}u)`], ret));
     }
   }
-  if (adt.k === "Nat" && ret.ks.length === 1 && ret.ks[0] !== "box") {
-    const ls: HTerm[] = [];
-    let m = Bend.term_strip(x);
-    while (m.$ === "Mat") {
-      const { arms, end } = mat_arms(m);
-      const { Zero, Succ } = Object.fromEntries(arms);
-      if (end !== null || Zero === undefined || Succ === undefined) {
-        break;
-      }
-      ls.push(Zero);
-      m = Bend.term_strip(Succ);
-    }
-    if (m.$ !== "Mat") {
-      ls.push(m.$ === "Lam" ? term_open(m).b : m);
-      const tab_ok = (t: HTerm): boolean => {
-        const m = term_spine(fl, t);
-        const it = m.t.$ === "Ref" ? intr_of(fl, m.t.k) : undefined;
-        return typeof it?.C === "string" && !/\be\b|(\$\d)[^]*\1/.test(it.C)
-          && (it.C.match(/\w+\(/g) ?? []).every((x) => MACROS.has(x))
-          ? m.args.every(tab_ok) : term_const(t);
-      };
-      const fs = ls.map((l) => emit_fold(fl, l) ?? l);
-      if (ls.length >= 3 && fs.every(tab_ok)) {
-        const key = fs.map((f) => val_word(emit_expr(fl, f, all.B(DUMMY))))
-          .join(", ");
-        const id = fl.tabs.get(key) ?? fl.tabs.size;
-        fl.tabs.set(key, id);
-        return emit_put(fl, dst, val_new(
-          [`TAB_AT(TAB_${id}, ${sw}, ${ls.length - 1})`], ret));
-      }
-    }
+  const ls = adt.k === "Nat" ? emit_nat(x) : null;
+  const id = emit_tab(fl, ls, all.B(DUMMY));
+  if (id !== null) {
+    return emit_put(fl, dst, val_new(
+      [`TAB_AT(TAB_${id}, ${sw}, ${ls!.length - 1})`], ret));
   }
-  const lv: Level[] = arms.map(([k, h]): Level => {
-    if (native !== undefined) {
-      return [tpl(native.cond?.[k] ?? die("no native test: " + k))([sw]), h,
-        () => (native.elim?.[k] ?? []).map((t) =>
-          val_new([tpl(t)([sw])], lay))];
-    }
-    if (adt.k === "Array") {
-      const el = lay_of(fl.book, arr_elem(fl.book, adt.x[0]));
-      return [`term_aux(${sw}) ${k === "ALeaf" ? "==" : "!="} ${
-        lay_arr(el).lgs}`, h, () => k === "ALeaf" ? [arr_leaf(fl, sw, el)]
-        : [0, 1].map((hi) => val_new([`blk_half(e, ${sw}, ${hi})`], BOX))];
-    }
-    if (lay_box(lay)) {
-      return [`term_aux(${sw}) == ${cid_reg(fl, k)}`, h,
-        () => node_fields(fl, sw, lay_node(fl.book, k), s, true)];
-    }
-    return [`${sw} == ${lay_idx(lay, k)}`, h,
-      () => lay_arm(lay, k).fs.map((f) => val_field(s, f))];
-  });
-  if (end !== null || arms.length < total) {
-    lv.push(["", end ?? Bend.Efq(), () => [s]]);
+  const lv: Level[] = ls !== null
+    ? ls.map(([h, n], i): Level => [`${sw} == ${i}`, h, () =>
+      n === null ? [] : [val_new([`(${sw} - ${n})`], lay)]])
+    : arms.map(([k, h]): Level => {
+      if (adt.k === "Array") {
+        const el = arr_elem(fl.book, adt.x[0]);
+        return [`term_aux(${sw}) ${k === "ALeaf" ? "==" : "!="} ${
+          lay_arr(el).lgs}`, h, () => k === "ALeaf" ? [arr_leaf(fl, sw, el)]
+          : [0, 1].map((hi) => val_new([`blk_half(e, ${sw}, ${hi})`], BOX))];
+      }
+      if (lay_box(lay)) {
+        return [`term_aux(${sw}) == ${cid_reg(fl, k)}`, h,
+          () => node_fields(fl, sw, lay_node(fl.book, k), s, true)];
+      }
+      return [`${sw} == ${lay_idx(lay, k)}`, h,
+        () => lay_arm(lay, k).fs.map((f) => val_field(s, f))];
+    });
+  if (ls === null && (arms.length < total
+    || Bend.term_strip(end).$ !== "Efq")) {
+    lv.push(["", end, () => [s]]);
   }
   const hs = lv.map(([, h]) => h);
   const spares = fl.spares;
@@ -3418,6 +3430,18 @@ function js_open(fl: File, x: HLet): HTerm {
   }));
 }
 
+function js_ctr(fl: File, adt: HAdt, k: Bend.Name):
+  { keys: Bend.Name[]; el: string[] | undefined } {
+  const ctr = fl.book.ctrs[k] ?? die("unknown constructor: " + k);
+  const keys = ctr_tail(fl.book, ctr).filter(live_dom).map(([, n]) => n);
+  const native = OPTIMIZED[adt.k]?.JS;
+  const el = native?.elim?.[k];
+  if (native !== undefined && (el ?? []).length !== keys.length) {
+    die(k + NATIVE_DIE);
+  }
+  return { keys, el };
+}
+
 function js_expr(fl: File, tm: HTerm,
   ty0: HTerm | null): string {
   const [x, ty] = ty_peel(tm, ty0);
@@ -3443,19 +3467,13 @@ function js_expr(fl: File, tm: HTerm,
       if (u !== null) {
         return adt.k === "F32" ? js_f32(u) : String(u);
       }
-      const ctr = fl.book.ctrs[x.k] ?? die("unknown constructor: " + x.k);
+      const { keys } = js_ctr(fl, adt, x.k);
       const exprs = ctr_flds(fl.book, x.k, x.x)
         .map((f) => js_expr(fl, f, null));
       const native = OPTIMIZED[adt.k]?.JS;
       if (native !== undefined) {
-        const it = native.intr[x.k];
-        if (it === undefined
-          || (native.elim?.[x.k] ?? []).length !== exprs.length) {
-          die(x.k + NATIVE_DIE);
-        }
-        return tpl_run(it, exprs);
+        return tpl_run(native.intr[x.k] ?? die(x.k + NATIVE_DIE), exprs);
       }
-      const keys = ctr_tail(fl.book, ctr).filter(live_dom).map(([, n]) => n);
       return exprs.reduce((e, z, j) => e + ", " + keys[j] + ": " + z,
         "{$: \"" + x.k + "\"") + "}";
     }
@@ -3491,17 +3509,22 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
         file_push(fl, "throw " + s + ";");
       });
     }
-    const last = arms.length === total ? null : end ?? Bend.Efq();
+    const ls = adt.k === "Nat" ? emit_nat(x) : null;
+    const id = emit_tab(fl, ls, all.B(DUMMY));
+    if (id !== null) {
+      return file_push(fl, `return TAB_${id}[Math.min(Number(${s}), ${
+        ls!.length - 1})];`);
+    }
+    if (ls !== null) {
+      return emit_chain(fl, (i) => `${s} === ${i}n`, ls.map(([h, n]) => () =>
+        js_func(fl, h, null, n === null ? rest : [`(${s} - ${n}n)`, ...rest])));
+    }
+    const last = arms.length === total ? null : end;
     const native = OPTIMIZED[adt.k]?.JS;
     const bodies = arms.map(([k, h]) => () => {
-      const ctr = fl.book.ctrs[k] ?? die("unknown constructor: " + k);
-      const el = native?.elim?.[k];
-      if (native !== undefined && (el ?? []).length !== ctr_doms(fl.book,
-        ctr).length) {
-        die(k + NATIVE_DIE);
-      }
+      const { keys, el } = js_ctr(fl, adt, k);
       const fields = el?.map((e) => tpl(e)([s]))
-        ?? ctr_tail(fl.book, ctr).filter(live_dom).map(([, n]) => s + "." + n);
+        ?? keys.map((n) => s + "." + n);
       js_func(fl, h, null, [...fields, ...rest]);
     });
     if (last !== null) {
@@ -3525,6 +3548,7 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
 
 function js_def(fl: File, k: Bend.Name, def: Def): void {
   fl.fresh = new Map();
+  fl.fuel = 64;
   if (js_intr(fl.book, k.split("$")[0]) !== null) {
     return;
   }
@@ -3579,12 +3603,13 @@ export function js_lib(book: Bend.Book, outs: Bend.Name[] | null): string {
   const effs = rows.length === 0 ? "" : "const $0eff = (() => {\n"
     + srcs.filter((s) => s !== "").join("\n") + "\nreturn {\n"
     + width_fold(rows.join("\n"), false) + "\n};\n})();\n\n";
+  const tabs = [...fl.tabs].map(([r, i]) => `const TAB_${i} = [${r}];`);
   const lib = outs === null ? "" : "export default {\n" + outs.map((k) =>
     `  "${k}": run_lib(${js_sat(k)}, ${
       def_live(cb, cb.book.tlds[k] as Bend.Def)}),`)
     .join("\n") + "\n};\n";
   return RUNTIME + effs + "// Program\n// =======\n\n"
-    + width_fold(fl.seg.lines.join("\n"), false) + lib;
+    + width_fold([...fl.seg.lines, ...tabs].join("\n"), false) + lib;
 }
 
 export function js_book(book: Bend.Book): string {
@@ -5928,5 +5953,5 @@ function io_run(m) {
 }
 `.slice(1);
 
-const MACROS = new Set(TEMPLATE.match(/^#define \w+\(/gm)?.map((x) =>
-  x.slice(8)));
+const TAB_BAD = new RegExp(`\\be\\b|\\b(?!(?:${TEMPLATE.match(
+  /(?<=#define )\w+(?=\()/g)?.join("|")})\\()\\w+\\(`);
