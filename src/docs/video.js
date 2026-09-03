@@ -1,5 +1,5 @@
 // Renders the film. Usage:
-//   node video.js            docs/intro.mp4 (1280x720, 30fps) and docs/intro.gif (720px wide, 8fps)
+//   node video.js            docs/intro.mp4 (1280x720, 30fps) and docs/intro.gif (640px wide, 15fps)
 //   node video.js 3 9 26     stills at those seconds into shots/
 // Frames stream straight into ffmpeg; nothing lands on disk but the outputs.
 const { createCanvas } = require("canvas");
@@ -31,9 +31,9 @@ if (args.length) {
   ff.stdin.end();
   await new Promise(r => ff.on("close", r));
   // the gif: one 64-colour palette for the whole film, ordered dither, frames
-  // diffed by ffmpeg; 720px at 8fps keeps it under 10 MB for the README
+  // diffed by ffmpeg; 640px (the README column) at 15fps stays under 10 MB
   spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", mp4, "-vf",
-    "fps=8,scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64[p];[b][p]paletteuse=dither=bayer:bayer_scale=5",
+    "fps=15,scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64[p];[b][p]paletteuse=dither=bayer:bayer_scale=5",
     gif], { stdio: "inherit" });
   console.log("done: " + mp4 + " " + gif);
 })();
