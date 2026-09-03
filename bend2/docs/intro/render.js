@@ -44,7 +44,7 @@ const BEATS = [
   ["reveal", "laws|.|bend", 64],
   ["laws"],
   ["say", "*laws.bend* is *AGENTS.md*", "except backed by *proof*."],
-  ["say", "#Example"],
+  ["say", "#Example:"],
   ["say", "Consider a game with one law:", "%\"the player can't win\""],
   ["intro"],
   ["say", "So far, it works!"],
@@ -444,12 +444,6 @@ function cam(cpx, cpy, s) {
 }
 const camLerp = (a, b, p) =>
   cam(lerp(a.cpx, b.cpx, p), lerp(a.cpy, b.cpy, p), Math.exp(lerp(Math.log(a.s), Math.log(b.s), p)));
-// a dive from camera a onto the grid point (tx, ty): the scale climbs to s1
-// in log steps while the point glides from where a shows it to the centre
-function camDive(a, tx, ty, s1, p) {
-  const s = Math.exp(lerp(Math.log(a.s), Math.log(s1), p)), [x0, y0] = a.at(tx, ty);
-  return cam(tx - (lerp(x0, W/2, p) - W/2)/s, ty - (lerp(y0, H/2, p) - H/2)/s, s);
-}
 const CAM0 = cam(GCEN, GCEN, 1);
 // the grid's caption at alpha ac and its pointer at alpha ap: the whole
 // grid is seen at scale 1 in the split and the dive, so both sit at fixed
@@ -598,39 +592,35 @@ S.eval = (u, dur) => {
 };
 
 // Step 3. The camera pulls back to the whole cube, every core holding its
-// 55, then dives onto the top-left corner, where everything is about to
-// land. The numbers fold, pairwise, the way Bend's runtime joins results:
-// every second live cell slides onto its neighbour and the two become one
-// cell holding the sum; then the survivors close ranks, so the live region
-// halves, in width and in height by turns, collapsing into the corner. The
-// camera holds the corner at a readable zoom, and once the region is
-// smaller than that, fits it, so the last cell ends up alone and large. A
-// fold takes flowDur: the merge is its first MERGE, the closing of ranks
-// the rest, and the camera moves with the ranks.
-const ZO = 1.2, R0 = 2.5, LEAF = 55, MERGE = 0.6, SWIN = 100/CS;   // SWIN: cells 100px, numbers readable
+// 55. Then the numbers fold, pairwise, the way Bend's runtime joins
+// results: every second live cell slides onto its neighbour and the two
+// become one cell holding the sum; then the survivors close ranks, so the
+// live region halves, in width and in height by turns, collapsing into the
+// top-left corner until one cell holds the total. The camera frames the
+// live region at every step, moving in as the ranks close, so every merge
+// is on screen and the last cell ends up alone and large. A fold takes
+// flowDur: the merge is its first MERGE, the closing of ranks the rest.
+const ZO = 1.2, R0 = 1.5, LEAF = 55, MERGE = 0.6;
 const flowDur = j => 0.45;
 const RDONE = R0 + LEVELS*flowDur(0);
 const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
 function camAt(j) {
-  const [w, h] = region(j), fit = Math.min(0.84*W/(w*CS), 0.7*H/(h*CS), ZOOM);
-  return fit >= SWIN ? cam(w*CS/2, h*CS/2, fit) : cam((W/SWIN/2 - CS)/1, (H/SWIN/2 - CS)/1, SWIN);
+  const [w, h] = region(j);
+  return cam(w*CS/2, h*CS/2, Math.min(0.84*W/(w*CS), 0.7*H/(h*CS), ZOOM));
 }
 S.reduce = (u, dur) => {
   let j = 0, t = R0;
   while (j < LEVELS && u >= t + flowDur(j)) { t += flowDur(j); j++; }
   const folding = u >= R0 && j < LEVELS, p = folding ? clamp((u - t)/flowDur(j), 0, 1) : 0;
   const m1 = ease(p/MERGE), m2 = ease((p - MERGE)/(1 - MERGE)), landed = folding && p >= MERGE;
-  const c0 = camAt(0);
-  const camr = u < ZO ? camLerp(CAME, CAM0, ease(u/ZO))
-             : u < R0 ? camDive(CAM0, c0.cpx, c0.cpy, c0.s, ease((u - ZO - 0.4)/(R0 - ZO - 0.4)))
-             : camLerp(camAt(j), camAt(j + 1), m2);
+  const camr = u < R0 ? camLerp(CAME, camAt(0), ease(u/ZO)) : camLerp(camAt(j), camAt(j + 1), m2);
   const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
   const v1 = LEAF*Math.pow(2, j), v2 = 2*v1, val = num(v1), val2 = num(v2);
   const fill = heat(v1), fill2 = heat(v2);
   // the other cores return as the camera pulls back, and leave once the
   // total is in: the last frame is one cell alone
-  const others = u < ZO ? clamp(u/0.6, 0, 1) : j < LEVELS ? 1 : 1 - ease((u - RDONE - 0.4)/0.6);
-  const alpha = (c, r) => u < ZO && !(c === MID && r === MID) ? others : j >= LEVELS && !(c === 0 && r === 0) ? others : 1;
+  const others = u < R0 ? clamp(u/0.6, 0, 1) : j < LEVELS ? 1 : 1 - ease((u - RDONE - 0.4)/0.6);
+  const alpha = (c, r) => u < R0 && !(c === MID && r === MID) ? others : j >= LEVELS && !(c === 0 && r === 0) ? others : 1;
   // the empty cells; under a fold the live slots too, as their cells leave
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     if (c < w && r < h && !folding) continue;
