@@ -25,8 +25,8 @@ const cost = s => (s = s.replace(/[*+~#%/]/g, "").trim()) ? s.split(/\s+/)
 const co = "co", punch = "punch", quick = "quick", left = "left", red = "red", green = "green";
 const TAG = new Set([co, punch, quick, left, red, green]);
 const BEATS = [
-  ["say", "#Bend 2 is here!", "- *FAST* like C", "- *SCALES* like CUDA",
-          "- *PROVES* like Lean", "- vibe-coding *WORKS*", left],
+  ["say", "#Bend 2 is here!", "- it's *FAST* like C", "- it *SCALES* like CUDA",
+          "- it *PROVES* like Lean", "- vibe-coding *WORKS*", left],
   ["check"],
   ["bench", "gameoflife"],
   ["par", "gameoflife", co],
