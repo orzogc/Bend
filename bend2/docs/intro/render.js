@@ -212,9 +212,9 @@ function speedup(B, v, i, chip, u, t0) {
   if (a <= 0) return;
   const x = slotX(i, 3, G3) + BW/2, dy = 14*(1 - a);
   cx.globalAlpha = a;
-  T(times(B.seq/v) + " faster", x, SPY + dy, 24, BLUE, "center", true);
-  rich("on *" + chip + "*", x, SPY + 30 + dy, 20, DIM);
-  bow(x, SPY + 48 + dy, x, barTop(v, B.seq) - 44, 0, BLUE, a);
+  T(times(B.seq/v) + " faster", x, SPY + dy, 26, AMBER, "center", true);
+  rich("on *" + chip + "*", x, SPY + 30 + dy, 20, AMBER);
+  bow(x, SPY + 48 + dy, x, barTop(v, B.seq) - 44, -0.2, AMBER, a);
   cx.globalAlpha = 1;
 }
 const S = {};
