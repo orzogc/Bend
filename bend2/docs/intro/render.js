@@ -485,14 +485,14 @@ function cellBox(x, y, w, h, fill, a) {
   if (a !== undefined) cx.globalAlpha = 1;
 }
 // Numbers wear 2048's tiles (gabrielecirulli/2048, style/main.css),
-// softened a third toward white to sit with the film's pastels, one even
+// softened halfway toward white to sit with the film's pastels, one even
 // climb over the whole run: a core's sum goes from the 2 tile's beige to
 // the 8 tile's orange as it counts up to 55, then the folds carry the
 // totals from that orange to the 64 tile's red, and the final result alone
 // wears the 2048 yellow. The ink is 2048's dark brown throughout.
 const mix = (h1, h2, f) => "#" + rgb(h1).map((c, k) => Math.round(lerp(c, rgb(h2)[k], f)).toString(16).padStart(2, "0")).join("");
 const TILES = ["#eee4da", "#ede0c8", "#f2b179", "#f59563", "#f67c5f", "#f65e3b", "#edc22e"]
-              .map(t => mix(t, "#ffffff", 0.35));
+              .map(t => mix(t, "#ffffff", 0.5));
 const TINK = "#776e65";
 // a value's rung on the tiles, fractional: 0..2 while the leaf counts up,
 // 2..5 over the fold levels (log2 of value / leaf) but the last, which is 6
@@ -598,31 +598,39 @@ S.eval = (u, dur) => {
 };
 
 // Step 3. The camera pulls back to the whole cube, every core holding its
-// 55. Then the numbers fold, pairwise, the way Bend's runtime joins
-// results: every second live cell slides onto its neighbour and the two
-// become one cell holding the sum; then the survivors close ranks, so the
-// live region halves, in width and in height by turns, collapsing into the
-// cube's top-left corner until one cell holds the total. The camera then
-// dives onto it. A fold takes flowDur: the merge is its first MERGE, the
-// closing of ranks the rest.
-const ZO = 1.2, R0 = 1.5, LEAF = 55, MERGE = 0.6, DIVE2 = 1.0;
-const flowDur = j => 0.45 - 0.2*j/(LEVELS - 1);
-const RDONE = (() => { let t = R0; for (let j = 0; j < LEVELS; j++) t += flowDur(j); return t; })();
+// 55, then dives onto the top-left corner, where everything is about to
+// land. The numbers fold, pairwise, the way Bend's runtime joins results:
+// every second live cell slides onto its neighbour and the two become one
+// cell holding the sum; then the survivors close ranks, so the live region
+// halves, in width and in height by turns, collapsing into the corner. The
+// camera holds the corner at a readable zoom, and once the region is
+// smaller than that, fits it, so the last cell ends up alone and large. A
+// fold takes flowDur: the merge is its first MERGE, the closing of ranks
+// the rest, and the camera moves with the ranks.
+const ZO = 1.2, R0 = 2.5, LEAF = 55, MERGE = 0.6, SWIN = 100/CS;   // SWIN: cells 100px, numbers readable
+const flowDur = j => 0.45;
+const RDONE = R0 + LEVELS*flowDur(0);
 const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
+function camAt(j) {
+  const [w, h] = region(j), fit = Math.min(0.84*W/(w*CS), 0.7*H/(h*CS), ZOOM);
+  return fit >= SWIN ? cam(w*CS/2, h*CS/2, fit) : cam((W/SWIN/2 - CS)/1, (H/SWIN/2 - CS)/1, SWIN);
+}
 S.reduce = (u, dur) => {
   let j = 0, t = R0;
   while (j < LEVELS && u >= t + flowDur(j)) { t += flowDur(j); j++; }
   const folding = u >= R0 && j < LEVELS, p = folding ? clamp((u - t)/flowDur(j), 0, 1) : 0;
   const m1 = ease(p/MERGE), m2 = ease((p - MERGE)/(1 - MERGE)), landed = folding && p >= MERGE;
-  const camr = u < R0 ? camLerp(CAME, CAM0, ease(u/ZO)) : j < LEVELS ? CAM0
-             : camDive(CAM0, CS/2, CS/2, ZOOM, ease((u - RDONE - 0.2)/DIVE2));
+  const c0 = camAt(0);
+  const camr = u < ZO ? camLerp(CAME, CAM0, ease(u/ZO))
+             : u < R0 ? camDive(CAM0, c0.cpx, c0.cpy, c0.s, ease((u - ZO - 0.4)/(R0 - ZO - 0.4)))
+             : camLerp(camAt(j), camAt(j + 1), m2);
   const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
   const v1 = LEAF*Math.pow(2, j), v2 = 2*v1, val = num(v1), val2 = num(v2);
   const fill = heat(v1), fill2 = heat(v2);
-  // the other cores return as the camera pulls back, and leave again as it
-  // dives onto the total: the last frame is one cell alone
-  const others = u < R0 ? clamp(u/0.6, 0, 1) : j < LEVELS ? 1 : 1 - ease((u - RDONE - 0.2)/DIVE2);
-  const alpha = (c, r) => u < R0 && !(c === MID && r === MID) ? others : j >= LEVELS && !(c === 0 && r === 0) ? others : 1;
+  // the other cores return as the camera pulls back, and leave once the
+  // total is in: the last frame is one cell alone
+  const others = u < ZO ? clamp(u/0.6, 0, 1) : j < LEVELS ? 1 : 1 - ease((u - RDONE - 0.4)/0.6);
+  const alpha = (c, r) => u < ZO && !(c === MID && r === MID) ? others : j >= LEVELS && !(c === 0 && r === 0) ? others : 1;
   // the empty cells; under a fold the live slots too, as their cells leave
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
     if (c < w && r < h && !folding) continue;
@@ -647,7 +655,7 @@ S.reduce = (u, dur) => {
     cellBox(x, y, cw, ch, done ? fill2 : fill, a);
     cellText(done ? val2 : val, x, y, cw, ch, a, TINK);
   }
-  cx.globalAlpha = ease((u - RDONE - 0.2 - DIVE2 - 0.3)/0.4);
+  cx.globalAlpha = ease((u - RDONE - 0.8)/0.4);
   T("Final result!", W/2, 600, 24, GREEN, "center", true);
   cx.globalAlpha = 1;
 };
@@ -715,7 +723,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { check: 10.5, bench: 9.5, par: 10.5, dist: DALL + 1.5, eval: EDONE + 1.9,
-                reduce: RDONE + 0.2 + DIVE2 + 2.6, laws: 12.0, intro: 8.0, walk: 6.3, block: 5.8, end: 24.0 };
+                reduce: RDONE + 3.2, laws: 12.0, intro: 8.0, walk: 6.3, block: 5.8, end: 24.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
