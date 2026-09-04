@@ -43,22 +43,24 @@ const BEATS = [
   ["say", "#How?"],
   ["reveal", "laws|.|bend", 64],
   ["laws"],
-  ["say", "*laws.bend* is *AGENTS.md*", "except backed by *proof*."],
+  ["say", "*laws.bend* == *AGENTS.md*", "except backed by *proof*"],
   ["say", "#For example..."],
   ["say", "Consider a game with one law:", "%\"the player can't win\""],
   ["intro"],
-  ["say", "Working as intended!"],
-  ["say", "Now, let's *prompt* a new feature:", "%\"make the map wrap around\""],
+  ["say", "It works as intended!"],
+  ["say", "Now, let's *prompt* a new feature:", "%\"please, make the map *wrap around*\""],
   ["say", "Without *laws.bend*:"],
   ["walk"],
   ["say", "Oops! The feature *introduced a bug*.", "Nothing stopped the AI from *breaking the laws*.", red],
   ["say", "With *laws.bend*:"],
   ["block"],
-  ["say", "The AI placed a wall!", "The feature landed with *no bugs*.", "Bend forced the AI to *comply with the laws*.", green],
+  ["say", "The AI placed a wall!", "The feature landed with *no bugs*.", green],
+  ["say", "But *why*?"],
+  ["say", "Because Bend *forced* the model", "to *comply with the laws*.", green],
   ["say", "The rules in *laws.bend* are enforced by the same",
-          "algorithm used in proof assistants such as Lean.", "",
+          "algorithm used in proof assistants like Lean.", "",
           "It is *mathematically impossible* for AI agents to",
-          "break its laws. Edits demand correctness proofs.", "",
+          "break the laws. Edits demand *correctness proofs*.", "",
           "Models either *make no mistakes*, or *fail loudly*."],
   ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
           "that *proves* like Lean", "where vibe-coding *works*."],
@@ -160,13 +162,13 @@ function codeCard(lines, x, y, w, size, pitch) {
 }
 
 // laws.bend, for the reader: the namespaces and the equality's braces are
-// left out (that sugar comes later)
-const LAWS_SRC = `# LAW: no move sequence results in victory
-assert winning_is_a_bug:
+// left out (that sugar comes later); each line gets a gloss
+const LAWS_SRC = `assert winning_is_a_bug:
   forall moves: List<Move>
-  board = init()
-  board = apply(board, moves)
+  board = apply(init(), moves)
   is_won(board) == False`.split("\n");
+const LAWS_GLOSS = ["LAW name", "\"for any sequence of moves\"",
+                    "\"applying it to the initial board\"", "\"can never lead to victory\""];
 
 // ------------------------------------------------------------------ benches
 // Every number is a pin from bench/runtime/_pin_apple_m4_max_.txt and
@@ -415,16 +417,20 @@ S.block = (u, dur) => {
 // ------------------------------------------------------------------ code beats
 // what laws.bend is, then the file under its name, then where the rules go
 S.laws = (u, dur) => {
-  const x = W/2 - 300, y = 285, h = LAWS_SRC.length*34 + 44;
+  font(20); const cw = 56 + Math.max(...LAWS_SRC.map(l => cx.measureText(l).width));
+  font(24, true); const gw = Math.max(...LAWS_GLOSS.map(l => cx.measureText(l).width));
+  const x = (W - cw - 80 - gw)/2, y = 330, gx = x + cw + 80;
   rich("A new file that lists *invariants*", W/2, 140, 30);
-  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that models are *forced* to follow.", W/2, 190, 30);
+  cx.globalAlpha = ease((u - 2.0)/0.4); rich("that models are *forced* to abide.", W/2, 190, 30);
   cx.globalAlpha = ease((u - 4.0)/0.5);
   T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
-  codeCard(LAWS_SRC, x, y, 600, 20, 34);
-  const pa = ease((u - 7.5)/0.5);
-  cx.globalAlpha = pa;
-  T("Write your rules here.", W/2, 650, 26, AMBER, "center", true);
-  bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
+  codeCard(LAWS_SRC, x, y, cw, 20, 34);
+  LAWS_GLOSS.forEach((g, i) => {
+    const a = ease((u - 5.6 - 1.7*i)/0.5), ly = y + 36 + i*34;
+    cx.globalAlpha = a;
+    T(g, gx, ly, 24, AMBER, "left", true);
+    bow(gx - 14, ly - 8, x + cw + 12, ly - 8, 0, AMBER, a);
+  });
   cx.globalAlpha = 1;
 };
 
@@ -652,7 +658,7 @@ function sayLines(b) {
   return b.slice(2).filter(s => !TAG.has(s)).map(s => s[0] === "~"
     ? { s: s.slice(1), size: 22, pitch: 40, color: DIM }
     : s[0] === "%" ? { s: s.slice(1), size: 34, pitch: 62, color: DIM }
-    : s[0] === "#" ? { s: "*" + (s.endsWith("...") ? s.slice(1) + "*" : s.slice(1).replace(/([,.:;]*)$/, "*$1")), size: 44, pitch: 78, color: INK }
+    : s[0] === "#" ? { s: "*" + s.slice(1).replace(/([,.:;?]*)$/, "*$1"), size: 44, pitch: 78, color: INK }
     : s[0] === "/" ? { s: s.slice(1), size: 30, pitch: 56, color: INK, slant: true }
     : s === "" ? { s, size: 34, pitch: 30, color: INK }
     : { s, size: 34, pitch: 62, color: INK });
@@ -708,7 +714,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { check: 10.5, bench: 9.5, par: 11.5, dist: DALL + 1.5, eval: EDONE + 1.9,
-                reduce: RDONE + 3.2, laws: 12.0, intro: 8.0, walk: 6.3, block: 5.8, end: 24.0 };
+                reduce: RDONE + 3.2, laws: 13.6, intro: 8.0, walk: 6.3, block: 5.8, end: 24.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));

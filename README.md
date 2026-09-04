@@ -47,15 +47,11 @@ you lose. In other languages, you'd write *tests*. But you can't test infinitely
 many sequences of moves. On Bend, you state the law in `laws.bend`:
 
 ```python
-# CLAIM:
-# For any sequence of moves,
-# applying it to the initial
-# game state doesn't result
-# in victory.
+# LAW: for any sequence of moves, applying it
+# to the initial board can never lead to victory.
 assert winning_is_a_bug:
   forall moves: List<Game.Move>
-  board = Game.init()
-  board = Game.apply(board, moves)
+  board = Game.apply(Game.init(), moves)
   {Game.is_won(board) == False{} : Bool}
 ```
 
