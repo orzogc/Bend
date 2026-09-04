@@ -403,7 +403,7 @@ S.walk = (u, dur) => {
     const py = BY + GH*TILE/2 - 40;
     cx.globalAlpha = pa;
     box(W/2 - 150, py, 300, 80, 14, PAL.win, PAL.winRim, 1.5);
-    T("YOU WON >:(", W/2, py + 51, 30, PAL.winInk, "center", true);
+    T("YOU WON !?", W/2, py + 51, 30, PAL.winInk, "center", true);
     cx.globalAlpha = 1;
   }
 };
