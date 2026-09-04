@@ -181,7 +181,7 @@ const STRLIT = new RegExp("^\"(?:[^\"\\\\]|\\\\.)*\"$");
 
 const NATIVE_DIE = " does not match the native format of its type";
 
-const EXACT = " sqrt exp log log2 log10 sin cos tan pow ";
+const EXACT = " sqrt exp log log2 log10 sin cos tan pow fmod ";
 
 const USE0 = Bend.Emp<number>();
 
@@ -301,7 +301,7 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   f32_show: {
     C:    "f32_show(e, $0)",
     call: true,
-    JS:   "String(Number(($0).toPrecision(6)))",
+    JS:   "f32_show($0)",
   },
   f32_read: {
     C:    "f32_read(e, $0)",
@@ -354,7 +354,7 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   },
   array_set: {
     call: true,
-    JS:   "array_set($0, $1, $2)",
+    JS:   "array_swap($0, $1, $2).fst",
   },
   array_get: {
     call: true,
@@ -366,12 +366,12 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   },
   array_size: {
     call: true,
-    JS:   "array_size($0)",
+    JS:   "{$: \"Tuple\", fst: $0, snd: array_len($0)}",
   },
   array_clone: {
     parts: ["blk_copy(e, $0)", "$0"],
     call:  true,
-    JS:    "array_clone($0)",
+    JS:    "{$: \"Tuple\", fst: $0, snd: $0}",
   },
 }, null);
 
@@ -557,7 +557,7 @@ static Term f32_read(Env e, Term s) {
 function word_to_u32(w) {
   let x = 0;
   for (let i = 0; w.$ === "WCon"; i++) {
-    x |= (w.head ? 1 : 0) << i;
+    x |= Number(w.head) << i;
     w = w.tail;
   }
   return x >>> 0;
@@ -572,22 +572,13 @@ function u32_to_word(x) {
 }
 
 function cmp_new(a, b) {
-  if (a < b) {
-    return {$: "LT"};
-  }
-  if (a === b) {
-    return {$: "EQ"};
-  }
-  return {$: "GT"};
+  return {$: a < b ? "LT"
+    : a === b ? "EQ" : "GT"};
 }
 
 function nat_divmod(a, b) {
-  const q = b === 0n ? 0n : a / b;
-  return {$: "Tuple", fst: q, snd: b === 0n ? a : a % b};
-}
-
-function array_clone(a) {
-  return {$: "Tuple", fst: a, snd: a};
+  return b === 0n ? {$: "Tuple", fst: 0n, snd: a}
+    : {$: "Tuple", fst: a / b, snd: a % b};
 }
 
 function nat_chk(n) {
@@ -595,6 +586,22 @@ function nat_chk(n) {
     throw new Error("nat: " + n + " is past the largest immediate 2^48-1");
   }
   return n;
+}
+
+function f32_show(x) {
+  if (x !== x) {
+    return "nan";
+  }
+  if (!Number.isFinite(x) || Object.is(x, -0)) {
+    return x < 0 ? "-inf"
+      : x === 0 ? "-0" : "inf";
+  }
+  const [m, p] = x.toExponential(5).split("e");
+  const d = m.replace(/\.?0+$/, "");
+  const e = Number(p);
+  const sign = e < 0 ? "-" : "+";
+  return e < -4 || e >= 6 ? d + "e" + sign + ("0" + Math.abs(e)).slice(-2)
+    : String(Number(d + "e" + p));
 }
 
 function f32_read(s) {
@@ -1278,7 +1285,7 @@ export function io_type(book: Bend.Book): HTerm | null {
 }
 
 export function io_run(book: Bend.Book): number {
-  const src = js_text(book, null) + "\n" + RUNTIME_MAIN
+  const src = js_lib(book, null) + "\n" + RUNTIME_MAIN
     + "\nreturn io_run(" + js_sat("main") + ");";
   return new Function("require", src)(import.meta.require) as number;
 }
@@ -1989,14 +1996,9 @@ function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
     if (first) {
       sites.push(A);
     }
-    const w = ty_wnf(cb.book, A);
-    if (n <= 1 || !lay_of(cb.book, A).ks.includes("box")) {
-      return;
-    }
-    if (w?.$ === "ADT") {
-      facts_hot(cb, w, true);
-    } else {
-      cb.clo = true;
+    if (n > 1 && lay_of(cb.book, A).ks.includes("box")) {
+      cb.clo = cb.clo || ty_wnf(cb.book, A)?.$ !== "ADT";
+      facts_hot(cb, A, true);
     }
   };
   const guard = (t: HTerm): void => {
@@ -2138,8 +2140,7 @@ function facts_build(cb: Carb): void {
   }
   for (let seen = -1; seen < cb.hot.size + Number(cb.clo);) {
     seen = cb.hot.size + Number(cb.clo);
-    sites.forEach((T) => facts_hot(cb, T,
-      cb.clo && lay_of(cb.book, T).ks.includes("box")));
+    sites.forEach((T) => facts_hot(cb, T, cb.clo));
   }
 }
 
@@ -3391,7 +3392,7 @@ function js_call(fl: File, k: Bend.Name, args: HTerm[],
   let exprs = args.map((x) => js_expr(fl, x, null));
   if (k === CLO_APPLY) {
     const [f, x] = exprs;
-    return tail ? "run_jump(" + f + ", [" + x + "])" : f + "(" + x + ")";
+    return tail ? "run_tail(" + f + ", " + x + ")" : f + "(" + x + ")";
   }
   const tld = fl.book.tlds[k] ?? die("unknown name: " + k);
   if (tld.$ === "ADT") {
@@ -3402,27 +3403,23 @@ function js_call(fl: File, k: Bend.Name, args: HTerm[],
     die("a live call into the assert " + k);
   }
   const live = def_live(fl, tld);
-  let pre = "";
-  if (exprs.length === live - 1) {
-    const v = name_local(fl, "x");
-    pre = "(" + v + ") => ";
+  const v = exprs.length === live - 1 ? name_local(fl, "x") : "";
+  if (v !== "") {
     exprs = [...exprs, v];
   } else if (exprs.length !== live) {
     die("an under-applied def value: " + k);
   }
+  const pre = v === "" ? "" : "(" + v + ") => ";
   if (intr !== null) {
     const xs = exprs.map((e) => ATOM.test(e) || STRLIT.test(e)
       ? e : emit_hold(fl, [e], "x")[0]);
     return pre + tpl_run(intr, xs);
   }
-  const all = exprs.join(", ");
-  if (def_foreign(tld)) {
-    return pre + js_sat(k) + "(" + all + ")";
-  }
-  if (pre === "" && tail) {
-    return "run_jump(" + js_sat(k) + ", [" + all + "])";
-  }
-  return pre + "run_loop(" + js_sat(k) + "(" + all + "))";
+  const call = js_sat(k) + "(" + exprs.join(", ") + ")";
+  return def_foreign(tld) ? pre + call
+    : v !== "" ? "run_clo(" + pre + call + ")"
+    : tail ? "run_jump(" + js_sat(k) + ", [" + exprs.join(", ") + "])"
+    : "run_loop(" + call + ")";
 }
 
 function js_open(fl: File, x: HLet): HTerm {
@@ -3430,10 +3427,7 @@ function js_open(fl: File, x: HLet): HTerm {
     if (!quant_live(x.q[j])) {
       return v;
     }
-    const ck = call_kind(fl.cb, v);
-    const e = ck === null ? js_expr(fl, v, null)
-      : js_call(fl, ck.k, ck.args, false);
-    return Bend.Var(emit_hold(fl, [e], x.k[j])[0], 0);
+    return Bend.Var(emit_hold(fl, [js_expr(fl, v, null)], x.k[j])[0], 0);
   }));
 }
 
@@ -3444,6 +3438,10 @@ function js_expr(fl: File, tm: HTerm,
     case "Var": return x.k;
     case "Ref":
     case "App": {
+      const ck = call_kind(fl.cb, x);
+      if (ck !== null) {
+        return js_call(fl, ck.k, ck.args, false);
+      }
       const m = term_spine(fl.cb, x);
       if (m.t.$ === "Var" && m.args.length === 0) {
         return m.t.k;
@@ -3559,8 +3557,8 @@ function js_def(fl: File, k: Bend.Name, def: Def): void {
   file_push(fl, "");
 }
 
-function js_text(book: Bend.Book, outs: Bend.Name[] | null): string {
-  const roots = outs ?? ("main" in book.tlds ? ["main"]
+export function js_lib(book: Bend.Book, outs: Bend.Name[] | null): string {
+  const roots = outs?.slice() ?? ("main" in book.tlds ? ["main"]
     : [...new Set(book.order)].filter((k) => {
       const tld = book.tlds[k];
       return tld.$ === "Def" && tld.v !== null
@@ -3594,33 +3592,30 @@ function js_text(book: Bend.Book, outs: Bend.Name[] | null): string {
   const effs = rows.length === 0 ? "" : "const $0eff = (() => {\n"
     + srcs.filter((s) => s !== "").join("\n") + "\nreturn {\n"
     + width_fold(rows.join("\n"), false) + "\n};\n})();\n\n";
+  const lib = outs === null ? "" : "export default {\n" + outs.map((k) =>
+    `  "${k}": run_lib(${js_sat(k)}, ${
+      def_live(cb, cb.book.tlds[k] as Bend.Def)}),`)
+    .join("\n") + "\n};\n";
   return RUNTIME + effs + "// Program\n// =======\n\n"
-    + width_fold(fl.seg.lines.join("\n"), false);
+    + width_fold(fl.seg.lines.join("\n"), false) + lib;
 }
 
 export function js_book(book: Bend.Book): string {
   const main = book.tlds["main"];
   if (main !== undefined) {
     if (main.$ !== "Def" || main.v === null
-      || def_get_params(book, main).some(live_dom)) {
+      || live_doms(book, main).length > 0) {
       die("main must be a filled def with no live parameters");
     }
     if (io_type(book) === null) {
       die("main must answer IO<T>");
     }
   }
-  return js_text(book, null) + "\n" + RUNTIME_MAIN
+  return js_lib(book, null) + "\n" + RUNTIME_MAIN
     + (main === undefined ? ""
     : "\ncli(process.argv.slice(2));\nio_exit(" + js_sat("main") + ");");
 }
 
-export function js_lib(book: Bend.Book, outs: Bend.Name[]): string {
-  return js_text(book, [...outs]) + "\nexport default {\n" + outs.map((k) => {
-    const xs = def_get_params(book, book.tlds[k] as Bend.Def)
-      .filter(live_dom).map((_, i) => "x" + i).join(", ");
-    return `  "${k}": (${xs}) => run_loop(${js_sat(k)}(${xs})),`;
-  }).join("\n") + "\n};\n";
-}
 // RuntimeC
 // ========
 
@@ -3968,36 +3963,22 @@ ${NATIVE.C}
 // Fid
 // ===
 
-INLINE u32 fid_arity(Fid fid) {
-  return (u32)FID_ARITY_T[fid];
-}
+#define fid_arity(x) ((u32)FID_ARITY_T[x])
 
-INLINE bool fid_bangs(Fid fid) {
-  return (bool)FID_BANGS_T[fid];
-}
+#define fid_bangs(x) ((bool)FID_BANGS_T[x])
 
-INLINE bool fid_nofk(Fid fid) {
-  return (bool)FID_NOFK_T[fid];
-}
+#define fid_nofk(x) ((bool)FID_NOFK_T[x])
 
-INLINE bool fid_seqk(Fid fid) {
-  return (bool)FID_SEQK_T[fid];
-}
+#define fid_seqk(x) ((bool)FID_SEQK_T[x])
 
-INLINE u32 fid_resw(Fid fid) {
-  return (u32)FID_RESW_T[fid];
-}
+#define fid_resw(x) ((u32)FID_RESW_T[x])
 
 // Cid
 // ===
 
-INLINE u32 cid_arity(Cid cid) {
-  return (u32)CID_ARITY_T[cid];
-}
+#define cid_arity(x) ((u32)CID_ARITY_T[x])
 
-INLINE u32 cid_boxn(Cid cid) {
-  return (u32)CID_BOXN_T[cid];
-}
+#define cid_boxn(x) ((u32)CID_BOXN_T[x])
 
 // A32
 // ===
@@ -4092,6 +4073,7 @@ INLINE void err_post(Corpus H, Err code) {
 #else
 
 static void err_fail(Err code, const char* msg) {
+  fflush(stdout);
   fprintf(stderr, "bend: error %u: %s\n", code, msg);
   abort();
 }
@@ -4744,6 +4726,9 @@ INLINE Ring ring_flip(u32 i) {
 INLINE Loc task_node(Env e, Fid fid, Term cont, u32 idx, u32 rem) {
   u32 ar  = fid_arity(fid);
   Loc loc = heap_alloc(e, cls_fit(ar + 2));
+  for (u32 i = 0; rem && i < ar; i += 1) {
+    e.mem[loc + i] = TERM_HOLE;
+  }
   e.mem[loc + ar]     = cont;
   e.mem[loc + ar + 1] = ((u64)idx << 32) | rem;
   return loc;
@@ -5754,10 +5739,6 @@ function array_len(a) {
   return n;
 }
 
-function array_size(a) {
-  return {$: "Tuple", fst: a, snd: array_len(a)};
-}
-
 function array_get(a, i) {
   let n = array_len(a);
   i = (i >>> 0) % n;
@@ -5803,10 +5784,6 @@ function array_swap(a, i, v) {
   return array_swap_go(a, n, (i >>> 0) % n, v);
 }
 
-function array_set(a, i, v) {
-  return array_swap(a, i, v).fst;
-}
-
 // Run
 // ===
 
@@ -5814,11 +5791,27 @@ function run_jump(f, x) {
   return {$: "$JMP", f: f, x: x};
 }
 
+function run_tail(f, x) {
+  return {$: "$JMP", f: f.j?.f === f ? f.j : f, x: [x]};
+}
+
+function run_clo(j) {
+  const f = (x) => run_loop(j(x));
+  f.j = j;
+  j.f = f;
+  return f;
+}
+
 function run_loop(r) {
   while (r !== null && typeof r === "object" && r.$ === "$JMP") {
     r = r.f(...r.x);
   }
   return r;
+}
+
+function run_lib(f, n) {
+  return (...a) => a.length < n ? run_lib((...b) => f(...a, ...b), n - a.length)
+    : run_loop(f(...a));
 }
 `.slice(1);
 
@@ -5832,24 +5825,14 @@ function cli_fail(msg) {
 }
 
 function cli_flag(name, val) {
-  if (val === "on") {
-    return true;
-  }
-  if (val !== "off") {
+  if (val !== "on" && val !== "off") {
     cli_fail("expected 'on' or 'off' after " + name);
   }
-  return false;
-}
-
-function cli_size(val) {
-  const txt = val !== null ? val.replace(/^[ \t\n\v\f\r]*\+?/, "") : "";
-  if (!/^(\d+\.?\d*|\.\d+)(GB|MB)$/.test(txt) || Number.parseFloat(txt) <= 0) {
-    cli_fail("expected a size like 4GB or 512MB after --gpu-memory");
-  }
+  return val === "on";
 }
 
 function cli_help() {
-  const text = [
+  require("fs").writeSync(1, [
     "usage: " + process.argv[1] + " [options]",
     "  --threads N        worker threads: a JS program runs one",
     "  --parallel on|off  off means one thread and no GPU (default: on)",
@@ -5857,8 +5840,7 @@ function cli_help() {
     "  --gpu-memory 4GB   device span: a JS program uses the JS heap",
     "  --help             show this text",
     "",
-  ].join("\n");
-  require("fs").writeSync(1, text);
+  ].join("\n"));
   process.exit(0);
 }
 
@@ -5868,11 +5850,11 @@ function cli(argv) {
   let gpu = -1;
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
-    const v = i + 1 < argv.length ? argv[i + 1] : null;
+    const v = argv[i + 1] ?? null;
     if (a === "--help") {
       cli_help();
     } else if (a === "--threads") {
-      thr = v !== null && /^[ \t\n\v\f\r]*\+?\d+$/.test(v) ? Number(v) : 0;
+      thr = /^[ \t\n\v\f\r]*\+?\d+$/.test(v) ? Number(v) : 0;
       if (thr < 1) {
         cli_fail("expected a thread count of 1 or more after --threads");
       }
@@ -5884,7 +5866,10 @@ function cli(argv) {
       gpu = cli_flag("--gpu", v) ? 1 : 0;
       i += 1;
     } else if (a === "--gpu-memory") {
-      cli_size(v);
+      if (!/^[ \t\n\v\f\r]*\+?(\d+\.?\d*|\.\d+)(GB|MB)$/.test(v)
+        || Number.parseFloat(v) <= 0) {
+        cli_fail("expected a size like 4GB or 512MB after --gpu-memory");
+      }
       i += 1;
     } else {
       cli_fail("unknown option " + a);
@@ -5905,14 +5890,12 @@ function cli(argv) {
 // ==
 
 function io_exit(m) {
-  let code;
   try {
-    code = io_run(m);
+    process.exit(io_run(m));
   } catch (e) {
     require("fs").writeSync(2, String(e) + "\n");
     process.exit(1);
   }
-  process.exit(code);
 }
 
 function io_run(m) {
@@ -5926,22 +5909,18 @@ function io_run(m) {
     if (req instanceof RangeError) {
       throw "bend: error 10: memory fault (machine stack overflow?)";
     }
-    if (req === null || typeof req !== "object" || req.$ !== "$FFI") {
+    if (req?.$ !== "$FFI") {
       throw req;
     }
-    const msg = "bend: a request decoded outside the event loop";
-    op = { $: "Halt", code: 1, message: msg };
+    op = { $: "Halt", code: 1,
+      message: "bend: a request decoded outside the event loop" };
   }
   if (op.$ !== "Halt") {
     return 0;
   }
   const fs = require("fs");
-  const data = [];
-  for (const c of op.message) {
-    data.push(c.codePointAt(0) & 255);
-  }
-  data.push(10);
-  const buf = Uint8Array.from(data);
+  const buf = Uint8Array.from([...op.message + "\n"],
+    (c) => c.codePointAt(0) & 255);
   let at = 0;
   while (at < buf.length) {
     try {

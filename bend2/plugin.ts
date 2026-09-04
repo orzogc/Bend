@@ -7,9 +7,10 @@
 //   Bun.build({plugins})  import bend from "bend-lang/plugin" (bundling)
 //
 // A .bend module exports every filled, non-base, non-IO def, wrapped so a
-// JS caller passes only the live (non-erased) arguments and gets a plain
-// value back. Constructors are `{$: "Name", field: value, ...}`, closures
-// are plain functions, Nat is BigInt, Bool/String/U32 are native.
+// JS caller passes the live (non-erased) arguments, in one call or curried,
+// and gets a plain value back. Constructors are `{$: "Name", field: value,
+// ...}`, closures are plain functions, Nat is BigInt, Bool/String/U32 are
+// native.
 
 import { plugin, type BunPlugin } from "bun";
 

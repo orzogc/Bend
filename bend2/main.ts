@@ -59,7 +59,7 @@ async function cli(): Promise<void> {
     }
   } catch (e) {
     const err = e as Bend.Err;
-    console.log(err?.$ === "Err" ? Bend.err_show(err) : String(e));
+    console.error(err?.$ === "Err" ? Bend.err_show(err) : String(e));
     process.exit(1);
   }
 }

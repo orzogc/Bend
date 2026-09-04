@@ -1167,7 +1167,7 @@ def Nat.show.go(f, n, acc):
       Nat.show.fin(g, acc, Nat.show.step(n))
 
 def Nat.show(+n: Nat) -> String:
-  Nat.show.go(1n+n, n, SNil{})
+  Nat.show.fin(n, SNil{}, Nat.show.step(n))
 
 assert Nat.read.go:
   forall s   : String
