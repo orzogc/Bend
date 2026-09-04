@@ -2855,6 +2855,7 @@ function emit_unfold(fl: File, s: HTerm): HTerm | null {
       ? null : b;
   };
   const lent = fl.cb.brw.get(m.t.k) ?? [];
+  const doms = def_get_params(fl.book, d);
   const bind = (i: number, ys: HTerm[]): HTerm => {
     const a = fs[i];
     if (i === fs.length) {
@@ -2865,7 +2866,7 @@ function emit_unfold(fl: File, s: HTerm): HTerm | null {
       || (lent[li] === true && Bend.term_strip(a).$ === "Var")) {
       return bind(i + 1, [...ys, a]);
     }
-    return Bend.Let(["a"], [0], [a], (xs: HTerm[]) =>
+    return Bend.Let(["a"], [0], [Bend.Ann(a, doms[i][2])], (xs: HTerm[]) =>
       bind(i + 1, [...ys, xs[0]]), undefined, [Bend.Many()]);
   };
   return walk(fs) === null ? null : bind(0, []);
