@@ -1979,6 +1979,7 @@ function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
   memo_gc();
   const np = cb.poly.size;
   let pi = 0;
+  cb.own.clear();
   const tld = cb.book.tlds[k] as Def;
   const lays = def_lays(cb, k);
   const live = cb.live.get(k) as boolean[][];
