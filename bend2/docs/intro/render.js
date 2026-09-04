@@ -424,16 +424,16 @@ S.block = (u, dur) => {
 S.laws = (u, dur) => {
   font(20); const cw = 56 + Math.max(...LAWS_SRC.map(l => cx.measureText(l).width));
   font(24, true); const gw = Math.max(...LAWS_GLOSS.map(l => cx.measureText(l).width));
-  const xl = (W - cw - 80 - gw)/2, x = lerp((W - cw)/2, xl, ease((u - 5.4)/0.8));
+  const xl = (W - cw - 80 - gw)/2, x = lerp((W - cw)/2, xl, ease((u - 6.6)/0.8));
   const y = 290, h = LAWS_SRC.length*34 + 44, gx = xl + cw + 80;
   T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
   codeCard(LAWS_SRC, x, y, cw, 20, 34);
-  const pa = ease((u - 2.0)/0.5)*(1 - ease((u - 4.6)/0.5));
+  const pa = ease((u - 2.0)/0.5)*(1 - ease((u - 5.8)/0.5));
   cx.globalAlpha = pa;
   T("write your laws in this file", W/2, 620, 26, AMBER, "center", true);
   bow(W/2, 588, W/2, y + h + 10, 0, AMBER, pa);
   LAWS_GLOSS.forEach((g, i) => {
-    const a = ease((u - 6.6 - 1.7*i)/0.5), ly = y + 36 + i*34;
+    const a = ease((u - 7.8 - 1.7*i)/0.5), ly = y + 36 + i*34;
     cx.globalAlpha = a;
     T(g, gx, ly, 24, AMBER, "left", true);
     bow(gx - 14, ly - 8, x + cw + 12, ly - 8, 0, AMBER, a);
@@ -721,7 +721,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { check: 10.5, bench: 9.5, par: 11.5, dist: DALL + 1.5, eval: EDONE + 1.9,
-                reduce: RDONE + 3.2, laws: 16.6, intro: 8.0, walk: 6.3, block: 5.8, end: 10.0 };
+                reduce: RDONE + 3.2, laws: 17.8, intro: 8.0, walk: 6.3, block: 5.8, end: 10.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
