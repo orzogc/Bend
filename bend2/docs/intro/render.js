@@ -41,7 +41,7 @@ const BEATS = [
   ["say", "How about *vibe-coding*?"],
   ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
   ["say", "#How?"],
-  ["reveal", "laws|.|bend", 64],
+  ["reveal", "LAWS|.|bend", 64],
   ["say", "A new file that lists *invariants*", "that models are *forced* to abide."],
   ["say", "For example, consider a game with one law:", "%\"the player can't win\""],
   ["laws"],
