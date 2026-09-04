@@ -2,7 +2,7 @@
 #
 # The proofs. This file imports the game (as Game) and the claims (as
 # Laws) and fills every assert the laws make -- an unfilled assert is an
-# error, so `bend cert.bend` is the whole verification. Everything here
+# error, so `bend CERT.bend` is the whole verification. Everything here
 # is AI-written scaffolding for one def: Laws.winning_is_a_bug.
 #
 # The shape of the argument: an invariant ("the player stands on a safe
@@ -14,7 +14,7 @@
 
 import Base
 import ./main.bend as Game
-import ./laws.bend as Laws
+import ./LAWS.bend as Laws
 
 # Proof kit
 # ---------

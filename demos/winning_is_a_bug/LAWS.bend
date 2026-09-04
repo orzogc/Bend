@@ -1,4 +1,4 @@
-# The laws. The human states them; cert.bend must prove them.
+# The laws. The human states them; CERT.bend must prove them.
 
 import Base
 import ./main.bend as Game

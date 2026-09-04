@@ -49,22 +49,22 @@ const BEATS = [
   ["intro"],
   ["say", "So far, it works as intended!"],
   ["say", "Now, let's *prompt* a new feature:", "%\"please, make the map *wrap around*\""],
-  ["say", "Without *laws.bend*:"],
+  ["say", "Without *LAWS.bend*:"],
   ["walk"],
   ["say", "Oops! The feature *introduced a bug*.", "Nothing stopped the AI from *breaking the laws*.", red],
-  ["say", "With *laws.bend*:"],
+  ["say", "With *LAWS.bend*:"],
   ["block"],
   ["say", "The AI placed a wall!", "The feature landed with *no bugs*.", green],
   ["say", "But *why*?"],
   ["say", "Because Bend *forced* the model", "to *comply with the laws*.", green],
-  ["say", "The rules in *laws.bend* are enforced by the same",
+  ["say", "The rules in *LAWS.bend* are enforced by the same",
           "algorithm used in *proof assistants* like Lean.", "",
           "If the AI makes a *mistake*, Bend asks it to *retry*.",
-          "Code is only merged once *laws.bend* provably holds.", "",
+          "Code is only merged once *LAWS.bend* provably holds.", "",
           "It is *mathematically impossible* to ship a bug!", "",
           "Models either *make no mistakes*, or *fail loudly*."],
-  ["say", "*laws.bend* == *AGENTS.md*", "except backed by *proof*"],
-  ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
+  ["say", "*LAWS.bend* == *AGENTS.md*", "except backed by *proof*"],
+  ["say", "With *LAWS.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
           "that *proves* like Lean", "where vibe-coding *works*."],
   ["end"],
@@ -164,7 +164,7 @@ function codeCard(lines, x, y, w, size, pitch) {
   lines.forEach((l, i) => codeLine(l, x + 28, y + 36 + i*pitch, size));
 }
 
-// laws.bend, for the reader: the namespaces and the equality's braces are
+// LAWS.bend, for the reader: the namespaces and the equality's braces are
 // left out (that sugar comes later); each line gets a gloss
 const LAWS_SRC = `assert winning_is_a_bug:
   forall moves: List<Move>
@@ -388,7 +388,7 @@ S.intro = (u, dur) => {
   footer(LAW, ease((u - 2.0)/0.4), GREEN);
 };
 
-// laws.bend off: the player goes up to the flag's row, right off the
+// LAWS.bend off: the player goes up to the flag's row, right off the
 // edge, in on the left, and takes the flag: the wrap dropped it in the
 // room. Victory pops on the board once the flag is gone, and the law
 // under the board turns red.
@@ -408,7 +408,7 @@ S.walk = (u, dur) => {
   }
 };
 
-// laws.bend on: the same walk on the shipped level meets a wall on the
+// LAWS.bend on: the same walk on the shipped level meets a wall on the
 // edge, and the player slams into it
 const BLOCK = up(8, 5, 1).concat([[9, 1], [10, 1]]);
 S.block = (u, dur) => {
@@ -418,7 +418,7 @@ S.block = (u, dur) => {
 };
 
 // ------------------------------------------------------------------ code beats
-// what laws.bend is, then the file under its name, then where the rules go
+// what LAWS.bend is, then the file under its name, then where the rules go
 // the file under its name, centred, with the rules pointer; then the
 // file slides left and each line gets its gloss
 S.laws = (u, dur) => {
@@ -426,7 +426,7 @@ S.laws = (u, dur) => {
   font(24, true); const gw = Math.max(...LAWS_GLOSS.map(l => cx.measureText(l).width));
   const xl = (W - cw - 80 - gw)/2, x = lerp((W - cw)/2, xl, ease((u - 6.6)/0.8));
   const y = 290, h = LAWS_SRC.length*34 + 44, gx = xl + cw + 80;
-  T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
+  T("LAWS.bend", x + 28, y - 16, 20, DIM, "left", true);
   codeCard(LAWS_SRC, x, y, cw, 20, 34);
   const pa = ease((u - 2.0)/0.5)*(1 - ease((u - 5.8)/0.5));
   cx.globalAlpha = pa;
@@ -605,22 +605,21 @@ S.eval = (u, dur) => {
 // the survivors close ranks, so the live region halves, in width and in
 // height by turns, collapsing into the top-left corner, the camera
 // following the ranks in. A cell is always one unit square: nothing here
-// scales a cell, ever. A fold takes flowDur: the ride is its first MERGE,
-// the closing of ranks the rest.
-const ZO = 1.2, R0 = 1.5, LEAF = 55, MERGE = 0.6;
-const flowDur = j => 0.45;
-const RDONE = R0 + LEVELS*flowDur(0);
+// scales a cell, ever. A fold takes FOLD: the ride is its first MERGE,
+// the closing of ranks the rest. The zoom is steady, root two per fold,
+// and the centre rides the diagonal at the same pace, so the grid's
+// corner stays put on screen and the ranks contract into it: no panning.
+// S0 is sized so the tall phases (a region whose height is still to fold)
+// never clip, and the final cell lands where the whole grid started.
+const ZO = 1.2, R0 = 1.5, LEAF = 55, MERGE = 0.6, FOLD = 0.45;
+const RDONE = R0 + LEVELS*FOLD, S0 = 0.56;
 const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
-function camAt(j) {
-  const [w, h] = region(j);
-  return cam(w*CS/2, h*CS/2, Math.min(0.84*W/(w*CS), 0.7*H/(h*CS), ZOOM));
-}
+const camAt = f => cam(GCEN*Math.pow(2, -f/2), GCEN*Math.pow(2, -f/2), S0*Math.pow(2, f/2));
 S.reduce = (u, dur) => {
-  let j = 0, t = R0;
-  while (j < LEVELS && u >= t + flowDur(j)) { t += flowDur(j); j++; }
-  const folding = u >= R0 && j < LEVELS, p = folding ? clamp((u - t)/flowDur(j), 0, 1) : 0;
+  const f = clamp((u - R0)/FOLD, 0, LEVELS), j = Math.floor(f), p = f - j;
+  const folding = u >= R0 && j < LEVELS;
   const m1 = ease(p/MERGE), m2 = ease((p - MERGE)/(1 - MERGE)), landed = folding && p >= MERGE;
-  const camr = u < R0 ? camLerp(CAME, camAt(0), ease(u/ZO)) : camLerp(camAt(j), camAt(j + 1), m2);
+  const camr = u < R0 ? camLerp(CAME, camAt(0), ease(u/ZO)) : camAt(f);
   const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
   const v1 = LEAF*Math.pow(2, j), v2 = 2*v1;
   // the other cores return as the camera pulls back, and leave once the

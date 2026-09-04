@@ -1,10 +1,10 @@
 // Renders the film. Usage:
-//   node video.js            docs/intro.mp4 (1920x1080, 60fps) and docs/intro.gif (640px wide, 30fps; the cube at 15)
+//   node video.js            docs/intro.mp4 (1920x1080, 60fps) and docs/intro.gif (640px wide, 20fps)
 //   node video.js 3 9 26     stills at those seconds into shots/
 // Frames stream straight into ffmpeg; nothing lands on disk but the outputs.
 const { createCanvas } = require("canvas");
 const fs = require("fs"), path = require("path"), { spawn, spawnSync } = require("child_process");
-const { draw, setCtx, DUR, SCENES, T0 } = require("./render.js");
+const { draw, setCtx, DUR } = require("./render.js");
 
 // the film is drawn in 1280x720 units; the canvas is that, scaled to 1080p
 const K = 1.5, W = 1280*K, H = 720*K, FPS = 60, OUT = path.join(__dirname, "..", "..", "..", "docs");
@@ -31,15 +31,13 @@ if (args.length) {
   }
   ff.stdin.end();
   await new Promise(r => ff.on("close", r));
-  // the gif: one 64-colour palette for the whole film, ordered dither, frames
-  // diffed by ffmpeg, 640px (the README column) at 30fps (every other frame).
-  // The cube's camera moves change every pixel every frame and would cost
-  // 13 MB alone, so its beats keep one frame in four: the whole stays under
-  // 10 MB
-  const names = SCENES.map(s => s[0]), a = T0[names.indexOf("dist")], j = names.indexOf("reduce"), b = T0[j] + SCENES[j][1];
+  // the gif: one 48-colour palette for the whole film, ordered dither, frames
+  // diffed by ffmpeg, 640px (the README column) at 20fps (one frame in
+  // three) throughout. The cube's camera moves change every pixel every
+  // frame; this is what keeps the whole under GitHub's 10 MB (30fps would
+  // be 16 MB, 64 colours 11 MB)
   spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-i", mp4, "-vf",
-    `select='if(between(t,${a.toFixed(1)},${b.toFixed(1)}),not(mod(n,4)),not(mod(n,2)))',` +
-    "scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=64[p];[b][p]paletteuse=dither=bayer:bayer_scale=5",
+    "select='not(mod(n,3))',scale=640:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=48[p];[b][p]paletteuse=dither=bayer:bayer_scale=5",
     "-fps_mode", "vfr", gif], { stdio: "inherit" });
   console.log("done: " + mp4 + " " + gif);
 })();

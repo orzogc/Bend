@@ -2,8 +2,8 @@
 #
 # The whole game, and nothing else: a torus map, a walled room, a flag,
 # five moves, and the level as text (the front end asks `grid` for
-# it). The claims about this game live in laws.bend; their proofs live
-# in cert.bend. This file is AI-written and may be rewritten at will --
+# it). The claims about this game live in LAWS.bend; their proofs live
+# in CERT.bend. This file is AI-written and may be rewritten at will --
 # the laws hold or the book stops checking.
 
 import Base
