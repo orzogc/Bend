@@ -43,7 +43,6 @@ const BEATS = [
   ["say", "#How?"],
   ["reveal", "laws|.|bend", 64],
   ["say", "A new file that lists *invariants*", "that models are *forced* to abide."],
-  ["say", "*laws.bend* == *AGENTS.md*", "except backed by *proof*"],
   ["say", "For example, consider a game with one law:", "%\"the player can't win\""],
   ["laws"],
   ["say", "Let's see it in action!"],
@@ -64,6 +63,8 @@ const BEATS = [
           "Code is only merged once *laws.bend* provably holds.", "",
           "It is *mathematically impossible* to ship a bug!", "",
           "Models either *make no mistakes*, or *fail loudly*."],
+  ["say", "*laws.bend* == *AGENTS.md*", "except backed by *proof*"],
+  ["say", "With *laws.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
           "that *proves* like Lean", "where vibe-coding *works*."],
   ["end"],
@@ -732,8 +733,8 @@ for (const b of BEATS) {
 const T0 = []; let DUR = 0;
 for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
 // the film runs four minutes to the frame: the end card takes up the slack
-// the end card takes the slack up to four minutes, never under its own 10 s
-const TOTAL = Math.max(240, DUR);
+// the end card takes the slack up to 4:20, never under its own 10 s
+const TOTAL = Math.max(260, DUR);
 BEATS[BEATS.length - 1][1] += TOTAL - DUR; DUR = TOTAL;
 const SCENES = BEATS.map(b => [b[0] === "say"
   ? "“" + b[2].replace(/[*+~#%/]/g, "") : b[0] + (b[2] && !TAG.has(b[2]) ? " " + b[2] : ""), b[1]]);
