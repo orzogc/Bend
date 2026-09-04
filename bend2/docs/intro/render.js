@@ -169,7 +169,7 @@ const LAWS_SRC = `assert winning_is_a_bug:
   forall moves: List<Move>
   board = apply(init(), moves)
   is_won(board) == False`.split("\n");
-const LAWS_GLOSS = ["LAW: \"Winning Is A Bug\"", "\"for any sequence of moves\"",
+const LAWS_GLOSS = ["LAW: Winning Is A Bug", "\"for any sequence of moves\"",
                     "\"applying it to the initial board\"", "\"can never lead to victory\""];
 
 // ------------------------------------------------------------------ benches
@@ -429,7 +429,7 @@ S.laws = (u, dur) => {
   codeCard(LAWS_SRC, x, y, cw, 20, 34);
   const pa = ease((u - 2.0)/0.5)*(1 - ease((u - 4.6)/0.5));
   cx.globalAlpha = pa;
-  T("write the law here", W/2, 620, 26, AMBER, "center", true);
+  T("write your laws in this file", W/2, 620, 26, AMBER, "center", true);
   bow(W/2, 588, W/2, y + h + 10, 0, AMBER, pa);
   LAWS_GLOSS.forEach((g, i) => {
     const a = ease((u - 6.6 - 1.7*i)/0.5), ly = y + 36 + i*34;
