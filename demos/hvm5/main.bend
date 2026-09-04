@@ -23,25 +23,35 @@
 #     | @ref(a,b,..)       reference applied to arguments
 #
 # Terms are Bend constructors, so term memory is Bend's own: erasing a
-# term is dropping it. The env is an Array of cells indexed by binder
-# id: a lambda's cell holds its argument (Sub) once applied; a dup's
-# cell holds the value until a side asks (Sha), then the twin's copy.
-# A cell read by its variable, or by the second dup side, goes to the
-# free list, and a dropped term is walked so its cells follow (hvm5.c's
-# collect); a fresh id comes from the free list, else it is the next
-# one. The book is an Array of bodies by definition index (the parser
-# numbers names as it meets them), each a template whose binder ids
-# count from 0: a reference takes as many fresh ids and copies the
-# template over them (term_inst).
+# term is dropping it. A run of #0/#1 is one word: 24 bits and their
+# count, outermost bit lowest, as hvm5.c packs them; a run over () is
+# the word alone (Won), so a bit chain costs no heap at all.
 #
-# The evaluator is one loop over a Step: the env, the registers (book,
-# interaction count, free list, next id, last display name), a mode (a
-# term to evaluate, a whnf to deliver, a dropped term to free) and a
-# continuation chain that is hvm5.c's stack. Strong normalization runs in the same loop: an NfK
-# frame normalizes the children of the whnf it receives, Rb1/Rb2 frames
-# rebuild the node. Every helper takes the env, the registers and the
-# stack and answers the next Step; the loop matches the mode and the
-# top frame.
+# The env is an Array of cells indexed by binder id. A lambda's cell
+# holds its argument (Sub) once applied; a dup's cell holds the value
+# until a side asks (Sha, or Haf when the other side is dead), then
+# the twin's copy. A cell read by its variable goes to the free list:
+# the cell stores the old head (Num), and the words fh and nx (the
+# head, the next fresh id) ride the loop. The book is an Array of
+# templates by definition index, the parser numbering names and
+# binders as it meets them. A reference moves its template out of the
+# book and copies it (inst_run): a binder's cell hands its occurrence
+# to the copy, a fresh cell takes the binder, and the template is
+# rebuilt beside the copy and written back. Leading lambdas fuse with
+# pending arguments as hvm5.c's L_RF0 loop, and a body that is a
+# constructor eliminator waits for its scrutinee (K_DISP), so only the
+# selected branch gets copied.
+#
+# The evaluator is one loop over the env, the book, a mode, a stack
+# and the registers. The mode is a term to evaluate (Go), a whnf to
+# deliver to the top frame (Kn), a stuck term unwinding the stack (St:
+# hvm5.c dies here) or a template being fused (Rf). The stack is
+# hvm5.c's: a pending argument, an eliminator waiting for its
+# scrutinee, a dup cell waiting for its value, a deferred @ref. Strong
+# normalization runs in the same loop: an NfK frame normalizes the
+# children of the whnf it receives, and a frame holding the node's
+# shape rebuilds it. Every helper answers the next state; the loop
+# matches the mode and the top frame.
 #
 # The parser is a continuation monad over the parser state, in
 # do-notation: a primitive is a def over the continuation and the
@@ -50,94 +60,146 @@
 # term, the one recursive parser.
 #
 # Names and labels are codes, as in hvm5.c: six bits per character of
-# the display alphabet, first character highest. hvm5.c dies on a stuck
-# redex (a lambda-bound variable in head position); here a stuck term
-# is its own whnf. A dead dup side keeps its copy. Both leave the
-# printed normal form and the interaction count unchanged.
-#
-# The program to run is the src constant, since a Bend binary takes no
-# arguments; the output is hvm5 -s's. A literal holds λ as one code
-# point (955); the output writes it as its two UTF-8 bytes.
+# the display alphabet, first character highest. The program to run
+# is the src constant, since a Bend binary takes no arguments; the
+# output is hvm5 -s's. A literal holds λ as one code point (955); the
+# output writes it as its two UTF-8 bytes.
 
 import Base
 
 # Types
 # =====
 
-# Term: the syntax. Dup lives in templates and freshly copied bodies
-# only (a step turns it into a cell); Nam only in normal forms, the
-# display name of a lambda. A run of #0/#1 is one Pak node holding
-# its bits outermost first, so a dup copies the run in one step that
-# counts one interaction per bit, as hvm5.c's packed constructors.
+# Term: the syntax. Dup/Dux (both sides live, one side live) appear in
+# templates only: a copy turns them into a cell. Abs and Nam appear in
+# normal forms only: a lambda shown with its display name.
 type Term is Data:
   Var{i: U32}
-  Cov{+l: U32, i: U32, +s: Bool}
-  Nam{n: U32}
+  Co0{+l: U32, i: U32}
+  Co1{+l: U32, i: U32}
   Era{}
   Sup{+l: U32, a: Term, b: Term}
-  Dup{+l: U32, i: U32, v: Term, k: Term}
-  Lam{i: U32, f: Term}
+  Dup{+a: U32, +b: U32, v: Term, k: Term}
+  Dux{+a: U32, v: Term, k: Term}
+  Lam{+i: U32, f: Term}
   Drp{f: Term}
   App{f: Term, x: Term}
   One{}
   Use{f: Term}
-  Pak{+bs: List<&2, Bool>, t: Term}
+  Pak{+p: U32, t: Term}
+  Won{+p: U32}
   Tup{a: Term, b: Term}
   Get{f: Term}
   Mat{f: Term, g: Term}
-  Ref{ix: U32}
+  Ref{+n: U32}
+  Abs{+n: U32, f: Term}
+  Nam{+n: U32}
 
-# Cell: an env slot: a substitution, a dup value not yet copied, nothing.
+# Cell: an env slot: a substitution, a dup value not yet copied (both
+# sides live, or the twin dead), a free-list link, nothing.
 type Cell is Data:
   Sub{t: Term}
   Sha{v: Term}
+  Haf{v: Term}
+  Num{+n: U32}
   Nul{}
 
-# Def: a book entry: the binder ids its body uses, and the body.
-type Def is Data:
-  Def{n: Nat, t: Term}
+# Sh1, Sh2: the shape of a node with one child, with two: what
+# rebuilds it once the children are copied or normalized.
+type Sh1 is Data:
+  SPak{+p: U32}
+  SUse{}
+  SGet{}
+  SDrp{}
+  SAbs{+n: U32}
 
-# Ids: fresh ids by position: a Braun tree (position 0 at the node,
-# odd positions left, even positions right).
-type Ids is Data:
-  INil{}
-  INode{+i: U32, l: Ids, r: Ids}
+type Sh2 is Data:
+  SSup{+l: U32}
+  SApp{}
+  STup{}
+  SMat{}
 
-# Regs: the registers: the book, the interaction count, the free list,
-# the next id, the last display name.
-type Regs is Type:
-  Regs{book: Array<Def>, +c: U32, fl: List<&2, U32>, +nx: U32, +nm: U32}
+# Kont: the stack. Arg: a pending argument. Usk, Mtk, Gtk: an
+# eliminator waiting for its scrutinee. Dpk: dup cell i (label l)
+# waiting for its value, side sd asking, fl: is the twin alive. Rfk:
+# a deferred eliminator @ref. NfK: the whnf arriving gets normalized
+# deeper. N2A, N2B, N1: a node rebuilt from its normalized children
+# (the first done and the second pending, both done, the one done).
+type Kont is Data:
+  Arg{x: Term, k: Kont}
+  Usk{f: Term, k: Kont}
+  Mtk{f: Term, g: Term, k: Kont}
+  Gtk{f: Term, k: Kont}
+  Dpk{+l: U32, +i: U32, +sd: U32, +fl: U32, k: Kont}
+  Rfk{+r: U32, k: Kont}
+  NfK{k: Kont}
+  N2A{sh: Sh2, b: Term, k: Kont}
+  N2B{sh: Sh2, a: Term, k: Kont}
+  N1{sh: Sh1, k: Kont}
+  End{}
 
-# Tk: the registers after fresh ids were taken, and the ids.
-type Tk is Type:
-  Tk{r: Regs, +ids: Ids}
+# Path: the consumed prefix of a template, root at the bottom (the
+# definition index); path_put folds the rebuilt remainder back.
+type Path is Data:
+  Plm{+i: U32, p: Path}
+  Pdr{p: Path}
+  Pm0{g: Term, p: Path}
+  Pm1{f: Term, p: Path}
+  Prt{+r: U32}
 
-# Mode: a term to evaluate, a whnf to deliver to the top frame, or a
-# dropped term to free.
+# Mode: a term to evaluate, a whnf to deliver, a stuck term unwinding
+# the stack, a template being fused with pending arguments.
 type Mode is Data:
   Go{t: Term}
   Kn{w: Term}
-  Fr{t: Term}
+  Sk{w: Term}
+  Rf{t: Term, p: Path}
 
-# Kont: the stack. Arg: a pending argument. Elk: an eliminator waiting
-# for its scrutinee. Dpk: dup cell i (label l) waiting for its value,
-# side s asking. NfK: the whnf arriving gets normalized deeper. Rb1,
-# Rb2: a node rebuilt from its normalized children. Frk: a term still
-# to free. Nxt: the mode to resume once the freeing is done.
-type Kont is Type:
-  Arg{x: Term, k: Kont}
-  Elk{e: Term, k: Kont}
-  Dpk{+l: U32, i: U32, +s: Bool, k: Kont}
-  NfK{k: Kont}
-  Rb1{f: Term -> Term, k: Kont}
-  Rb2{f: Term -> Term -> Term, b: Term, k: Kont}
-  Frk{t: Term, k: Kont}
-  Nxt{m: Mode, k: Kont}
-  End{}
+# S: the machine: the env, the book, the mode, the stack, the
+# interaction count, the free-list head, the next fresh id.
+type S is Type:
+  S{env: Array<Cell>, book: Array<Term>, m: Mode, k: Kont, +c: U32, +fh: U32, +nx: U32}
 
-# Step: the machine.
-type Step is Type:
-  Step{env: Array<Cell>, m: Mode, k: Kont, r: Regs}
+# Out: the normal form and the interaction count.
+type Out is Type:
+  Out{env: Array<Cell>, book: Array<Term>, t: Term, +c: U32}
+
+# IK: the frames of a template copy: a node whose children are still
+# to copy or already copied (instance, rebuilt); a dup's value and
+# body; a lambda's binder (the template's id and the fresh one).
+type IK is Data:
+  IEnd{}
+  IKA{sh: Sh2, b: Term, k: IK}
+  IKB{+sh: Sh2, a1: Term, a2: Term, k: IK}
+  IK1{+sh: Sh1, k: IK}
+  IDupV{+a: U32, +b: U32, q: Term, k: IK}
+  IDupQ{+a: U32, +b: U32, v2: Term, k: IK}
+  IDuxV{+a: U32, q: Term, k: IK}
+  IDuxQ{+a: U32, v2: Term, k: IK}
+  ILam{+i: U32, +n: U32, k: IK}
+
+# IM: a template node to copy, or a copied pair (instance, rebuilt)
+# for the top frame.
+type IM is Data:
+  IGo{t: Term}
+  IKn{t1: Term, t2: Term}
+
+# IS: the copier's state; Ins: its answer.
+type IS is Type:
+  IS{env: Array<Cell>, m: IM, k: IK, +fh: U32, +nx: U32}
+
+type Ins is Type:
+  Ins{env: Array<Cell>, t: Term, p: Term, +fh: U32, +nx: U32}
+
+# Al: fresh cells taken: the env, their ids, the allocator words.
+type Al is Type:
+  Al{env: Array<Cell>, +n: U32, +fh: U32, +nx: U32}
+
+type Al2 is Type:
+  Al2{env: Array<Cell>, +n: U32, +p: U32, +fh: U32, +nx: U32}
+
+type Al3 is Type:
+  Al3{env: Array<Cell>, +n: U32, +p: U32, +r: U32, +fh: U32, +nx: U32}
 
 # Hc: the syntax form the first two characters of the source open;
 # HCtr{b} is #0 (b false) or #1.
@@ -163,28 +225,35 @@ type Ws is Data:
   Cm{}
   No{}
 
-# Bind: a scoped binder: its name, its occurrence term, its use count.
+# Occ: how a binder occurs: a variable, a dup side (label, cell).
+type Occ is Data:
+  OVar{+i: U32}
+  OCo0{+l: U32, +i: U32}
+  OCo1{+l: U32, +i: U32}
+
+# Bind: a scoped binder: its name, its occurrence, its use count.
 type Bind is Data:
-  Bind{+nm: String, +t: Term, +u: U32}
+  Bind{+nm: String, +oc: Occ, +u: U32}
 
 # Names: the definition names met so far, each with its index; the
 # next index.
 type Names is Data:
   Names{m: Map<&2, U32>, +n: U32}
 
-# Ent: a parsed definition: its index and its body.
+# Ent: a parsed definition: its index and its template.
 type Ent is Data:
-  Ent{ix: U32, d: Def}
+  Ent{ix: U32, t: Term}
 
 # St: the parser state: the head form, the source (blanks skipped),
 # the scope, the next binder id, the names.
 type St is Data:
   St{+h: Hc, src: String, sc: List<&2, Bind>, +vc: U32, ns: Names}
 
-# Dp: a dup's sides: both dead, or bound with the label and the id.
+# Dp: a dup's sides: both dead, one live (its cell), both live.
 type Dp is Data:
   Dead{}
-  Live{l: U32, i: U32}
+  Half{+j: U32}
+  Both{+i: U32, +j: U32}
 
 # Ph: the parser phase: a term; a term whose head form is known; a
 # reference with or without arguments; a call after "(", closed or
@@ -464,31 +533,37 @@ def close(br: Bool) -> P(Unit):
 # a variable binder pushed onto the scope: its id
 def bindv(x: String, k: U32 -> St -> IO(Unit), s: St) -> IO(Unit):
   St{h, src, sc, vc, ns} = s
-  k(vc, St{h, src, Bind{x, Var{vc}, 0} <> sc, (vc + 1 : U32), ns})
+  k(vc, St{h, src, Bind{x, OVar{vc}, 0} <> sc, (vc + 1 : U32), ns})
 
 def bindc.go(
-  dead: Bool,
-  l: U32,
+  da: Bool,
+  db: Bool,
+  +l: U32,
   a: String,
   b: String,
   k: Dp -> St -> IO(Unit),
   s: St
 ) -> IO(Unit):
-  match dead:
-    case True{}:
+  match da db:
+    case True{} True{}:
       k(Dead{}, s)
-    case False{}:
+    case True{} False{}:
       St{h, src, sc, vc, ns} = s
-      +m = l
-      k(Live{m, vc}, St{h, src,
-        Bind{b, Cov{m, vc, True{}}, 0} <> (Bind{a, Cov{m, vc, False{}}, 0} <> sc),
-        (vc + 1 : U32), ns})
+      k(Half{vc}, St{h, src, Bind{b, OCo1{l, vc}, 0} <> sc, (vc + 1 : U32), ns})
+    case False{} True{}:
+      St{h, src, sc, vc, ns} = s
+      k(Half{vc}, St{h, src, Bind{a, OCo0{l, vc}, 0} <> sc, (vc + 1 : U32), ns})
+    case False{} False{}:
+      St{h, src, sc, vc, ns} = s
+      k(Both{vc, (vc + 1 : U32)}, St{h, src,
+        Bind{b, OCo1{l, (vc + 1 : U32)}, 0} <> (Bind{a, OCo0{l, vc}, 0} <> sc),
+        (vc + 2 : U32), ns})
 
-# a dup's sides pushed onto the scope, unless both are dead
+# a dup's live sides pushed onto the scope ("-" is a dead side)
 def bindc(l: U32, a: String, b: String, k: Dp -> St -> IO(Unit), s: St) -> IO(Unit):
   +a2 = a
   +b2 = b
-  bindc.go(String.eq(a2, "-") && String.eq(b2, "-"), l, a2, b2, k, s)
+  bindc.go(String.eq(a2, "-"), String.eq(b2, "-"), l, a2, b2, k, s)
 
 def pop.go(ok: Bool, nm: String, u: U32) -> P(Unit):
   match ok:
@@ -497,45 +572,50 @@ def pop.go(ok: Bool, nm: String, u: U32) -> P(Unit):
     case False{}:
       fail(Unit, "non-linear variable: " ++ nm ++ " used " ++ U32.show(u) ++ " times")
 
-# the innermost binder popped: used once, unless it is the dead side "-"
+# the innermost binder popped: it was used once
 def pop(k: Unit -> St -> IO(Unit), s: St) -> IO(Unit):
   St{h, src, sc, vc, ns} = s
   match sc:
-    case Con{Bind{nm, t, u}, r}:
-      pop.go(U32.is_eq(u, 1) || String.eq(nm, "-"), nm, u)(k, St{h, src, r, vc, ns})
+    case Con{Bind{nm, oc, u}, r}:
+      pop.go(U32.is_eq(u, 1), nm, u)(k, St{h, src, r, vc, ns})
     case Nil{}:
       k(Unit{}, St{h, src, Nil{}, vc, ns})
-
-# the binder count, reset for the next definition
-def count(k: Nat -> St -> IO(Unit), s: St) -> IO(Unit):
-  St{h, src, sc, vc, ns} = s
-  k(U32.to_nat(vc), St{h, src, sc, 0, ns})
 
 # is the innermost binder named nm
 def sc_head(+sc: List<&2, Bind>, +nm: String) -> Bool:
   match sc:
-    case Con{Bind{n, t, u}, r}:
+    case Con{Bind{n, oc, u}, r}:
       String.eq(n, nm)
     case Nil{}:
       False{}
 
 def sc_find.go(
   b: Bind,
-  p: List<&2, Bind> & Maybe<&2, Term>
-) -> List<&2, Bind> & Maybe<&2, Term>:
+  p: List<&2, Bind> & Maybe<&2, Occ>
+) -> List<&2, Bind> & Maybe<&2, Occ>:
   (r, m) = p
   (b <> r, m)
 
 # the nearest binder named nm, its use counted; eq: is it the innermost
-def sc_find(sc: List<&2, Bind>, eq: Bool, +nm: String) -> List<&2, Bind> & Maybe<&2, Term>:
+def sc_find(sc: List<&2, Bind>, eq: Bool, +nm: String) -> List<&2, Bind> & Maybe<&2, Occ>:
   match sc eq:
-    case Con{Bind{n, t, u}, r} True{}:
-      (Bind{n, t, (u + 1 : U32)} <> r, Some{t})
+    case Con{Bind{n, oc, u}, r} True{}:
+      (Bind{n, oc, (u + 1 : U32)} <> r, Some{oc})
     case Con{b, r} False{}:
       +r2 = r
       sc_find.go(b, sc_find(r2, sc_head(r2, nm), nm))
     case Nil{} _:
       (Nil{}, None{})
+
+# the occurrence term of a binder
+def occ_term(oc: Occ) -> Term:
+  match oc:
+    case OVar{i}:
+      Var{i}
+    case OCo0{l, i}:
+      Co0{l, i}
+    case OCo1{l, i}:
+      Co1{l, i}
 
 def look.go(
   nm: String,
@@ -544,12 +624,12 @@ def look.go(
   src: String,
   vc: U32,
   ns: Names,
-  p: List<&2, Bind> & Maybe<&2, Term>
+  p: List<&2, Bind> & Maybe<&2, Occ>
 ) -> IO(Unit):
   (r, m) = p
   match m:
-    case Some{t}:
-      k(t, St{h, src, r, vc, ns})
+    case Some{oc}:
+      k(occ_term(oc), St{h, src, r, vc, ns})
     case None{}:
       IO.print("unbound variable: " ++ nm)
 
@@ -612,28 +692,43 @@ def ref() -> P(U32):
 # Parser
 # ======
 
-# #b{x}: the run of x grows when it has room, else a new run starts
-# (hvm5.c packs 24 bits per node)
-def term_pak.go(room: Bool, b: Bool, bs: List<&2, Bool>, t: Term) -> Term:
-  match room:
+# a run word: n bits, w their values (outermost lowest)
+def run_word(+n: U32, +w: U32) -> U32:
+  ((n << 24n) .|. w : U32)
+
+# bit b pushed outermost onto the run word p
+def run_push(+p: U32, +b: U32) -> U32:
+  run_word(((p >> 24n) + 1 : U32), (((p .&. 16777215) << 1n) .|. b : U32))
+
+# is the run word full (24 bits)
+def run_full(+p: U32) -> Bool:
+  U32.is_eq((p >> 24n : U32), 24)
+
+def term_pak.pak(full: Bool, +b: U32, +p: U32, t: Term) -> Term:
+  match full:
     case True{}:
-      Pak{b <> bs, t}
+      Pak{run_word(1, b), Pak{p, t}}
     case False{}:
-      Pak{[b], Pak{bs, t}}
+      Pak{run_push(p, b), t}
 
-def bits_len(bs: List<&2, Bool>) -> U32:
-  match bs:
-    case Nil{}:
-      0
-    case Con{b, r}:
-      (1 + bits_len(r) : U32)
+def term_pak.won(full: Bool, +b: U32, +p: U32) -> Term:
+  match full:
+    case True{}:
+      Pak{run_word(1, b), Won{p}}
+    case False{}:
+      Won{run_push(p, b)}
 
+# #b{x}: the run of x grows when it has room, else a new run starts
 def term_pak(b: Bool, x: Term) -> Term:
   match x:
-    case Pak{bs, t}:
-      term_pak.go(U32.is_lt(bits_len(bs), 24), b, bs, t)
+    case Pak{p, t}:
+      term_pak.pak(run_full(p), pick(U32, b, 1, 0), p, t)
+    case Won{p}:
+      term_pak.won(run_full(p), pick(U32, b, 1, 0), p)
+    case One{}:
+      Won{run_word(1, pick(U32, b, 1, 0))}
     case y:
-      Pak{[b], y}
+      Pak{run_word(1, pick(U32, b, 1, 0)), y}
 
 # a term
 @unsafe
@@ -772,12 +867,17 @@ def term(ph: Ph) -> P(Term):
       do P<Term>:
         q : Term <- term(Trm{})
         return App{Drp{q}, v}
-    case PDup{Live{l, i}, v}:
+    case PDup{Half{j}, v}:
+      do P<Term>:
+        q : Term <- term(Trm{})
+        Unit <- pop
+        return Dux{j, v, q}
+    case PDup{Both{i, j}, v}:
       do P<Term>:
         q : Term <- term(Trm{})
         Unit <- pop
         Unit <- pop
-        return Dup{l, i, v, q}
+        return Dup{i, j, v, q}
 
 # the definitions to the end of the source; done: is the source over
 @unsafe
@@ -792,9 +892,8 @@ def book(done: Bool, es: List<&2, Ent>) -> P(List<&2, Ent>):
         Unit <- sym('=')
         t : Term <- term(Trm{})
         Unit <- sym(';')
-        v : Nat <- count
         e : Bool <- eof
-        book(e, Ent{ix, Def{v, t}} <> es)
+        book(e, Ent{ix, t} <> es)
 
 # the definitions of the source
 def prog() -> P(List<&2, Ent>):
@@ -802,486 +901,645 @@ def prog() -> P(List<&2, Ent>):
     e : Bool <- eof
     book(e, Nil{})
 
-# Evaluator
-# =========
-#
-# Each helper takes the env, the registers and the stack and answers
-# the next Step. Env reads are Array.swap results opened by the helper.
+# Pak
+# ===
 
-# i at position 0, every other position moved up by one
-def ids_cons(t: Ids, i: U32) -> Ids:
-  match t:
-    case INil{}:
-      INode{i, INil{}, INil{}}
-    case INode{j, l, r}:
-      INode{i, ids_cons(r, j), l}
+def pak_pop.go(one: Bool, +p: U32, t: Term) -> Term:
+  match one:
+    case True{}:
+      t
+    case False{}:
+      Pak{((((p >> 24n) - 1) << 24n) .|. ((p .&. 16777215) >> 1n) : U32), t}
 
-def odd(+n: U32) -> Bool:
-  U32.is_eq(U32.and(n, 1), 1)
+def pak_pop(+p: U32, t: Term) -> Term:
+  pak_pop.go(U32.is_eq((p >> 24n : U32), 1), p, t)
 
-# the id at position n; z: is n zero, o: is n odd
-def ids_at(t: Ids, z: Bool, o: Bool, n: U32) -> U32:
-  match t z o:
-    case INode{i, l, r} True{} _:
-      i
-    case INode{i, l, r} False{} True{}:
-      +m = (n >> 1n : U32)
-      ids_at(l, U32.is_eq(m, 0), odd(m), m)
-    case INode{i, l, r} False{} False{}:
-      +m = ((n >> 1n : U32) - 1 : U32)
-      ids_at(r, U32.is_eq(m, 0), odd(m), m)
-    case INil{} _ _:
+def won_pop.go(one: Bool, +p: U32) -> Term:
+  match one:
+    case True{}:
+      One{}
+    case False{}:
+      Won{((((p >> 24n) - 1) << 24n) .|. ((p .&. 16777215) >> 1n) : U32)}
+
+def won_pop(+p: U32) -> Term:
+  won_pop.go(U32.is_eq((p >> 24n : U32), 1), p)
+
+def bit0(+p: U32) -> Bool:
+  U32.is_eq((p .&. 1 : U32), 0)
+
+# The env
+# =======
+
+def num(s: Cell) -> U32:
+  match s:
+    case Num{n}:
+      n
+    case _:
       0
 
-def id_of(ids: Ids, +n: U32) -> U32:
-  ids_at(ids, U32.is_eq(n, 0), odd(n), n)
-
-# n fresh ids: the free list first, then the next ids
-def take(n: Nat, r: Regs, ids: Ids) -> Tk:
-  match n:
-    case 0n:
-      Tk{r, ids}
-    case 1n+p:
-      Regs{book, c, fl, nx, nm} = r
-      match fl:
-        case Con{i, f}:
-          take(p, Regs{book, c, f, nx, nm}, ids_cons(ids, i))
-        case Nil{}:
-          take(p, Regs{book, c, Nil{}, (nx + 1 : U32), nm}, ids_cons(ids, nx))
-
-# cell i freed
-def free(r: Regs, i: U32) -> Regs:
-  Regs{book, c, fl, nx, nm} = r
-  Regs{book, c, i <> fl, nx, nm}
-
-# n interactions counted
-def ticks(r: Regs, n: U32) -> Regs:
-  Regs{book, c, fl, nx, nm} = r
-  Regs{book, (c + n : U32), fl, nx, nm}
-
-# a template copied over fresh ids: binder id i becomes the id at
-# position i
-def term_inst(+ids: Ids, t: Term) -> Term:
-  match t:
-    case Var{i}:
-      Var{id_of(ids, i)}
-    case Cov{l, i, s}:
-      Cov{l, id_of(ids, i), s}
-    case Sup{l, x, y}:
-      Sup{l, term_inst(ids, x), term_inst(ids, y)}
-    case Dup{l, i, v, k}:
-      Dup{l, id_of(ids, i), term_inst(ids, v), term_inst(ids, k)}
-    case Lam{i, f}:
-      Lam{id_of(ids, i), term_inst(ids, f)}
-    case Drp{f}:
-      Drp{term_inst(ids, f)}
-    case App{f, x}:
-      App{term_inst(ids, f), term_inst(ids, x)}
-    case Use{f}:
-      Use{term_inst(ids, f)}
-    case Pak{bs, x}:
-      Pak{bs, term_inst(ids, x)}
-    case Tup{x, y}:
-      Tup{term_inst(ids, x), term_inst(ids, y)}
-    case Get{f}:
-      Get{term_inst(ids, f)}
-    case Mat{f, g}:
-      Mat{term_inst(ids, f), term_inst(ids, g)}
-    case u:
-      u
-
-# a variable read its cell: a substitution continues and the cell is
-# free, else the variable is free
-def cell_var(r: Regs, k: Kont, +i: U32, p: Array<Cell> & Cell) -> Step:
-  (env, cell) = p
-  match cell:
-    case Sub{t}:
-      Step{env, Go{t}, k, free(r, i)}
-    case _:
-      Step{env, Kn{Var{i}}, k, r}
-
-# a dup variable read its cell: the twin's copy and the cell is free,
-# or the value still to copy (evaluated under a Dpk frame), or nothing
-def cell_cov(r: Regs, k: Kont, +l: U32, +i: U32, +s: Bool, p: Array<Cell> & Cell) -> Step:
-  (env, cell) = p
-  match cell:
-    case Sub{t}:
-      Step{env, Go{t}, k, free(r, i)}
-    case Sha{v}:
-      Step{env, Go{v}, Dpk{l, i, s, k}, r}
-    case Nul{}:
-      Step{env, Kn{Cov{l, i, s}}, k, r}
-
-def def_ref.go(env: Array<Cell>, k: Kont, t: Term, tk: Tk) -> Step:
-  Tk{r, ids} = tk
-  Step{env, Go{term_inst(ids, t)}, k, r}
-
-# a reference: the template copied over fresh ids (one interaction)
-def def_ref(
-  env: Array<Cell>,
-  k: Kont,
-  c: U32,
-  fl: List<&2, U32>,
-  nx: U32,
-  nm: U32,
-  p: Array<Def> & Def
-) -> Step:
-  (book, d) = p
-  Def{n, t} = d
-  def_ref.go(env, k, t, take(n, Regs{book, (c + 1 : U32), fl, nx, nm}, INil{}))
-
-def term_app.sup(env: Array<Cell>, k: Kont, +l: U32, a: Term, b: Term, x: Term, tk: Tk) -> Step:
-  Tk{r, ids} = tk
-  +j = id_of(ids, 0)
-  Step{Array.set(Cell, env, j, Sha{x}),
-    Kn{Sup{l, App{a, Cov{l, j, False{}}}, App{b, Cov{l, j, True{}}}}}, k, r}
-
-# a whnf applied to x
-def term_app(env: Array<Cell>, r: Regs, k: Kont, w: Term, x: Term) -> Step:
-  match w:
-    case Lam{i, f}:
-      Step{Array.set(Cell, env, i, Sub{x}), Go{f}, k, ticks(r, 1)}
-    case Drp{f}:
-      Step{env, Fr{x}, Nxt{Go{f}, k}, ticks(r, 1)}
-    case Era{}:
-      Step{env, Fr{x}, Nxt{Kn{Era{}}, k}, ticks(r, 1)}
-    case Sup{l, a, b}:
-      term_app.sup(env, k, l, a, b, x, take(1n, ticks(r, 1), INil{}))
-    case Use{f}:
-      Step{env, Go{x}, Elk{Use{f}, k}, r}
-    case Mat{f, g}:
-      Step{env, Go{x}, Elk{Mat{f, g}, k}, r}
-    case Get{f}:
-      Step{env, Go{x}, Elk{Get{f}, k}, r}
-    case u:
-      Step{env, Kn{App{u, x}}, k, r}
-
-# a run over t, or t itself when the run is empty
-def bits_pak(bs: List<&2, Bool>, t: Term) -> Term:
-  match bs:
-    case Nil{}:
-      t
-    case r:
-      Pak{r, t}
-
-# an eliminator meets a sup: the sup's children get the eliminator,
-# whose children they share through fresh cells
-def term_elim.on(
-  env: Array<Cell>,
-  r: Regs,
-  k: Kont,
-  +m: U32,
-  x: Term,
-  y: Term,
-  +ids: Ids,
-  e: Term
-) -> Step:
-  match e:
-    case Use{f}:
-      +j = id_of(ids, 0)
-      Step{Array.set(Cell, env, j, Sha{f}),
-        Kn{Sup{m, App{Use{Cov{m, j, False{}}}, x}, App{Use{Cov{m, j, True{}}}, y}}}, k, r}
-    case Get{f}:
-      +j = id_of(ids, 0)
-      Step{Array.set(Cell, env, j, Sha{f}),
-        Kn{Sup{m, App{Get{Cov{m, j, False{}}}, x}, App{Get{Cov{m, j, True{}}}, y}}}, k, r}
-    case Mat{f, g}:
-      +j = id_of(ids, 0)
-      +j2 = id_of(ids, 1)
-      Step{Array.set(Cell, Array.set(Cell, env, j, Sha{f}), j2, Sha{g}),
-        Kn{Sup{m,
-          App{Mat{Cov{m, j, False{}}, Cov{m, j2, False{}}}, x},
-          App{Mat{Cov{m, j, True{}}, Cov{m, j2, True{}}}, y}}}, k, r}
-    case u:
-      Step{env, Kn{App{u, Sup{m, x, y}}}, k, r}
-
-def term_elim.sup(env: Array<Cell>, k: Kont, m: U32, x: Term, y: Term, e: Term, tk: Tk) -> Step:
-  Tk{r, ids} = tk
-  term_elim.on(env, r, k, m, x, y, ids, e)
-
-# a match: the arm of bit b continues on x, the other arm is freed
-def term_elim.mat(env: Array<Cell>, r: Regs, k: Kont, b: Bool, f: Term, g: Term, x: Term) -> Step:
-  match b:
-    case False{}:
-      Step{env, Fr{g}, Nxt{Go{f}, Arg{x, k}}, r}
-    case True{}:
-      Step{env, Fr{f}, Nxt{Go{g}, Arg{x, k}}, r}
-
-# an eliminator meets its scrutinee's whnf
-def term_elim(env: Array<Cell>, r: Regs, k: Kont, e: Term, w: Term) -> Step:
-  match e w:
-    case Use{f} One{}:
-      Step{env, Go{f}, k, ticks(r, 1)}
-    case Get{f} Tup{a, b}:
-      Step{env, Go{f}, Arg{a, Arg{b, k}}, ticks(r, 1)}
-    case Mat{f, g} Pak{Con{b, bs}, t}:
-      term_elim.mat(env, ticks(r, 1), k, b, f, g, bits_pak(bs, t))
-    case u Era{}:
-      Step{env, Fr{u}, Nxt{Kn{Era{}}, k}, ticks(r, 1)}
-    case Mat{f, g} Sup{m, x, y}:
-      term_elim.sup(env, k, m, x, y, Mat{f, g}, take(2n, ticks(r, 1), INil{}))
-    case u Sup{m, x, y}:
-      term_elim.sup(env, k, m, x, y, u, take(1n, ticks(r, 1), INil{}))
-    case u v:
-      Step{env, Kn{App{u, v}}, k, r}
-
-# does a dup of label l meet a sup of its own label
-def dup_same(+l: U32, w: Term) -> Bool:
-  match w:
-    case Sup{m, a, b}:
-      U32.is_eq(l, m)
-    case u:
-      False{}
-
-# the fresh cells a dup of w takes
-def dup_cells(same: Bool, w: Term) -> Nat:
-  match w:
-    case Lam{j, f}:
-      3n
-    case Tup{a, b}:
-      2n
-    case Mat{f, g}:
-      2n
-    case Sup{m, a, b}:
-      pick(Nat, same, 0n, 2n)
-    case Drp{f}:
-      1n
-    case Use{f}:
-      1n
-    case Get{f}:
-      1n
-    case Pak{bs, One{}}:
-      0n
-    case Pak{bs, t}:
-      1n
-    case u:
-      0n
-
-# a dup settles: the asking side's copy continues, the twin's parks in
-# the cell (one interaction)
-def term_dup.fin(env: Array<Cell>, r: Regs, k: Kont, i: U32, s: Bool, a: Term, b: Term) -> Step:
+def cel(s: Cell) -> Term:
   match s:
-    case False{}:
-      Step{Array.set(Cell, env, i, Sub{b}), Go{a}, k, ticks(r, 1)}
-    case True{}:
-      Step{Array.set(Cell, env, i, Sub{a}), Go{b}, k, ticks(r, 1)}
-
-# a dup cell meets its value's whnf: one layer copied, the children
-# shared through fresh cells; a sup of the same label is the two
-# copies; a stuck value parks back
-def term_dup.on(
-  env: Array<Cell>,
-  r: Regs,
-  k: Kont,
-  +l: U32,
-  +i: U32,
-  +s: Bool,
-  +ids: Ids,
-  same: Bool,
-  w: Term
-) -> Step:
-  match same w:
-    case _ Era{}:
-      term_dup.fin(env, r, k, i, s, Era{}, Era{})
-    case _ One{}:
-      term_dup.fin(env, r, k, i, s, One{}, One{})
-    case _ Lam{x, f}:
-      +j = id_of(ids, 0)
-      +j2 = id_of(ids, 1)
-      +j3 = id_of(ids, 2)
-      term_dup.fin(
-        Array.set(Cell, Array.set(Cell, env, j, Sha{f}), x, Sub{Sup{l, Var{j2}, Var{j3}}}),
-        r, k, i, s, Lam{j2, Cov{l, j, False{}}}, Lam{j3, Cov{l, j, True{}}})
-    case _ Drp{f}:
-      +j = id_of(ids, 0)
-      term_dup.fin(Array.set(Cell, env, j, Sha{f}), r, k, i, s,
-        Drp{Cov{l, j, False{}}}, Drp{Cov{l, j, True{}}})
-    case _ Use{f}:
-      +j = id_of(ids, 0)
-      term_dup.fin(Array.set(Cell, env, j, Sha{f}), r, k, i, s,
-        Use{Cov{l, j, False{}}}, Use{Cov{l, j, True{}}})
-    case _ Get{f}:
-      +j = id_of(ids, 0)
-      term_dup.fin(Array.set(Cell, env, j, Sha{f}), r, k, i, s,
-        Get{Cov{l, j, False{}}}, Get{Cov{l, j, True{}}})
-    case _ Tup{a, b}:
-      +j = id_of(ids, 0)
-      +j2 = id_of(ids, 1)
-      term_dup.fin(Array.set(Cell, Array.set(Cell, env, j, Sha{a}), j2, Sha{b}), r, k, i, s,
-        Tup{Cov{l, j, False{}}, Cov{l, j2, False{}}}, Tup{Cov{l, j, True{}}, Cov{l, j2, True{}}})
-    case _ Mat{f, g}:
-      +j = id_of(ids, 0)
-      +j2 = id_of(ids, 1)
-      term_dup.fin(Array.set(Cell, Array.set(Cell, env, j, Sha{f}), j2, Sha{g}), r, k, i, s,
-        Mat{Cov{l, j, False{}}, Cov{l, j2, False{}}}, Mat{Cov{l, j, True{}}, Cov{l, j2, True{}}})
-    case True{} Sup{m, a, b}:
-      term_dup.fin(env, r, k, i, s, a, b)
-    case False{} Sup{m, a, b}:
-      +j = id_of(ids, 0)
-      +j2 = id_of(ids, 1)
-      term_dup.fin(Array.set(Cell, Array.set(Cell, env, j, Sha{a}), j2, Sha{b}), r, k, i, s,
-        Sup{m, Cov{l, j, False{}}, Cov{l, j2, False{}}}, Sup{m, Cov{l, j, True{}}, Cov{l, j2, True{}}})
-    case _ Pak{bs, One{}}:
-      term_dup.fin(env, ticks(r, bits_len(bs)), k, i, s, Pak{bs, One{}}, Pak{bs, One{}})
-    case _ Pak{bs, t}:
-      +j = id_of(ids, 0)
-      term_dup.fin(Array.set(Cell, env, j, Sha{t}), ticks(r, (bits_len(bs) - 1 : U32)), k, i, s,
-        Pak{bs, Cov{l, j, False{}}}, Pak{bs, Cov{l, j, True{}}})
-    case _ u:
-      Step{Array.set(Cell, env, i, Sha{u}), Kn{Cov{l, i, s}}, k, r}
-
-def term_dup.go(env: Array<Cell>, k: Kont, l: U32, i: U32, s: Bool, same: Bool, w: Term, tk: Tk) -> Step:
-  Tk{r, ids} = tk
-  term_dup.on(env, r, k, l, i, s, ids, same, w)
-
-# a dup cell (label l, id i, side s asking) meets its value's whnf
-def term_dup(env: Array<Cell>, r: Regs, k: Kont, w: Term, +l: U32, i: U32, s: Bool) -> Step:
-  +v = w
-  +same = dup_same(l, v)
-  term_dup.go(env, k, l, i, s, same, v, take(dup_cells(same, v), r, INil{}))
-
-# a term freed to the end: the next term to free, or the mode to resume
-def term_free.pop(env: Array<Cell>, r: Regs, k: Kont) -> Step:
-  match k:
-    case Frk{t, q}:
-      Step{env, Fr{t}, q, r}
-    case Nxt{m, q}:
-      Step{env, m, q, r}
-    case q:
-      Step{env, Kn{Era{}}, q, r}
-
-# a dropped variable: its substitution, if any, is freed with its cell
-def free_var(r: Regs, k: Kont, +i: U32, p: Array<Cell> & Cell) -> Step:
-  (env, cell) = p
-  match cell:
     case Sub{t}:
-      Step{env, Fr{t}, k, free(r, i)}
+      t
     case _:
-      term_free.pop(env, r, k)
+      Era{}
 
-# a dropped dup variable: the twin's parked copy is freed with the cell;
-# a value not yet copied stays for the twin
-def free_cov(r: Regs, k: Kont, +i: U32, p: Array<Cell> & Cell) -> Step:
-  (env, cell) = p
-  match cell:
+def subst(env: Array<Cell>, i: U32, v: Cell) -> Array<Cell>:
+  Array.set(Cell, env, i, v)
+
+def spot.go(z: Bool, +fh: U32, +nx: U32) -> U32:
+  match z:
+    case True{}:
+      nx
+    case False{}:
+      fh
+
+def spot(+fh: U32, +nx: U32) -> U32:
+  spot.go(U32.is_eq(fh, 0), fh, nx)
+
+def bump.go(z: Bool, +nx: U32) -> U32:
+  match z:
+    case True{}:
+      (nx + 1 : U32)
+    case False{}:
+      nx
+
+def bump(+fh: U32, +nx: U32) -> U32:
+  bump.go(U32.is_eq(fh, 0), nx)
+
+def cov.go(z: Bool, +l: U32, +i: U32) -> Term:
+  match z:
+    case True{}:
+      Co0{l, i}
+    case False{}:
+      Co1{l, i}
+
+# the occurrence term of dup side sd (0 = Co0, 1 = Co1)
+def cov(+sd: U32, +l: U32, +i: U32) -> Term:
+  cov.go(U32.is_eq(sd, 0), l, i)
+
+def park.go(z: Bool, w: Term) -> Cell:
+  match z:
+    case True{}:
+      Haf{w}
+    case False{}:
+      Sha{w}
+
+# a dup value parked back: Haf when the twin is dead (fl = 0)
+def park(+fl: U32, w: Term) -> Cell:
+  park.go(U32.is_eq(fl, 0), w)
+
+# a fresh cell holding v: spot picks the free-list head or the bump
+def alloc.go(+n: U32, +fh: U32, +nx: U32, p: Array<Cell> & Cell) -> Al:
+  (env, s) = p
+  Al{env, n, num(s), bump(fh, nx)}
+
+def alloc(env: Array<Cell>, +fh: U32, +nx: U32, v: Cell) -> Al:
+  +n = spot(fh, nx)
+  alloc.go(n, fh, nx, Array.swap(Cell, env, n, v))
+
+def alloc2.fin(+n: U32, al: Al) -> Al2:
+  Al{env, p, fh, nx} = al
+  Al2{env, n, p, fh, nx}
+
+def alloc2.go(v2: Cell, al: Al) -> Al2:
+  Al{env, n, fh, nx} = al
+  alloc2.fin(n, alloc(env, fh, nx, v2))
+
+def alloc2(env: Array<Cell>, +fh: U32, +nx: U32, v1: Cell, v2: Cell) -> Al2:
+  alloc2.go(v2, alloc(env, fh, nx, v1))
+
+def alloc3.fin(+n: U32, +p: U32, al: Al) -> Al3:
+  Al{env, r, fh, nx} = al
+  Al3{env, n, p, r, fh, nx}
+
+def alloc3.go(v3: Cell, al: Al2) -> Al3:
+  Al2{env, n, p, fh, nx} = al
+  alloc3.fin(n, p, alloc(env, fh, nx, v3))
+
+def alloc3(env: Array<Cell>, +fh: U32, +nx: U32, v1: Cell, v2: Cell, v3: Cell) -> Al3:
+  alloc3.go(v3, alloc2(env, fh, nx, v1, v2))
+
+# Book
+# ====
+
+def book_put(book: Array<Term>, r: U32, t: Term) -> Array<Term>:
+  Array.set(Term, book, r, t)
+
+def path_put(p: Path, book: Array<Term>, t: Term) -> Array<Term>:
+  match p:
+    case Plm{i, q}:
+      path_put(q, book, Lam{i, t})
+    case Pdr{q}:
+      path_put(q, book, Drp{t})
+    case Pm0{g, q}:
+      path_put(q, book, Mat{t, g})
+    case Pm1{f, q}:
+      path_put(q, book, Mat{f, t})
+    case Prt{r}:
+      book_put(book, r, t)
+
+# Nodes
+# =====
+
+def node1(sh: Sh1, x: Term) -> Term:
+  match sh:
+    case SPak{p}:
+      Pak{p, x}
+    case SUse{}:
+      Use{x}
+    case SGet{}:
+      Get{x}
+    case SDrp{}:
+      Drp{x}
+    case SAbs{n}:
+      Abs{n, x}
+
+def node2(sh: Sh2, a: Term, b: Term) -> Term:
+  match sh:
+    case SSup{l}:
+      Sup{l, a, b}
+    case SApp{}:
+      App{a, b}
+    case STup{}:
+      Tup{a, b}
+    case SMat{}:
+      Mat{a, b}
+
+# Instantiation
+# =============
+#
+# inst_run copies a template, riding fh/nx, moving each binder's
+# occurrence out of its cell and rebuilding the template beside the
+# instance. A frame stack (IK) replaces the recursion.
+
+def inst.var(k: IK, +fh: U32, +nx: U32, +i: U32, p: Array<Cell> & Cell) -> IS:
+  (env, s) = p
+  IS{env, IKn{cel(s), Var{i}}, k, fh, nx}
+
+def inst.co0(k: IK, +fh: U32, +nx: U32, +l: U32, +i: U32, p: Array<Cell> & Cell) -> IS:
+  (env, s) = p
+  IS{env, IKn{Co0{l, num(s)}, Co0{l, i}}, k, fh, nx}
+
+def inst.co1(k: IK, +fh: U32, +nx: U32, +l: U32, +i: U32, p: Array<Cell> & Cell) -> IS:
+  (env, s) = p
+  IS{env, IKn{Co1{l, num(s)}, Co1{l, i}}, k, fh, nx}
+
+def inst.lam(k: IK, +i: U32, f: Term, al: Al) -> IS:
+  Al{env, n, fh, nx} = al
+  IS{subst(env, i, Sub{Var{n}}), IGo{f}, ILam{i, n, k}, fh, nx}
+
+def inst.dup(k: IK, +a: U32, +b: U32, q: Term, v2: Term, al: Al) -> IS:
+  Al{env, n, fh, nx} = al
+  IS{subst(subst(env, a, Num{n}), b, Num{n}), IGo{q}, IDupQ{a, b, v2, k}, fh, nx}
+
+def inst.dux(k: IK, +a: U32, q: Term, v2: Term, al: Al) -> IS:
+  Al{env, n, fh, nx} = al
+  IS{subst(env, a, Num{n}), IGo{q}, IDuxQ{a, v2, k}, fh, nx}
+
+@unsafe
+def inst_run(s: IS) -> Ins:
+  IS{env, m, k, fh, nx} = s
+  match m:
+    case IGo{t}:
+      match t:
+        case Var{i}:
+          +j = i
+          inst_run(inst.var(k, fh, nx, j, Array.swap(Cell, env, j, Nul{})))
+        case Co0{l, i}:
+          +j = i
+          inst_run(inst.co0(k, fh, nx, l, j, Array.swap(Cell, env, j, Nul{})))
+        case Co1{l, i}:
+          +j = i
+          inst_run(inst.co1(k, fh, nx, l, j, Array.swap(Cell, env, j, Nul{})))
+        case Sup{l, a, b}:
+          inst_run(IS{env, IGo{a}, IKA{SSup{l}, b, k}, fh, nx})
+        case Dup{a, b, v, q}:
+          inst_run(IS{env, IGo{v}, IDupV{a, b, q, k}, fh, nx})
+        case Dux{a, v, q}:
+          inst_run(IS{env, IGo{v}, IDuxV{a, q, k}, fh, nx})
+        case Lam{i, f}:
+          inst_run(inst.lam(k, i, f, alloc(env, fh, nx, Nul{})))
+        case Drp{f}:
+          inst_run(IS{env, IGo{f}, IK1{SDrp{}, k}, fh, nx})
+        case App{f, x}:
+          inst_run(IS{env, IGo{f}, IKA{SApp{}, x, k}, fh, nx})
+        case Use{f}:
+          inst_run(IS{env, IGo{f}, IK1{SUse{}, k}, fh, nx})
+        case Pak{p, t}:
+          inst_run(IS{env, IGo{t}, IK1{SPak{p}, k}, fh, nx})
+        case Won{p}:
+          inst_run(IS{env, IKn{Won{p}, Won{p}}, k, fh, nx})
+        case Tup{a, b}:
+          inst_run(IS{env, IGo{a}, IKA{STup{}, b, k}, fh, nx})
+        case Get{f}:
+          inst_run(IS{env, IGo{f}, IK1{SGet{}, k}, fh, nx})
+        case Mat{f, g}:
+          inst_run(IS{env, IGo{f}, IKA{SMat{}, g, k}, fh, nx})
+        case Era{}:
+          inst_run(IS{env, IKn{Era{}, Era{}}, k, fh, nx})
+        case One{}:
+          inst_run(IS{env, IKn{One{}, One{}}, k, fh, nx})
+        case Ref{n}:
+          inst_run(IS{env, IKn{Ref{n}, Ref{n}}, k, fh, nx})
+        case _:
+          inst_run(IS{env, IKn{Era{}, Era{}}, k, fh, nx})
+    case IKn{t1, t2}:
+      match k:
+        case IEnd{}:
+          Ins{env, t1, t2, fh, nx}
+        case IKA{sh, b, q}:
+          inst_run(IS{env, IGo{b}, IKB{sh, t1, t2, q}, fh, nx})
+        case IKB{sh, a1, a2, q}:
+          inst_run(IS{env, IKn{node2(sh, a1, t1), node2(sh, a2, t2)}, q, fh, nx})
+        case IK1{sh, q}:
+          inst_run(IS{env, IKn{node1(sh, t1), node1(sh, t2)}, q, fh, nx})
+        case IDupV{a, b, q, r}:
+          inst_run(inst.dup(r, a, b, q, t2, alloc(env, fh, nx, Sha{t1})))
+        case IDupQ{a, b, v2, q}:
+          inst_run(IS{env, IKn{t1, Dup{a, b, v2, t2}}, q, fh, nx})
+        case IDuxV{a, q, r}:
+          inst_run(inst.dux(r, a, q, t2, alloc(env, fh, nx, Haf{t1})))
+        case IDuxQ{a, v2, q}:
+          inst_run(IS{env, IKn{t1, Dux{a, v2, t2}}, q, fh, nx})
+        case ILam{i, n, q}:
+          inst_run(IS{env, IKn{Lam{n, t1}, Lam{i, t2}}, q, fh, nx})
+
+def inst(env: Array<Cell>, t: Term, +fh: U32, +nx: U32) -> Ins:
+  inst_run(IS{env, IGo{t}, IEnd{}, fh, nx})
+
+# The evaluator
+# =============
+#
+# Every helper answers the next S; run matches the stack and the mode.
+
+# wnf_end: the remainder copied, the book restored, back to the loop
+def ref_end(book: Array<Term>, k: Kont, +c: U32, p: Path, ins: Ins) -> S:
+  Ins{env, w, u, fh, nx} = ins
+  S{env, path_put(p, book, u), Go{w}, k, c, fh, nx}
+
+# a Var read its cell: the substitution continues (the cell is free),
+# else the variable is stuck
+def go_var(book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, +i: U32, p: Array<Cell> & Cell) -> S:
+  (env, s) = p
+  match s:
     case Sub{t}:
-      Step{env, Fr{t}, k, free(r, i)}
-    case Sha{v}:
-      term_free.pop(Array.set(Cell, env, i, Sha{v}), r, k)
-    case Nul{}:
-      term_free.pop(env, r, k)
-
-# a dropped term walked: a lambda's variable will read an eraser (the
-# variable may live outside, in a dup's copy), a dup's cell is free
-def term_free(env: Array<Cell>, r: Regs, k: Kont, t: Term) -> Step:
-  match t:
-    case Var{i}:
-      +j = i
-      free_var(r, k, j, Array.swap(Cell, env, j, Nul{}))
-    case Cov{l, i, s}:
-      +j = i
-      free_cov(r, k, j, Array.swap(Cell, env, j, Nul{}))
-    case Lam{i, f}:
-      Step{Array.set(Cell, env, i, Sub{Era{}}), Fr{f}, k, r}
-    case Dup{l, i, v, q}:
-      Step{env, Fr{v}, Frk{q, k}, free(r, i)}
-    case App{f, x}:
-      Step{env, Fr{f}, Frk{x, k}, r}
-    case Sup{l, a, b}:
-      Step{env, Fr{a}, Frk{b, k}, r}
-    case Tup{a, b}:
-      Step{env, Fr{a}, Frk{b, k}, r}
-    case Mat{f, g}:
-      Step{env, Fr{f}, Frk{g, k}, r}
-    case Drp{f}:
-      Step{env, Fr{f}, k, r}
-    case Use{f}:
-      Step{env, Fr{f}, k, r}
-    case Get{f}:
-      Step{env, Fr{f}, k, r}
-    case Pak{bs, x}:
-      Step{env, Fr{x}, k, r}
+      S{env, book, Go{t}, k, c, i, nx}
     case u:
-      term_free.pop(env, r, k)
+      S{subst(env, i, u), book, Sk{Var{i}}, k, c, fh, nx}
 
-# a live lambda gets the next display name
-def term_nf.lam(env: Array<Cell>, k: Kont, i: U32, f: Term, r: Regs) -> Step:
-  Regs{book, c, fl, nx, nm} = r
-  +n = (nm + 1 : U32)
-  Step{Array.set(Cell, env, i, Sub{Nam{n}}), Go{f}, NfK{Rb1{x => Lam{n, x}, k}},
-    Regs{book, c, fl, nx, n}}
+# a dup var read its cell (left empty): the twin's copy, or an
+# unresolved value evaluated under a Dpk frame, or stuck
+def go_cov(book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, +l: U32, +i: U32, +sd: U32, p: Array<Cell> & Cell) -> S:
+  (env, s) = p
+  match s:
+    case Sub{t}:
+      S{subst(env, i, Num{fh}), book, Go{t}, k, c, i, nx}
+    case Sha{v}:
+      S{env, book, Go{v}, Dpk{l, i, sd, 1, k}, c, fh, nx}
+    case Haf{v}:
+      S{env, book, Go{v}, Dpk{l, i, sd, 0, k}, c, fh, nx}
+    case u:
+      S{subst(env, i, u), book, Sk{cov(sd, l, i)}, k, c, fh, nx}
 
-# a whnf to normalize: its children normalize left to right and the
-# node is rebuilt (a stuck application too, so no reference survives)
-def term_nf(env: Array<Cell>, r: Regs, k: Kont, w: Term) -> Step:
+# a @ref: its template moves out of the book; a body-is-Mat with a
+# pending Arg defers (K_DISP), else the fused-binder walk starts
+def go_ref(env: Array<Cell>, +c: U32, +fh: U32, +nx: U32, +r: U32, k: Kont, p: Array<Term> & Term) -> S:
+  match k:
+    case Arg{x, q}:
+      (book, s) = p
+      match s:
+        case Mat{f, g}:
+          S{env, book_put(book, r, Mat{f, g}), Go{x}, Rfk{r, q}, (c + 1 : U32), fh, nx}
+        case u:
+          S{env, book, Rf{u, Prt{r}}, Arg{x, q}, (c + 1 : U32), fh, nx}
+    case q:
+      (book, s) = p
+      S{env, book, Rf{s, Prt{r}}, q, (c + 1 : U32), fh, nx}
+
+# Application
+# -----------
+
+def app_sup(book: Array<Term>, k: Kont, +c: U32, +l: U32, a: Term, b: Term, al: Al) -> S:
+  Al{env, n, fh, nx} = al
+  S{env, book, Kn{Sup{l, App{a, Co0{l, n}}, App{b, Co1{l, n}}}}, k, (c + 1 : U32), fh, nx}
+
+def app(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, w: Term, x: Term) -> S:
+  match w:
+    case Lam{i, f}:
+      S{subst(env, i, Sub{x}), book, Go{f}, k, (c + 1 : U32), fh, nx}
+    case Drp{f}:
+      S{env, book, Go{f}, k, (c + 1 : U32), fh, nx}
+    case Sup{l, a, b}:
+      app_sup(book, k, c, l, a, b, alloc(env, fh, nx, Sha{x}))
+    case Era{}:
+      S{env, book, Kn{Era{}}, k, (c + 1 : U32), fh, nx}
+    case Use{f}:
+      S{env, book, Go{x}, Usk{f, k}, c, fh, nx}
+    case Mat{f, g}:
+      S{env, book, Go{x}, Mtk{f, g, k}, c, fh, nx}
+    case Get{f}:
+      S{env, book, Go{x}, Gtk{f, k}, c, fh, nx}
+    case u:
+      S{env, book, Sk{App{u, x}}, k, c, fh, nx}
+
+def use_sup(book: Array<Term>, k: Kont, +c: U32, +m: U32, x: Term, y: Term, al: Al) -> S:
+  Al{env, n, fh, nx} = al
+  S{env, book, Kn{Sup{m, App{Use{Co0{m, n}}, x}, App{Use{Co1{m, n}}, y}}}, k, (c + 1 : U32), fh, nx}
+
+def use(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, w: Term, f: Term) -> S:
+  match w:
+    case One{}:
+      S{env, book, Go{f}, k, (c + 1 : U32), fh, nx}
+    case Era{}:
+      S{env, book, Kn{Era{}}, k, (c + 1 : U32), fh, nx}
+    case Sup{m, x, y}:
+      use_sup(book, k, c, m, x, y, alloc(env, fh, nx, Sha{f}))
+    case u:
+      S{env, book, Sk{App{Use{f}, u}}, k, c, fh, nx}
+
+def mat_bit(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, f: Term, g: Term, y: Term, z: Bool) -> S:
+  match z:
+    case True{}:
+      S{env, book, Go{f}, Arg{y, k}, (c + 1 : U32), fh, nx}
+    case False{}:
+      S{env, book, Go{g}, Arg{y, k}, (c + 1 : U32), fh, nx}
+
+def mat_sup(book: Array<Term>, k: Kont, +c: U32, +m: U32, x: Term, y: Term, al: Al2) -> S:
+  Al2{env, n, p, fh, nx} = al
+  S{env, book, Kn{Sup{m, App{Mat{Co0{m, n}, Co0{m, p}}, x}, App{Mat{Co1{m, n}, Co1{m, p}}, y}}}, k, (c + 1 : U32), fh, nx}
+
+def mat(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, w: Term, f: Term, g: Term) -> S:
+  match w:
+    case Pak{b, t}:
+      mat_bit(env, book, k, c, fh, nx, f, g, pak_pop(b, t), bit0(b))
+    case Won{b}:
+      mat_bit(env, book, k, c, fh, nx, f, g, won_pop(b), bit0(b))
+    case Era{}:
+      S{env, book, Kn{Era{}}, k, (c + 1 : U32), fh, nx}
+    case Sup{m, x, y}:
+      mat_sup(book, k, c, m, x, y, alloc2(env, fh, nx, Sha{f}, Sha{g}))
+    case u:
+      S{env, book, Sk{App{Mat{f, g}, u}}, k, c, fh, nx}
+
+def get_sup(book: Array<Term>, k: Kont, +c: U32, +m: U32, x: Term, y: Term, al: Al) -> S:
+  Al{env, n, fh, nx} = al
+  S{env, book, Kn{Sup{m, App{Get{Co0{m, n}}, x}, App{Get{Co1{m, n}}, y}}}, k, (c + 1 : U32), fh, nx}
+
+def get(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, w: Term, f: Term) -> S:
+  match w:
+    case Tup{a, b}:
+      S{env, book, Go{f}, Arg{a, Arg{b, k}}, (c + 1 : U32), fh, nx}
+    case Era{}:
+      S{env, book, Kn{Era{}}, k, (c + 1 : U32), fh, nx}
+    case Sup{m, x, y}:
+      get_sup(book, k, c, m, x, y, alloc(env, fh, nx, Sha{f}))
+    case u:
+      S{env, book, Sk{App{Get{f}, u}}, k, c, fh, nx}
+
+# K_DISP: a deferred body-is-Mat @ref meets its scrutinee's whnf
+def dsp_end(book: Array<Term>, k: Kont, +c: U32, +r: U32, w: Term, ins: Ins) -> S:
+  Ins{env, v, u, fh, nx} = ins
+  match v:
+    case Mat{fi, gi}:
+      mat(env, path_put(Prt{r}, book, u), k, c, fh, nx, w, fi, gi)
+    case v2:
+      S{env, path_put(Prt{r}, book, u), Sk{App{v2, w}}, k, c, fh, nx}
+
+def dsp_bit(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, +r: U32, f: Term, g: Term, y: Term, z: Bool) -> S:
+  match z:
+    case True{}:
+      S{env, book, Rf{f, Pm0{g, Prt{r}}}, Arg{y, k}, (c + 1 : U32), fh, nx}
+    case False{}:
+      S{env, book, Rf{g, Pm1{f, Prt{r}}}, Arg{y, k}, (c + 1 : U32), fh, nx}
+
+def dsp(env: Array<Cell>, k: Kont, +c: U32, +fh: U32, +nx: U32, +r: U32, w: Term, p: Array<Term> & Term) -> S:
+  match w:
+    case Pak{b, t}:
+      (book, s) = p
+      match s:
+        case Mat{f, g}:
+          dsp_bit(env, book, k, c, fh, nx, r, f, g, pak_pop(b, t), bit0(b))
+        case u:
+          S{env, book_put(book, r, u), Sk{App{Ref{r}, Pak{b, t}}}, k, c, fh, nx}
+    case Won{b}:
+      (book, s) = p
+      match s:
+        case Mat{f, g}:
+          dsp_bit(env, book, k, c, fh, nx, r, f, g, won_pop(b), bit0(b))
+        case u:
+          S{env, book_put(book, r, u), Sk{App{Ref{r}, Won{b}}}, k, c, fh, nx}
+    case u:
+      (book, s) = p
+      match s:
+        case Mat{f, g}:
+          dsp_end(book, k, c, r, u, inst(env, Mat{f, g}, fh, nx))
+        case v:
+          S{env, book_put(book, r, v), Sk{App{Ref{r}, u}}, k, c, fh, nx}
+
+# Duplication
+# -----------
+
+# a fires; b parks in cell i or dies with it
+def settle_go(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, +i: U32, a: Term, b: Term, dead: Bool) -> S:
+  match dead:
+    case True{}:
+      S{subst(env, i, Num{fh}), book, Go{a}, k, (c + 1 : U32), i, nx}
+    case False{}:
+      S{subst(env, i, Sub{b}), book, Go{a}, k, (c + 1 : U32), fh, nx}
+
+def settle_if(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, +i: U32, +fl: U32, a: Term, b: Term, left: Bool) -> S:
+  match left:
+    case True{}:
+      settle_go(env, book, k, c, fh, nx, i, a, b, U32.is_eq(fl, 0))
+    case False{}:
+      settle_go(env, book, k, c, fh, nx, i, b, a, U32.is_eq(fl, 0))
+
+def settle(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, +i: U32, +sd: U32, +fl: U32, a: Term, b: Term) -> S:
+  settle_if(env, book, k, c, fh, nx, i, fl, a, b, U32.is_eq(sd, 0))
+
+def dup_sup(book: Array<Term>, k: Kont, +c: U32, +i: U32, +sd: U32, +fl: U32, +l: U32, +m: U32, al: Al2) -> S:
+  Al2{env, n, p, fh, nx} = al
+  settle(env, book, k, c, fh, nx, i, sd, fl, Sup{m, Co0{l, n}, Co0{l, p}}, Sup{m, Co1{l, n}, Co1{l, p}})
+
+def dup_sup_if(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, +i: U32, +sd: U32, +fl: U32, +l: U32, +m: U32, x: Term, y: Term, same: Bool) -> S:
+  match same:
+    case True{}:
+      settle(env, book, k, c, fh, nx, i, sd, fl, x, y)
+    case False{}:
+      dup_sup(book, k, c, i, sd, fl, l, m, alloc2(env, fh, nx, Sha{x}, Sha{y}))
+
+def dup_lam(book: Array<Term>, k: Kont, +c: U32, +i: U32, +sd: U32, +fl: U32, +l: U32, +j: U32, al: Al3) -> S:
+  Al3{env, n, p, r, fh, nx} = al
+  settle(subst(env, j, Sub{Sup{l, Var{p}, Var{r}}}), book, k, c, fh, nx, i, sd, fl, Lam{p, Co0{l, n}}, Lam{r, Co1{l, n}})
+
+def dup_drp(book: Array<Term>, k: Kont, +c: U32, +i: U32, +sd: U32, +fl: U32, +l: U32, al: Al) -> S:
+  Al{env, n, fh, nx} = al
+  settle(env, book, k, c, fh, nx, i, sd, fl, Drp{Co0{l, n}}, Drp{Co1{l, n}})
+
+def dup_use(book: Array<Term>, k: Kont, +c: U32, +i: U32, +sd: U32, +fl: U32, +l: U32, al: Al) -> S:
+  Al{env, n, fh, nx} = al
+  settle(env, book, k, c, fh, nx, i, sd, fl, Use{Co0{l, n}}, Use{Co1{l, n}})
+
+def dup_get(book: Array<Term>, k: Kont, +c: U32, +i: U32, +sd: U32, +fl: U32, +l: U32, al: Al) -> S:
+  Al{env, n, fh, nx} = al
+  settle(env, book, k, c, fh, nx, i, sd, fl, Get{Co0{l, n}}, Get{Co1{l, n}})
+
+def dup_tup(book: Array<Term>, k: Kont, +c: U32, +i: U32, +sd: U32, +fl: U32, +l: U32, al: Al2) -> S:
+  Al2{env, n, p, fh, nx} = al
+  settle(env, book, k, c, fh, nx, i, sd, fl, Tup{Co0{l, n}, Co0{l, p}}, Tup{Co1{l, n}, Co1{l, p}})
+
+def dup_mat(book: Array<Term>, k: Kont, +c: U32, +i: U32, +sd: U32, +fl: U32, +l: U32, al: Al2) -> S:
+  Al2{env, n, p, fh, nx} = al
+  settle(env, book, k, c, fh, nx, i, sd, fl, Mat{Co0{l, n}, Co0{l, p}}, Mat{Co1{l, n}, Co1{l, p}})
+
+def dup_pak(book: Array<Term>, k: Kont, +c: U32, +i: U32, +sd: U32, +fl: U32, +l: U32, +p: U32, al: Al) -> S:
+  Al{env, n, fh, nx} = al
+  settle(env, book, k, ((c + (p >> 24n)) - 1 : U32), fh, nx, i, sd, fl, Pak{p, Co0{l, n}}, Pak{p, Co1{l, n}})
+
+def dup(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, +l: U32, +i: U32, +sd: U32, +fl: U32, w: Term) -> S:
+  match w:
+    case Era{}:
+      settle(env, book, k, c, fh, nx, i, sd, fl, Era{}, Era{})
+    case One{}:
+      settle(env, book, k, c, fh, nx, i, sd, fl, One{}, One{})
+    case Sup{m, x, y}:
+      dup_sup_if(env, book, k, c, fh, nx, i, sd, fl, l, m, x, y, U32.is_eq(l, m))
+    case Lam{j, f}:
+      dup_lam(book, k, c, i, sd, fl, l, j, alloc3(env, fh, nx, Sha{f}, Nul{}, Nul{}))
+    case Drp{f}:
+      dup_drp(book, k, c, i, sd, fl, l, alloc(env, fh, nx, Sha{f}))
+    case Use{f}:
+      dup_use(book, k, c, i, sd, fl, l, alloc(env, fh, nx, Sha{f}))
+    case Get{f}:
+      dup_get(book, k, c, i, sd, fl, l, alloc(env, fh, nx, Sha{f}))
+    case Pak{p, t}:
+      match t:
+        case One{}:
+          settle(env, book, k, (c + (p >> 24n) : U32), fh, nx, i, sd, fl, Pak{p, One{}}, Pak{p, One{}})
+        case u:
+          dup_pak(book, k, c, i, sd, fl, l, p, alloc(env, fh, nx, Sha{u}))
+    case Won{p}:
+      settle(env, book, k, (c + (p >> 24n) : U32), fh, nx, i, sd, fl, Won{p}, Won{p})
+    case Tup{a, b}:
+      dup_tup(book, k, c, i, sd, fl, l, alloc2(env, fh, nx, Sha{a}, Sha{b}))
+    case Mat{f, g}:
+      dup_mat(book, k, c, i, sd, fl, l, alloc2(env, fh, nx, Sha{f}, Sha{g}))
+    case u:
+      S{env, book, Sk{u}, Dpk{l, i, sd, fl, k}, c, fh, nx}
+
+# Normalization
+# -------------
+
+def nf_lam(book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, +i: U32, f: Term, p: Array<Cell> & Cell) -> S:
+  (env, q) = p
+  +n = (num(q) + 1 : U32)
+  S{subst(subst(env, 0, Num{n}), i, Sub{Nam{n}}), book, Go{f}, NfK{N1{SAbs{n}, k}}, c, fh, nx}
+
+# the whnf under an NfK frame: children get normalized left to right
+def nf(env: Array<Cell>, book: Array<Term>, k: Kont, +c: U32, +fh: U32, +nx: U32, w: Term) -> S:
   match w:
     case Sup{l, a, b}:
-      Step{env, Go{a}, NfK{Rb2{x => y => Sup{l, x, y}, b, k}}, r}
+      S{env, book, Go{a}, NfK{N2A{SSup{l}, b, k}}, c, fh, nx}
     case Tup{a, b}:
-      Step{env, Go{a}, NfK{Rb2{x => y => Tup{x, y}, b, k}}, r}
+      S{env, book, Go{a}, NfK{N2A{STup{}, b, k}}, c, fh, nx}
     case Mat{f, g}:
-      Step{env, Go{f}, NfK{Rb2{x => y => Mat{x, y}, g, k}}, r}
-    case Pak{bs, t}:
-      Step{env, Go{t}, NfK{Rb1{x => Pak{bs, x}, k}}, r}
+      S{env, book, Go{f}, NfK{N2A{SMat{}, g, k}}, c, fh, nx}
+    case Pak{p, t}:
+      S{env, book, Go{t}, NfK{N1{SPak{p}, k}}, c, fh, nx}
     case Use{f}:
-      Step{env, Go{f}, NfK{Rb1{x => Use{x}, k}}, r}
+      S{env, book, Go{f}, NfK{N1{SUse{}, k}}, c, fh, nx}
     case Get{f}:
-      Step{env, Go{f}, NfK{Rb1{x => Get{x}, k}}, r}
+      S{env, book, Go{f}, NfK{N1{SGet{}, k}}, c, fh, nx}
     case Drp{f}:
-      Step{env, Go{f}, NfK{Rb1{x => Drp{x}, k}}, r}
-    case App{f, x}:
-      Step{env, Go{f}, NfK{Rb2{a => b => App{a, b}, x, k}}, r}
+      S{env, book, Go{f}, NfK{N1{SDrp{}, k}}, c, fh, nx}
     case Lam{i, f}:
-      term_nf.lam(env, k, i, f, r)
+      nf_lam(book, k, c, fh, nx, i, f, Array.swap(Cell, env, 0, Nul{}))
     case u:
-      Step{env, Kn{u}, k, r}
+      S{env, book, Kn{u}, k, c, fh, nx}
 
-# the loop: a term steps, a whnf goes to the top frame; End answers
-# the normal form and the interaction count
+# The loop
+# --------
+
 @unsafe
-def step_run(s: Step) -> Term & U32:
-  Step{env, m, k, r} = s
+def run(s: S) -> Out:
+  S{env, book, m, k, c, fh, nx} = s
   match m:
     case Go{t}:
       match t:
         case App{f, x}:
-          step_run(Step{env, Go{f}, Arg{x, k}, r})
+          run(S{env, book, Go{f}, Arg{x, k}, c, fh, nx})
         case Var{i}:
           +j = i
-          step_run(cell_var(r, k, j, Array.swap(Cell, env, j, Nul{})))
-        case Cov{l, i, sd}:
+          run(go_var(book, k, c, fh, nx, j, Array.swap(Cell, env, j, Num{fh})))
+        case Co0{l, i}:
           +j = i
-          step_run(cell_cov(r, k, l, j, sd, Array.swap(Cell, env, j, Nul{})))
-        case Dup{l, i, v, q}:
-          step_run(Step{Array.set(Cell, env, i, Sha{v}), Go{q}, k, r})
-        case Ref{ix}:
-          Regs{book, c, fl, nx, nm} = r
-          step_run(def_ref(env, k, c, fl, nx, nm, Array.get(Def, book, ix)))
+          run(go_cov(book, k, c, fh, nx, l, j, 0, Array.swap(Cell, env, j, Nul{})))
+        case Co1{l, i}:
+          +j = i
+          run(go_cov(book, k, c, fh, nx, l, j, 1, Array.swap(Cell, env, j, Nul{})))
+        case Ref{r}:
+          +r2 = r
+          run(go_ref(env, c, fh, nx, r2, k, Array.swap(Term, book, r2, Era{})))
         case u:
-          step_run(Step{env, Kn{u}, k, r})
-    case Fr{t}:
-      step_run(term_free(env, r, k, t))
+          run(S{env, book, Kn{u}, k, c, fh, nx})
+    case Rf{t, p}:
+      match t:
+        case Lam{i, f}:
+          match k:
+            case Arg{x, q}:
+              run(S{subst(env, i, Sub{x}), book, Rf{f, Plm{i, p}}, q, (c + 1 : U32), fh, nx})
+            case q:
+              run(ref_end(book, q, c, p, inst(env, Lam{i, f}, fh, nx)))
+        case Drp{f}:
+          match k:
+            case Arg{x, q}:
+              run(S{env, book, Rf{f, Pdr{p}}, q, (c + 1 : U32), fh, nx})
+            case q:
+              run(ref_end(book, q, c, p, inst(env, Drp{f}, fh, nx)))
+        case u:
+          run(ref_end(book, k, c, p, inst(env, u, fh, nx)))
+    case Sk{w}:
+      match k:
+        case Arg{x, q}:
+          run(S{env, book, Sk{App{w, x}}, q, c, fh, nx})
+        case Usk{f, q}:
+          run(S{env, book, Sk{App{Use{f}, w}}, q, c, fh, nx})
+        case Mtk{f, g, q}:
+          run(S{env, book, Sk{App{Mat{f, g}, w}}, q, c, fh, nx})
+        case Gtk{f, q}:
+          run(S{env, book, Sk{App{Get{f}, w}}, q, c, fh, nx})
+        case Dpk{l, i, sd, fl, q}:
+          run(S{subst(env, i, park(fl, w)), book, Sk{cov(sd, l, i)}, q, c, fh, nx})
+        case Rfk{r, q}:
+          run(S{env, book, Sk{App{Ref{r}, w}}, q, c, fh, nx})
+        case q:
+          run(S{env, book, Kn{w}, q, c, fh, nx})
     case Kn{w}:
       match k:
-        case End{}:
-          Regs{book, c, fl, nx, nm} = r
-          (w, c)
         case Arg{x, q}:
-          step_run(term_app(env, r, q, w, x))
-        case Elk{e, q}:
-          step_run(term_elim(env, r, q, e, w))
-        case Dpk{l, i, sd, q}:
-          step_run(term_dup(env, r, q, w, l, i, sd))
+          run(app(env, book, q, c, fh, nx, w, x))
+        case Usk{f, q}:
+          run(use(env, book, q, c, fh, nx, w, f))
+        case Mtk{f, g, q}:
+          run(mat(env, book, q, c, fh, nx, w, f, g))
+        case Gtk{f, q}:
+          run(get(env, book, q, c, fh, nx, w, f))
+        case Dpk{l, i, sd, fl, q}:
+          run(dup(env, book, q, c, fh, nx, l, i, sd, fl, w))
+        case Rfk{r, q}:
+          +r2 = r
+          run(dsp(env, q, c, fh, nx, r2, w, Array.swap(Term, book, r2, Era{})))
         case NfK{q}:
-          step_run(term_nf(env, r, q, w))
-        case Rb1{f, q}:
-          step_run(Step{env, Kn{f(w)}, q, r})
-        case Rb2{f, b, q}:
-          step_run(Step{env, Go{b}, NfK{Rb1{f(w), q}}, r})
-        case Frk{t, q}:
-          step_run(Step{env, Fr{t}, q, r})
-        case Nxt{m, q}:
-          step_run(Step{env, m, q, r})
+          run(nf(env, book, q, c, fh, nx, w))
+        case N2A{sh, b, q}:
+          run(S{env, book, Go{b}, NfK{N2B{sh, w, q}}, c, fh, nx})
+        case N2B{sh, a, q}:
+          run(S{env, book, Kn{node2(sh, a, w)}, q, c, fh, nx})
+        case N1{sh, q}:
+          run(S{env, book, Kn{node1(sh, w)}, q, c, fh, nx})
+        case _:
+          Out{env, book, w, c}
 
 # Show
 # ====
@@ -1306,28 +1564,32 @@ def nam_show(d: Nat, one: Bool, +n: U32) -> String:
 def nam(+n: U32) -> String:
   nam_show(6n, U32.is_lt(n, 64), n)
 
-def bits_open(bs: List<&2, Bool>) -> String:
-  match bs:
-    case Nil{}:
+# the constructors a run word opens, outermost first; n: bits left
+def bits_open(n: Nat, +w: U32) -> String:
+  match n:
+    case 0n:
       ""
-    case Con{False{}, r}:
-      "#0{" ++ bits_open(r)
-    case Con{True{}, r}:
-      "#1{" ++ bits_open(r)
+    case 1n+p:
+      "#" ++ pick(String, bit0(w), "0", "1") ++ "{" ++ bits_open(p, (w >> 1n : U32))
 
-def bits_close(bs: List<&2, Bool>) -> String:
-  match bs:
-    case Nil{}:
+def bits_close(n: Nat) -> String:
+  match n:
+    case 0n:
       ""
-    case Con{b, r}:
-      "}" ++ bits_close(r)
+    case 1n+p:
+      "}" ++ bits_close(p)
+
+def run_len(+p: U32) -> Nat:
+  U32.to_nat((p >> 24n : U32))
 
 def term_show(t: Term) -> String:
   match t:
     case Nam{n}:
       nam(n)
-    case Lam{n, f}:
+    case Abs{n, f}:
       lam() ++ nam(n) ++ "." ++ term_show(f)
+    case Lam{i, f}:
+      lam() ++ nam(i) ++ "." ++ term_show(f)
     case Drp{f}:
       lam() ++ "- " ++ term_show(f)
     case Use{f}:
@@ -1344,8 +1606,10 @@ def term_show(t: Term) -> String:
       "&" ++ nam(l) ++ "{" ++ term_show(a) ++ "," ++ term_show(b) ++ "}"
     case Tup{a, b}:
       "#(" ++ term_show(a) ++ "," ++ term_show(b) ++ ")"
-    case Pak{bs, x}:
-      bits_open(bs) ++ term_show(x) ++ bits_close(bs)
+    case Pak{p, x}:
+      bits_open(run_len(p), p) ++ term_show(x) ++ bits_close(run_len(p))
+    case Won{p}:
+      bits_open(run_len(p), p) ++ "()" ++ bits_close(run_len(p))
     case App{f, x}:
       "(" ++ term_show(f) ++ " " ++ term_show(x) ++ ")"
     case u:
@@ -1354,12 +1618,12 @@ def term_show(t: Term) -> String:
 # Main
 # ====
 
-# the env: 2^20 cells; the free list keeps the live set small
+# the env: 2^20 cells (cell 0 holds the display-name counter)
 def env_new() -> Array<Cell>:
   Array.new(Cell, 20n, Nul{})
 
-def out(p: Term & U32) -> IO(Unit):
-  (w, c) = p
+def out(o: Out) -> IO(Unit):
+  Out{env, book, w, c} = o
   IO.print(term_show(w) ++ "\n- Itrs: " ++ U32.show(c) ++ " interactions")
 
 # the depth of an array with room for n entries; f: the bits left to try
@@ -1371,40 +1635,46 @@ def book_depth(f: Nat, +n: U32, +d: Nat) -> Nat:
       pick(Nat, U32.is_le(n, (1 << d : U32)), d, book_depth(p, n, 1n+d))
 
 # the definitions written into the book
-def book_load(es: List<&2, Ent>, a: Array<Def>) -> Array<Def>:
+def book_load(es: List<&2, Ent>, a: Array<Term>) -> Array<Term>:
   match es:
-    case Con{Ent{ix, d}, r}:
-      book_load(r, Array.set(Def, a, ix, d))
+    case Con{Ent{ix, t}, r}:
+      book_load(r, book_put(a, ix, t))
     case Nil{}:
       a
 
+def ents_has.go(eq: Bool, e: Ent, p: List<&2, Ent> & Bool) -> List<&2, Ent> & Bool:
+  (r, b) = p
+  (e <> r, eq || b)
+
 # is definition ix among the parsed ones
-def ents_has(es: List<&2, Ent>, +ix: U32) -> Bool:
+def ents_has(es: List<&2, Ent>, +ix: U32) -> List<&2, Ent> & Bool:
   match es:
-    case Con{Ent{i, d}, r}:
-      U32.is_eq(i, ix) || ents_has(r, ix)
+    case Con{Ent{i, t}, r}:
+      +j = i
+      ents_has.go(U32.is_eq(j, ix), Ent{j, t}, ents_has(r, ix))
     case Nil{}:
-      False{}
+      (Nil{}, False{})
 
 # @main normalized and printed; a book without it is an error
-def book_run.fin(es: List<&2, Ent>, ix: U32, n: U32, ok: Bool) -> IO(Unit):
+def book_run.fin(+ix: U32, +n: U32, +vc: U32, p: List<&2, Ent> & Bool) -> IO(Unit):
+  (es, ok) = p
   match ok:
     case True{}:
-      out(step_run(Step{env_new(), Go{Ref{ix}}, NfK{End{}},
-        Regs{book_load(es, Array.new(Def, book_depth(32n, n, 0n), Def{0n, Era{}})), 0, Nil{}, 0, 0}}))
+      out(run(S{env_new(), book_load(es, Array.new(Term, book_depth(32n, n, 0n), Era{})),
+        Go{Ref{ix}}, NfK{End{}}, 0, 0, vc}))
     case False{}:
       IO.print("undefined function @main")
 
-def book_run.go(es: List<&2, Ent>, p: Names & U32) -> IO(Unit):
+def book_run.go(es: List<&2, Ent>, +vc: U32, p: Names & U32) -> IO(Unit):
   (ns, ix) = p
   Names{m, n} = ns
-  +e = es
   +i = ix
-  book_run.fin(e, i, n, ents_has(e, i))
+  book_run.fin(i, n, vc, ents_has(es, i))
 
+# the parsed definitions run: binder ids end at vc, fresh ids follow
 def book_run(es: List<&2, Ent>, s: St) -> IO(Unit):
   St{h, src, sc, vc, ns} = s
-  book_run.go(es, names_find(ns, "main"))
+  book_run.go(es, vc, names_find(ns, "main"))
 
 def main() -> IO(Unit):
-  prog()(book_run, st_new(src(), Nil{}, 0, Names{Map.new(&2, U32), 0}))
+  prog()(book_run, st_new(src(), Nil{}, 1, Names{Map.new(&2, U32), 0}))
