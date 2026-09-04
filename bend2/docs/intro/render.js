@@ -593,62 +593,64 @@ S.eval = (u, dur) => {
 
 // Step 3. The camera pulls back to the whole cube, every core holding its
 // 55. Then the numbers fold, pairwise, the way Bend's runtime joins
-// results: neighbouring cells drift together, shrinking, and one cell
-// grows out of the point where they meet, holding the sum, like two
-// bubbles becoming one; then the fused cells close ranks, so the live
-// region halves, in height and in width by turns (rows first, so the
-// region is never taller than wide), collapsing into the top-left corner.
-// The camera never stops: it zooms in at one steady rate, root two per
-// fold, and always frames the live region when a fold ends. The last cell
-// ends up alone and large. A fold's phases are PH: approach, fuse, close
-// ranks.
-const ZO = 1.2, R0 = 1.5, LEAF = 55;
-const PH = [0.2, 0.1, 0.2], FOLD = PH.reduce((a, b) => a + b, 0);
-const RDONE = R0 + LEVELS*FOLD;
-const region = j => [N >> Math.floor(j/2), N >> Math.ceil(j/2)];
-const S0 = Math.min(0.84*W/(N*CS), 0.7*H/(N*CS));
-function camAt(j) {
-  const [w, h] = region(j);
-  return cam(w*CS/2, h*CS/2, Math.min(S0*Math.pow(2, j/2), ZOOM));
-}
+// results, in rounds: neighbouring cells in each row drift together,
+// shrinking, and one cell grows out of the point where they meet, holding
+// the sum, like two bubbles becoming one; then the same down each column;
+// then the survivors contract toward the top-left corner, all at one rate,
+// into a square half the size. Nothing ever moves along one axis alone,
+// so the lattice never squeezes. The camera zooms in without pause, two
+// times per round, framing the live square exactly when its merges end.
+// Seven rounds take the cube to one cell holding the total.
+const ZO = 1.2, R0 = 1.5, LEAF = 55, ROUNDS = 7;
+const PH = [0.2, 0.2, 0.3], ROUND = PH.reduce((a, b) => a + b, 0), MT = PH[0] + PH[1];
+const RDONE = R0 + ROUNDS*ROUND;
+const S0 = Math.min(0.84*W/(N*CS), 0.7*H/(N*CS));   // the whole cube, fitted
+const zoomAt = t => Math.min(S0*Math.pow(2, (Math.min(t, RDONE + MT) - R0 - MT)/ROUND), ZOOM);
 S.reduce = (u, dur) => {
-  const done = u >= RDONE, j = done ? LEVELS : clamp(Math.floor((u - R0)/FOLD), 0, LEVELS - 1);
-  const folding = u >= R0 && !done, pf = folding ? (u - R0 - j*FOLD)/FOLD : 0;
-  let q = pf*FOLD, ph = 0;
+  const done = u >= RDONE, r = done ? ROUNDS : clamp(Math.floor((u - R0)/ROUND), 0, ROUNDS - 1);
+  const n = N >> r, v = LEAF*Math.pow(4, r), folding = u >= R0 && !done;
+  let q = folding ? u - R0 - r*ROUND : 0, ph = 0;
   while (folding && ph < 2 && q >= PH[ph]) { q -= PH[ph]; ph++; }
-  const p = folding ? ease(q/PH[ph]) : 0;
-  const camr = u < R0 ? camLerp(CAME, camAt(0), ease(u/ZO)) : camLerp(camAt(j), camAt(j + 1), pf);
-  const [w, h] = region(j), rows = j % 2 === 0;          // even steps fold the rows
-  const v1 = LEAF*Math.pow(2, j), v2 = 2*v1, val = num(v1), val2 = num(v2);
-  const fill = heat(v1), fill2 = heat(v2);
+  const p = folding ? q/PH[ph] : 0, pe = ease(p);
+  const cen = (folding && ph === 2 ? lerp(n/2, n/4, pe) : done ? 0.5 : n/2)*CS;
+  const camr = u < R0 ? camLerp(CAME, cam(GCEN, GCEN, zoomAt(R0)), ease(u/ZO)) : cam(cen, cen, zoomAt(u));
   // the other cores return as the camera pulls back, and leave once the
   // total is in: the last frame is one cell alone
   const others = u < R0 ? clamp(u/0.6, 0, 1) : done ? 1 - ease((u - RDONE - 0.4)/0.6) : 1;
   // the lattice of empty cores under everything
-  for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-    const [x, y, cw, ch] = blockRect(camr, c, r, 1, 1);
+  for (let rr = 0; rr < N; rr++) for (let c = 0; c < N; c++) {
+    const [x, y, cw, ch] = blockRect(camr, c, rr, 1, 1);
     if (offscreen(x, y, cw, ch)) continue;
-    const a = u < R0 && !(c === MID && r === MID) ? others : done && !(c === 0 && r === 0) ? others : 1;
+    const a = u < R0 && !(c === MID && rr === MID) ? others : done && !(c === 0 && rr === 0) ? others : 1;
     if (a > 0) cellBox(x, y, cw, ch, MIST, a);
   }
-  // the live cells: a pair shrinks toward its midpoint (the odd one is
-  // gone once they meet), the fused cell grows there, then slides to its
-  // closed-ranks slot
-  for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
-    const i = rows ? r : c, odd = i % 2 === 1, k = Math.floor(i/2), mid = 2*k + 0.5;
-    if (folding && odd && ph >= 1) continue;
-    let g = i, sc = 1, fused = false, ta = 1;       // ta: the number fades as the pair closes in
-    if (folding && ph === 0) { g = lerp(i, mid, p); sc = 1 - 0.45*p; ta = 1 - ease(1.5*p); }
-    else if (folding && ph === 1) { g = mid; sc = lerp(0.55, 1, p) + 0.1*Math.sin(Math.PI*p); fused = true; }
-    else if (folding && ph === 2) { g = lerp(mid, k, p); fused = true; }
-    const gc = rows ? c : g, gr = rows ? g : r;
+  // a pair's approach: both shrink toward the midpoint, numbers fading;
+  // then the fused cell grows there, with a small overshoot
+  const near = a => [1 - 0.45*a, 1 - ease(1.5*a)];
+  const grow = b => lerp(0.55, 1, b) + 0.1*Math.sin(Math.PI*b);
+  const A = ease(Math.min(p/0.65, 1)), B = ease(Math.max((p - 0.65)/0.35, 0)), met = p >= 0.65;
+  for (let rr = 0; rr < n; rr++) for (let c = 0; c < n; c++) {
+    const oc = c % 2 === 1, or = rr % 2 === 1, mc = 2*Math.floor(c/2) + 0.5, mr = 2*Math.floor(rr/2) + 0.5;
+    let gc = c, gr = rr, sc = 1, ta = 1, val = v;
+    if (folding && ph === 0) {
+      if (!met) { gc = lerp(c, mc, A); [sc, ta] = near(A); }
+      else { if (oc) continue; gc = mc; sc = grow(B); val = 2*v; }
+    } else if (folding && ph === 1) {
+      if (oc) continue;
+      gc = mc; val = 2*v;
+      if (!met) { gr = lerp(rr, mr, A); [sc, ta] = near(A); }
+      else { if (or) continue; gr = mr; sc = grow(B); val = 4*v; }
+    } else if (folding) {
+      if (oc || or) continue;
+      gc = lerp(mc, c/2, pe); gr = lerp(mr, rr/2, pe); val = 4*v;
+    }
     let [x, y, cw, ch] = blockRect(camr, gc, gr, 1, 1);
     if (offscreen(x, y, cw, ch)) continue;
-    const a = u < R0 && !(c === MID && r === MID) ? others : 1;
+    const a = u < R0 && !(c === MID && rr === MID) ? others : 1;
     if (a <= 0) continue;
     x -= (sc - 1)*cw/2; y -= (sc - 1)*ch/2; cw *= sc; ch *= sc;
-    cellBox(x, y, cw, ch, fused ? fill2 : fill, a);
-    cellText(fused ? val2 : val, x, y, cw, ch, a*ta, TINK);
+    cellBox(x, y, cw, ch, heat(val), a);
+    cellText(num(val), x, y, cw, ch, a*ta, TINK);
   }
   cx.globalAlpha = ease((u - RDONE - 0.8)/0.4);
   T("Final result!", W/2, 600, 24, GREEN, "center", true);
