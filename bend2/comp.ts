@@ -205,14 +205,9 @@ const WORDS: Record<string, Lay> = { U32: W32, F32: W32, Nat: W64 };
 const CMPS = "is_eq:== is_ne:!= is_lt:< is_le:<= is_gt:> is_ge:>=";
 
 export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
-  ...tpl_ops("u32_", "add:+ sub:- and:& or:| xor:^", (_k, o) => ({
-    C:  `U32_BIN($0, ${o}, $1)`,
-    JS: `(($0 ${o} $1) >>> 0)`,
-  })),
-  ...tpl_ops("u32_", CMPS, (_k, o) => ({
-    C:  `U32_BIN($0, ${o}, $1)`,
-    JS: `($0 ${tpl_jso(o)} $1)`,
-  })),
+  ...tpl_ops("u32_", "add:+ sub:- and:& or:| xor:^",
+    "U32_BIN($0, $o, $1)", "(($0 $o $1) >>> 0)"),
+  ...tpl_ops("u32_", CMPS, "U32_BIN($0, $o, $1)", "($0 $o $1)"),
   u32_mul: {
     C:  "U32_BIN($0, *, $1)",
     JS: "(Math.imul($0, $1) >>> 0)",
@@ -225,14 +220,7 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     C:  "(u32_unbox($1) == 0 ? $0 : U32_BIN($0, %, $1))",
     JS: "($1 === 0 ? $0 : $0 % $1)",
   },
-  u32_inc: {
-    C:  "U32_BIN($0, +, 1)",
-    JS: "(($0 + 1) >>> 0)",
-  },
-  u32_shl: {
-    C:  "U32_BIN($0, <<, 1)",
-    JS: "(($0 << 1) >>> 0)",
-  },
+  ...tpl_ops("u32_", "inc:+ shl:<<", "U32_BIN($0, $o, 1)", "(($0 $o 1) >>> 0)"),
   u32_shr: {
     C:  "U32_BIN($0, >>, 1)",
     JS: "($0 >>> 1)",
@@ -269,27 +257,19 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     C:  "u32_rewrap(u32_unbox($0))",
     JS: "Number($0 & 0xFFFFFFFFn)",
   },
-  ...tpl_ops("f32_", "add:+ sub:- mul:* div:/", (_k, o) => ({
-    C:  `F32_BIN($0, ${o}, $1)`,
-    JS: `Math.fround($0 ${o} $1)`,
-  })),
+  ...tpl_ops("f32_", "add:+ sub:- mul:* div:/",
+    "F32_BIN($0, $o, $1)", "Math.fround($0 $o $1)"),
   f32_neg: {
     C:  "f32_rewrap(-f32_unbox($0))",
     JS: "(-$0)",
   },
-  ...tpl_ops("f32_", CMPS, (_k, o) => ({
-    C:  `F32_CMP($0, ${o}, $1)`,
-    JS: `($0 ${tpl_jso(o)} $1)`,
-  })),
+  ...tpl_ops("f32_", CMPS, "F32_CMP($0, $o, $1)", "($0 $o $1)"),
   ...tpl_ops("f32_", "sqrt exp log log2 log10 sin cos tan asin acos atan"
-    + " sinh cosh tanh floor ceil trunc", (k) => ({
-    C:  `f32_rewrap(${k}f(f32_unbox($0)))`,
-    JS: `Math.fround(Math.${k}($0))`,
-  })),
-  ...tpl_ops("f32_", "pow atan2", (k) => ({
-    C:  `f32_rewrap(${k}f(f32_unbox($0), f32_unbox($1)))`,
-    JS: `Math.fround(Math.${k}($0, $1))`,
-  })),
+    + " sinh cosh tanh floor ceil trunc",
+    "f32_rewrap($kf(f32_unbox($0)))", "Math.fround(Math.$k($0))"),
+  ...tpl_ops("f32_", "pow atan2",
+    "f32_rewrap($kf(f32_unbox($0), f32_unbox($1)))",
+    "Math.fround(Math.$k($0, $1))"),
   f32_abs: {
     C:  "f32_rewrap(fabsf(f32_unbox($0)))",
     JS: "Math.abs($0)",
@@ -672,12 +652,14 @@ function die(m: string): never {
 // Tpl
 // ===
 
-function tpl_ops(pre: string, names: string,
-  mk: (k: string, o: string) => Intr): Record<string, Intr> {
+function tpl_ops(pre: string, names: string, C: string, JS: string):
+  Record<string, Intr> {
   const out: Record<string, Intr> = {};
   for (const p of names.split(" ")) {
     const [k, o] = p.split(":");
-    out[pre + k] = mk(k, o);
+    const fill = (t: string, op: string): string =>
+      t.replaceAll("$k", k).replaceAll("$o", op);
+    out[pre + k] = { C: fill(C, o), JS: fill(JS, tpl_jso(o)) };
   }
   return out;
 }
