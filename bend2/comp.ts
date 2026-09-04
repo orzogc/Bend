@@ -750,7 +750,8 @@ function term_spine(cf: Comp, tm: HTerm): Spine {
     }
     apps.reverse();
     const tld = c.$ === "Ref" ? cf.book.tlds[c.k] : undefined;
-    const qs = tld?.$ === "Def" ? tele_unbind(cf.book, tld.T).doms : null;
+    const T = tld?.$ === "Def" ? tld.T : ty_ann(h);
+    const qs = T === null ? null : tele_unbind(cf.book, T).doms;
     const live = (i: number) => qs === null
       ? call_live(cf.book, apps[i].f)
       : i >= qs.length || quant_live(qs[i][0]);
@@ -1396,6 +1397,9 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
           (env) => Bend.Ann(rb(f)(env), s.T, s.s)));
       }
       if (s.$ === "App") {
+        if (!m.args.includes(s.x) && m.t.$ === "Var") {
+          return go(s.f, k2);
+        }
         const app: Fill = (c2, rb) => m.args.includes(s.x)
           ? expr(c2, s.x, null, (c3, x) => k2(c3, (f) =>
             (env) => Bend.App(rb(f)(env), x(env), s.s)))
