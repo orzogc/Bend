@@ -212,29 +212,29 @@ function bar(x, v, vmax, name, color, a, over, mul) {
 // one readout straight above a parallel bar: the speedup, the cores it
 // took, and an arrow down to the bar
 const G3 = 150, SPY = 280;
-// the readout lands in steps: "11x faster"; then "on" with a count that
+// the readout lands in steps: "11x faster"; then "on"; then a count that
 // runs from 1 up to the core count (the GPU's pauses at 16, then runs on
-// to 16384 in log steps); then the chip's name. The line is laid out for
-// the final count, so nothing shifts as it runs
+// to 16384); then the chip's name. The line is laid out for the final
+// count, so nothing shifts as it runs
 function speedup(B, v, i, counts, chip, u, t0) {
   const a = ease((u - t0)/0.6);
   if (a <= 0) return;
-  const x = slotX(i, 3, G3) + BW/2, T1 = t0 + 0.5, RUN = 0.8, PAUSE = 0.4, RUN2 = 1.2;
+  const x = slotX(i, 3, G3) + BW/2, T1 = t0 + 0.5, T2 = T1 + 0.4, RUN = 0.8, PAUSE = 0.4, RUN2 = 1.6;
   cx.globalAlpha = a;
   T(times(B.seq/v) + " faster", x, SPY + 6*(1 - a), 26, AMBER, "center", true);
-  let n = Math.round(lerp(1, counts[0], clamp((u - T1)/RUN, 0, 1))), tEnd = T1 + RUN;
+  let n = Math.round(lerp(1, counts[0], clamp((u - T2)/RUN, 0, 1))), tEnd = T2 + RUN;
   if (counts[1]) {
-    const q = clamp((u - tEnd - PAUSE)/RUN2, 0, 1);
-    if (q > 0) n = Math.round(counts[0]*Math.pow(counts[1]/counts[0], q));
+    n = Math.round(lerp(counts[0], counts[1], clamp((u - tEnd - PAUSE)/RUN2, 0, 1)));
     tEnd += PAUSE + RUN2;
   }
   font(20); const onW = cx.measureText("on ").width;
   font(20, true); const numW = cx.measureText(String(counts[counts.length - 1])).width, chipW = cx.measureText(" " + chip).width;
-  const oa = ease((u - T1)/0.4), ca = ease((u - tEnd - 0.1)/0.4), y = SPY + 30;
+  const oa = ease((u - T1)/0.4), na = ease((u - T2)/0.3), ca = ease((u - tEnd - 0.4)/0.4), y = SPY + 30;
   let px = x - (onW + numW + chipW)/2;
   cx.globalAlpha = oa;
   T("on ", px, y + 6*(1 - oa), 20, AMBER, "left"); px += onW;
-  T(String(n), px, y + 6*(1 - oa), 20, AMBER, "left", true); px += numW;
+  cx.globalAlpha = na;
+  T(String(n), px, y + 6*(1 - na), 20, AMBER, "left", true); px += numW;
   cx.globalAlpha = ca;
   T(" " + chip, px, y + 6*(1 - ca), 20, AMBER, "left", true);
   cx.globalAlpha = a;
@@ -738,7 +738,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { check: 10.5, bench: 9.5, par: 12.0, dist: DALL + 1.5, eval: EDONE + 1.9,
+const FIXED = { check: 10.5, bench: 9.5, par: 12.8, dist: DALL + 1.5, eval: EDONE + 1.9,
                 reduce: RDONE + 3.2, laws: 17.8, intro: 8.0, walk: 6.3, block: 5.8, end: 10.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
