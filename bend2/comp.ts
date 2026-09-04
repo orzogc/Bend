@@ -1621,8 +1621,10 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
             die("a " + m.t.$ + "-headed app");
           }
           case "Ctr": {
-            return many(caps, s.x.length,
-              (c2, j, kx) => expr(c2, s.x[j], null, kx), (c2, xs) =>
+            const ctr = cb.book.ctrs[s.k];
+            const live = ctr ? ctr_tail(cb.book, ctr).map(live_dom) : [];
+            return many(caps, s.x.length, (c2, j, kx) => live[j]
+              ? expr(c2, s.x[j], null, kx) : kx(c2, () => s.x[j]), (c2, xs) =>
               k(c2, (env) => Bend.Ctr(s.k, xs.map((x) => x(env)), s.s)));
           }
           case "Lam": {
