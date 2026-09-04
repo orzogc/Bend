@@ -262,8 +262,9 @@ export type Uses = PMap<Quant>;
 // Term
 export type BodyOf<B> = B extends [infer T] ? T : B;
 export type LetsOf<B> = BodyOf<B> extends Function ? (xs: TermOf<B>[]) => TermOf<B> : BodyOf<B>;
+export type SubsOf<B> = BodyOf<B> extends Function ? TermOf<NoInfer<B>> : HTerm;
 export type TermOf<B> = (
-  | { $: "Var"; k: Name; i: number; v?: HTerm }                                    // x
+  | { $: "Var"; k: Name; i: number; v?: SubsOf<B> }                                // x
   | { $: "Ref"; k: Name; b?: Bool }                                                // x
   | { $: "Sub"; i: number; v: TermOf<B>; f: TermOf<B> }                            // x <- v; f
   | { $: "Let"; k: Name[]; i: number[]; q: Quant[]; v: TermOf<B>[]; f: LetsOf<B> } // x y = v w; f
@@ -344,7 +345,7 @@ export type Err  = { $: "Err"; bok: Book; exp: Expr; obs?: Expr; ctx: Ctx; def?:
 // Term
 // ----
 
-export function Var<X>(k: Name, i: number, s?: Span, v?: HTerm): TermOf<X> {
+export function Var<X>(k: Name, i: number, s?: Span, v?: SubsOf<X>): TermOf<X> {
   return { $: "Var", k, i, s, v };
 }
 
@@ -357,7 +358,7 @@ export function Sub<X>(i: number, v: TermOf<X>, f: TermOf<X>, s?: Span): TermOf<
 }
 
 export function Let(k: Name[], i: number[], v: LTerm[], f: LTerm, s?: Span, q?: Quant[]): LTerm;
-export function Let(k: Name[], i: number[], v: HTerm[], f: (xs: HTerm[]) => HTerm, s?: Span, q?: Quant[]): HTerm;
+export function Let(k: Name[], i: number[], v: HTerm[], f: (xs: HTerm[]) => HTerm, s?: Span, q?: Quant[]): Extract<HTerm, { $: "Let" }>;
 export function Let(k: Name[], i: number[], v: LTerm[] | HTerm[], f: LTerm | ((xs: HTerm[]) => HTerm), s?: Span, q?: Quant[]): LTerm | HTerm {
   return { $: "Let", k, i, q: q ?? k.map(() => Lone()), v, f, s } as LTerm;
 }
@@ -382,8 +383,10 @@ export function All<X>(q: Quant, k: Name, i: number, A: NoInfer<TermOf<[X]>>, B:
   return { $: "All", q, k, i, A, B, s };
 }
 
-export function Lam<X>(k: Name, i: number, f: X, s?: Span): TermOf<[X]> {
-  return { $: "Lam", k, i, f, s };
+export function Lam(k: Name, i: number, f: LTerm, s?: Span): LTerm;
+export function Lam(k: Name, i: number, f: HBody, s?: Span): HTerm;
+export function Lam(k: Name, i: number, f: LTerm | HBody, s?: Span): LTerm | HTerm {
+  return { $: "Lam", k, i, f, s } as LTerm | HTerm;
 }
 
 export function App<X>(f: TermOf<X>, x: TermOf<X>, s?: Span): TermOf<X> {
