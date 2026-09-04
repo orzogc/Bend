@@ -2440,65 +2440,6 @@ function bind_arm(fl: File, h: HTerm, hs: HTerm[]): void {
   }
 }
 
-// Eq
-// ==
-
-function eq_set(fl: File, t: HTerm): { p: Probe; ks: number[] } | null {
-  const st = Bend.term_strip(t);
-  if (st.$ === "Let") {
-    const v = Bend.term_strip(st.v[0]);
-    return st.k.length === 1 && v.$ === "Var" ? eq_set(fl, st.f([v])) : null;
-  }
-  const sp = term_spine(fl, t);
-  if (sp.t.$ !== "Ref") {
-    return null;
-  }
-  const it = intr_of(fl, sp.t.k);
-  if (it === undefined) {
-    const d = carb_fresh(fl.cb, sp.t.k);
-    if (d?.$ !== "Def" || d.h === undefined || sp.all.length !== d.n) {
-      return null;
-    }
-    let [b, xs] = [d.h, sp.all];
-    for (let w; (w = Bend.term_strip(b)).$ === "Lam" && xs.length > 0;) {
-      [b, xs] = [w.f(xs[0]), xs.slice(1)];
-    }
-    const w = Bend.term_strip(b);
-    const bs = w.$ === "Mat" ? Object.fromEntries(mat_arms(w).arms.map(
-      ([k2, h2]) => [k2, Bend.u32_from_term(h2)])) : {};
-    return xs.length === 0 ? eq_set(fl, w)
-      : xs.length === 1 && bs.False === 0 && bs.True === 1
-      ? eq_set(fl, xs[0]) : null;
-  }
-  if (sp.args.length !== 2) {
-    return null;
-  }
-  if (it === OPERATIONS.bool_or) {
-    const l = eq_set(fl, sp.args[0]);
-    const r = eq_set(fl, sp.args[1]);
-    return l !== null && r !== null && l.p === r.p
-      ? { p: l.p, ks: [...l.ks, ...r.ks] } : null;
-  }
-  if (it === OPERATIONS.u32_is_eq) {
-    const vs = sp.args.map((a) => Bend.u32_from_term(a));
-    for (const i of [0, 1]) {
-      const w = vs[1 - i];
-      const xi = Bend.term_strip(sp.args[i]);
-      if (xi.$ === "Var" && w !== null) {
-        return { p: probe_of(xi), ks: [w] };
-      }
-    }
-  }
-  return null;
-}
-
-function eq_mask(ks: number[]): { m: number; K: number } | null {
-  const u = [...new Set(ks)].sort((p, q) => p - q);
-  const d = u.length === 2 ? u[0] ^ u[1] : 0;
-  return (u.length === 1 || u.length === 2) && (d & (d - 1)) === 0
-    ? { m: d, K: u[u.length - 1] } : null;
-}
-
 // Emit
 // ====
 
@@ -3063,16 +3004,6 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
   const { arms, end } = mat_arms(x);
   const ret = lay_of(fl.book, all.B(DUMMY));
   const sw = s.ws[0];
-  if (adt.k === "Bool" && arms.length === 2 && rest.length === 0) {
-    const { True: hT, False: hF } = Object.fromEntries(arms);
-    const [eT, eF] = [hT, hF].map((h) => eq_set(fl, h));
-    const [mT, mF] = [eT, eF].map((e) => e && eq_mask(e.ks));
-    if (mT != null && mF != null && mT.K === mF.K && eT!.p === eF!.p) {
-      const p = val_word(bind_pop(fl, eT!.p));
-      return emit_put(fl, dst, val_new([`U32_BIN(U32_BIN(${p}, |, (${sw} != 0`
-        + ` ? ${mT.m}u : ${mF.m}u)), ==, ${mT.K}u)`], ret));
-    }
-  }
   const ls = adt.k === "Nat" ? emit_nat(x) : null;
   const id = emit_tab(fl, ls, all.B(DUMMY));
   if (id !== null) {
