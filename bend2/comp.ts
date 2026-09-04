@@ -101,6 +101,7 @@ type Carb = {
   live: Map<Bend.Name, boolean[][]>;
   hot: Set<Bend.Name>;
   poly: Set<string>;
+  own: Map<string, string>;
 };
 
 type File = {
@@ -1390,6 +1391,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     live: new Map(),
     hot: new Set(),
     poly: new Set(),
+    own: new Map(),
   };
   while (cb.queue.length > 0) {
     const d = cb.queue.shift() as Bend.Name;
@@ -1941,8 +1943,10 @@ function facts_hot(cb: Carb, B: HTerm | null, force: boolean): void {
     return;
   }
   if (w?.$ !== "ADT") {
-    if (force && w?.$ === "Var" && w.k.includes("~")) {
-      cb.poly.add(w.k);
+    if (force && w?.$ === "Var" && cb.own.has(w.k)) {
+      cb.poly.add(cb.own.get(w.k)!);
+    } else if (force && "All Var App Mat".includes(w?.$!)) {
+      cb.hot.add("*");
     }
     return;
   }
@@ -2017,12 +2021,11 @@ function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
     } else if (s.$ === "App") {
       const m = term_spine(cb, s);
       const it = m.t.$ === "Ref" ? intr_of(cb, m.t.k) : undefined;
-      const v = it === OPERATIONS.array_new
-        ? Bend.term_strip(m.all[2] ?? s) : s;
-      const ks = v.$ === "Ctr" ? lay_node(cb.book, v.k).ks : ["box"];
+      const v = it === OPERATIONS.array_new ? Bend.term_strip(m.all[2]) : s;
+      const pk = v.$ === "Ctr"
+        && ["", "w32"].includes(lay_node(cb.book, v.k).ks.join());
       if ((it === OPERATIONS.array_get || it === OPERATIONS.array_new)
-        && lay_of(cb.book, m.all[0]).ks.includes("box")
-        && ks.length > 0 && (ks.length > 1 || ks[0] !== "w32")) {
+        && lay_of(cb.book, m.all[0]).ks.includes("box") && !pk) {
         facts_hot(cb, m.all[0], true);
       }
     }
@@ -2050,20 +2053,18 @@ function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
       const same = clive !== null && lay_eq(s.lay, clays[j]);
       mark(s, same ? (clive as boolean[][])[j] : undefined);
     });
-    ck.all.forEach((a, p) => {
-      if (cb.poly.has(ck.k + "~" + p)) {
-        facts_hot(cb, a, true);
-      }
-    });
+    ck.all.forEach((a, p) =>
+      cb.poly.has(ck.k + "~" + p) && facts_hot(cb, a, true));
   };
   const walk = (t: HTerm, ty0: HTerm | null, args: Slot[]): void => {
     const [x, ty] = ty_peel(t, ty0);
     switch (x.$) {
       case "Lam": {
         const all = ty_all(cb.book, ty) ?? die("an untyped binder");
-        pi += 1;
+        const i = pi++;
         if (!quant_live(all.q)) {
-          walk(x.f(probe(k + "~" + (pi - 1))), all.B(DUMMY), args);
+          cb.own.set(x.k, k + "~" + i);
+          walk(x.f(probe(x.k)), all.B(probe(x.k)), args);
           return;
         }
         const o = term_open(x);
@@ -2152,7 +2153,7 @@ function facts_build(cb: Carb): void {
   }
   for (let seen = -1; seen < cb.hot.size;) {
     seen = cb.hot.size;
-    sites.forEach((T) => facts_hot(cb, T, false));
+    sites.forEach((T) => facts_hot(cb, T, cb.hot.has("*")));
   }
 }
 
@@ -3273,7 +3274,6 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   };
   table("FID_ARITY_T", entries.map((s) => s.params.length));
   table("FID_BANGS_T", entries.map((s) => Number(cb.bangs.has(s.def))));
-  defs.push(`#define BANGS ${cb.bangs.size}`, "");
   const nofk = new Set(done_defs(cb).filter(([, tld]) => !term_any(cb,
     tld.h as HTerm, (s) => (s.$ === "Let" && s.k.length >= 2)
       || call_kind(cb, s)?.k === CLO_APPLY)).map(([k]) => k));
@@ -3306,7 +3306,8 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   const pass = ns.map((i) =>
     `    case ${i}: r${i} = res[0]; \\\n      break; \\\n`).join("");
   defs.push(`#define WL_LAST \\\n  switch (war) { \\\n${pass}  }`);
-  defs.push(`#define WL_RESW ${fl.resw}`, "");
+  defs.push(`#define WL_RESW ${fl.resw}`,
+    `#define BANGS   ${cb.bangs.size}`, "");
   defs.push(`#define WL_BANK Term ${rs};`, "", "#define WL_LOAD \\\n"
     + `  switch (war) { \\\n${load}  }`, "",
     `#define WL_LABELS ${entries.map((s) =>
@@ -4327,8 +4328,7 @@ OUTLINE Term rfc_wrap(Env e, Term t, u32 cnt) {
 }
 
 INLINE Term rfc_seal(Env e, Term t) {
-  if (term_triv(t) || term_rfc(t)
-    || term_tag(t) == TAG_BUF || term_tag(t) == TAG_ARR) {
+  if (term_triv(t) || term_rfc(t) || term_tag(t) >= TAG_CLO) {
     return t;
   }
   return rfc_wrap(e, t, 1);
@@ -5713,8 +5713,8 @@ int main(int argc, char** argv) {
     thr = 1;
     gpu = 0;
   }
-  bool dev = gpu != 0 && BANGS > 0 && gpu_probe();
-  if (gpu == 1 && BANGS > 0 && !dev) {
+  bool dev = gpu != 0 && BANGS && gpu_probe();
+  if (gpu == 1 && BANGS && !dev) {
     cli_fail("--gpu on, but this binary found no GPU device", NULL);
   }
   long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
