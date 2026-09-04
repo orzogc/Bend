@@ -988,7 +988,6 @@ function ty_adt(book: Bend.Book, A: HTerm | null): HAdt | null {
   return t?.$ === "ADT" ? t : null;
 }
 
-
 // Lay
 // ===
 
@@ -1079,7 +1078,6 @@ function lay_c(k: Kind): string {
 function lay_box(lay: Lay): boolean {
   return lay.arms === null && lay.ks[0] === "box";
 }
-
 
 function lay_arm(lay: Lay, k: Bend.Name): Arm {
   return (lay.arms as Arm[]).find((a) => a.k === k)
@@ -1231,7 +1229,6 @@ function def_ret(cb: Carb, k: Bend.Name): Lay {
 }
 
 
-
 // Eff
 // ===
 
@@ -1305,11 +1302,11 @@ function mint_ret(cb: Carb, t: HTerm): HTerm {
 }
 
 function mint(cb: Carb, def: Bend.Name, stem: string, scope: Capture[],
-  seq: boolean, tail: number, build: () => Open, ext = 0,
-  of?: Bend.Name[]): Open {
+  tail: number, build: () => Open, ext = 0, of?: Bend.Name[]): Open {
   cb.kn += 1;
   const name = def + "$" + stem + cb.kn;
   const clo = stem === "c";
+  const seq = stem === "k";
   if (clo) {
     cb.dyn.add(name);
     cb.owner.push(name);
@@ -1383,8 +1380,284 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     hot: new Set(),
     clo: false,
   };
+  let d: Bend.Name = "";
+
+  const PASS: Kont = (_c, x) => x;
+
+  function cut(caps: Capture[], l: HLet, v: Open,
+    rest: (caps: Capture[], body: HTerm) => Open): Open {
+    const { ps: [p], b } = term_lets(l);
+    const c2 = [...caps, { p, q: l.q[0], A: ty_ann(v(EMPTY)) }];
+    const kont = mint(cb, d, "k", c2, 1, () => rest(c2, b), 0,
+      [(call_kind(cb, v(EMPTY)) as Call).k]);
+    return (env) => Bend.Let(l.k, l.i, [v(env)],
+      (x) => Bend.App(kont(env), x[0]), l.s, l.q);
+  }
+
+  function bind(caps: Capture[], l: HLet, v: Open,
+    rest: (caps: Capture[], body: HTerm) => Open): Open {
+    const { ps: [p], b } = term_lets(l);
+    const bd = { p, q: l.q[0], A: ty_ann(v(EMPTY)) };
+    const body = rest([...caps, bd], b);
+    return (env) => Bend.Let(l.k, l.i, [v(env)],
+      (x) => body(new Map(env).set(p, x[0])), l.s, l.q);
+  }
+
+  function apps(caps: Capture[], t: HTerm, k: Kont): Open {
+    type Fill = (caps: Capture[],
+      rb: (f: Open) => Open) => Open;
+    const m = term_spine(cb, t);
+    const go = (u: HTerm, k2: Fill): Open => {
+      const s = Bend.term_force(u);
+      if (s.$ === "Ann") {
+        return go(s.x, (c2, rb) => k2(c2, (f) =>
+          (env) => Bend.Ann(rb(f)(env), s.T, s.s)));
+      }
+      if (s.$ === "App") {
+        const app: Fill = (c2, rb) => m.args.includes(s.x)
+          ? expr(c2, s.x, null, (c3, x) => k2(c3, (f) =>
+            (env) => Bend.App(rb(f)(env), x(env), s.s)))
+          : k2(c2, (f) => (env) => Bend.App(rb(f)(env), s.x, s.s));
+        if (!m.args.includes(s.x) || !call_is(cb, s.f)) {
+          return go(s.f, app);
+        }
+        return expr(caps, s.f, null, (c2, g) => app(c2, () => g));
+      }
+      return k2(caps, (f) => f);
+    };
+    return go(t, (c2, rb) => k(c2, rb(mint_lift(m.t))));
+  }
+
+  function many(caps: Capture[], n: number,
+    each: (caps: Capture[], j: number, k: Kont) => Open,
+    k: (caps: Capture[], xs: Open[]) => Open): Open {
+    const go = (c2: Capture[], j: number, xs: Open[]): Open => {
+      if (j === n) {
+        return k(c2, xs);
+      }
+      return each(c2, j, (c3, x) => go(c3, j + 1, [...xs, x]));
+    };
+    return go(caps, 0, []);
+  }
+
+  function func(caps: Capture[], t: HTerm, ty: HTerm | null,
+    left: number): Open {
+    const s = Bend.term_force(t);
+    const x = Bend.term_strip(t);
+    if (x.$ !== "Lam" && !mat_head(x)) {
+      if (left === 0) {
+        return leaf(caps, s);
+      }
+      const T = ty ?? ty_ann(s) ?? die("an untyped arm");
+      return func(caps, term_eta(cb.book, s, T, 1), null, left);
+    }
+    if (left === 0 && s.$ !== "Ann") {
+      return expr(caps, s, ty, PASS);
+    }
+    switch (s.$) {
+      case "Ann": {
+        const g = func(caps, s.x, s.T, left);
+        return (env) => Bend.Ann(g(env), s.T, s.s);
+      }
+      case "Lam": {
+        const all = ty_all(cb.book, ty);
+        const { p, b } = term_open(s);
+        const cap = { p, q: all?.q ?? Bend.Lone(), A: all?.A ?? null };
+        const B = all && all.B(DUMMY);
+        const body = func([...caps, cap], b, B,
+          left - (quant_live(cap.q) ? 1 : 0));
+        return (env) => Bend.Lam(s.k, s.i,
+          (y) => body(new Map(env).set(p, y)), s.s);
+      }
+      case "Mat": {
+        const ctr = cb.book.ctrs[s.k];
+        const h = func(caps, s.h, null, left - 1
+          + (ctr ? ctr_doms(cb.book, ctr).length : 0));
+        const m = func(caps, s.m, null, left);
+        return (env) => Bend.Mat(s.k, h(env), m(env), s.s);
+      }
+      default: {
+        return mint_lift(s);
+      }
+    }
+  }
+
+  function alive(s: HLet): HLet {
+    const o = term_lets(s);
+    const u = term_uses(cb, o.b);
+    const on = s.q.map((q, j) => quant_live(q) && term_use(u, o.ps[j]) > 0);
+    const pick = <T>(xs: T[]): T[] => xs.filter((_, j) => on[j]);
+    return Bend.Let(pick(s.k), pick(s.i), pick(s.v), (xs) => {
+      let i = 0;
+      return s.f(s.v.map((v, j) => on[j] ? xs[i++] : v));
+    }, s.s, pick(s.q));
+  }
+
+  function leaf(caps: Capture[], t: HTerm): Open {
+    const s = Bend.term_strip(t);
+    if (s.$ === "Rwt") {
+      return leaf(caps, s.f);
+    }
+    if (s.$ === "Let") {
+      const l = alive(s);
+      if (l.k.length === 0) {
+        return leaf(caps, l.f([]));
+      }
+      if (l.k.length >= 2) {
+        return l.v.every((v) => call_is(cb, v)) ? fork(caps, l)
+          : leaf(caps, term_split(l));
+      }
+      if (call_is(cb, l.v[0]) && !flat_call(cb, l.v[0])) {
+        return apps(caps, l.v[0], (c2, c) =>
+          cut(c2, l, c, (c3, b) => leaf(c3, b)));
+      }
+      return expr(caps, l.v[0], null, (c2, v) =>
+        bind(c2, l, v, (c3, b) => leaf(c3, b)));
+    }
+    const got = call_eta(cb, t);
+    if (got !== null) {
+      return leaf(caps, got);
+    }
+    if (call_is(cb, t)) {
+      return apps(caps, t, PASS);
+    }
+    return expr(caps, t, null, PASS);
+  }
+
+  function fork(caps: Capture[], s: HLet): Open {
+    const n = s.k.length;
+    const o = term_lets(s);
+    const next = (stem: string): Bend.Name => d + "$" + stem + (cb.kn + 1);
+    const arg_caps = (ck: Call): Capture[] => {
+      const tld = cb.book.tlds[ck.k];
+      const doms = tld?.$ === "Def" ? live_doms(cb.book, tld) : [];
+      return ck.args.map((_, i) => ({ p: probe("a"), q: Bend.Lone(),
+        A: doms[i]?.[2] ?? Bend.Typ(Bend.Qua(Bend.Lone())) }));
+    };
+    return many(caps, n, (c2, j, kx) => apps(c2, s.v[j], kx), (c2, vs) => {
+      const cks = vs.map((v) => call_kind(cb, v(EMPTY)) as Call);
+      const xs = vs.map((v, j): Capture =>
+        ({ p: o.ps[j], q: s.q[j], A: ty_ann(v(EMPTY)) }));
+      const jn = next("j");
+      const jl = mint(cb, d, "j", [...c2, ...xs], n,
+        () => leaf([...c2, ...xs], o.b), 0, cks.map((c) => c.k));
+      const jcaps = (cb.kept.get(jn) as Capture[]).slice(0, -n);
+      const args = cks.map(arg_caps);
+      const rs = xs.map((x, j) => ({ ...x, p: probe(s.k[j]) }));
+      const frame = (i: number): Capture[] =>
+        [...args.slice(1).flat(), ...jcaps, ...rs.slice(0, i - 1)];
+      const scope = (i: number): Capture[] =>
+        [...args.slice(i).flat(), ...jcaps, ...rs.slice(0, i)];
+      const call = (j: number): Open => (env) => {
+        const ps = args[j].map((c) => env.get(c.p) ?? c.p);
+        if (cks[j].k === CLO_APPLY) {
+          return Bend.App(ps[0], ps[1]);
+        }
+        const m = term_spine(cb, vs[j](EMPTY));
+        const h = Bend.Ref(cks[j].k, undefined, cks[j].bang);
+        return m.all.reduce((f, x) =>
+          Bend.App(f, m.args.includes(x) ? ps.shift() as HTerm : x), h);
+      };
+      const step = (i: number): Open => {
+        const kn = next("k");
+        cb.slots.set(kn, { L: frame(i), last: i === n });
+        const body = (): Open => {
+          if (i === n) {
+            return mint_caps(rs, jl);
+          }
+          const then = step(i + 1);
+          return (env) => Bend.Let([s.k[i]], [s.i[i]], [call(i)(env)],
+            (x) => then(new Map(env).set(rs[i].p, x[0])), s.s, [s.q[i]]);
+        };
+        return mint_caps(scope(i), mint(cb, d, "k", scope(i),
+          scope(i).length, body, 0, [cks[i - 1].k]));
+      };
+      const k1 = next("k");
+      step(1);
+      cb.queue.push(k1);
+      const body = mint_caps(xs, jl);
+      return (env) => Bend.Let(s.k, s.i, vs.map((v) => v(env)), (ys) => {
+        const e2 = new Map(env);
+        ys.forEach((y, j) => e2.set(o.ps[j], y));
+        cb.forks.set(ys[0] as Probe, k1);
+        return body(e2);
+      }, s.s, s.q);
+    });
+  }
+
+  function expr(caps: Capture[], t: HTerm, ty: HTerm | null, k: Kont): Open {
+    if (term_const(t)) {
+      return k(caps, mint_lift(t));
+    }
+    const s = Bend.term_force(t);
+    if (s.$ === "Ann") {
+      return expr(caps, s.x, s.T, (c2, x) =>
+        k(c2, (env) => Bend.Ann(x(env), s.T, s.s)));
+    }
+    const got = call_eta(cb, s);
+    if (got !== null) {
+      return expr(caps, got, ty, k);
+    }
+    if (call_is(cb, s) && !flat_call(cb, s)) {
+      const l = Bend.Let(["h"], [0], [s], (x: HTerm[]) => x[0]) as HLet;
+      return apps(caps, s, (c2, c) => cut(c2, l,
+        ty === null ? c : (env) => Bend.Ann(c(env), ty),
+        (c3, b) => k(c3, mint_lift(b))));
+    }
+    switch (s.$) {
+      case "App": {
+        const m = term_spine(cb, s);
+        if (m.t.$ === "Ref" || m.t.$ === "Var") {
+          return apps(caps, s, k);
+        }
+        die("a " + m.t.$ + "-headed app");
+      }
+      case "Ctr": {
+        const ctr = cb.book.ctrs[s.k];
+        const live = ctr ? ctr_tail(cb.book, ctr).map(live_dom) : [];
+        return many(caps, s.x.length, (c2, j, kx) => live[j]
+          ? expr(c2, s.x[j], null, kx) : kx(c2, () => s.x[j]),
+        (c2, xs) => k(c2, (env) => Bend.Ctr(s.k, xs.map((x) => x(env)), s.s)));
+      }
+      case "Lam": {
+        const all = ty_all(cb.book, ty)
+          ?? die("an untyped lambda");
+        const { p, b } = term_open(s);
+        const bd = { p, q: all.q, A: all.A };
+        const c2 = [...caps, bd];
+        if (!quant_live(all.q)) {
+          return expr(c2, b, all.B(p), k);
+        }
+        return k(caps, mint(cb, d, "c", c2, 1, () => leaf(c2, b)));
+      }
+      case "Let": {
+        const l = alive(s);
+        if (l.k.length === 0) {
+          return expr(caps, l.f([]), ty, k);
+        }
+        if (l.k.length >= 2) {
+          return expr(caps, term_split(l), ty, k);
+        }
+        return expr(caps, l.v[0], null, (c2, v) =>
+          bind(c2, l, v, (c3, b) => expr(c3, b, ty, k)));
+      }
+      case "Mat":
+      case "Efq": {
+        const T = ty ?? die("an untyped match");
+        return k(caps, mint(cb, d, "c", caps, 0,
+          () => func(caps, Bend.Ann(s, T), null, 1), 1));
+      }
+      case "Rwt": {
+        return expr(caps, s.f, ty, k);
+      }
+      default: {
+        return k(caps, mint_lift(s));
+      }
+    }
+  }
+
   while (cb.queue.length > 0) {
-    const d = cb.queue.shift() as Bend.Name;
+    d = cb.queue.shift() as Bend.Name;
     if (cb.done.has(d)) {
       continue;
     }
@@ -1401,279 +1674,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
       }
       const fr = carb_fresh(cb, d) as Def;
       cb.owner = [d];
-      const PASS: Kont = (_c, x) => x;
-      function bound(caps: Capture[], l: HLet, v: Open,
-        rest: (caps: Capture[], body: HTerm) => Open,
-        cuts = false): Open {
-        const bd = { p: term_lets(l).ps[0], q: l.q[0], A: ty_ann(v(EMPTY)) };
-        const c2 = [...caps, bd];
-        const go = () => rest(c2, term_lets(l).b);
-        const body = cuts ? mint(cb, d, "k", c2, true, 1, go, 0,
-          [(call_kind(cb, v(EMPTY)) as Call).k]) : go();
-        return (env) => Bend.Let(l.k, l.i, [v(env)], (x) => cuts
-          ? Bend.App(body(env), x[0])
-          : body(new Map(env).set(bd.p, x[0])), l.s, l.q);
-      }
-      function apps(caps: Capture[], t: HTerm, k: Kont): Open {
-        type Fill = (caps: Capture[],
-          rb: (f: Open) => Open) => Open;
-        const m = term_spine(cb, t);
-        const go = (u: HTerm, k2: Fill): Open => {
-          const s = Bend.term_force(u);
-          if (s.$ === "Ann") {
-            return go(s.x, (c2, rb) => k2(c2, (f) =>
-              (env) => Bend.Ann(rb(f)(env), s.T, s.s)));
-          }
-          if (s.$ === "App") {
-            const app: Fill = (c2, rb) => m.args.includes(s.x)
-              ? expr(c2, s.x, null, (c3, x) => k2(c3, (f) =>
-                (env) => Bend.App(rb(f)(env), x(env), s.s)))
-              : k2(c2, (f) => (env) => Bend.App(rb(f)(env), s.x, s.s));
-            if (!m.args.includes(s.x) || !call_is(cb, s.f)) {
-              return go(s.f, app);
-            }
-            return expr(caps, s.f, null, (c2, g) => app(c2, () => g));
-          }
-          return k2(caps, (f) => f);
-        };
-        return go(t, (c2, rb) => k(c2, rb(mint_lift(m.t))));
-      }
-      function many(caps: Capture[], n: number,
-        each: (caps: Capture[], j: number, k: Kont) => Open,
-        k: (caps: Capture[], xs: Open[]) => Open): Open {
-        const go = (c2: Capture[], j: number, xs: Open[]): Open => {
-          if (j === n) {
-            return k(c2, xs);
-          }
-          return each(c2, j, (c3, x) => go(c3, j + 1, [...xs, x]));
-        };
-        return go(caps, 0, []);
-      }
-      function func(caps: Capture[], t: HTerm, ty: HTerm | null,
-        left: number): Open {
-        const s = Bend.term_force(t);
-        const x = Bend.term_strip(t);
-        if (x.$ !== "Lam" && !mat_head(x)) {
-          if (left === 0) {
-            return leaf(caps, s);
-          }
-          const T = ty ?? ty_ann(s) ?? die("an untyped arm");
-          return func(caps, term_eta(cb.book, s, T, 1), null, left);
-        }
-        if (left === 0 && s.$ !== "Ann") {
-          return expr(caps, s, ty, PASS);
-        }
-        switch (s.$) {
-          case "Ann": {
-            const g = func(caps, s.x, s.T, left);
-            return (env) => Bend.Ann(g(env), s.T, s.s);
-          }
-          case "Lam": {
-            const all = ty_all(cb.book, ty);
-            const { p, b } = term_open(s);
-            const cap = { p, q: all?.q ?? Bend.Lone(), A: all?.A ?? null };
-            const B = all && all.B(DUMMY);
-            const body = func([...caps, cap], b, B,
-              left - (quant_live(cap.q) ? 1 : 0));
-            return (env) => Bend.Lam(s.k, s.i,
-              (y) => body(new Map(env).set(p, y)), s.s);
-          }
-          case "Mat": {
-            const ctr = cb.book.ctrs[s.k];
-            const h = func(caps, s.h, null, left - 1
-              + (ctr === undefined ? 0 : ctr_doms(cb.book, ctr).length));
-            const m = func(caps, s.m, null, left);
-            return (env) => Bend.Mat(s.k, h(env), m(env), s.s);
-          }
-          default: {
-            return mint_lift(s);
-          }
-        }
-      }
-      function leaf(caps: Capture[], t: HTerm): Open {
-        const s = Bend.term_strip(t);
-        if (s.$ === "Rwt") {
-          return leaf(caps, s.f);
-        }
-        if (s.$ === "Let") {
-          if (s.k.length >= 2) {
-            if (s.v.every((v) => call_is(cb, v))) {
-              return fork(caps, s);
-            }
-            return leaf(caps, term_split(s));
-          }
-          if (!quant_live(s.q[0])) {
-            return leaf(caps, s.f(s.v));
-          }
-          const o = term_lets(s);
-          if (term_use(term_uses(cb, o.b), o.ps[0]) === 0) {
-            return leaf(caps, o.b);
-          }
-          if (call_is(cb, s.v[0]) && !flat_call(cb, s.v[0])) {
-            return apps(caps, s.v[0], (c2, c) =>
-              bound(c2, s, c, leaf, true));
-          }
-          return expr(caps, s.v[0], null, (c2, v) => bound(c2, s, v, leaf));
-        }
-        const got = call_eta(cb, t);
-        if (got !== null) {
-          return leaf(caps, got);
-        }
-        if (call_is(cb, t)) {
-          return apps(caps, t, PASS);
-        }
-        return expr(caps, t, null, PASS);
-      }
-      function fork(caps: Capture[], s: HLet): Open {
-        const n = s.k.length;
-        const o = term_lets(s);
-        return many(caps, n, (c2, j, kx) => apps(c2, s.v[j], kx),
-          (c2, vs) => {
-            const cks = vs.map((v) => call_kind(cb, v(EMPTY)) as Call);
-            const xs = vs.map((v, j): Capture =>
-              ({ p: o.ps[j], q: s.q[j], A: ty_ann(v(EMPTY)) }));
-            const c3 = [...c2, ...xs];
-            const jn = d + "$j" + (cb.kn + 1);
-            const jl = mint(cb, d, "j", c3, false, n, () => leaf(c3, o.b), 0,
-              cks.map((c) => c.k));
-            const jcaps = (cb.kept.get(jn) as Capture[]).slice(0, -n);
-            const as = cks.map((ck): Capture[] => {
-              const tld = cb.book.tlds[ck.k];
-              const doms = tld?.$ === "Def" ? live_doms(cb.book, tld) : [];
-              return ck.args.map((_, i) => ({ p: probe("a"), q: Bend.Lone(),
-                A: doms[i]?.[2] ?? Bend.Typ(Bend.Qua(Bend.Lone())) }));
-            });
-            const call = (j: number): Open => (env) => {
-              const ps = as[j].map((c) => env.get(c.p) ?? c.p);
-              if (cks[j].k === CLO_APPLY) {
-                return Bend.App(ps[0], ps[1]);
-              }
-              const m = term_spine(cb, vs[j](EMPTY));
-              let i = -1;
-              const h = Bend.Ref(cks[j].k, undefined, cks[j].bang);
-              return m.all.reduce((f, x) => Bend.App(f, m.args.includes(x)
-                ? ps[(i += 1)] : x), h);
-            };
-            const chain = (i: number, cs: Capture[], L: Capture[]): Open => {
-              const l = Bend.Let([s.k[i]], [s.i[i]], [s.v[i]],
-                (x: HTerm[]) => x[0], s.s, [s.q[i]]) as HLet;
-              const bd = { p: term_lets(l).ps[0], q: s.q[i], A: xs[i].A };
-              const cs2 = [...cs.slice(as[i].length), bd];
-              const L2 = [...L, cs[cs.length - 1]];
-              cb.slots.set(d + "$k" + (cb.kn + 1),
-                { L: L2, last: i + 1 === n });
-              const next = mint_caps(cs2, mint(cb, d, "k", cs2, true,
-                cs2.length, () => i + 1 === n ? mint_caps(cs2.slice(-n), jl)
-                  : chain(i + 1, cs2, L2), 0, [cks[i].k]));
-              return (env) => Bend.Let(l.k, l.i, [call(i)(env)],
-                (x: HTerm[]) => next(new Map(env).set(bd.p, x[0])),
-                l.s, l.q);
-            };
-            const x0 = { p: probe("x"), q: s.q[0], A: xs[0].A };
-            const L0 = [...as.slice(1).flat(), ...jcaps];
-            const c1 = [...L0, x0];
-            const k1 = d + "$k" + (cb.kn + 1);
-            cb.slots.set(k1, { L: L0, last: false });
-            mint(cb, d, "k", c1, true, c1.length, () => chain(1, c1, L0), 0,
-              [cks[0].k]);
-            cb.queue.push(k1);
-            const body = mint_caps(xs, jl);
-            return (env) => Bend.Let(s.k, s.i, vs.map((v) => v(env)), (ys) => {
-              const e2 = new Map(env);
-              ys.forEach((y, j) => e2.set(o.ps[j], y));
-              cb.forks.set(ys[0] as Probe, k1);
-              return body(e2);
-            }, s.s, s.q);
-          });
-      }
-      function expr(caps: Capture[], t: HTerm, ty: HTerm | null,
-        k: Kont): Open {
-        if (term_const(t)) {
-          return k(caps, mint_lift(t));
-        }
-        const s = Bend.term_force(t);
-        if (s.$ === "Ann") {
-          return expr(caps, s.x, s.T, (c2, x) =>
-            k(c2, (env) => Bend.Ann(x(env), s.T, s.s)));
-        }
-        const got = call_eta(cb, s);
-        if (got !== null) {
-          return expr(caps, got, ty, k);
-        }
-        if (call_is(cb, s) && !flat_call(cb, s)) {
-          return apps(caps, s, (c2, c) => {
-            if (!call_is(cb, c(EMPTY))) {
-              return k(c2, c);
-            }
-            const l = Bend.Let(["h"], [0], [s],
-              (x: HTerm[]) => x[0]) as HLet;
-            return bound(c2, l,
-              ty === null ? c : (env) => Bend.Ann(c(env), ty),
-              (c3, b) => k(c3, mint_lift(b)), true);
-          });
-        }
-        switch (s.$) {
-          case "App": {
-            const m = term_spine(cb, s);
-            if (m.t.$ === "Ref" || m.t.$ === "Var") {
-              return apps(caps, s, k);
-            }
-            die("a " + m.t.$ + "-headed app");
-          }
-          case "Ctr": {
-            const ctr = cb.book.ctrs[s.k];
-            const live = ctr ? ctr_tail(cb.book, ctr).map(live_dom) : [];
-            return many(caps, s.x.length, (c2, j, kx) => live[j]
-              ? expr(c2, s.x[j], null, kx) : kx(c2, () => s.x[j]), (c2, xs) =>
-              k(c2, (env) => Bend.Ctr(s.k, xs.map((x) => x(env)), s.s)));
-          }
-          case "Lam": {
-            const all = ty_all(cb.book, ty)
-              ?? die("an untyped lambda");
-            const { p, b } = term_open(s);
-            const bd = { p, q: all.q, A: all.A };
-            const c2 = [...caps, bd];
-            if (!quant_live(all.q)) {
-              return expr(c2, b, all.B(p), k);
-            }
-            return k(caps, mint(cb, d, "c", c2, false, 1,
-              () => leaf(c2, b)));
-          }
-          case "Let": {
-            if (s.k.length >= 2) {
-              return expr(caps, term_split(s), ty, k);
-            }
-            if (!quant_live(s.q[0])) {
-              return expr(caps, s.f(s.v), null, k);
-            }
-            const o = term_lets(s);
-            if (term_use(term_uses(cb, o.b), o.ps[0]) === 0) {
-              return expr(caps, o.b, ty, k);
-            }
-            if (call_deep(cb, o.b)) {
-              return expr(caps, s.v[0], null, (c2, v) =>
-                bound(c2, s, v, (c3, b) => expr(c3, b, null, k)));
-            }
-            const v = expr(caps, s.v[0], null, PASS);
-            return k(caps, bound(caps, s, v,
-              (c2, b) => expr(c2, b, null, PASS)));
-          }
-          case "Mat":
-          case "Efq": {
-            const T = ty ?? die("an untyped match");
-            return k(caps, mint(cb, d, "c", caps, false, 0,
-              () => func(caps, Bend.Ann(s, T), null, 1), 1));
-          }
-          case "Rwt": {
-            return expr(caps, s.f, ty, k);
-          }
-          default: {
-            return k(caps, mint_lift(s));
-          }
-        }
-      }
-      out = func([], fr.h as HTerm, fr.T, live_doms(cb.book, fr).length)
-        (EMPTY);
+      out = func([], fr.h as HTerm, fr.T, live_doms(cb.book, fr).length)(EMPTY);
     }
     book.tlds[d] = { ...cb.src[d] ?? tld, h: out };
     const refs = new Set<Bend.Name>();
@@ -2170,7 +2171,6 @@ function val_hold(fl: File, v: Val, k: string): Val {
     : emit_hold(fl, [w], k, [v.lay.ks[j]])[0]), v.lay, v.av);
 }
 
-
 function val_keep(fl: File, cell: Cell): string {
   return emit_hold(fl, [`blk_keep(e, ${cell.at})`], "k")[0];
 }
@@ -2206,7 +2206,6 @@ function val_own(fl: File, v: Val, live?: boolean[]): string[] {
 function val_sink(fl: File, v: Val): void {
   v.ws.forEach((_, j) => val_drop(fl, v, j));
 }
-
 
 function val_to(fl: File, v: Val, lay: Lay): Val {
   if (lay_eq(v.lay, lay)) {
@@ -2572,7 +2571,6 @@ function emit_jump(fl: File, args: string[], k: Bend.Name): void {
   file_push(fl, "WL_AGAIN;");
 }
 
-
 function emit_vals(fl: File, k: Bend.Name, args: HTerm[],
   n = args.length): Val[] {
   const lent = fl.cb.brw.get(k) ?? [];
@@ -2648,7 +2646,6 @@ function emit_open(fl: File, x: HLet): HTerm {
   });
   return o.b;
 }
-
 
 function emit_fuse(fl: File, ck: Call, dst: Dst): void {
   const tld = fl.book.tlds[ck.k] as Def;
@@ -2728,11 +2725,9 @@ function emit_native(fl: File, ck: Call, ers: HTerm[]): string {
   return name;
 }
 
-
 function emit_dst(fl: File, lay: Lay): Exclude<Dst, null> {
   return { ws: emit_hold(fl, lay.ks.map(() => "0"), "v", lay.ks), lay };
 }
-
 
 function emit_intr(fl: File, it: Intr, x: HTerm,
   ty: HTerm | null): Val {
