@@ -37,12 +37,12 @@ const BEATS = [
   ["say", "*The entire language is parallelizable!*", "",
           "Objects, arrays, allocator, collector,", "pattern-matching, closures, recursion.", "",
           "*Everything* compiles to *kernels*!"],
-  ["say", "Bend is fast in a single CPU core.", "And scales to massive GPU clusters."],
+  ["say", "Bend is fast on a single CPU core.", "And scales to massive GPU clusters."],
   ["say", "How about *vibe-coding*?"],
   ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
   ["say", "#How?"],
   ["reveal", "LAWS|.|bend", 64],
-  ["say", "A new file that lists *invariants*", "that models are *forced* to abide."],
+  ["say", "A new file that lists *invariants*", "that models are *forced* to follow."],
   ["say", "For example, consider a game with one law:", "%\"the player can't win\""],
   ["laws"],
   ["say", "Let's see it in action!"],
@@ -248,7 +248,7 @@ S.bench = (u, dur, b) => {
   const pa = ease((u - 6.2)/0.5)*(1 - ease((u - dur + 0.6)/0.4));
   cx.globalAlpha = pa;
   T("Competes with C", 930, 250, 26, AMBER, "center", true);
-  T("in a single core", 930, 282, 26, AMBER, "center", true);
+  T("on a single core", 930, 282, 26, AMBER, "center", true);
   bow(940, 305, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
   cx.globalAlpha = 1;
 };
