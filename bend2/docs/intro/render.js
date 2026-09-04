@@ -47,7 +47,7 @@ const BEATS = [
   ["say", "#For example..."],
   ["say", "Consider a game with one law:", "%\"the player can't win\""],
   ["intro"],
-  ["say", "So far, it works!"],
+  ["say", "Working as intended!"],
   ["say", "Now, let's *prompt* a new feature:", "%\"make the map wrap around\""],
   ["say", "Without *laws.bend*:"],
   ["walk"],
