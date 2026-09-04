@@ -168,7 +168,7 @@ const LAWS_SRC = `assert winning_is_a_bug:
   forall moves: List<Move>
   board = apply(init(), moves)
   is_won(board) == False`.split("\n");
-const LAWS_GLOSS = ["LAW name", "\"for any sequence of moves\"",
+const LAWS_GLOSS = ["LAW: \"Winning Is A Bug\"", "\"for any sequence of moves\"",
                     "\"applying it to the initial board\"", "\"can never lead to victory\""];
 
 // ------------------------------------------------------------------ benches
@@ -417,17 +417,24 @@ S.block = (u, dur) => {
 
 // ------------------------------------------------------------------ code beats
 // what laws.bend is, then the file under its name, then where the rules go
+// what laws.bend is; the file under its name, centred, with the rules
+// pointer; then the file slides left and each line gets its gloss
 S.laws = (u, dur) => {
   font(20); const cw = 56 + Math.max(...LAWS_SRC.map(l => cx.measureText(l).width));
   font(24, true); const gw = Math.max(...LAWS_GLOSS.map(l => cx.measureText(l).width));
-  const x = (W - cw - 80 - gw)/2, y = 330, gx = x + cw + 80;
+  const xl = (W - cw - 80 - gw)/2, x = lerp((W - cw)/2, xl, ease((u - 9.4)/0.8));
+  const y = 330, h = LAWS_SRC.length*34 + 44, gx = xl + cw + 80;
   rich("A new file that lists *invariants*", W/2, 140, 30);
   cx.globalAlpha = ease((u - 2.0)/0.4); rich("that models are *forced* to abide.", W/2, 190, 30);
   cx.globalAlpha = ease((u - 4.0)/0.5);
   T("laws.bend", x + 28, y - 16, 20, DIM, "left", true);
   codeCard(LAWS_SRC, x, y, cw, 20, 34);
+  const pa = ease((u - 6.0)/0.5)*(1 - ease((u - 8.6)/0.5));
+  cx.globalAlpha = pa;
+  T("Write your rules here.", W/2, 650, 26, AMBER, "center", true);
+  bow(W/2, 618, W/2, y + h + 10, 0, AMBER, pa);
   LAWS_GLOSS.forEach((g, i) => {
-    const a = ease((u - 5.6 - 1.7*i)/0.5), ly = y + 36 + i*34;
+    const a = ease((u - 10.6 - 1.7*i)/0.5), ly = y + 36 + i*34;
     cx.globalAlpha = a;
     T(g, gx, ly, 24, AMBER, "left", true);
     bow(gx - 14, ly - 8, x + cw + 12, ly - 8, 0, AMBER, a);
@@ -715,7 +722,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { check: 10.5, bench: 9.5, par: 11.5, dist: DALL + 1.5, eval: EDONE + 1.9,
-                reduce: RDONE + 3.2, laws: 13.6, intro: 8.0, walk: 6.3, block: 5.8, end: 24.0 };
+                reduce: RDONE + 3.2, laws: 18.6, intro: 8.0, walk: 6.3, block: 5.8, end: 24.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
