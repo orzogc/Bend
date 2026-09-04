@@ -262,13 +262,20 @@ static int io_nul(const char* s, uint64_t n) {
   return strlen(s) != n;
 }
 
+static Term io_seal(Env e, Term t, int hot) {
+  if (hot == 0) {
+    return t;
+  }
+  return rfc_seal(e, t);
+}
+
 static Term io_str(Env e, const char* p, uint64_t n) {
   Term s = term_pak(CID_SNIL, 0);
   while (n > 0) {
     n -= 1;
     Loc loc = heap_alloc(e, 1);
     e.mem[loc]     = (uint8_t)p[n];
-    e.mem[loc + 1] = s;
+    e.mem[loc + 1] = io_seal(e, s, IO_HOTS & 1);
     s = term_ctr(CID_SCON, loc);
   }
   return s;
@@ -276,14 +283,14 @@ static Term io_str(Env e, const char* p, uint64_t n) {
 
 static Term io_tup(Env e, Term a, Term b) {
   Loc l = heap_alloc(e, 1);
-  e.mem[l]     = a;
-  e.mem[l + 1] = b;
+  e.mem[l]     = io_seal(e, a, IO_HOTS & 2);
+  e.mem[l + 1] = io_seal(e, b, IO_HOTS & 2);
   return term_ctr(CID_TUPLE, l);
 }
 
 static Term io_done(Env e, Term v) {
   Loc l = heap_alloc(e, 0);
-  e.mem[l] = v;
+  e.mem[l] = io_seal(e, v, IO_HOTS & 4);
   return term_ctr(CID_DONE, l);
 }
 
@@ -291,7 +298,7 @@ static Term io_fail(Env e, IoFall q) {
   const char* s = q.text != NULL ? q.text : strerror((int)q.code);
   Term t = io_tup(e, (uint64_t)q.code, io_str(e, s, strlen(s)));
   Loc l = heap_alloc(e, 0);
-  e.mem[l] = t;
+  e.mem[l] = io_seal(e, t, IO_HOTS & 8);
   return term_ctr(CID_FAIL, l);
 }
 
