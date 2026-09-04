@@ -47,40 +47,40 @@ import Base
 # Rt: the mocked C runtime's surface, adapted over the natives
 # ------------------------------------------------------------
 
-assert Rt.add:
-  forall a: U32
-  forall b: U32
+law Rt.add:
+  for a: U32
+  for b: U32
   U32
 
 def Rt.add(a, b):
   U32.add(a, b)
 
-assert Rt.mul:
-  forall a: U32
-  forall b: U32
+law Rt.mul:
+  for a: U32
+  for b: U32
   U32
 
 def Rt.mul(a, b):
   U32.mul(a, b)
 
-assert Rt.divmod:
-  forall +a: U32
-  forall +b: U32
+law Rt.divmod:
+  for +a: U32
+  for +b: U32
   U32 & U32
 
 def Rt.divmod(a, b):
   (U32.div(a, b), U32.mod(a, b))
 
-assert Rt.eqz:
-  forall a: U32
+law Rt.eqz:
+  for a: U32
   Bool
 
 def Rt.eqz(a):
   U32.is_zero(a)
 
-assert Rt.alloc:
-  forall +n: Nat
-  forall +x: U32
+law Rt.alloc:
+  for +n: Nat
+  for +x: U32
   Array<U32>
 
 def Rt.alloc(n, x):
@@ -92,18 +92,18 @@ def Rt.alloc(n, x):
 
 # read slot i without net effect: swap i in (reading the old value),
 # then swap the old value back; the value crosses the seam twice
-assert Rt.read.fin:
-  forall val : U32
-  forall bz  : Array<U32> & U32
+law Rt.read.fin:
+  for val : U32
+  for bz  : Array<U32> & U32
   Array<U32> & U32
 
 def Rt.read.fin(val, bz):
   (b3, z) = bz
   (b3, val)
 
-assert Rt.read.back:
-  forall +i : U32
-  forall bv : Array<U32> & U32
+law Rt.read.back:
+  for +i : U32
+  for bv : Array<U32> & U32
   Array<U32> & U32
 
 def Rt.read.back(i, bv):
@@ -111,27 +111,27 @@ def Rt.read.back(i, bv):
   +val = v
   Rt.read.fin(val, Array.swap(U32, b2, i, val))
 
-assert Rt.read:
-  forall  b: Array<U32>
-  forall +i: U32
+law Rt.read:
+  for  b: Array<U32>
+  for +i: U32
   Array<U32> & U32
 
 def Rt.read(b, i):
   Rt.read.back(i, Array.swap(U32, b, i, i))
 
-assert Rt.write:
-  forall b: Array<U32>
-  forall i: U32
-  forall v: U32
+law Rt.write:
+  for b: Array<U32>
+  for i: U32
+  for v: U32
   Array<U32>
 
 def Rt.write(b, i, v):
   Array.set.fin(U32, Array.swap(U32, b, i, v))
 
-assert Rt.swap:
-  forall b: Array<U32>
-  forall i: U32
-  forall v: U32
+law Rt.swap:
+  for b: Array<U32>
+  for i: U32
+  for v: U32
   Array<U32> & U32
 
 def Rt.swap(b, i, v):
@@ -144,30 +144,30 @@ def Rt.swap(b, i, v):
 # captures its two child closures and composes them; its two forks are
 # independent and their values join by add. Left seed s+m, right s*s,
 # so every path gets a distinct polynomial of the root seed.
-assert spawn.leaf.wr:
-  forall +s : U32
-  forall q  : U32
-  forall +j : U32
-  forall bo : Array<U32> & U32
+law spawn.leaf.wr:
+  for +s : U32
+  for q  : U32
+  for +j : U32
+  for bo : Array<U32> & U32
   Array<U32>
 
 def spawn.leaf.wr(s, q, j, bo):
   (b2, old) = bo
   Rt.write(b2, j, Rt.add(Rt.mul(old, s), q))
 
-assert spawn.leaf.go:
-  forall +s: U32
-  forall  q: U32
-  forall +j: U32
-  forall  b: Array<U32>
+law spawn.leaf.go:
+  for +s: U32
+  for  q: U32
+  for +j: U32
+  for  b: Array<U32>
   Array<U32>
 
 def spawn.leaf.go(s, q, j, b):
   spawn.leaf.wr(s, q, j, Rt.read(b, j))
 
-assert spawn.leaf.mk:
-  forall +s : U32
-  forall qi : U32 & U32
+law spawn.leaf.mk:
+  for +s : U32
+  for qi : U32 & U32
   U32 & (Array<U32> -> Array<U32>)
 
 def spawn.leaf.mk(s, qi):
@@ -175,9 +175,9 @@ def spawn.leaf.mk(s, qi):
   +j = i
   (s, b => spawn.leaf.go(s, q, j, b))
 
-assert spawn.node:
-  forall l: U32 & (Array<U32> -> Array<U32>)
-  forall r: U32 & (Array<U32> -> Array<U32>)
+law spawn.node:
+  for l: U32 & (Array<U32> -> Array<U32>)
+  for r: U32 & (Array<U32> -> Array<U32>)
   U32 & (Array<U32> -> Array<U32>)
 
 def spawn.node(l, r):
@@ -185,10 +185,10 @@ def spawn.node(l, r):
   (vb, fb) = r
   (Rt.add(va, vb), b => fb(fa(b)))
 
-assert spawn:
-  forall +d: Nat
-  forall +m: U32
-  forall +s: U32
+law spawn:
+  for +d: Nat
+  for +m: U32
+  for +s: U32
   U32 & (Array<U32> -> Array<U32>)
 
 def spawn(d, m, s):
@@ -203,14 +203,14 @@ def spawn(d, m, s):
 # (t is 10, z doubles as the '0' offset), one Bool branch on that
 # digit steering the next mix, tail call. quo drops in the branch that
 # skips it (affine); at SNil acc and the whole live array drop.
-assert churn.pick:
-  forall +z   : U32
-  forall c    : U32
-  forall b2   : Array<U32>
-  forall +o   : U32
-  forall quo  : U32
-  forall +dig : U32
-  forall is0  : Bool
+law churn.pick:
+  for +z   : U32
+  for c    : U32
+  for b2   : Array<U32>
+  for +o   : U32
+  for quo  : U32
+  for +dig : U32
+  for is0  : Bool
   (Array<U32> & U32) & U32
 
 def churn.pick(z, c, b2, o, quo, dig, is0):
@@ -220,12 +220,12 @@ def churn.pick(z, c, b2, o, quo, dig, is0):
     case False{}:
       ((b2, Rt.add(Rt.mul(o, c), quo)), Rt.add(z, dig))
 
-assert churn.mix:
-  forall +z : U32
-  forall c  : U32
-  forall b2 : Array<U32>
-  forall +o : U32
-  forall qr : U32 & U32
+law churn.mix:
+  for +z : U32
+  for c  : U32
+  for b2 : Array<U32>
+  for +o : U32
+  for qr : U32 & U32
   (Array<U32> & U32) & U32
 
 def churn.mix(z, c, b2, o, qr):
@@ -233,11 +233,11 @@ def churn.mix(z, c, b2, o, qr):
   +dig = r
   churn.pick(z, c, b2, o, quo, dig, Rt.eqz(dig))
 
-assert churn.spin:
-  forall +t : U32
-  forall +z : U32
-  forall c  : U32
-  forall bo : Array<U32> & U32
+law churn.spin:
+  for +t : U32
+  for +z : U32
+  for c  : U32
+  for bo : Array<U32> & U32
   (Array<U32> & U32) & U32
 
 def churn.spin(t, z, c, bo):
@@ -245,44 +245,44 @@ def churn.spin(t, z, c, bo):
   +o = old
   churn.mix(z, c, b2, o, Rt.divmod(o, t))
 
-assert churn.turn:
-  forall +t : U32
-  forall +z : U32
-  forall b  : Array<U32>
-  forall c  : U32
-  forall qi : U32 & U32
+law churn.turn:
+  for +t : U32
+  for +z : U32
+  for b  : Array<U32>
+  for c  : U32
+  for qi : U32 & U32
   (Array<U32> & U32) & U32
 
 def churn.turn(t, z, b, c, qi):
   (q, i) = qi
   churn.spin(t, z, c, Rt.swap(b, i, q))
 
-assert churn.wrap:
-  forall out : String
-  forall r   : (Array<U32> & U32) & U32
+law churn.wrap:
+  for out : String
+  for r   : (Array<U32> & U32) & U32
   (Array<U32> & U32) & String
 
 def churn.wrap(out, r):
   ((b2, nx), ch) = r
   ((b2, nx), SCon{Chr{ch}, out})
 
-assert churn.fold:
-  forall +t  : U32
-  forall +z  : U32
-  forall b   : Array<U32>
-  forall acc : U32
-  forall c   : U32
-  forall out : String
+law churn.fold:
+  for +t  : U32
+  for +z  : U32
+  for b   : Array<U32>
+  for acc : U32
+  for c   : U32
+  for out : String
   (Array<U32> & U32) & String
 
 def churn.fold(t, z, b, acc, c, out):
   churn.wrap(out, churn.turn(t, z, b, c, Rt.divmod(acc, z)))
 
-assert churn.go:
-  forall s  : String
-  forall st : (Array<U32> & U32) & String
-  forall +t : U32
-  forall +z : U32
+law churn.go:
+  for s  : String
+  for st : (Array<U32> & U32) & String
+  for +t : U32
+  for +z : U32
   String
 
 def churn.go(s, st, t, z):
@@ -294,13 +294,13 @@ def churn.go(s, st, t, z):
       ((b, acc), out) = st
       churn.go(cs, churn.fold(t, z, b, acc, c, out), t, z)
 
-assert churn:
-  forall s   : String
-  forall +t  : U32
-  forall +z  : U32
-  forall b   : Array<U32>
-  forall acc : U32
-  forall out : String
+law churn:
+  for s   : String
+  for +t  : U32
+  for +z  : U32
+  for b   : Array<U32>
+  for acc : U32
+  for out : String
   String
 
 def churn(s, t, z, b, acc, out):
@@ -312,22 +312,22 @@ def churn(s, t, z, b, acc, out):
 # the alloc fill, and the slot modulus: 48 < 64 = 2^6n slots, so every
 # index is in range). f(...) fires the million leaf envs; v, their
 # parallel sum, seeds the drain.
-assert run.out:
+law run.out:
   String
 
-assert run.seed:
-  forall +ten : U32
-  forall +off : U32
-  forall vf   : U32 & (Array<U32> -> Array<U32>)
+law run.seed:
+  for +ten : U32
+  for +off : U32
+  for vf   : U32 & (Array<U32> -> Array<U32>)
   String
 
 def run.seed(ten, off, vf):
   (v, f) = vf
   churn("Bend stresses its own runtime!", ten, off, f(Rt.alloc(6n, off)), v, "")
 
-assert run.mix:
-  forall t: U32
-  forall z: U32
+law run.mix:
+  for t: U32
+  for z: U32
   String
 
 def run.mix(t, z):
@@ -335,9 +335,9 @@ def run.mix(t, z):
   +off = z
   run.seed(ten, off, spawn(20n, off, ten))
 
-assert run.chr:
-  forall x: Char
-  forall y: Char
+law run.chr:
+  for x: Char
+  for y: Char
   String
 
 def run.chr(x, y):
@@ -352,9 +352,9 @@ type Tr is Data:
   L{v: U32}
   N{a: Tr, b: Tr}
 
-assert build:
-  forall +d: Nat
-  forall +x: U32
+law build:
+  for +d: Nat
+  for +x: U32
   Tr
 
 def build(d, x):
@@ -365,8 +365,8 @@ def build(d, x):
       a b = build(p, U32.mul(x, 2)) build(p, U32.add(U32.mul(x, 2), 1))
       N{a, b}
 
-assert sum:
-  forall t: Tr
+law sum:
+  for t: Tr
   U32
 
 def sum(t):
@@ -377,8 +377,8 @@ def sum(t):
       x y = sum(a) sum(b)
       U32.add(x, y)
 
-assert depth.max:
-  forall g: Bool
+law depth.max:
+  for g: Bool
   U32
 
 def depth.max(g):
@@ -388,8 +388,8 @@ def depth.max(g):
     case False{}:
       1
 
-assert depth:
-  forall t: Tr
+law depth:
+  for t: Tr
   U32
 
 def depth(t):
@@ -399,15 +399,15 @@ def depth(t):
     case N{a, b}:
       depth.max(U32.is_gt(depth(a), depth(b)))
 
-assert tri:
-  forall +t: Tr
+law tri:
+  for +t: Tr
   U32
 
 def tri(t):
   U32.add(sum(t), U32.add(sum(t), depth(t)))
 
-assert dropper:
-  forall +t: Tr
+law dropper:
+  for +t: Tr
   U32
 
 def dropper(t):
@@ -415,28 +415,28 @@ def dropper(t):
   y = t
   x
 
-assert helper:
-  forall +u: Tr
+law helper:
+  for +u: Tr
   U32
 
 def helper(u):
   U32.add(sum(u), sum(u))
 
-assert nest:
-  forall +t: Tr
+law nest:
+  for +t: Tr
   U32
 
 def nest(t):
   U32.add(helper(t), helper(t))
 
-assert mk:
+law mk:
   Array<U32>
 
 def mk():
   ANode{ANode{ALeaf{1}, ALeaf{2}}, ANode{ALeaf{3}, ALeaf{4}}}
 
-assert rd:
-  forall a: Array<U32>
+law rd:
+  for a: Array<U32>
   U32
 
 def rd(a):
@@ -446,31 +446,31 @@ def rd(a):
     case ANode{xs, ys}:
       U32.add(rd(xs), rd(ys))
 
-assert cow.fin:
-  forall a  : Array<U32>
-  forall bo : Array<U32> & U32
+law cow.fin:
+  for a  : Array<U32>
+  for bo : Array<U32> & U32
   U32
 
 def cow.fin(a, bo):
   (b, old) = bo
   U32.add(rd(b), U32.add(rd(a), old))
 
-assert cow.go:
-  forall aa: Array<U32> & Array<U32>
+law cow.go:
+  for aa: Array<U32> & Array<U32>
   U32
 
 def cow.go(aa):
   (a, a2) = aa
   cow.fin(a, Array.swap(U32, a2, 0, 100))
 
-assert cow:
-  forall a: Array<U32>
+law cow:
+  for a: Array<U32>
   U32
 
 def cow(a):
   cow.go(Array.clone(a))
 
-assert share.out:
+law share.out:
   U32
 
 def share.out():
@@ -479,7 +479,7 @@ def share.out():
   r = nest(build(4n, 7))
   U32.add(U32.add(p, U32.add(q, r)), cow(mk()))
 
-assert main:
+law main:
   IO(Unit)
 
 def main():

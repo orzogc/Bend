@@ -32,8 +32,8 @@ import Base
 type St is Type:
   St{g: Array<U32>, q: Array<U32>, d: Array<U32>, +head: U32, +tail: U32}
 
-assert b2u:
-  forall b: Bool
+law b2u:
+  for b: Bool
   U32
 
 def b2u(b):
@@ -44,8 +44,8 @@ def b2u(b):
       1
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-assert prng:
-  forall +x: U32
+law prng:
+  for +x: U32
   U32
 
 def prng(x):
@@ -55,9 +55,9 @@ def prng(x):
 
 # 1 when cell c of the maze seeded s is open: the start always, any
 # other cell when its hash mod 100 is 30 or more (30% walls)
-assert open:
-  forall s: U32
-  forall +c: U32
+law open:
+  for s: U32
+  for +c: U32
   U32
 
 def open(s, c):
@@ -65,10 +65,10 @@ def open(s, c):
   b2u(Bool.or(U32.is_zero(c), U32.is_ge(U32.mod(h, 100), 30)))
 
 # fill the grid: one write per cell, ascending
-assert fill:
-  forall +j: Nat
-  forall +s: U32
-  forall g: Array<U32>
+law fill:
+  for +j: Nat
+  for +s: U32
+  for g: Array<U32>
   Array<U32>
 
 def fill(j, s, g):
@@ -81,11 +81,11 @@ def fill(j, s, g):
 
 # the neighbour is open: push it unless seen (stamp its distance,
 # queue it at the tail)
-assert look.push:
-  forall +n: U32
-  forall v: U32
-  forall seen: Bool
-  forall st: St
+law look.push:
+  for +n: U32
+  for v: U32
+  for seen: Bool
+  for st: St
   St
 
 def look.push(n, v, seen, st):
@@ -96,14 +96,14 @@ def look.push(n, v, seen, st):
       St{g, q, d, head, tail} = st
       St{g, q[tail] <- n, d[n] <- v, head, U32.inc(tail)}
 
-assert look.seen:
-  forall +n: U32
-  forall v: U32
-  forall g: Array<U32>
-  forall q: Array<U32>
-  forall head: U32
-  forall tail: U32
-  forall r: Array<U32> & U32
+law look.seen:
+  for +n: U32
+  for v: U32
+  for g: Array<U32>
+  for q: Array<U32>
+  for head: U32
+  for tail: U32
+  for r: Array<U32> & U32
   St
 
 def look.seen(n, v, g, q, head, tail, r):
@@ -111,11 +111,11 @@ def look.seen(n, v, g, q, head, tail, r):
   look.push(n, v, U32.is_ne(dn, 4294967295), St{g, q, d, head, tail})
 
 # the neighbour is in bounds: skip a wall, else read its distance
-assert look.wall:
-  forall +n: U32
-  forall v: U32
-  forall wall: Bool
-  forall st: St
+law look.wall:
+  for +n: U32
+  for v: U32
+  for wall: Bool
+  for st: St
   St
 
 def look.wall(n, v, wall, st):
@@ -126,14 +126,14 @@ def look.wall(n, v, wall, st):
       St{g, q, d, head, tail} = st
       look.seen(n, v, g, q, head, tail, d[n])
 
-assert look.open:
-  forall +n: U32
-  forall v: U32
-  forall q: Array<U32>
-  forall d: Array<U32>
-  forall head: U32
-  forall tail: U32
-  forall r: Array<U32> & U32
+law look.open:
+  for +n: U32
+  for v: U32
+  for q: Array<U32>
+  for d: Array<U32>
+  for head: U32
+  for tail: U32
+  for r: Array<U32> & U32
   St
 
 def look.open(n, v, q, d, head, tail, r):
@@ -142,11 +142,11 @@ def look.open(n, v, q, d, head, tail, r):
 
 # one neighbour n at distance v: skip it out of bounds, a wall or
 # seen; else stamp its distance and push it
-assert look:
-  forall +n: U32
-  forall v: U32
-  forall inb: Bool
-  forall st: St
+law look:
+  for +n: U32
+  for v: U32
+  for inb: Bool
+  for st: St
   St
 
 def look(n, v, inb, st):
@@ -158,10 +158,10 @@ def look(n, v, inb, st):
       look.open(n, v, q, d, head, tail, g[n])
 
 # the four neighbours of cell c at distance v: left, right, up, down
-assert look4:
-  forall +c: U32
-  forall +v: U32
-  forall st: St
+law look4:
+  for +c: U32
+  for +v: U32
+  for st: St
   St
 
 def look4(c, v, st):
@@ -173,33 +173,33 @@ def look4(c, v, st):
   look(U32.add(c, 32), v, U32.is_lt(y, 31), s3)
 
 # the pop's answer: the state, and whether the queue still holds a cell
-assert pop.done:
-  forall st: St
+law pop.done:
+  for st: St
   St & Bool
 
 def pop.done(st):
   St{g, q, d, head, tail} = st
   (St{g, q, d, head, tail}, U32.is_lt(head, tail))
 
-assert pop.dist:
-  forall g: Array<U32>
-  forall q: Array<U32>
-  forall c: U32
-  forall head: U32
-  forall tail: U32
-  forall r: Array<U32> & U32
+law pop.dist:
+  for g: Array<U32>
+  for q: Array<U32>
+  for c: U32
+  for head: U32
+  for tail: U32
+  for r: Array<U32> & U32
   St & Bool
 
 def pop.dist(g, q, c, head, tail, r):
   (d, dc) = r
   pop.done(look4(c, U32.inc(dc), St{g, q, d, head, tail}))
 
-assert pop.cell:
-  forall g: Array<U32>
-  forall d: Array<U32>
-  forall head: U32
-  forall tail: U32
-  forall r: Array<U32> & U32
+law pop.cell:
+  for g: Array<U32>
+  for d: Array<U32>
+  for head: U32
+  for tail: U32
+  for r: Array<U32> & U32
   St & Bool
 
 def pop.cell(g, d, head, tail, r):
@@ -209,8 +209,8 @@ def pop.cell(g, d, head, tail, r):
 
 # one pop: take the head cell and its distance, look at its four
 # neighbours, then report whether the queue still holds a cell
-assert pop:
-  forall st: St
+law pop:
+  for st: St
   St & Bool
 
 def pop(st):
@@ -219,9 +219,9 @@ def pop(st):
 
 # the search loop, fuel-bounded by the cell count: the pop's answer
 # rides in as the pair r, and the loop stops when the queue drains
-assert bfs:
-  forall f: Nat
-  forall r: St & Bool
+law bfs:
+  for f: Nat
+  for r: St & Bool
   St
 
 def bfs(f, r):
@@ -240,11 +240,11 @@ def bfs(f, r):
 # the leaf checksum: every cell in turn, the current read riding in as
 # the pair r (the last step issues one masked dead read); a reached
 # cell mixes its distance position-weighted and counts one
-assert fold:
-  forall +j: Nat
-  forall r: Array<U32> & U32
-  forall acc: U32
-  forall cnt: U32
+law fold:
+  for +j: Nat
+  for r: Array<U32> & U32
+  for acc: U32
+  for cnt: U32
   U32
 
 def fold(j, r, acc, cnt):
@@ -260,8 +260,8 @@ def fold(j, r, acc, cnt):
       m = U32.xor(U32.mul(acc, 2654435761), k)
       fold(p, d[U32.inc(c)], m, U32.add(cnt, hit))
 
-assert finish:
-  forall st: St
+law finish:
+  for st: St
   U32
 
 def finish(st):
@@ -270,8 +270,8 @@ def finish(st):
 
 # one maze: fill the grid, seed the search with cell 0 at distance 0,
 # search, fold
-assert maze:
-  forall m: U32
+law maze:
+  for m: U32
   U32
 
 def maze(m):
@@ -282,9 +282,9 @@ def maze(m):
   finish(bfs(1024n, (St{g, q, d[0] <- 0, 0, 1}, True{})))
 
 # batch tree over the maze index space: leaf i searches maze i
-assert batch:
-  forall +k: Nat
-  forall +i: U32
+law batch:
+  for +k: Nat
+  for +i: U32
   U32
 
 def batch(k, i):
@@ -295,7 +295,7 @@ def batch(k, i):
       a b = batch(p, i) batch(p, U32.add(i, U32.shln(1, p)))
       U32.add(a, b)
 
-assert size:
+law size:
   Nat
 
 def size():
@@ -303,7 +303,7 @@ def size():
 
 # small: batch!(4n, 0) expect 512822161; big: batch!(size(), 0)
 # expect 651176970
-assert main:
+law main:
   IO(Unit)
 
 def main():

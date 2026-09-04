@@ -141,7 +141,7 @@ def step(a: Move, g: Game) -> Game:
       +y = y0
       Game{x, y, w || (nat_eq(x, flag_x()) && nat_eq(y, flag_y()))}
 
-def init() -> Game:
+def start() -> Game:
   Game{start_x(), start_y(), False{}}
 
 # The worker takes the list first: the guard wants the shrinking argument
@@ -153,7 +153,7 @@ def run(moves: List<Move>, g: Game) -> Game:
     case Con{m, ms}:
       run(ms, step(m, g))
 
-def apply(g: Game, moves: List<Move>) -> Game:
+def replay(g: Game, moves: List<Move>) -> Game:
   run(moves, g)
 
 def is_won(g: Game) -> Bool:
@@ -193,5 +193,5 @@ def grid(y: Nat) -> String:
 def main() -> IO(Unit):
   do IO<Unit>:
     u : Unit <- IO.print(grid(Nat.sub(map_h(), 1n)))
-    IO.print(pick(String, is_won(apply(init(), [Left{}, Left{}, Up{}, Grab{}])),
+    IO.print(pick(String, is_won(replay(start(), [Left{}, Left{}, Up{}, Grab{}])),
       "WON (this line is unreachable)", "still not won"))

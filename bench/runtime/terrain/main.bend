@@ -34,8 +34,8 @@ import Base
 # against a Bend3 C run on the cluster), big (16n, 5n) expect
 # 2572468224 (the Bend3 header's number, re-verified on the cluster).
 
-assert b2u:
-  forall b: Bool
+law b2u:
+  for b: Bool
   U32
 
 def b2u(b):
@@ -45,8 +45,8 @@ def b2u(b):
     case True{}:
       1
 
-assert prng:
-  forall +x: U32
+law prng:
+  for +x: U32
   U32
 
 def prng(x):
@@ -55,9 +55,9 @@ def prng(x):
   U32.xor(d, U32.shln(d, 5n))
 
 # lattice corner hash -> 0..255
-assert hsh:
-  forall gx: U32
-  forall gz: U32
+law hsh:
+  for gx: U32
+  for gz: U32
   U32
 
 def hsh(gx, gz):
@@ -65,9 +65,9 @@ def hsh(gx, gz):
 
 # value noise at 8.8 fixed-point (x, z): bilinear lerp of 4 corner
 # hashes
-assert ground:
-  forall +x: U32
-  forall +z: U32
+law ground:
+  for +x: U32
+  for +z: U32
   U32
 
 def ground(x, z):
@@ -87,11 +87,11 @@ def ground(x, z):
 
 # noise-fill one tile: one write per cell, sampled at 64 sub-lattice
 # units per cell from the tile's world offset
-assert fill:
-  forall +j: Nat
-  forall +ox: U32
-  forall +oz: U32
-  forall r: Array<U32> & U32
+law fill:
+  for +j: Nat
+  for +ox: U32
+  for +oz: U32
+  for r: Array<U32> & U32
   Array<U32>
 
 def fill(j, ox, oz, r):
@@ -111,14 +111,14 @@ def fill(j, ox, oz, r):
 # the next stage def's argument, so the whole 24-op chain fuses into
 # one machine segment; only the last write's pair crosses back into
 # the erode spin, destructured as the r column of the next turn
-assert erode.f5:
-  forall +i: U32
-  forall +p: U32
-  forall hc: U32
-  forall hl: U32
-  forall hr: U32
-  forall hu: U32
-  forall r: Array<U32> & U32
+law erode.f5:
+  for +i: U32
+  for +p: U32
+  for hc: U32
+  for hl: U32
+  for hr: U32
+  for hu: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.f5(i, p, hc, hl, hr, hu, r):
@@ -127,50 +127,50 @@ def erode.f5(i, p, hc, hl, hr, hu, r):
   +nv = U32.add(U32.shrn(U32.add(U32.add(U32.add(U32.add(U32.mul(hc, 4), hl), hr), hu), hd), 3n), rough)
   Array.swap(U32, h5, i, nv)
 
-assert erode.f4:
-  forall +i: U32
-  forall +p: U32
-  forall +zc: U32
-  forall hc: U32
-  forall hl: U32
-  forall hr: U32
-  forall r: Array<U32> & U32
+law erode.f4:
+  for +i: U32
+  for +p: U32
+  for +zc: U32
+  for hc: U32
+  for hl: U32
+  for hr: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.f4(i, p, zc, hc, hl, hr, r):
   (h4, hu) = r
   erode.f5(i, p, hc, hl, hr, hu, Array.get(U32, h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
 
-assert erode.f3:
-  forall +i: U32
-  forall +p: U32
-  forall +zc: U32
-  forall hc: U32
-  forall hl: U32
-  forall r: Array<U32> & U32
+law erode.f3:
+  for +i: U32
+  for +p: U32
+  for +zc: U32
+  for hc: U32
+  for hl: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.f3(i, p, zc, hc, hl, r):
   (h3, hr) = r
   erode.f4(i, p, zc, hc, hl, hr, Array.get(U32, h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
 
-assert erode.f2:
-  forall +i: U32
-  forall +p: U32
-  forall +xc: U32
-  forall +zc: U32
-  forall hc: U32
-  forall r: Array<U32> & U32
+law erode.f2:
+  for +i: U32
+  for +p: U32
+  for +xc: U32
+  for +zc: U32
+  for hc: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.f2(i, p, xc, zc, hc, r):
   (h2, hl) = r
   erode.f3(i, p, zc, hc, hl, Array.get(U32, h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
 
-assert erode.f1:
-  forall +i: U32
-  forall +p: U32
-  forall r: Array<U32> & U32
+law erode.f1:
+  for +i: U32
+  for +p: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.f1(i, p, r):
@@ -179,24 +179,24 @@ def erode.f1(i, p, r):
   +zc = U32.shrn(i, 6n)
   erode.f2(i, p, xc, zc, hc, Array.get(U32, h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
 
-assert erode.f0:
-  forall +i: U32
-  forall +p: U32
-  forall r: Array<U32> & U32
+law erode.f0:
+  for +i: U32
+  for +p: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.f0(i, p, r):
   (h0, old) = r
   erode.f1(i, p, Array.get(U32, h0, i))
 
-assert erode.d5:
-  forall +i: U32
-  forall +p: U32
-  forall hc: U32
-  forall hl: U32
-  forall hr: U32
-  forall hu: U32
-  forall r: Array<U32> & U32
+law erode.d5:
+  for +i: U32
+  for +p: U32
+  for hc: U32
+  for hl: U32
+  for hr: U32
+  for hu: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.d5(i, p, hc, hl, hr, hu, r):
@@ -205,50 +205,50 @@ def erode.d5(i, p, hc, hl, hr, hu, r):
   +nv = U32.add(U32.shrn(U32.add(U32.add(U32.add(U32.add(U32.mul(hc, 4), hl), hr), hu), hd), 3n), rough)
   erode.f0(U32.inc(i), p, Array.swap(U32, h5, i, nv))
 
-assert erode.d4:
-  forall +i: U32
-  forall +p: U32
-  forall +zc: U32
-  forall hc: U32
-  forall hl: U32
-  forall hr: U32
-  forall r: Array<U32> & U32
+law erode.d4:
+  for +i: U32
+  for +p: U32
+  for +zc: U32
+  for hc: U32
+  for hl: U32
+  for hr: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.d4(i, p, zc, hc, hl, hr, r):
   (h4, hu) = r
   erode.d5(i, p, hc, hl, hr, hu, Array.get(U32, h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
 
-assert erode.d3:
-  forall +i: U32
-  forall +p: U32
-  forall +zc: U32
-  forall hc: U32
-  forall hl: U32
-  forall r: Array<U32> & U32
+law erode.d3:
+  for +i: U32
+  for +p: U32
+  for +zc: U32
+  for hc: U32
+  for hl: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.d3(i, p, zc, hc, hl, r):
   (h3, hr) = r
   erode.d4(i, p, zc, hc, hl, hr, Array.get(U32, h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
 
-assert erode.d2:
-  forall +i: U32
-  forall +p: U32
-  forall +xc: U32
-  forall +zc: U32
-  forall hc: U32
-  forall r: Array<U32> & U32
+law erode.d2:
+  for +i: U32
+  for +p: U32
+  for +xc: U32
+  for +zc: U32
+  for hc: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.d2(i, p, xc, zc, hc, r):
   (h2, hl) = r
   erode.d3(i, p, zc, hc, hl, Array.get(U32, h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
 
-assert erode.d1:
-  forall +i: U32
-  forall +p: U32
-  forall r: Array<U32> & U32
+law erode.d1:
+  for +i: U32
+  for +p: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.d1(i, p, r):
@@ -257,24 +257,24 @@ def erode.d1(i, p, r):
   +zc = U32.shrn(i, 6n)
   erode.d2(i, p, xc, zc, hc, Array.get(U32, h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
 
-assert erode.d0:
-  forall +i: U32
-  forall +p: U32
-  forall r: Array<U32> & U32
+law erode.d0:
+  for +i: U32
+  for +p: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.d0(i, p, r):
   (h0, old) = r
   erode.d1(i, p, Array.get(U32, h0, i))
 
-assert erode.b5:
-  forall +i: U32
-  forall +p: U32
-  forall hc: U32
-  forall hl: U32
-  forall hr: U32
-  forall hu: U32
-  forall r: Array<U32> & U32
+law erode.b5:
+  for +i: U32
+  for +p: U32
+  for hc: U32
+  for hl: U32
+  for hr: U32
+  for hu: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.b5(i, p, hc, hl, hr, hu, r):
@@ -283,50 +283,50 @@ def erode.b5(i, p, hc, hl, hr, hu, r):
   +nv = U32.add(U32.shrn(U32.add(U32.add(U32.add(U32.add(U32.mul(hc, 4), hl), hr), hu), hd), 3n), rough)
   erode.d0(U32.inc(i), p, Array.swap(U32, h5, i, nv))
 
-assert erode.b4:
-  forall +i: U32
-  forall +p: U32
-  forall +zc: U32
-  forall hc: U32
-  forall hl: U32
-  forall hr: U32
-  forall r: Array<U32> & U32
+law erode.b4:
+  for +i: U32
+  for +p: U32
+  for +zc: U32
+  for hc: U32
+  for hl: U32
+  for hr: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.b4(i, p, zc, hc, hl, hr, r):
   (h4, hu) = r
   erode.b5(i, p, hc, hl, hr, hu, Array.get(U32, h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
 
-assert erode.b3:
-  forall +i: U32
-  forall +p: U32
-  forall +zc: U32
-  forall hc: U32
-  forall hl: U32
-  forall r: Array<U32> & U32
+law erode.b3:
+  for +i: U32
+  for +p: U32
+  for +zc: U32
+  for hc: U32
+  for hl: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.b3(i, p, zc, hc, hl, r):
   (h3, hr) = r
   erode.b4(i, p, zc, hc, hl, hr, Array.get(U32, h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
 
-assert erode.b2:
-  forall +i: U32
-  forall +p: U32
-  forall +xc: U32
-  forall +zc: U32
-  forall hc: U32
-  forall r: Array<U32> & U32
+law erode.b2:
+  for +i: U32
+  for +p: U32
+  for +xc: U32
+  for +zc: U32
+  for hc: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.b2(i, p, xc, zc, hc, r):
   (h2, hl) = r
   erode.b3(i, p, zc, hc, hl, Array.get(U32, h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
 
-assert erode.b1:
-  forall +i: U32
-  forall +p: U32
-  forall r: Array<U32> & U32
+law erode.b1:
+  for +i: U32
+  for +p: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.b1(i, p, r):
@@ -335,24 +335,24 @@ def erode.b1(i, p, r):
   +zc = U32.shrn(i, 6n)
   erode.b2(i, p, xc, zc, hc, Array.get(U32, h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
 
-assert erode.b0:
-  forall +i: U32
-  forall +p: U32
-  forall r: Array<U32> & U32
+law erode.b0:
+  for +i: U32
+  for +p: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.b0(i, p, r):
   (h0, old) = r
   erode.b1(i, p, Array.get(U32, h0, i))
 
-assert erode.a5:
-  forall +i: U32
-  forall +p: U32
-  forall hc: U32
-  forall hl: U32
-  forall hr: U32
-  forall hu: U32
-  forall r: Array<U32> & U32
+law erode.a5:
+  for +i: U32
+  for +p: U32
+  for hc: U32
+  for hl: U32
+  for hr: U32
+  for hu: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.a5(i, p, hc, hl, hr, hu, r):
@@ -361,50 +361,50 @@ def erode.a5(i, p, hc, hl, hr, hu, r):
   +nv = U32.add(U32.shrn(U32.add(U32.add(U32.add(U32.add(U32.mul(hc, 4), hl), hr), hu), hd), 3n), rough)
   erode.b0(U32.inc(i), p, Array.swap(U32, h5, i, nv))
 
-assert erode.a4:
-  forall +i: U32
-  forall +p: U32
-  forall +zc: U32
-  forall hc: U32
-  forall hl: U32
-  forall hr: U32
-  forall r: Array<U32> & U32
+law erode.a4:
+  for +i: U32
+  for +p: U32
+  for +zc: U32
+  for hc: U32
+  for hl: U32
+  for hr: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.a4(i, p, zc, hc, hl, hr, r):
   (h4, hu) = r
   erode.a5(i, p, hc, hl, hr, hu, Array.get(U32, h4, U32.add(i, U32.shln(b2u(U32.is_lt(zc, 63)), 6n))))
 
-assert erode.a3:
-  forall +i: U32
-  forall +p: U32
-  forall +zc: U32
-  forall hc: U32
-  forall hl: U32
-  forall r: Array<U32> & U32
+law erode.a3:
+  for +i: U32
+  for +p: U32
+  for +zc: U32
+  for hc: U32
+  for hl: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.a3(i, p, zc, hc, hl, r):
   (h3, hr) = r
   erode.a4(i, p, zc, hc, hl, hr, Array.get(U32, h3, U32.sub(i, U32.shln(b2u(U32.is_gt(zc, 0)), 6n))))
 
-assert erode.a2:
-  forall +i: U32
-  forall +p: U32
-  forall +xc: U32
-  forall +zc: U32
-  forall hc: U32
-  forall r: Array<U32> & U32
+law erode.a2:
+  for +i: U32
+  for +p: U32
+  for +xc: U32
+  for +zc: U32
+  for hc: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.a2(i, p, xc, zc, hc, r):
   (h2, hl) = r
   erode.a3(i, p, zc, hc, hl, Array.get(U32, h2, U32.add(i, b2u(U32.is_lt(xc, 63)))))
 
-assert erode.a1:
-  forall +i: U32
-  forall +p: U32
-  forall r: Array<U32> & U32
+law erode.a1:
+  for +i: U32
+  for +p: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def erode.a1(i, p, r):
@@ -413,10 +413,10 @@ def erode.a1(i, p, r):
   +zc = U32.shrn(i, 6n)
   erode.a2(i, p, xc, zc, hc, Array.get(U32, h1, U32.sub(i, b2u(U32.is_gt(xc, 0)))))
 
-assert erode.go:
-  forall +i: U32
-  forall +p: U32
-  forall h: Array<U32>
+law erode.go:
+  for +i: U32
+  for +p: U32
+  for h: Array<U32>
   Array<U32> & U32
 
 def erode.go(i, p, h):
@@ -425,10 +425,10 @@ def erode.go(i, p, h):
 # one Gauss-Seidel sweep over the tile, ascending scan order, four
 # cells per turn (j counts quads); the quad's final write pair rides
 # into the next turn as the r column
-assert erode:
-  forall +j: Nat
-  forall +p: U32
-  forall r: Array<U32> & U32
+law erode:
+  for +j: Nat
+  for +p: U32
+  for r: Array<U32> & U32
   Array<U32>
 
 def erode(j, p, r):
@@ -441,9 +441,9 @@ def erode(j, p, r):
       +i = U32.sub(4096, U32.shln(U32.inc(U32.from_nat(q)), 2n))
       erode(q, p, erode.go(i, p, h))
 
-assert smooth:
-  forall +p: Nat
-  forall h: Array<U32>
+law smooth:
+  for +p: Nat
+  for h: Array<U32>
   Array<U32>
 
 def smooth(p, h):
@@ -457,10 +457,10 @@ def smooth(p, h):
 # histogram fold: mix every bucket count, position-weighted; the
 # current read rides in as the (array, count) pair r, and each step
 # issues the next read (the final step issues one masked dead read)
-assert gfold:
-  forall +j: Nat
-  forall r: Array<U32> & U32
-  forall acc: U32
+law gfold:
+  for +j: Nat
+  for r: Array<U32> & U32
+  for acc: U32
   U32
 
 def gfold(j, r, acc):
@@ -474,9 +474,9 @@ def gfold(j, r, acc):
 
 # bucket increment: the (array, count) read pair arrives as a
 # parameter and the bumped bucket's write pair is handed back
-assert hist.bump:
-  forall +b: U32
-  forall r: Array<U32> & U32
+law hist.bump:
+  for +b: U32
+  for r: Array<U32> & U32
   Array<U32> & U32
 
 def hist.bump(b, r):
@@ -486,11 +486,11 @@ def hist.bump(b, r):
 # per cell: read the height, bump its histogram bucket, mix the height
 # into the running position-weighted checksum; the current height read
 # rides in as the pair r (the final step issues one masked dead read)
-assert hist:
-  forall +j: Nat
-  forall r: Array<U32> & U32
-  forall rg: Array<U32> & U32
-  forall acc: U32
+law hist:
+  for +j: Nat
+  for r: Array<U32> & U32
+  for rg: Array<U32> & U32
+  for acc: U32
   U32
 
 def hist(j, r, rg, acc):
@@ -508,9 +508,9 @@ def hist(j, r, rg, acc):
         U32.add(U32.mul(acc, 2654435761), U32.mul(v, U32.inc(i))))
 
 # one tile: fill, EPASS relaxation sweeps, histogram + fold
-assert tile:
-  forall +t: U32
-  forall e: Nat
+law tile:
+  for +t: U32
+  for e: Nat
   U32
 
 def tile(t, e):
@@ -520,10 +520,10 @@ def tile(t, e):
   b = Array.new(U32, 6n, 0)
   hist(4096n, Array.get(U32, h1, 0), (b, 0), U32.inc(t))
 
-assert batch:
-  forall +d: Nat
-  forall +t: U32
-  forall +e: Nat
+law batch:
+  for +d: Nat
+  for +t: U32
+  for +e: Nat
   U32
 
 def batch(d, t, e):
@@ -534,13 +534,13 @@ def batch(d, t, e):
       a b = batch(q, t, e) batch(q, U32.add(t, U32.shln(1, q)), e)
       U32.add(a, b)
 
-assert size:
+law size:
   Nat
 
 def size():
   16n
 
-assert epass:
+law epass:
   Nat
 
 def epass():
@@ -548,7 +548,7 @@ def epass():
 
 # small: batch!(4n, 0, epass()) expect 4236200168; big batch!(size(), 0,
 # epass()) expect 2572468224
-assert main:
+law main:
   IO(Unit)
 
 def main():

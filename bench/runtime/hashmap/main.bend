@@ -40,8 +40,8 @@ type Chain is Data:
   CNil{}
   CCons{k: U32, t: Chain}
 
-assert b2u:
-  forall b: Bool
+law b2u:
+  for b: Bool
   U32
 
 def b2u(b):
@@ -52,8 +52,8 @@ def b2u(b):
       1
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-assert prng:
-  forall +x: U32
+law prng:
+  for +x: U32
   U32
 
 def prng(x):
@@ -62,9 +62,9 @@ def prng(x):
   U32.xor(d, U32.shln(d, 5n))
 
 # a key: the hash of a seed and a draw index, masked to 20 bits
-assert key:
-  forall s: U32
-  forall j: U32
+law key:
+  for s: U32
+  for j: U32
   U32
 
 def key(s, j):
@@ -73,10 +73,10 @@ def key(s, j):
 
 # the chain walk: the last comparison rides in as f, so the walk
 # stops one node past a found key
-assert has:
-  forall c: Chain
-  forall +k: U32
-  forall f: Bool
+law has:
+  for c: Chain
+  for +k: U32
+  for f: Bool
   Bool
 
 def has(c, k, f):
@@ -89,9 +89,9 @@ def has(c, k, f):
       has(t, k, U32.is_eq(h, k))
 
 # a chain's length
-assert len:
-  forall c: Chain
-  forall acc: U32
+law len:
+  for c: Chain
+  for acc: U32
   U32
 
 def len(c, acc):
@@ -103,12 +103,12 @@ def len(c, acc):
 
 # the insert's decision: a present key leaves the bucket untouched,
 # an absent one is consed onto the chain and written back
-assert ins.put:
-  forall a: Array<Chain>
-  forall b: U32
-  forall k: U32
-  forall c: Chain
-  forall found: Bool
+law ins.put:
+  for a: Array<Chain>
+  for b: U32
+  for k: U32
+  for c: Chain
+  for found: Bool
   Array<Chain>
 
 def ins.put(a, b, k, c, found):
@@ -121,10 +121,10 @@ def ins.put(a, b, k, c, found):
 # one insert: the bucket's (array, chain) read pair arrives as a
 # parameter; the chain is walked, then consed onto when the key is
 # absent
-assert ins:
-  forall +b: U32
-  forall +k: U32
-  forall r: Array<Chain> & Chain
+law ins:
+  for +b: U32
+  for +k: U32
+  for r: Array<Chain> & Chain
   Array<Chain>
 
 def ins(b, k, r):
@@ -133,11 +133,11 @@ def ins(b, k, r):
   ins.put(a, b, k, c, has(c, k, False{}))
 
 # phase 1: D inserts, key j from the table seed
-assert fill:
-  forall n: Nat
-  forall +s: U32
-  forall +j: U32
-  forall a: Array<Chain>
+law fill:
+  for n: Nat
+  for +s: U32
+  for +j: U32
+  for a: Array<Chain>
   Array<Chain>
 
 def fill(n, s, j, a):
@@ -150,10 +150,10 @@ def fill(n, s, j, a):
       fill(p, s, U32.inc(j), ins(b, k, Array.get(Chain, a, b)))
 
 # one lookup: walk the bucket's chain, count a hit
-assert probe:
-  forall k: U32
-  forall hits: U32
-  forall r: Array<Chain> & Chain
+law probe:
+  for k: U32
+  for hits: U32
+  for r: Array<Chain> & Chain
   Array<Chain> & U32
 
 def probe(k, hits, r):
@@ -162,11 +162,11 @@ def probe(k, hits, r):
 
 # phase 2: D lookups, probe key j from the second seed; the (array,
 # hits) pair rides as r
-assert look:
-  forall n: Nat
-  forall +s: U32
-  forall +j: U32
-  forall r: Array<Chain> & U32
+law look:
+  for n: Nat
+  for +s: U32
+  for +j: U32
+  for r: Array<Chain> & U32
   Array<Chain> & U32
 
 def look(n, s, j, r):
@@ -181,11 +181,11 @@ def look(n, s, j, r):
 
 # one bucket into the sweep: its length adds to the distinct count
 # and mixes position-weighted into acc
-assert bmix:
-  forall i: U32
-  forall cnt: U32
-  forall acc: U32
-  forall r: Array<Chain> & Chain
+law bmix:
+  for i: U32
+  for cnt: U32
+  for acc: U32
+  for r: Array<Chain> & Chain
   Array<Chain> & U32 & U32
 
 def bmix(i, cnt, acc, r):
@@ -196,10 +196,10 @@ def bmix(i, cnt, acc, r):
 
 # the bucket sweep, ascending: the (array, distinct, acc) triple rides
 # as r
-assert sweep:
-  forall n: Nat
-  forall +i: U32
-  forall r: Array<Chain> & U32 & U32
+law sweep:
+  for n: Nat
+  for +i: U32
+  for r: Array<Chain> & U32 & U32
   U32 & U32
 
 def sweep(n, i, r):
@@ -213,17 +213,17 @@ def sweep(n, i, r):
 
 # the table checksum: the sweep's (distinct, acc) pair mixed with the
 # hit count
-assert finish:
-  forall hits: U32
-  forall m: U32 & U32
+law finish:
+  for hits: U32
+  for m: U32 & U32
   U32
 
 def finish(hits, m):
   (cnt, acc) = m
   U32.add(U32.xor(acc, U32.mul(hits, 2654435761)), U32.mul(cnt, 340573321))
 
-assert table.fin:
-  forall r: Array<Chain> & U32
+law table.fin:
+  for r: Array<Chain> & U32
   U32
 
 def table.fin(r):
@@ -232,9 +232,9 @@ def table.fin(r):
 
 # one table: a fresh 4096-bucket array, D inserts from the table seed,
 # D lookups from the second seed, the bucket sweep
-assert table:
-  forall t: U32
-  forall +d: Nat
+law table:
+  for t: U32
+  for +d: Nat
   U32
 
 def table(t, d):
@@ -243,10 +243,10 @@ def table(t, d):
   table.fin(look(d, prng(s), 0, (a, 0)))
 
 # batch tree over the table index space: table checksums sum up
-assert batch:
-  forall +p: Nat
-  forall +t: U32
-  forall +d: Nat
+law batch:
+  for +p: Nat
+  for +t: U32
+  for +d: Nat
   U32
 
 def batch(p, t, d):
@@ -257,13 +257,13 @@ def batch(p, t, d):
       a b = batch(q, t, d) batch(q, U32.add(t, U32.shln(1, q)), d)
       U32.add(a, b)
 
-assert tables:
+law tables:
   Nat
 
 def tables():
   11n
 
-assert keys:
+law keys:
   Nat
 
 def keys():
@@ -271,7 +271,7 @@ def keys():
 
 # small: batch!(2n, 0, U32.to_nat(256)) expect 4206244792; big:
 # batch!(tables(), 0, keys()) expect 1307803744
-assert main:
+law main:
   IO(Unit)
 
 def main():

@@ -31,10 +31,10 @@ import Base
 # replicas and the three equations relating them. The equations are
 # what proofs actually spend.
 
-assert copy2:
-  forall  n: Nat
-  forall -P: Type
-  forall  f: @a: Nat -> @ea: {a == n : Nat} -> @b: Nat -> @eb: {b == n : Nat} -> @eab: {b == a : Nat} -> P
+law copy2:
+  for  n: Nat
+  for -P: Type
+  for  f: @a: Nat -> @ea: {a == n : Nat} -> @b: Nat -> @eb: {b == n : Nat} -> @eab: {b == a : Nat} -> P
   P
 
 def copy2(n, P, f):
@@ -47,10 +47,10 @@ def copy2(n, P, f):
           1n+b, Equal.cong(Nat, Nat, x => 1n+x, b, p, eb),
           Equal.cong(Nat, Nat, x => 1n+x, b, a, eab)))
 
-assert copy2_spec:
-  forall  n: Nat
-  forall -P: Type
-  forall -f: @a: Nat -> @ea: {a == n : Nat} -> @b: Nat -> @eb: {b == n : Nat} -> @eab: {b == a : Nat} -> P
+law copy2_spec:
+  for  n: Nat
+  for -P: Type
+  for -f: @a: Nat -> @ea: {a == n : Nat} -> @b: Nat -> @eb: {b == n : Nat} -> @eab: {b == a : Nat} -> P
   {f(n, {==}, n, {==}, {==}) == copy2(n, P, f) : P}
 
 def copy2_spec(n, P, f):
@@ -67,20 +67,20 @@ def copy2_spec(n, P, f):
 # equations are consumed by rewrites; eqcopy2 hands back two uses of
 # one, through a + binder (an equation is Data), in the same CPS shape
 
-assert eqcopy2:
-  forall -a: Nat
-  forall -b: Nat
-  forall +e: {a == b : Nat}
-  forall -P: Type
-  forall  f: @e1: {a == b : Nat} -> @e2: {a == b : Nat} -> P
+law eqcopy2:
+  for -a: Nat
+  for -b: Nat
+  for +e: {a == b : Nat}
+  for -P: Type
+  for  f: @e1: {a == b : Nat} -> @e2: {a == b : Nat} -> P
   P
 
 def eqcopy2(a, b, e, P, f):
   f(e, e)
 
-assert add:
-  forall a: Nat
-  forall b: Nat
+law add:
+  for a: Nat
+  for b: Nat
   Nat
 
 def add(a, b):
@@ -92,9 +92,9 @@ def add(a, b):
 
 # mul spends b twice per step, so it copies it
 
-assert mul:
-  forall a: Nat
-  forall b: Nat
+law mul:
+  for a: Nat
+  for b: Nat
   Nat
 
 def mul(a, b):
@@ -108,9 +108,9 @@ def mul(a, b):
 # not conversion. copy2_spec recovers it as a theorem priced at one
 # use of b.
 
-assert mul_unfold:
-  forall -p: Nat
-  forall  b: Nat
+law mul_unfold:
+  for -p: Nat
+  for  b: Nat
   {add(b, mul(p, b)) == mul(1n+p, b) : Nat}
 
 def mul_unfold(p, b):
@@ -119,8 +119,8 @@ def mul_unfold(p, b):
 
 # (Nat, add, 0n) is a commutative monoid
 
-assert add_zero:
-  forall a: Nat
+law add_zero:
+  for a: Nat
   {add(a, 0n) == a : Nat}
 
 def add_zero(a):
@@ -131,9 +131,9 @@ def add_zero(a):
       %add_zero(p) : {1n+add(p, 0n) == 1n+_ : Nat}
       {==}
 
-assert add_succ:
-  forall  a: Nat
-  forall -b: Nat
+law add_succ:
+  for  a: Nat
+  for -b: Nat
   {1n+add(a, b) == add(a, 1n+b) : Nat}
 
 def add_succ(a, b):
@@ -144,10 +144,10 @@ def add_succ(a, b):
       %add_succ(p, b) : {2n+add(p, b) == 1n+_ : Nat}
       {==}
 
-assert add_assoc:
-  forall  a: Nat
-  forall -b: Nat
-  forall -c: Nat
+law add_assoc:
+  for  a: Nat
+  for -b: Nat
+  for -c: Nat
   {add(a, add(b, c)) == add(add(a, b), c) : Nat}
 
 def add_assoc(a, b, c):
@@ -161,9 +161,9 @@ def add_assoc(a, b, c):
 # the copy pattern in the small: b1 feeds add_succ, b2 feeds the IH,
 # and each equation relinks the goal once
 
-assert add_comm:
-  forall a: Nat
-  forall b: Nat
+law add_comm:
+  for a: Nat
+  for b: Nat
   {add(b, a) == add(a, b) : Nat}
 
 def add_comm(a, b):
@@ -180,10 +180,10 @@ def add_comm(a, b):
         %add_comm(p, b2) : {1n+add(b2, p) == 1n+_ : Nat}
         {==})
 
-assert add_swap:
-  forall  a: Nat
-  forall  b: Nat
-  forall -c: Nat
+law add_swap:
+  for  a: Nat
+  for  b: Nat
+  for -c: Nat
   {add(b, add(a, c)) == add(a, add(b, c)) : Nat}
 
 def add_swap(a, b, c):
@@ -201,8 +201,8 @@ def add_swap(a, b, c):
 
 # (Nat, mul, 1n) is a commutative monoid that distributes over add
 
-assert mul_zero:
-  forall a: Nat
+law mul_zero:
+  for a: Nat
   {mul(a, 0n) == 0n : Nat}
 
 def mul_zero(a):
@@ -212,8 +212,8 @@ def mul_zero(a):
     case 1n+p:
       mul_zero(p)
 
-assert mul_one:
-  forall a: Nat
+law mul_one:
+  for a: Nat
   {mul(a, 1n) == a : Nat}
 
 def mul_one(a):
@@ -231,11 +231,11 @@ def mul_one(a):
 # again. That is paramorphic induction, spelled out in CPS. The
 # public theorem passes a continuation that drops the replicas.
 
-assert mul_succ.go:
-  forall  a: Nat
-  forall  b: Nat
-  forall -P: Type
-  forall  f: @r1: Nat -> @u: {r1 == a : Nat} -> @r2: Nat -> @v: {r2 == a : Nat} -> @w: {add(a, mul(a, b)) == mul(a, 1n+b) : Nat} -> P
+law mul_succ.go:
+  for  a: Nat
+  for  b: Nat
+  for -P: Type
+  for  f: @r1: Nat -> @u: {r1 == a : Nat} -> @r2: Nat -> @v: {r2 == a : Nat} -> @w: {add(a, mul(a, b)) == mul(a, 1n+b) : Nat} -> P
   P
 
 def mul_succ.go(a, b, P, f):
@@ -272,20 +272,20 @@ def mul_succ.go(a, b, P, f):
         %mul_unfold(p, e2) : {1n+add(p1, _) == 1n+add(p1, add(e2, mul(p, e2))) : Nat}
         {==})))))))
 
-assert mul_succ:
-  forall a: Nat
-  forall b: Nat
+law mul_succ:
+  for a: Nat
+  for b: Nat
   {add(a, mul(a, b)) == mul(a, 1n+b) : Nat}
 
 def mul_succ(a, b):
   mul_succ.go(a, b, {add(a, mul(a, b)) == mul(a, 1n+b) : Nat},
     r1 => u => r2 => v => w => w)
 
-assert mul_comm.go:
-  forall  a: Nat
-  forall  b: Nat
-  forall -P: Type
-  forall  f: @r1: Nat -> @u: {r1 == a : Nat} -> @r2: Nat -> @v: {r2 == a : Nat} -> @w: {mul(b, a) == mul(a, b) : Nat} -> P
+law mul_comm.go:
+  for  a: Nat
+  for  b: Nat
+  for -P: Type
+  for  f: @r1: Nat -> @u: {r1 == a : Nat} -> @r2: Nat -> @v: {r2 == a : Nat} -> @w: {mul(b, a) == mul(a, b) : Nat} -> P
   P
 
 def mul_comm.go(a, b, P, f):
@@ -317,9 +317,9 @@ def mul_comm.go(a, b, P, f):
         %mul_succ(d2, p1) : {_ == add(d2, mul(d2, p1)) : Nat}
         {==}))))))
 
-assert mul_comm:
-  forall a: Nat
-  forall b: Nat
+law mul_comm:
+  for a: Nat
+  for b: Nat
   {mul(b, a) == mul(a, b) : Nat}
 
 def mul_comm(a, b):
@@ -329,10 +329,10 @@ def mul_comm(a, b):
 # distributivity and associativity spend p only on the IH, so plain
 # induction suffices: no worker, just copies of c (resp. b and c)
 
-assert mul_dist:
-  forall  a: Nat
-  forall -b: Nat
-  forall  c: Nat
+law mul_dist:
+  for  a: Nat
+  for -b: Nat
+  for  c: Nat
   {add(mul(a, c), mul(b, c)) == mul(add(a, b), c) : Nat}
 
 def mul_dist(a, b, c):
@@ -357,10 +357,10 @@ def mul_dist(a, b, c):
       %ee2 : {add(e2, add(mul(p, e2), mul(b, _))) == add(_, add(mul(p, _), mul(b, _))) : Nat}
       {==})))
 
-assert mul_assoc:
-  forall a: Nat
-  forall b: Nat
-  forall c: Nat
+law mul_assoc:
+  for a: Nat
+  for b: Nat
+  for c: Nat
   {mul(a, mul(b, c)) == mul(mul(a, b), c) : Nat}
 
 def mul_assoc(a, b, c):
@@ -394,8 +394,8 @@ def mul_assoc(a, b, c):
 
 # successor never reaches zero, and is injective
 
-assert pred:
-  forall n: Nat
+law pred:
+  for n: Nat
   Nat
 
 def pred(n):
@@ -406,8 +406,8 @@ def pred(n):
       p
 
 # a Type computed by match, the engine of succ_neq_zero
-assert discr:
-  forall n: Nat
+law discr:
+  for n: Nat
   Type
 
 def discr(n):
@@ -417,19 +417,19 @@ def discr(n):
     case 1n+p:
       Unit
 
-assert succ_neq_zero:
-  forall -a: Nat
-  forall  e: {1n+a == 0n : Nat}
+law succ_neq_zero:
+  for -a: Nat
+  for  e: {1n+a == 0n : Nat}
   Empty
 
 def succ_neq_zero(a, e):
   %e : discr(_)
   Unit{}
 
-assert succ_inj:
-  forall -a: Nat
-  forall -b: Nat
-  forall  e: {1n+a == 1n+b : Nat}
+law succ_inj:
+  for -a: Nat
+  for -b: Nat
+  for  e: {1n+a == 1n+b : Nat}
   {a == b : Nat}
 
 def succ_inj(a, b, e):
@@ -439,9 +439,9 @@ def succ_inj(a, b, e):
 # order is arithmetic: a <= b exactly when b is a plus something.
 # le is a computed type: Unit when it holds, Empty when it fails
 
-assert le:
-  forall a: Nat
-  forall b: Nat
+law le:
+  for a: Nat
+  for b: Nat
   Type
 
 def le(a, b):
@@ -455,17 +455,17 @@ def le(a, b):
         case 1n+bp:
           le(ap, bp)
 
-assert le_diff.con:
-  forall -ap : Nat
-  forall -bp : Nat
-  forall w   : (&c: Nat -> {add(ap, c) == bp : Nat})
-  exists c   : Nat
+law le_diff.con:
+  for -ap : Nat
+  for -bp : Nat
+  for w   : (&c: Nat -> {add(ap, c) == bp : Nat})
+  exs c   : Nat
   {1n+add(ap, c) == 1n+bp : Nat}
 
-assert le_diff:
-  forall a: Nat
-  forall b: Nat
-  forall e: le(a, b)
+law le_diff:
+  for a: Nat
+  for b: Nat
+  for e: le(a, b)
   (&c: Nat -> {add(a, c) == b : Nat})
 
 def le_diff.con(ap, bp, w):
@@ -487,17 +487,17 @@ def le_diff(a, b, e):
 # event loop prints it -- the proof produced the value, IO shows it
 
 # a claim instantiates like any def: 21 <= 42, so 42 = 21 + something
-assert main.out:
+law main.out:
   &c: Nat -> {add(21n, c) == 42n : Nat}
 
 def main.out():
   le_diff(21n, 42n, Unit{})
 
-assert main.fin:
-  forall w: (&c: Nat -> {add(21n, c) == 42n : Nat})
+law main.fin:
+  for w: (&c: Nat -> {add(21n, c) == 42n : Nat})
   IO(Unit)
 
-assert main:
+law main:
   IO(Unit)
 
 def main.fin(w):

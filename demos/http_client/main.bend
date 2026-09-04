@@ -12,10 +12,10 @@
 # destructures in its own helper.
 import Base
 
-assert http_body.go:
-  forall s: String
-  forall e: Bool
-  forall w: U32
+law http_body.go:
+  for s: String
+  for e: Bool
+  for w: U32
   String
 
 def http_body.go(s, e, w):
@@ -30,16 +30,16 @@ def http_body.go(s, e, w):
           +w2 = (w * 256 + a : U32)
           http_body.go(t, U32.is_eq(w2, 218762506), w2)
 
-assert http_body:
-  forall s: String
+law http_body:
+  for s: String
   String
 
 def http_body(s):
   http_body.go(s, False{}, 0)
 
-assert fetch_tail:
-  forall head: String
-  forall rest: Socket & Result<&1, &1, U32 & String, String>
+law fetch_tail:
+  for head: String
+  for rest: Socket & Result<&1, &1, U32 & String, String>
   IO(String)
 
 def fetch_tail(head, rest):
@@ -49,8 +49,8 @@ def fetch_tail(head, rest):
     ok   : Unit <- Socket.close(s)
     return head ++ tail
 
-assert fetch_head:
-  forall read: Socket & Result<&1, &1, U32 & String, String>
+law fetch_head:
+  for read: Socket & Result<&1, &1, U32 & String, String>
   IO(String)
 
 def fetch_head(read):
@@ -60,8 +60,8 @@ def fetch_head(read):
     rest : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(s, 8192)
     fetch_tail(head, rest)
 
-assert fetch_sent:
-  forall sent: Socket & Result<&1, &1, U32 & String, Unit>
+law fetch_sent:
+  for sent: Socket & Result<&1, &1, U32 & String, Unit>
   IO(String)
 
 def fetch_sent(sent):
@@ -71,7 +71,7 @@ def fetch_sent(sent):
     read : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(s, 8192)
     fetch_head(read)
 
-assert main:
+law main:
   IO(U32)
 
 def main():

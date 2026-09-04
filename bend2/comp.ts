@@ -2893,7 +2893,7 @@ function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): Val {
         return emit_intr(fl, intr, x, ty);
       }
       if (tld?.$ === "Def" && tld.v === null && tld.i === undefined) {
-        die(`a live call into the assert ${g.k}`);
+        die(`a live call into the law ${g.k}`);
       }
       if (m.args.length !== def_live(fl, tld as Bend.Def) - 1) {
         die("an under-applied def value: " + g.k);
@@ -3389,7 +3389,7 @@ function js_call(fl: File, k: Bend.Name, args: HTerm[],
   }
   const intr = js_intr(fl.book, k);
   if (intr === null && tld.v === null && tld.i === undefined) {
-    die("a live call into the assert " + k);
+    die("a live call into the law " + k);
   }
   const live = def_live(fl, tld);
   const v = exprs.length === live - 1 ? name_local(fl, "x") : "";

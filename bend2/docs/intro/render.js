@@ -63,7 +63,7 @@ const BEATS = [
           "Code is only merged once *LAWS.bend* provably holds.", "",
           "It is *mathematically impossible* to ship a bug!"],
   ["say", "*LAWS.bend* == *AGENTS.md*", "except backed by *proof*"],
-  ["say", "With *LAWS.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
+  ["say", "With *LAWS.bend*,", "%\"make no mistakes\"", "becomes *enforceable*.", punch],
   ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
           "that *proves* like Lean", "where vibe-coding *works*."],
   ["end"],
@@ -141,8 +141,8 @@ function bow(x0, y0, x1, y1, k, color, a, via) {
   cx.stroke(); cx.lineWidth = 1;
 }
 // ------------------------------------------------------------------ code
-const KW = new Set(["def", "type", "is", "Data", "match", "case", "import", "as", "assert", "do", "return"]);
-const QUANT = new Set(["forall", "exists"]), CTR = new Set(["True", "False"]);
+const KW = new Set(["def", "type", "is", "Data", "match", "case", "import", "as", "law", "do", "return"]);
+const QUANT = new Set(["for", "exs"]), CTR = new Set(["True", "False"]);
 const COMMENT = "#5a8f4e", PURPLE = "#6f42c1", ORANGE = "#c2410c";
 function codeLine(s, x, y, size) {
   font(size);
@@ -157,20 +157,22 @@ function codeLine(s, x, y, size) {
   }
   font(size);
 }
-// a file card: a gray page with the lines
+// a file card: a gray page with the lines, the same margin above the
+// first line's caps as below the last line's descenders
+const cardH = (n, pitch) => n*pitch + 30;
 function codeCard(lines, x, y, w, size, pitch) {
-  box(x, y, w, lines.length*pitch + 44, 10, CARD, EDGE, 1.5);
+  box(x, y, w, cardH(lines.length, pitch), 10, CARD, EDGE, 1.5);
   lines.forEach((l, i) => codeLine(l, x + 28, y + 36 + i*pitch, size));
 }
 
 // LAWS.bend, for the reader: the namespaces and the equality's braces are
 // left out (that sugar comes later); each line gets a gloss
-const LAWS_SRC = `assert winning_is_a_bug:
-  forall moves: List<Move>
-  board = apply(init(), moves)
+const LAWS_SRC = `law winning_is_a_bug:
+  for moves: List<Move>
+  board = replay(start(), moves)
   is_won(board) == False`.split("\n");
 const LAWS_GLOSS = ["LAW: Winning Is A Bug", "\"for any sequence of moves\"",
-                    "\"applying it to the initial board\"", "\"can never lead to victory\""];
+                    "\"replaying them from the start\"", "\"can never lead to victory\""];
 
 // ------------------------------------------------------------------ benches
 // Every number is a pin from bench/runtime/_pin_apple_m4_max_.txt and
@@ -445,12 +447,12 @@ S.laws = (u, dur) => {
   font(20); const cw = 56 + Math.max(...LAWS_SRC.map(l => cx.measureText(l).width));
   font(24, true); const gw = Math.max(...LAWS_GLOSS.map(l => cx.measureText(l).width));
   const xl = (W - cw - 80 - gw)/2, x = lerp((W - cw)/2, xl, ease((u - 6.6)/0.8));
-  const y = 290, h = LAWS_SRC.length*34 + 44, gx = xl + cw + 80;
+  const y = 290, h = cardH(LAWS_SRC.length, 34), gx = xl + cw + 80;
   T("LAWS.bend", x + 28, y - 16, 20, DIM, "left", true);
   codeCard(LAWS_SRC, x, y, cw, 20, 34);
   const pa = ease((u - 2.0)/0.5)*(1 - ease((u - 5.8)/0.5));
   cx.globalAlpha = pa;
-  T("write your laws in this file", W/2, 620, 26, AMBER, "center", true);
+  T("your laws go here", W/2, 620, 26, AMBER, "center", true);
   bow(W/2, 588, W/2, y + h + 10, 0, AMBER, pa);
   LAWS_GLOSS.forEach((g, i) => {
     const a = ease((u - 7.8 - 1.7*i)/0.5), ly = y + 36 + i*34;

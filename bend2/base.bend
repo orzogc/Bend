@@ -45,8 +45,8 @@ type Array<-T: Type> is Type:
   ALeaf{value: T}
   ANode{xs: Array<T>, ys: Array<T>}
 
-assert Word:
-  forall n: Nat
+law Word:
+  for n: Nat
   Data
 
 type Word.Nil is Data:
@@ -231,37 +231,37 @@ def Listener.close(listener: Listener) -> IO(Unit):
 # Equal
 # -----
 
-assert Equal.cong:
-  forall -A: Type
-  forall -B: Type
-  forall -f: A -> B
-  forall -a: A
-  forall -b: A
-  forall  e: {a == b : A}
+law Equal.cong:
+  for -A: Type
+  for -B: Type
+  for -f: A -> B
+  for -a: A
+  for -b: A
+  for  e: {a == b : A}
   {f(a) == f(b) : B}
 
 def Equal.cong(A, B, f, a, b, e):
   %e : {f(a) == f(_) : B}
   {==}
 
-assert Equal.sym:
-  forall -A: Type
-  forall -a: A
-  forall -b: A
-  forall  e: {a == b : A}
+law Equal.sym:
+  for -A: Type
+  for -a: A
+  for -b: A
+  for  e: {a == b : A}
   {b == a : A}
 
 def Equal.sym(A, a, b, e):
   %e : {_ == a : A}
   {==}
 
-assert Equal.trans:
-  forall -A : Type
-  forall -a : A
-  forall -b : A
-  forall -c : A
-  forall ab : {a == b : A}
-  forall bc : {b == c : A}
+law Equal.trans:
+  for -A : Type
+  for -a : A
+  for -b : A
+  for -c : A
+  for ab : {a == b : A}
+  for bc : {b == c : A}
   {a == c : A}
 
 def Equal.trans(A, a, b, c, ab, bc):
@@ -612,12 +612,12 @@ def Word.inc(n: Nat, w: Word(n)) -> Word(n):
         case WCon{True{}, t}:
           WCon{False{}, Word.inc(p, t)}
 
-assert Word.adc:
-  forall n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
-  forall f: Bool
-  forall c: Bool
+law Word.adc:
+  for n: Nat
+  for a: Word(n)
+  for b: Word(n)
+  for f: Bool
+  for c: Bool
   Word(n)
 
 def Word.adc.con(p: Nat, at: Word(p), bt: Word(p), f: Bool, sk: Bool & Bool) ->
@@ -642,20 +642,20 @@ def Word.add(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
 def Word.sub(n: Nat, a: Word(n), b: Word(n)) -> Word(n):
   Word.adc(n, a, b, True{}, True{})
 
-assert Word.add_comm.arm:
-  forall p  : Nat
-  forall -h : Bool
-  forall at : Word(p)
-  forall bt : Word(p)
-  forall k  : Bool
+law Word.add_comm.arm:
+  for p  : Nat
+  for -h : Bool
+  for at : Word(p)
+  for bt : Word(p)
+  for k  : Bool
   {WCon{h, Word.adc(p, at, bt, False{}, k)}
     == WCon{h, Word.adc(p, bt, at, False{}, k)} : Word.Con<p>}
 
-assert Word.add_comm.go:
-  forall n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
-  forall c: Bool
+law Word.add_comm.go:
+  for n: Nat
+  for a: Word(n)
+  for b: Word(n)
+  for c: Bool
   {Word.adc(n, a, b, False{}, c) == Word.adc(n, b, a, False{}, c) : Word(n)}
 
 def Word.add_comm.arm(p, h, at, bt, k):
@@ -688,10 +688,10 @@ def Word.add_comm.go(n, a, b, c):
         case WCon{True{}, at} WCon{True{}, bt} True{}:
           Word.add_comm.arm(p, True{}, at, bt, True{})
 
-assert Word.add_comm:
-  forall n: Nat
-  forall a: Word(n)
-  forall b: Word(n)
+law Word.add_comm:
+  for n: Nat
+  for a: Word(n)
+  for b: Word(n)
   {Word.add(n, a, b) == Word.add(n, b, a) : Word(n)}
 
 def Word.add_comm(n, a, b):
@@ -743,9 +743,9 @@ def U32.add(a: U32, b: U32) -> U32:
     case U32{x} U32{y}:
       U32{Word.add(32n, x, y)}
 
-assert U32.add_comm:
-  forall a: U32
-  forall b: U32
+law U32.add_comm:
+  for a: U32
+  for b: U32
   {U32.add(a, b) == U32.add(b, a) : U32}
 
 def U32.add_comm(a, b):
@@ -906,161 +906,161 @@ def U32.mod(a: U32, +b: U32) -> U32:
 # F32
 # ---
 
-assert U32.to_f32:
-  forall a: U32
+law U32.to_f32:
+  for a: U32
   F32
 
-assert F32.to_u32:
-  forall a: F32
+law F32.to_u32:
+  for a: F32
   U32
 
-assert F32.add:
-  forall a: F32
-  forall b: F32
+law F32.add:
+  for a: F32
+  for b: F32
   F32
 
-assert F32.sub:
-  forall a: F32
-  forall b: F32
+law F32.sub:
+  for a: F32
+  for b: F32
   F32
 
-assert F32.mul:
-  forall a: F32
-  forall b: F32
+law F32.mul:
+  for a: F32
+  for b: F32
   F32
 
-assert F32.div:
-  forall a: F32
-  forall b: F32
+law F32.div:
+  for a: F32
+  for b: F32
   F32
 
-assert F32.mod:
-  forall a: F32
-  forall b: F32
+law F32.mod:
+  for a: F32
+  for b: F32
   F32
 
-assert F32.pow:
-  forall a: F32
-  forall b: F32
+law F32.pow:
+  for a: F32
+  for b: F32
   F32
 
-assert F32.atan2:
-  forall a: F32
-  forall b: F32
+law F32.atan2:
+  for a: F32
+  for b: F32
   F32
 
-assert F32.neg:
-  forall a: F32
+law F32.neg:
+  for a: F32
   F32
 
-assert F32.abs:
-  forall a: F32
+law F32.abs:
+  for a: F32
   F32
 
-assert F32.sqrt:
-  forall a: F32
+law F32.sqrt:
+  for a: F32
   F32
 
-assert F32.exp:
-  forall a: F32
+law F32.exp:
+  for a: F32
   F32
 
-assert F32.log:
-  forall a: F32
+law F32.log:
+  for a: F32
   F32
 
-assert F32.log2:
-  forall a: F32
+law F32.log2:
+  for a: F32
   F32
 
-assert F32.log10:
-  forall a: F32
+law F32.log10:
+  for a: F32
   F32
 
-assert F32.sin:
-  forall a: F32
+law F32.sin:
+  for a: F32
   F32
 
-assert F32.cos:
-  forall a: F32
+law F32.cos:
+  for a: F32
   F32
 
-assert F32.tan:
-  forall a: F32
+law F32.tan:
+  for a: F32
   F32
 
-assert F32.asin:
-  forall a: F32
+law F32.asin:
+  for a: F32
   F32
 
-assert F32.acos:
-  forall a: F32
+law F32.acos:
+  for a: F32
   F32
 
-assert F32.atan:
-  forall a: F32
+law F32.atan:
+  for a: F32
   F32
 
-assert F32.sinh:
-  forall a: F32
+law F32.sinh:
+  for a: F32
   F32
 
-assert F32.cosh:
-  forall a: F32
+law F32.cosh:
+  for a: F32
   F32
 
-assert F32.tanh:
-  forall a: F32
+law F32.tanh:
+  for a: F32
   F32
 
-assert F32.floor:
-  forall a: F32
+law F32.floor:
+  for a: F32
   F32
 
-assert F32.ceil:
-  forall a: F32
+law F32.ceil:
+  for a: F32
   F32
 
-assert F32.trunc:
-  forall a: F32
+law F32.trunc:
+  for a: F32
   F32
 
-assert F32.is_eq:
-  forall a: F32
-  forall b: F32
+law F32.is_eq:
+  for a: F32
+  for b: F32
   Bool
 
-assert F32.is_ne:
-  forall a: F32
-  forall b: F32
+law F32.is_ne:
+  for a: F32
+  for b: F32
   Bool
 
-assert F32.is_lt:
-  forall a: F32
-  forall b: F32
+law F32.is_lt:
+  for a: F32
+  for b: F32
   Bool
 
-assert F32.is_le:
-  forall a: F32
-  forall b: F32
+law F32.is_le:
+  for a: F32
+  for b: F32
   Bool
 
-assert F32.is_gt:
-  forall a: F32
-  forall b: F32
+law F32.is_gt:
+  for a: F32
+  for b: F32
   Bool
 
-assert F32.is_ge:
-  forall a: F32
-  forall b: F32
+law F32.is_ge:
+  for a: F32
+  for b: F32
   Bool
 
-assert F32.show:
-  forall +a: F32
+law F32.show:
+  for +a: F32
   String
 
-assert F32.read:
-  forall s: String
+law F32.read:
+  for s: String
   Maybe<&2, F32>
 
 # Char
@@ -1088,9 +1088,9 @@ def String.cmp.rec(h1b: Char, h2b: Char, rr: (String & String) & Cmp) ->
   ((t1b, t2b), r) = rr
   ((SCon{h1b, t1b}, SCon{h2b, t2b}), r)
 
-assert String.cmp:
-  forall a: String
-  forall b: String
+law String.cmp:
+  for a: String
+  for b: String
   (String & String) & Cmp
 
 def String.cmp.fin(t1: String, t2: String, hc: (Char & Char) & Cmp) ->
@@ -1145,10 +1145,10 @@ def Nat.show.put(qr: Nat & Nat) -> Char & Nat:
 def Nat.show.step(n: Nat) -> Char & Nat:
   Nat.show.put(Nat.divmod(n, 10n))
 
-assert Nat.show.go:
-  forall f   : Nat
-  forall n   : Nat
-  forall acc : String
+law Nat.show.go:
+  for f   : Nat
+  for n   : Nat
+  for acc : String
   String
 
 def Nat.show.fin(g: Nat, acc: String, dq: Char & Nat) -> String:
@@ -1169,9 +1169,9 @@ def Nat.show.go(f, n, acc):
 def Nat.show(+n: Nat) -> String:
   Nat.show.fin(n, SNil{}, Nat.show.step(n))
 
-assert Nat.read.go:
-  forall s   : String
-  forall acc : Nat
+law Nat.read.go:
+  for s   : String
+  for acc : Nat
   Maybe<&2, Nat>
 
 def Nat.read.fin(t: String, acc: Nat, d: Maybe<&2, U32>) -> Maybe<&2, Nat>:
@@ -1195,10 +1195,10 @@ def Nat.read(s: String) -> Maybe<&2, Nat>:
     case SCon{h, t}:
       Nat.read.go(SCon{h, t}, 0n)
 
-assert U32.show.go:
-  forall f   : Nat
-  forall +n  : U32
-  forall acc : String
+law U32.show.go:
+  for f   : Nat
+  for +n  : U32
+  for acc : String
   String
 
 def U32.show.fin(g: Nat, acc: String, +n: U32, z: Bool) -> String:
@@ -1226,9 +1226,9 @@ def U32.show.if(a: U32, z: Bool) -> String:
 def U32.show(+a: U32) -> String:
   U32.show.if(a, U32.is_zero(a))
 
-assert U32.read.go:
-  forall s   : String
-  forall acc : U32
+law U32.read.go:
+  for s   : String
+  for acc : U32
   Maybe<&2, U32>
 
 def U32.read.fin(t: String, acc: U32, d: Maybe<&2, U32>) -> Maybe<&2, U32>:
@@ -1275,12 +1275,12 @@ def Array.swap.hi(-T: Type, xs: Array<T>, r: Array<T> & T) -> Array<T> & T:
   (nys, old) = r
   (ANode{xs, nys}, old)
 
-assert Array.swap.go:
-  forall -T: Type
-  forall  a: Array<T>
-  forall  n: U32
-  forall +i: U32
-  forall  v: T
+law Array.swap.go:
+  for -T: Type
+  for  a: Array<T>
+  for  n: U32
+  for +i: U32
+  for  v: T
   Array<T> & T
 
 def Array.swap.if(
@@ -1337,11 +1337,11 @@ def Array.set.fin(-T: Type, r: Array<T> & T) -> Array<T>:
 def Array.set(-T: Type, a: Array<T>, i: U32, v: T) -> Array<T>:
   Array.set.fin(T, Array.swap(T, a, i, v))
 
-assert Array.get.go:
-  forall -T: Data
-  forall  a: Array<T>
-  forall  n: U32
-  forall +i: U32
+law Array.get.go:
+  for -T: Data
+  for  a: Array<T>
+  for  n: U32
+  for +i: U32
   Array<T> & T
 
 def Array.get.if(
@@ -1412,9 +1412,9 @@ def Map.bit.at(key: String, co: Nat & Nat) -> String & Bool:
 def Map.bit(key: String, pos: Nat) -> String & Bool:
   Map.bit.at(key, Nat.divmod(pos, 33n))
 
-assert Map.msb.u:
-  forall n: Nat
-  forall x: U32
+law Map.msb.u:
+  for n: Nat
+  for x: U32
   Nat
 
 def Map.msb.u.if(p: Nat, x2: U32, z: Bool) -> Nat:
@@ -1442,9 +1442,9 @@ def Map.diff.step(x: Char, y: Char) -> Nat & Bool:
       +cy2 = cy
       (Map.diff.chr(U32.xor(cx2, cy2)), U32.is_eq(cx2, cy2))
 
-assert Map.diff:
-  forall a: String
-  forall b: String
+law Map.diff:
+  for a: String
+  for b: String
   Nat
 
 def Map.diff.fin(xt: String, yt: String, rc: Nat & Bool) -> Nat:
@@ -1469,12 +1469,12 @@ def Map.diff(a, b):
 def Map.new(a, -V: Kind(a)) -> Map<a, V>:
   MTip{}
 
-assert Map.put:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  forall x   : V
+law Map.put:
+  for -a  : Quant
+  for -V  : Kind(a)
+  for m   : Map<a, V>
+  for key : String
+  for x   : V
   Map<a, V>
 
 def Map.put.bit(
@@ -1512,13 +1512,13 @@ def Map.ins.splice(
 ) -> Map<a, V>:
   Map.ins.splice.bit(a, V, x, rest, p, Map.bit(key, p))
 
-assert Map.ins:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
-  forall x   : V
-  forall +p  : Nat
+law Map.ins:
+  for -a  : Quant
+  for -V  : Kind(a)
+  for m   : Map<a, V>
+  for key : String
+  for x   : V
+  for +p  : Nat
   Map<a, V>
 
 def Map.ins.deep(
@@ -1566,11 +1566,11 @@ def Map.seek.hi(
   ((hi2, key3), r) = r0
   ((MNode{p2, lo, hi2}, key3), r)
 
-assert Map.seek:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
+law Map.seek:
+  for -a  : Quant
+  for -V  : Kind(a)
+  for m   : Map<a, V>
+  for key : String
   (Map<a, V> & String) & Maybe<&2, String>
 
 def Map.seek.bit(
@@ -1646,11 +1646,11 @@ def Map.has.hi(a, -V: Kind(a), p2: Nat, lo: Map<a, V>, r0: Map<a, V> & Bool) ->
   (hi2, r) = r0
   (MNode{p2, lo, hi2}, r)
 
-assert Map.has:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
+law Map.has:
+  for -a  : Quant
+  for -V  : Kind(a)
+  for m   : Map<a, V>
+  for key : String
   Map<a, V> & Bool
 
 def Map.has.bit(
@@ -1695,11 +1695,11 @@ def Map.get.hi(-V: Data, p2: Nat, lo: Map<&2, V>, r0: Map<&2, V> & V) ->
   (hi2, r) = r0
   (MNode{p2, lo, hi2}, r)
 
-assert Map.get:
-  forall -V  : Data
-  forall d   : V
-  forall m   : Map<&2, V>
-  forall key : String
+law Map.get:
+  for -V  : Data
+  for d   : V
+  for m   : Map<&2, V>
+  for key : String
   Map<&2, V> & V
 
 def Map.get.bit(
@@ -1767,11 +1767,11 @@ def Map.pop.gohi(
   (hi2, r) = r0
   Map.pop.hi(a, V, p2, lo, hi2, r)
 
-assert Map.pop:
-  forall -a  : Quant
-  forall -V  : Kind(a)
-  forall m   : Map<a, V>
-  forall key : String
+law Map.pop:
+  for -a  : Quant
+  for -V  : Kind(a)
+  for m   : Map<a, V>
+  for key : String
   Map<a, V> & Maybe<a, V>
 
 def Map.pop.bit(

@@ -26,8 +26,8 @@ type Vec is Data:
   Vl{v: U32}
   Vn{l: Vec, r: Vec}
 
-assert b2u:
-  forall b: Bool
+law b2u:
+  for b: Bool
   U32
 
 def b2u(b):
@@ -37,9 +37,9 @@ def b2u(b):
     case True{}:
       1
 
-assert gen:
-  forall +d: Nat
-  forall +s: U32
+law gen:
+  for +d: Nat
+  for +s: U32
   Mat
 
 def gen(d, s):
@@ -50,9 +50,9 @@ def gen(d, s):
       a b c e = gen(p, U32.inc(U32.mul(s, 1664525))) gen(p, U32.add(U32.mul(s, 214013), 3)) gen(p, U32.add(U32.mul(s, 16843009), 5)) gen(p, U32.add(U32.mul(s, 48271), 7))
       Qd{a, b, c, e}
 
-assert vgen:
-  forall +d: Nat
-  forall +s: U32
+law vgen:
+  for +d: Nat
+  for +s: U32
   Vec
 
 def vgen(d, s):
@@ -63,9 +63,9 @@ def vgen(d, s):
       l r = vgen(p, U32.inc(U32.mul(s, 1664525))) vgen(p, U32.add(U32.mul(s, 214013), 3))
       Vn{l, r}
 
-assert add:
-  forall a: Mat
-  forall b: Mat
+law add:
+  for a: Mat
+  for b: Mat
   Mat
 
 def add(a, b):
@@ -82,15 +82,15 @@ def add(a, b):
 
 # join of one mul burst: C_ij = P_ij + Q_ij, all four quadrant sums
 # in one balanced fork
-assert add4:
-  forall p0: Mat
-  forall q0: Mat
-  forall p1: Mat
-  forall q1: Mat
-  forall p2: Mat
-  forall q2: Mat
-  forall p3: Mat
-  forall q3: Mat
+law add4:
+  for p0: Mat
+  for q0: Mat
+  for p1: Mat
+  for q1: Mat
+  for p2: Mat
+  for q2: Mat
+  for p3: Mat
+  for q3: Mat
   Mat
 
 def add4(p0, q0, p1, q1, p2, q2, p3, q3):
@@ -99,9 +99,9 @@ def add4(p0, q0, p1, q1, p2, q2, p3, q3):
 
 # each node spawns its whole 8-product burst as ONE 8-way fork,
 # then joins through add4's single add burst
-assert mul:
-  forall +a: Mat
-  forall +b: Mat
+law mul:
+  for +a: Mat
+  for +b: Mat
   Mat
 
 def mul(a, b):
@@ -116,9 +116,9 @@ def mul(a, b):
       p0 q0 p1 q1 p2 q2 p3 q3 = mul(a0, b0) mul(a1, b2) mul(a0, b1) mul(a1, b3) mul(a2, b0) mul(a3, b2) mul(a2, b1) mul(a3, b3)
       add4(p0, q0, p1, q1, p2, q2, p3, q3)
 
-assert vadd:
-  forall x: Vec
-  forall y: Vec
+law vadd:
+  for x: Vec
+  for y: Vec
   Vec
 
 def vadd(x, y):
@@ -134,11 +134,11 @@ def vadd(x, y):
       Vn{l, r}
 
 # join of one mvm burst: both half-sums in one fork
-assert vadd2:
-  forall t0: Vec
-  forall t1: Vec
-  forall t2: Vec
-  forall t3: Vec
+law vadd2:
+  for t0: Vec
+  for t1: Vec
+  for t2: Vec
+  for t3: Vec
   Vec
 
 def vadd2(t0, t1, t2, t3):
@@ -146,9 +146,9 @@ def vadd2(t0, t1, t2, t3):
   Vn{top, bot}
 
 # [[a,b],[c,d]] * (l,h) = (a*l + b*h, c*l + d*h)
-assert mvm:
-  forall m: Mat
-  forall +v: Vec
+law mvm:
+  for m: Mat
+  for +v: Vec
   Vec
 
 def mvm(m, v):
@@ -163,8 +163,8 @@ def mvm(m, v):
       t0 t1 t2 t3 = mvm(a, l) mvm(b, h) mvm(c, l) mvm(d, h)
       vadd2(t0, t1, t2, t3)
 
-assert cksum:
-  forall m: Mat
+law cksum:
+  for m: Mat
   U32
 
 def cksum(m):
@@ -176,9 +176,9 @@ def cksum(m):
       U32.add(U32.add(U32.add(p, q), r), s)
 
 # or-fold of elementwise xor: 0 iff the vectors are identical
-assert vdif:
-  forall x: Vec
-  forall y: Vec
+law vdif:
+  for x: Vec
+  for y: Vec
   U32
 
 def vdif(x, y):
@@ -194,9 +194,9 @@ def vdif(x, y):
       U32.or(l, r)
 
 # one round: generate A, B, r; C = A*B; Freivalds-verify C*r == A*(B*r)
-assert round:
-  forall +d: Nat
-  forall +s: U32
+law round:
+  for +d: Nat
+  for +s: U32
   U32
 
 def round(d, s):
@@ -210,16 +210,16 @@ def round(d, s):
   t2 = mvm(a, mvm(b, r))
   U32.add(U32.xor(k, U32.mul(s, 2654435761)), b2u(U32.is_zero(vdif(t1, t2))))
 
-assert batch.leaf.go:
-  forall t: Bool
-  forall d: Nat
-  forall pp: U32
+law batch.leaf.go:
+  for t: Bool
+  for d: Nat
+  for pp: U32
   U32
 
-assert batch.leaf:
-  forall +pp: U32
-  forall n: U32
-  forall d: Nat
+law batch.leaf:
+  for +pp: U32
+  for n: U32
+  for d: Nat
   U32
 
 def batch.leaf.go(t, d, pp):
@@ -236,12 +236,12 @@ def batch.leaf(pp, n, d):
 # p < nchain, p = the leaf's odd-multiplier permuted index (seed =
 # hashed p, so the live chain set -- and the checksum -- is the same
 # for any spread)
-assert batch:
-  forall +bg: Nat
-  forall +i: U32
-  forall +n: U32
-  forall +m: U32
-  forall +d: Nat
+law batch:
+  for +bg: Nat
+  for +i: U32
+  for +n: U32
+  for +m: U32
+  for +d: Nat
   U32
 
 def batch(bg, i, n, m, d):
@@ -252,26 +252,26 @@ def batch(bg, i, n, m, d):
       x y = batch(p, i, n, m, d) batch(p, U32.add(i, U32.shln(1, p)), n, m, d)
       U32.add(x, y)
 
-assert size:
+law size:
   Nat
 
 def size():
   7n
 
-assert blog:
+law blog:
   Nat
 
 def blog():
   9n
 
-assert nchain:
+law nchain:
   U32
 
 def nchain():
   384
 
 # small: size 3n blog 2n nchain 3 expect 4292995302; big expect 3797651056
-assert main:
+law main:
   IO(Unit)
 
 def main():

@@ -9,8 +9,8 @@
 #   curl http://127.0.0.1:8080
 import Base
 
-assert http_sent:
-  forall sent: Socket & Result<&1, &1, U32 & String, Unit>
+law http_sent:
+  for sent: Socket & Result<&1, &1, U32 & String, Unit>
   IO(Unit)
 
 def http_sent(sent):
@@ -19,8 +19,8 @@ def http_sent(sent):
     ok : Unit <- IO.pass(Unit, r)
     Socket.close(s)
 
-assert http_reply:
-  forall read: Socket & Result<&1, &1, U32 & String, String>
+law http_reply:
+  for read: Socket & Result<&1, &1, U32 & String, String>
   IO(Unit)
 
 def http_reply(read):
@@ -34,8 +34,8 @@ def http_reply(read):
       TCP.send(s, ha ++ hb ++ hc)
     http_sent(sent)
 
-assert http_conn:
-  forall conn: Listener & Result<&1, &1, U32 & String, Socket>
+law http_conn:
+  for conn: Listener & Result<&1, &1, U32 & String, Socket>
   IO(Listener)
 
 def http_conn(conn):
@@ -46,8 +46,8 @@ def http_conn(conn):
     ok   : Unit <- http_reply(read)
     return l
 
-assert http_serve:
-  forall l: Listener
+law http_serve:
+  for l: Listener
   IO(Unit)
 
 @unsafe
@@ -57,7 +57,7 @@ def http_serve(l):
     next : Listener <- http_conn(conn)
     http_serve(next)
 
-assert main:
+law main:
   IO(U32)
 
 def main():

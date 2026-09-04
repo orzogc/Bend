@@ -25,8 +25,8 @@ type Cls is Data:
 type Census is Data:
   Census{pop: U32, still: U32, osc: U32, mix: U32}
 
-assert b2u:
-  forall b: Bool
+law b2u:
+  for b: Bool
   U32
 
 def b2u(b):
@@ -36,41 +36,41 @@ def b2u(b):
     case True{}:
       1
 
-assert cell_get:
-  forall board: U32
-  forall r: U32
-  forall c: U32
+law cell_get:
+  for board: U32
+  for r: U32
+  for c: U32
   U32
 
 def cell_get(board, r, c):
   U32.and(U32.shrn(board, U32.to_nat(U32.and(U32.add(U32.mul(U32.and(r, 3), 4), U32.and(c, 3)), 31))), 1)
 
-assert neighbor_count:
-  forall +board: U32
-  forall +r: U32
-  forall +c: U32
+law neighbor_count:
+  for +board: U32
+  for +r: U32
+  for +c: U32
   U32
 
 def neighbor_count(board, r, c):
   U32.add(cell_get(board, U32.sub(r, 1), U32.sub(c, 1)), U32.add(cell_get(board, U32.sub(r, 1), c), U32.add(cell_get(board, U32.sub(r, 1), U32.add(c, 1)), U32.add(cell_get(board, r, U32.sub(c, 1)), U32.add(cell_get(board, r, U32.add(c, 1)), U32.add(cell_get(board, U32.add(r, 1), U32.sub(c, 1)), U32.add(cell_get(board, U32.add(r, 1), c), cell_get(board, U32.add(r, 1), U32.add(c, 1)))))))))
 
-assert next_dead:
-  forall n: U32
+law next_dead:
+  for n: U32
   U32
 
 def next_dead(n):
   b2u(U32.is_eq(n, 3))
 
-assert next_alive:
-  forall +n: U32
+law next_alive:
+  for +n: U32
   U32
 
 def next_alive(n):
   b2u(Bool.or(U32.is_eq(n, 2), U32.is_eq(n, 3)))
 
-assert next_cell.go:
-  forall n: U32
-  forall z: Bool
+law next_cell.go:
+  for n: U32
+  for z: Bool
   U32
 
 def next_cell.go(n, z):
@@ -80,17 +80,17 @@ def next_cell.go(n, z):
     case False{}:
       next_alive(n)
 
-assert next_cell:
-  forall a: U32
-  forall n: U32
+law next_cell:
+  for a: U32
+  for n: U32
   U32
 
 def next_cell(a, n):
   next_cell.go(n, U32.is_zero(a))
 
-assert step_cell:
-  forall +board: U32
-  forall +pos: U32
+law step_cell:
+  for +board: U32
+  for +pos: U32
   U32
 
 def step_cell(board, pos):
@@ -100,16 +100,16 @@ def step_cell(board, pos):
   neighbors = neighbor_count(board, rr, cc)
   U32.shln(next_cell(alive, neighbors), U32.to_nat(U32.and(pos, 31)))
 
-assert step:
-  forall +b: U32
+law step:
+  for +b: U32
   U32
 
 def step(b):
   U32.or(step_cell(b, 0), U32.or(step_cell(b, 1), U32.or(step_cell(b, 2), U32.or(step_cell(b, 3), U32.or(step_cell(b, 4), U32.or(step_cell(b, 5), U32.or(step_cell(b, 6), U32.or(step_cell(b, 7), U32.or(step_cell(b, 8), U32.or(step_cell(b, 9), U32.or(step_cell(b, 10), U32.or(step_cell(b, 11), U32.or(step_cell(b, 12), U32.or(step_cell(b, 13), U32.or(step_cell(b, 14), step_cell(b, 15))))))))))))))))
 
-assert run:
-  forall n: Nat
-  forall board: U32
+law run:
+  for n: Nat
+  for board: U32
   U32
 
 def run(n, board):
@@ -120,8 +120,8 @@ def run(n, board):
       run(p, step(board))
 
 # 16-bit SWAR population count
-assert popcount:
-  forall +b: U32
+law popcount:
+  for +b: U32
   U32
 
 def popcount(b):
@@ -130,8 +130,8 @@ def popcount(b):
   d = U32.and(U32.add(c, U32.shrn(c, 4n)), 3855)
   U32.and(U32.shrn(U32.mul(d, 257), 8n), 31)
 
-assert classify.p2:
-  forall t: Bool
+law classify.p2:
+  for t: Bool
   Cls
 
 def classify.p2(t):
@@ -141,10 +141,10 @@ def classify.p2(t):
     case False{}:
       Chaos{}
 
-assert classify.go:
-  forall t: Bool
-  forall n1: U32
-  forall b: U32
+law classify.go:
+  for t: Bool
+  for n1: U32
+  for b: U32
   Cls
 
 def classify.go(t, n1, b):
@@ -154,9 +154,9 @@ def classify.go(t, n1, b):
     case False{}:
       classify.p2(U32.is_eq(step(n1), b))
 
-assert classify.p1:
-  forall +n1: U32
-  forall +b: U32
+law classify.p1:
+  for +n1: U32
+  for +b: U32
   Cls
 
 def classify.p1(n1, b):
@@ -164,17 +164,17 @@ def classify.p1(n1, b):
 
 # classify the settled board by two probe steps: fixed point = still
 # life, return after two = period-2 oscillator, anything else = chaos
-assert classify:
-  forall +b: U32
+law classify:
+  for +b: U32
   Cls
 
 def classify(b):
   classify.p1(step(b), b)
 
 # one soup: hash the soup index into a 16-bit board, run gens steps
-assert sim:
-  forall ix: U32
-  forall g: Nat
+law sim:
+  for ix: U32
+  for g: Nat
   U32
 
 def sim(ix, g):
@@ -182,8 +182,8 @@ def sim(ix, g):
 
 # class code: Still 0, Osc 1, Chaos 2 (the chunk accumulators update
 # branchlessly off this code, so chunk never matches a computed value)
-assert cls.code:
-  forall c: Cls
+law cls.code:
+  for c: Cls
   U32
 
 def cls.code(c):
@@ -197,14 +197,14 @@ def cls.code(c):
 
 # leaf chunk: 64 soups folded into scalar accumulators; the Census
 # ctor materializes once per chunk, never per soup
-assert chunk:
-  forall +j: Nat
-  forall +i: U32
-  forall +g: Nat
-  forall pa: U32
-  forall sa: U32
-  forall oa: U32
-  forall mx: U32
+law chunk:
+  for +j: Nat
+  for +i: U32
+  for +g: Nat
+  for pa: U32
+  for sa: U32
+  for oa: U32
+  for mx: U32
   Census
 
 def chunk(j, i, g, pa, sa, oa, mx):
@@ -218,9 +218,9 @@ def chunk(j, i, g, pa, sa, oa, mx):
         U32.add(sa, b2u(U32.is_eq(cd, 0))), U32.add(oa, b2u(U32.is_eq(cd, 1))),
         U32.xor(U32.mul(mx, 2654435761), bd))
 
-assert czip:
-  forall a: Census
-  forall b: Census
+law czip:
+  for a: Census
+  for b: Census
   Census
 
 def czip(a, b):
@@ -228,10 +228,10 @@ def czip(a, b):
     case Census{p, s, o, m} Census{q, t, r, n}:
       Census{U32.add(p, q), U32.add(s, t), U32.add(o, r), U32.add(U32.mul(m, 2654435761), n)}
 
-assert batch:
-  forall +d: Nat
-  forall +i: U32
-  forall +g: Nat
+law batch:
+  for +d: Nat
+  for +i: U32
+  for +g: Nat
   Census
 
 def batch(d, i, g):
@@ -243,8 +243,8 @@ def batch(d, i, g):
       czip(a, b)
 
 # final checksum: mix the census fields
-assert cfin:
-  forall c: Census
+law cfin:
+  for c: Census
   U32
 
 def cfin(c):
@@ -252,20 +252,20 @@ def cfin(c):
     case Census{p, s, o, m}:
       U32.add(U32.mul(U32.add(U32.mul(U32.add(U32.mul(p, 2654435761), s), 2654435761), o), 2654435761), m)
 
-assert size:
+law size:
   Nat
 
 def size():
   18n
 
-assert gens:
+law gens:
   Nat
 
 def gens():
   32n
 
 # small: size 1n gens 2n expect 2601177279; big expect 2016151040
-assert main:
+law main:
   IO(Unit)
 
 def main():

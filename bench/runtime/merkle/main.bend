@@ -24,16 +24,16 @@ type Path is Data:
   Pn{}
   Pc{side: U32, sib: U32, rest: Path}
 
-assert blocks:
+law blocks:
   Nat
 
 def blocks():
   30n
 
-assert sel.go:
-  forall x: U32
-  forall y: U32
-  forall z: Bool
+law sel.go:
+  for x: U32
+  for y: U32
+  for z: Bool
   U32
 
 def sel.go(x, y, z):
@@ -43,18 +43,18 @@ def sel.go(x, y, z):
     case False{}:
       y
 
-assert sel:
-  forall t: U32
-  forall x: U32
-  forall y: U32
+law sel:
+  for t: U32
+  for x: U32
+  for y: U32
   U32
 
 def sel(t, x, y):
   sel.go(x, y, U32.is_zero(t))
 
 # Speck32/64 round keys for key 1918 1110 0908 0100
-assert rk:
-  forall j: Nat
+law rk:
+  for j: Nat
   U32
 
 def rk(j):
@@ -105,11 +105,11 @@ def rk(j):
       60772
 
 # 22 Speck rounds over the 16-bit halves x, y (n counts down, j up)
-assert spk:
-  forall n: Nat
-  forall +j: Nat
-  forall +x: U32
-  forall +y: U32
+law spk:
+  for n: Nat
+  for +j: Nat
+  for +x: U32
+  for +y: U32
   U32
 
 def spk(n, j, x, y):
@@ -121,10 +121,10 @@ def spk(n, j, x, y):
       spk(p, 1n+j, nx, U32.and(U32.xor(U32.and(U32.or(U32.shln(y, 2n), U32.shrn(y, 14n)), 65535), nx), 65535))
 
 # one leaf: encrypt BLOCKS counter blocks, chain the ciphertexts
-assert blk:
-  forall j: Nat
-  forall +b: U32
-  forall acc: U32
+law blk:
+  for j: Nat
+  for +b: U32
+  for acc: U32
   U32
 
 def blk(j, b, acc):
@@ -135,17 +135,17 @@ def blk(j, b, acc):
       ct = spk(22n, 0n, U32.and(b, 65535), U32.and(U32.shrn(b, 16n), 65535))
       blk(p, U32.inc(b), U32.add(U32.mul(acc, 2654435761), ct))
 
-assert leafh:
-  forall +b: U32
+law leafh:
+  for +b: U32
   U32
 
 def leafh(b):
   blk(blocks(), U32.mul(b, U32.from_nat(blocks())), U32.inc(b))
 
 # Merkle join: ARX mix of the two child hashes
-assert mrk:
-  forall a: U32
-  forall b: U32
+law mrk:
+  for a: U32
+  for b: U32
   U32
 
 def mrk(a, b):
@@ -154,9 +154,9 @@ def mrk(a, b):
   U32.xor(h2, U32.shrn(h2, 16n))
 
 # the scalar prover: recompute a subtree hash without materializing it
-assert htree:
-  forall +d: Nat
-  forall +b: U32
+law htree:
+  for +d: Nat
+  for +b: U32
   U32
 
 def htree(d, b):
@@ -168,9 +168,9 @@ def htree(d, b):
       mrk(a, c)
 
 # join two subtrees into a hashed node (peek the child hashes, rebuild)
-assert mjoin:
-  forall l: Mt
-  forall r: Mt
+law mjoin:
+  for l: Mt
+  for r: Mt
   Mt
 
 def mjoin(l, r):
@@ -193,9 +193,9 @@ def mjoin(l, r):
       Mn{mrk(aa, cc), Mn{aa, x, y}, Mn{cc, w, z}}
 
 # build the Merkle tree over blocks b .. b + 2^d - 1
-assert build:
-  forall +d: Nat
-  forall +b: U32
+law build:
+  for +d: Nat
+  for +b: U32
   Mt
 
 def build(d, b):
@@ -207,8 +207,8 @@ def build(d, b):
       mjoin(l, r)
 
 # audit: re-fold the tree; any stored-hash mismatch perturbs the result
-assert audit:
-  forall t: Mt
+law audit:
+  for t: Mt
   U32
 
 def audit(t):
@@ -222,10 +222,10 @@ def audit(t):
 
 # Merkle proof for leaf k: per level, the side bit and the sibling hash
 # (recomputed by the scalar prover; the ladder forks each sibling)
-assert pgen:
-  forall +d: Nat
-  forall +k: U32
-  forall +b: U32
+law pgen:
+  for +d: Nat
+  for +k: U32
+  for +b: U32
   Path
 
 def pgen(d, k, b):
@@ -240,9 +240,9 @@ def pgen(d, k, b):
       Pc{bit, sib, rest}
 
 # fold the proof back up from the leaf hash to a root hash
-assert pverify:
-  forall p: Path
-  forall lh: U32
+law pverify:
+  for p: Path
+  for lh: U32
   U32
 
 def pverify(p, lh):
@@ -256,7 +256,7 @@ def pverify(p, lh):
       mrk(sel(ss, hh, sb), sel(ss, sb, hh))
 
 # small: (4n, 13) expect 524568222; big (22n, 1337) expect 3104235417
-assert main:
+law main:
   IO(Unit)
 
 def main():

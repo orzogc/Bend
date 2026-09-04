@@ -15,7 +15,7 @@ contexts:
       push: string
     - match: "'(\\\\.|[^'])'"
       scope: string.quoted.single.bend
-    - match: '\b(def|assert)\s+([A-Za-z_][A-Za-z0-9_.]*)'
+    - match: '\b(def|law)\s+([A-Za-z_][A-Za-z0-9_.]*)'
       captures:
         1: keyword.control.bend
         2: entity.name.function.bend
@@ -23,7 +23,7 @@ contexts:
       captures:
         1: keyword.control.bend
         2: entity.name.type.bend
-    - match: '\b(def|assert|type|is|match|case|do|return|forall|exists|where|import|as)\b'
+    - match: '\b(def|law|type|is|match|case|do|return|for|exs|where|import|as)\b'
       scope: keyword.control.bend
     - match: '@unsafe\b'
       scope: keyword.control.bend

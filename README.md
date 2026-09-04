@@ -47,11 +47,11 @@ you lose. In other languages, you'd write *tests*. But you can't test infinitely
 many sequences of moves. On Bend, you state the law in `LAWS.bend`:
 
 ```python
-# LAW: for any sequence of moves, applying it
-# to the initial board can never lead to victory.
-assert winning_is_a_bug:
-  forall moves: List<Game.Move>
-  board = Game.apply(Game.init(), moves)
+# LAW: for any sequence of moves, replaying them
+# from the start can never lead to victory.
+law winning_is_a_bug:
+  for moves: List<Game.Move>
+  board = Game.replay(Game.start(), moves)
   {Game.is_won(board) == False{} : Bool}
 ```
 
@@ -59,7 +59,7 @@ Then ask your agent: "before stopping, **prove the code is correct**". It fills
 the proof:
 
 ```python
-# PROOF: the `winning_is_a_bug` assert holds.
+# PROOF: the `winning_is_a_bug` law holds.
 def Laws.winning_is_a_bug(moves):
   # (LONG. leave this part for the AI!)
 ```
@@ -113,7 +113,7 @@ def main() -> IO(Unit):
   IO.print(U32.show(result))
 ```
 
-**Claims** are just asserts with "foralls" and "exists".
+**Claims** are just laws with "for" and "exs" lines.
 
 **Proofs** use a direct, inductive style.
 
@@ -121,8 +121,8 @@ def main() -> IO(Unit):
 import Base
 
 # CLAIM: for every nat x, x + 0 equals x.
-assert add_zero:
-  forall x: Nat
+law add_zero:
+  for x: Nat
   {Nat.add(x, 0n) == x : Nat}
 
 # PROOF: induction on `x`, one rewrite (`%`) per step.

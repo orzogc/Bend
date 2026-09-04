@@ -161,7 +161,7 @@
 --     carry b, so base alone can build a live recursive CYCLE: the
 --     descent test fires only on a self-call (tm.k = lhs.def), and the
 --     source-order wall that stops user mutual recursion never sees a
---     b-flagged pending ref. And a bodiless assert is an axiom the
+--     b-flagged pending ref. And a bodiless law is an axiom the
 --     checker trusts outright. Neither is covered here.
 -- (5) term_compare follows a let-bound variable to its value before
 --     comparing; PEq here is syntactic on variables.
@@ -170,7 +170,7 @@
 --     while def_valid takes its binders through tele_unbind and
 --     term_check reaches each All the same way. So a def may declare
 --     its type as a Ref that merely unfolds to a function type:
---     assert AF: Type / def AF(): Type -> Type / assert id: AF /
+--     law AF: Type / def AF(): Type -> Type / law id: AF /
 --     def id(x): x checks, though NAll 1 (Ref AF) is False.
 -- (7) a constructor telescope's parameter binders need not be ERASED.
 --     WTele demands .All .None K B for each of the pn parameters, while
@@ -221,7 +221,7 @@
 -- MODELED faithfully: Rwt is
 -- the J axiom (two-binder motive: goal P(b, e), body P(a, {==})); the
 -- descent skips erased columns (lhs.qs) and a missing quantity counts
--- live; assert is a bodiless def, dead-only — a live reference to an
+-- live; law is a bodiless def, dead-only — a live reference to an
 -- unfilled def is a type error, so progress is claimed at live demand
 -- (dead code may be stuck on an axiom, by design); WEAK reference
 -- unfolding is arity-gated exactly as term_wnf (a def fires only when
@@ -293,7 +293,7 @@
 --
 -- PROVEN in PART II: claims (1), (2) and (3) are the theorems
 -- church_rosser_holds, subject_reduction_holds and progress_holds
--- (progress at live demand: an unfilled assert is stuck by design);
+-- (progress at live demand: an unfilled law is stuck by design);
 -- and the boundary is a theorem, not an apology:
 -- consistency_none_boundary types Curry's omega at an empty family in
 -- the DEAD fragment of an Ok book with a negative type, which is
@@ -769,7 +769,7 @@ inductive Spinal : Term → Prop
   | app : Spinal f → Spinal (.App f a)
 
 -- weak-head values: a reference kept closed by its arity gate (or by
--- an unfilled assert) is stuck, and stuck is a value (bend.ts wnf
+-- an unfilled law) is stuck, and stuck is a value (bend.ts wnf
 -- breaks focus below arity and on a null body)
 inductive Term.Value (β : Book) : Term → Prop
   | typ   : Term.Value β .Typ
@@ -5815,7 +5815,7 @@ theorem Book.Ok.defn_clauses (hok : Book.Ok β) (h : Book.defn β k = some d) :
   case _ => cases h
 
 -- liveness reaches the head of a checked spine: a live application of
--- an unfilled assert is already a type error
+-- an unfilled law is already a type error
 theorem Check.ref_head_body (hβ : Book.Closed β) :
     ∀ (n : Nat) (args : List Term) {k : Nat} {q : Quant} {Γ : Ctx}
       {T : Term} {π : Uses},

@@ -53,8 +53,8 @@
 // Body   ::= Match | Local | Reply
 // Ctr    ::= Name "{" [Bind ","?] "}"
 // ADT    ::= "type" Name ("<" [Bind ","?] ">")? "is" Term ":" [Ctr]
-// Clause ::= ("forall" Quant | "exists") Name ":" Term ("where" Term)?
-// Assert ::= "assert" Name ":" [Clause] Body
+// Clause ::= ("for" Quant | "exs") Name ":" Term ("where" Term)?
+// Law    ::= "law" Name ":" [Clause] Body
 // Def    ::= ("@unsafe")? "def" Name "(" [Bind ","?] ")" ("->" Term)? ":" (Body | ["import" STRING]+)
 // TLD    ::= ADT | Assert | Def
 // Import ::= "import" "Base" | "import" Path "as" Name   (Path ends in .bend)
@@ -83,7 +83,7 @@
 // Ops    | "(" a "+" b ":" T ")"      | T.add(a, b)
 //
 // every word the parser dispatches on is reserved and names nothing:
-// def, type, assert, match, case, do, return, forall, exists, where,
+// def, type, law, match, case, do, return, for, exs, where,
 // is, import, Type, Data, Kind, Quant ("as" reads only on an import
 // line, so it stays free).
 // a file's namespace is its path without ".bend": an import's path
@@ -92,8 +92,8 @@
 // miss. "as Name" binds a per-file alias: Name.x resolves to the
 // file's canonical name, so two aliases of one file agree, and a def
 // of an aliased name fills it. "import Base" is the empty namespace.
-// a def with no prior assert types itself: a Bind telescope and a
-// "->" return type. a def after its assert takes bare names, no "->".
+// a def with no prior law types itself: a Bind telescope and a
+// "->" return type. a def after its law takes bare names, no "->".
 // a bare Bind name is -Name: Quant. Fill and Plus omit a datatype's
 // leading Quant parameters as a block; Plus alone fills a quant-only D.
 // a literal expands to one node per unit, unbounded by design. Arrow is
@@ -1530,8 +1530,8 @@ export function err_show(err: Err): string {
 // =====
 
 const KEYWORDS = new Set([
-  "def", "type", "assert", "match", "case", "do", "return",
-  "forall", "exists", "where", "is", "import",
+  "def", "type", "law", "match", "case", "do", "return",
+  "for", "exs", "where", "is", "import",
   "Type", "Data", "Kind", "Quant",
 ]);
 
@@ -2568,16 +2568,16 @@ export function parse_def_body(p: Parse, book: Book, k: Name, def: Def, vars: PV
 }
 
 export function parse_assert(p: Parse, book: Book): void {
-  parse_word(p, "assert");
+  parse_word(p, "law");
   const k = parse_qual(p, parse_name(p));
   parse_fresh(p, k);
   parse_eat(p, ":");
   const n0  = p.sc.stk.length;
   const cls: Array<[Bool, Quant, Name, number, LTerm]> = [];
-  while (parse_at_word(p, "forall") || parse_at_word(p, "exists")) {
-    const all = parse_word(p, "forall");
+  while (parse_at_word(p, "for") || parse_at_word(p, "exs")) {
+    const all = parse_word(p, "for");
     if (!all) {
-      parse_word(p, "exists");
+      parse_word(p, "exs");
     }
     const q = all ? parse_quant(p) : Lone();
     const c = parse_name(p);
@@ -2626,7 +2626,7 @@ export function parse_adt(p: Parse, book: Book): void {
     if (p.pos >= p.str.length || !char_is_head(parse_peek(p))) {
       break;
     }
-    if (["def", "type", "assert"].some((w) => parse_at_word(p, w))) {
+    if (["def", "type", "law"].some((w) => parse_at_word(p, w))) {
       break;
     }
     const c = parse_qual(p, parse_name(p));
@@ -2673,11 +2673,11 @@ export function parse_book(book: Book, dir: string, src: string, ns: string = ""
       parse_adt(p, book);
       continue;
     }
-    if (parse_at_word(p, "assert")) {
+    if (parse_at_word(p, "law")) {
       parse_assert(p, book);
       continue;
     }
-    parse_fail(p, "'def', 'type' or 'assert'");
+    parse_fail(p, "'def', 'type' or 'law'");
   }
 }
 
@@ -3335,7 +3335,7 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     //       column is skipped; a bare or non-shrinking self-reference
     //       is an error, so a self-reference never escapes as a value
     //       k has a body in a live region, unless base declared it
-    //       (an unfilled assert is a dead claim; base's are native)
+    //       (an unfilled law is a dead claim; base's are native)
     //       k is not a parameterized family: D<..> is the one
     //       spelling, a bare family head is an error
     // -------------------------------------------------------- infer-ref
@@ -3357,7 +3357,7 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
             return Infer(Ref(tm.k, tm.s, tm.b), tld.T, uses_nil());
           }
           if (tld.$ === "Def" && tld.v === null && tld.b !== true && !tld.i) {
-            throw Err(book, ctx, "a filled definition (an unfilled assert is a dead claim: live code cannot use it)", tm, tm.s, lhs.def);
+            throw Err(book, ctx, "a filled definition (an unfilled law is a dead claim: live code cannot use it)", tm, tm.s, lhs.def);
           }
           break;
         }
@@ -3707,7 +3707,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
 // book_valid throws the first Err (its first done entries are taken
 // as validated: a harness resumes past a seeded base); an order entry
 // is an event: an
-// asserted name declares (bodiless, type checked) at its assert and
+// law's name declares (bodiless, type checked) at its law and
 // defines at its fill, so it is visible and stuck between the two and
 // unfolds after; a plain def or ADT does both at once. each event checks
 // against the book so far, so a forward reference fails as undefined,

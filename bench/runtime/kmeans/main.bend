@@ -27,8 +27,8 @@ type St is Data:
   Sl{sx: U32, sy: U32, n: U32}
   Sn{l: St, r: St}
 
-assert b2u:
-  forall b: Bool
+law b2u:
+  for b: Bool
   U32
 
 def b2u(b):
@@ -38,8 +38,8 @@ def b2u(b):
     case True{}:
       1
 
-assert prng:
-  forall +x: U32
+law prng:
+  for +x: U32
   U32
 
 def prng(x):
@@ -47,10 +47,10 @@ def prng(x):
   +d = U32.xor(b, U32.shrn(b, 17n))
   U32.xor(d, U32.shln(d, 5n))
 
-assert sel.go:
-  forall x: U32
-  forall y: U32
-  forall z: Bool
+law sel.go:
+  for x: U32
+  for y: U32
+  for z: Bool
   U32
 
 def sel.go(x, y, z):
@@ -60,18 +60,18 @@ def sel.go(x, y, z):
     case False{}:
       y
 
-assert sel:
-  forall t: U32
-  forall x: U32
-  forall y: U32
+law sel:
+  for t: U32
+  for x: U32
+  for y: U32
   U32
 
 def sel(t, x, y):
   sel.go(x, y, U32.is_zero(t))
 
-assert min2:
-  forall +a: U32
-  forall +b: U32
+law min2:
+  for +a: U32
+  for +b: U32
   U32
 
 def min2(a, b):
@@ -79,11 +79,11 @@ def min2(a, b):
 
 # squared distance from (x, y) to packed centroid c, tagged with slot k:
 # d ranges to 2*1023^2 < 2^21, so d<<3|k fits comfortably
-assert dst:
-  forall +x: U32
-  forall +y: U32
-  forall +c: U32
-  forall k: U32
+law dst:
+  for +x: U32
+  for +y: U32
+  for +c: U32
+  for k: U32
   U32
 
 def dst(x, y, c, k):
@@ -91,9 +91,9 @@ def dst(x, y, c, k):
   +dy = sel(b2u(U32.is_lt(y, U32.shrn(c, 16n))), U32.sub(y, U32.shrn(c, 16n)), U32.sub(U32.shrn(c, 16n), y))
   U32.or(U32.shln(U32.add(U32.mul(dx, dx), U32.mul(dy, dy)), 3n), k)
 
-assert szip:
-  forall a: St
-  forall b: St
+law szip:
+  for a: St
+  for b: St
   St
 
 def szip(a, b):
@@ -111,41 +111,41 @@ def szip(a, b):
 # combiner: a leaf chunk folds 64 points into 24 scalar accumulators
 # (8 clusters x sx/sy/n, branchless masked adds -- pure register math),
 # then materializes one stats tree per chunk for the forked reduction
-assert chunk:
-  forall +j: Nat
-  forall +i: U32
-  forall +c0: U32
-  forall +c1: U32
-  forall +c2: U32
-  forall +c3: U32
-  forall +c4: U32
-  forall +c5: U32
-  forall +c6: U32
-  forall +c7: U32
-  forall s0x: U32
-  forall s0y: U32
-  forall s0n: U32
-  forall s1x: U32
-  forall s1y: U32
-  forall s1n: U32
-  forall s2x: U32
-  forall s2y: U32
-  forall s2n: U32
-  forall s3x: U32
-  forall s3y: U32
-  forall s3n: U32
-  forall s4x: U32
-  forall s4y: U32
-  forall s4n: U32
-  forall s5x: U32
-  forall s5y: U32
-  forall s5n: U32
-  forall s6x: U32
-  forall s6y: U32
-  forall s6n: U32
-  forall s7x: U32
-  forall s7y: U32
-  forall s7n: U32
+law chunk:
+  for +j: Nat
+  for +i: U32
+  for +c0: U32
+  for +c1: U32
+  for +c2: U32
+  for +c3: U32
+  for +c4: U32
+  for +c5: U32
+  for +c6: U32
+  for +c7: U32
+  for s0x: U32
+  for s0y: U32
+  for s0n: U32
+  for s1x: U32
+  for s1y: U32
+  for s1n: U32
+  for s2x: U32
+  for s2y: U32
+  for s2n: U32
+  for s3x: U32
+  for s3y: U32
+  for s3n: U32
+  for s4x: U32
+  for s4y: U32
+  for s4n: U32
+  for s5x: U32
+  for s5y: U32
+  for s5n: U32
+  for s6x: U32
+  for s6y: U32
+  for s6n: U32
+  for s7x: U32
+  for s7y: U32
+  for s7n: U32
   St
 
 def chunk(j, i, c0, c1, c2, c3, c4, c5, c6, c7, s0x, s0y, s0n, s1x, s1y, s1n, s2x, s2y, s2n, s3x, s3y, s3n, s4x, s4y, s4n, s5x, s5y, s5n, s6x, s6y, s6n, s7x, s7y, s7n):
@@ -179,17 +179,17 @@ def chunk(j, i, c0, c1, c2, c3, c4, c5, c6, c7, s0x, s0y, s0n, s1x, s1y, s1n, s2
             U32.add(s6x, U32.mul(m6, xx)), U32.add(s6y, U32.mul(m6, yy)), U32.add(s6n, m6),
             U32.add(s7x, U32.mul(m7, xx)), U32.add(s7y, U32.mul(m7, yy)), U32.add(s7n, m7))
 
-assert pfold:
-  forall +d: Nat
-  forall +i: U32
-  forall +c0: U32
-  forall +c1: U32
-  forall +c2: U32
-  forall +c3: U32
-  forall +c4: U32
-  forall +c5: U32
-  forall +c6: U32
-  forall +c7: U32
+law pfold:
+  for +d: Nat
+  for +i: U32
+  for +c0: U32
+  for +c1: U32
+  for +c2: U32
+  for +c3: U32
+  for +c4: U32
+  for +c5: U32
+  for +c6: U32
+  for +c7: U32
   St
 
 def pfold(d, i, c0, c1, c2, c3, c4, c5, c6, c7):
@@ -202,9 +202,9 @@ def pfold(d, i, c0, c1, c2, c3, c4, c5, c6, c7):
 
 # new centroid from a stats leaf; an empty cluster keeps the old one
 # (the divisor is forced to 1 when empty: sel picks eagerly)
-assert cnew:
-  forall s: St
-  forall old: U32
+law cnew:
+  for s: St
+  for old: U32
   U32
 
 def cnew(s, old):
@@ -222,16 +222,16 @@ type Cs is Data:
 # extract the 8 new centroids from the depth-3 stats tree (the
 # catch-all row is an unreachable filler: a chunk always materializes
 # the full Sn^3 shape and szip preserves it)
-assert step.fin:
-  forall c0: U32
-  forall c1: U32
-  forall c2: U32
-  forall c3: U32
-  forall c4: U32
-  forall c5: U32
-  forall c6: U32
-  forall c7: U32
-  forall t: St
+law step.fin:
+  for c0: U32
+  for c1: U32
+  for c2: U32
+  for c3: U32
+  for c4: U32
+  for c5: U32
+  for c6: U32
+  for c7: U32
+  for t: St
   Cs
 
 def step.fin(c0, c1, c2, c3, c4, c5, c6, c7, t):
@@ -242,26 +242,26 @@ def step.fin(c0, c1, c2, c3, c4, c5, c6, c7, t):
     case t2:
       Cs{c0, c1, c2, c3, c4, c5, c6, c7}
 
-assert step:
-  forall d: Nat
-  forall +c0: U32
-  forall +c1: U32
-  forall +c2: U32
-  forall +c3: U32
-  forall +c4: U32
-  forall +c5: U32
-  forall +c6: U32
-  forall +c7: U32
+law step:
+  for d: Nat
+  for +c0: U32
+  for +c1: U32
+  for +c2: U32
+  for +c3: U32
+  for +c4: U32
+  for +c5: U32
+  for +c6: U32
+  for +c7: U32
   Cs
 
 def step(d, c0, c1, c2, c3, c4, c5, c6, c7):
   step.fin(c0, c1, c2, c3, c4, c5, c6, c7,
     pfold(Nat.sub(d, 6n), 0, c0, c1, c2, c3, c4, c5, c6, c7))
 
-assert loop:
-  forall r: Nat
-  forall +d: Nat
-  forall cs: Cs
+law loop:
+  for r: Nat
+  for +d: Nat
+  for cs: Cs
   U32
 
 def loop(r, d, cs):
@@ -277,8 +277,8 @@ def loop(r, d, cs):
     case 1n+p Cs{c0, c1, c2, c3, c4, c5, c6, c7}:
       loop(p, d, step(d, c0, c1, c2, c3, c4, c5, c6, c7))
 
-assert cini:
-  forall k: U32
+law cini:
+  for k: U32
   U32
 
 def cini(k):
@@ -286,9 +286,9 @@ def cini(k):
   U32.or(U32.and(hh, 1023), U32.shln(U32.and(U32.shrn(hh, 16n), 1023), 16n))
 
 # one restart: 20 Lloyd rounds from this restart's random centroids
-assert rst:
-  forall r: U32
-  forall d: Nat
+law rst:
+  for r: U32
+  for d: Nat
   U32
 
 def rst(r, d):
@@ -297,10 +297,10 @@ def rst(r, d):
 
 # 64 independent restarts fork as a balanced tree (kmeans++ style
 # restarts keep the machine wide across the whole run)
-assert rbatch:
-  forall +b: Nat
-  forall +r: U32
-  forall +d: Nat
+law rbatch:
+  for +b: Nat
+  for +r: U32
+  for +d: Nat
   U32
 
 def rbatch(b, r, d):
@@ -311,14 +311,14 @@ def rbatch(b, r, d):
       x y = rbatch(p, r, d) rbatch(p, U32.add(r, U32.shln(1, p)), d)
       U32.add(x, y)
 
-assert size:
+law size:
   Nat
 
 def size():
   19n
 
 # small: size 7n expect 4219097976; big (19n) expect 1616398086
-assert main:
+law main:
   IO(Unit)
 
 def main():

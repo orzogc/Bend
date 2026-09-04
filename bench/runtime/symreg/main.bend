@@ -31,8 +31,8 @@ type Expr is Data:
 type Sel is Data:
   Sel{fit: U32, seed: U32, sum: U32}
 
-assert Sel.fit:
-  forall v: Sel
+law Sel.fit:
+  for v: Sel
   U32
 
 def Sel.fit(v):
@@ -40,8 +40,8 @@ def Sel.fit(v):
     case Sel{f, s, c}:
       f
 
-assert Sel.seed:
-  forall v: Sel
+law Sel.seed:
+  for v: Sel
   U32
 
 def Sel.seed(v):
@@ -49,8 +49,8 @@ def Sel.seed(v):
     case Sel{f, s, c}:
       s
 
-assert b2u:
-  forall b: Bool
+law b2u:
+  for b: Bool
   U32
 
 def b2u(b):
@@ -60,8 +60,8 @@ def b2u(b):
     case True{}:
       1
 
-assert prng:
-  forall +x: U32
+law prng:
+  for +x: U32
   U32
 
 def prng(x):
@@ -69,10 +69,10 @@ def prng(x):
   +d = U32.xor(b, U32.shrn(b, 17n))
   U32.xor(d, U32.shln(d, 5n))
 
-assert sel.go:
-  forall x: U32
-  forall y: U32
-  forall z: Bool
+law sel.go:
+  for x: U32
+  for y: U32
+  for z: Bool
   U32
 
 def sel.go(x, y, z):
@@ -82,27 +82,27 @@ def sel.go(x, y, z):
     case False{}:
       y
 
-assert sel:
-  forall t: U32
-  forall x: U32
-  forall y: U32
+law sel:
+  for t: U32
+  for x: U32
+  for y: U32
   U32
 
 def sel(t, x, y):
   sel.go(x, y, U32.is_zero(t))
 
-assert adiff:
-  forall +a: U32
-  forall +b: U32
+law adiff:
+  for +a: U32
+  for +b: U32
   U32
 
 def adiff(a, b):
   sel(b2u(U32.is_lt(a, b)), U32.sub(a, b), U32.sub(b, a))
 
-assert node:
-  forall o: Nat
-  forall a: Expr
-  forall b: Expr
+law node:
+  for o: Nat
+  for a: Expr
+  for b: Expr
   Expr
 
 def node(o, a, b):
@@ -117,14 +117,14 @@ def node(o, a, b):
       Xor{a, b}
 
 # materialize a candidate AST straight off the hash stream
-assert gen.leaf:
-  forall +h: U32
-  forall z: Bool
+law gen.leaf:
+  for +h: U32
+  for z: Bool
   Expr
 
-assert gen:
-  forall +d: Nat
-  forall +h: U32
+law gen:
+  for +d: Nat
+  for +h: U32
   Expr
 
 def gen.leaf(h, z):
@@ -144,9 +144,9 @@ def gen(d, h):
       node(U32.to_nat(U32.mod(h, 4)), a, b)
 
 # pattern-matching interpreter reading the shared tree
-assert eval:
-  forall e: Expr
-  forall +x: U32
+law eval:
+  for e: Expr
+  for +x: U32
   U32
 
 def eval(e, x):
@@ -165,8 +165,8 @@ def eval(e, x):
       U32.xor(eval(a, x), eval(b, x))
 
 # parsimony: AST node count off the shared tree
-assert esize:
-  forall e: Expr
+law esize:
+  for e: Expr
   U32
 
 def esize(e):
@@ -185,10 +185,10 @@ def esize(e):
       U32.add(1, U32.add(esize(a), esize(b)))
 
 # dataset fold: error sum over x = 0..j-1, then the parsimony penalty
-assert floop:
-  forall +j: Nat
-  forall +e: Expr
-  forall acc: U32
+law floop:
+  for +j: Nat
+  for +e: Expr
+  for acc: U32
   U32
 
 def floop(j, e, acc):
@@ -201,9 +201,9 @@ def floop(j, e, acc):
       t = U32.add(U32.mul(xx, xx), U32.add(U32.mul(3, xx), 7))
       floop(p, e, U32.add(acc, adiff(v, t)))
 
-assert cand:
-  forall +s: U32
-  forall pts: Nat
+law cand:
+  for +s: U32
+  for pts: Nat
   Sel
 
 def cand(s, pts):
@@ -212,9 +212,9 @@ def cand(s, pts):
   Sel{f, s, U32.xor(f, U32.mul(s, 2654435761))}
 
 # tournament: keep the lower-fitness candidate, sum the checksums
-assert pick:
-  forall a: Sel
-  forall b: Sel
+law pick:
+  for a: Sel
+  for b: Sel
   Sel
 
 def pick(a, b):
@@ -225,10 +225,10 @@ def pick(a, b):
       +w = b2u(U32.is_lt(g1, g2))
       Sel{sel(w, g2, g1), sel(w, s2, s1), U32.add(c1, c2)}
 
-assert batch:
-  forall +d: Nat
-  forall +s: U32
-  forall +pts: Nat
+law batch:
+  for +d: Nat
+  for +s: U32
+  for +pts: Nat
   Sel
 
 def batch(d, s, pts):
@@ -240,11 +240,11 @@ def batch(d, s, pts):
       pick(a, b)
 
 # hill-climb the tournament winner: mutate the seed, keep improvements
-assert climb:
-  forall +r: Nat
-  forall +bs: U32
-  forall +bf: U32
-  forall +pts: Nat
+law climb:
+  for +r: Nat
+  for +bs: U32
+  for +bf: U32
+  for +pts: Nat
   U32
 
 def climb(r, bs, bf, pts):
@@ -257,17 +257,17 @@ def climb(r, bs, bf, pts):
       +w = b2u(U32.is_lt(ff, bf))
       climb(p, sel(w, bs, Sel.seed(cn)), sel(w, bf, ff), pts)
 
-assert run.fin:
-  forall r: Nat
-  forall +p: Nat
-  forall t: Sel
+law run.fin:
+  for r: Nat
+  for +p: Nat
+  for t: Sel
   U32
 
-assert run:
-  forall d: Nat
-  forall s0: U32
-  forall r: Nat
-  forall +p: Nat
+law run:
+  for d: Nat
+  for s0: U32
+  for r: Nat
+  for +p: Nat
   U32
 
 def run.fin(r, p, t):
@@ -278,20 +278,20 @@ def run.fin(r, p, t):
 def run(d, s0, r, p):
   run.fin(r, p, batch(d, s0, p))
 
-assert size:
+law size:
   Nat
 
 def size():
   18n
 
-assert pts:
+law pts:
   Nat
 
 def pts():
   110n
 
 # small: run!(6n, 42, 32n, 16n) expect 2490246820; big expect 2383953211
-assert main:
+law main:
   IO(Unit)
 
 def main():

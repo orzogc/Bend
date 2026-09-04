@@ -200,7 +200,7 @@ identity, $0$ absorbs, two literals meet, and a stuck side stays stuck.
 
 A _book_ is an ordered list of declarations. A `type` declares a family
 with parameters and a kind, then its constructors, each a telescope of
-fields tipped at the family. An `assert` declares a name at a closed type
+fields tipped at the family. An `law` declares a name at a closed type
 and a later `def` fills it. Until its fill a name is an _axiom_: it may
 appear in types and other dead positions, and live code may not consume
 it. A definition may reference itself only through the descent rule of
@@ -369,7 +369,7 @@ declared kind, with no fixed point: a live value is a finite tree, so
 the invariant that a #Da value holds nothing affine follows by
 induction on the value. Values never weaken with their kinds:
 `List<&2, Nat>` and `List<&1, Nat>` are different types. Generic code
-takes the quantity as an erased parameter (`forall -a: Quant`), under
+takes the quantity as an erased parameter (`for -a: Quant`), under
 which `+` is refused, since `Kind(a)` does not reduce to #Da\; the
 license appears only after instantiation.
 
@@ -407,8 +407,8 @@ refuses it. The only binder that admits two uses is `+x`, and `+x` forms
 only over a #Da type. No function type is #Da:
 
 ```bend
-assert dupf:
-  forall +f: Nat -> Nat
+law dupf:
+  for +f: Nat -> Nat
   Nat
 ```
 ```
@@ -501,8 +501,8 @@ of the claims above is waived.
 
 = Proofs Without Tactics <sec:proofs>
 
-A claim is an `assert` and a proof is the `def` that fills it. `forall`
-folds to a function type, `exists` to a dependent pair, `where` packs a
+A claim is an `law` and a proof is the `def` that fills it. `for`
+folds to a function type, `exs` to a dependent pair, `where` packs a
 hypothesis onto a binder; `{a != b : T}` is a function into `Empty`.
 
 The match is the eliminator. Matching a parameter refines the claim in
@@ -510,7 +510,7 @@ each arm: the goal in the `1n+p` arm of a claim about `a` is the claim
 at `1n+p`, evaluated, with stuck self-calls refolded to source form.
 The induction hypothesis is the recursive call, and descent makes it
 valid. With no unification and no metavariables, a match scrutinizes
-only a parameter or a field, so the assert of a helper _is_ the motive
+only a parameter or a field, so the law of a helper _is_ the motive
 of its match: a computed scrutinee goes to its own definition.
 Rewriting is J with the motive written out: given
 `e : {a == b : T}`, the motive marks with `_` the places where `b`
@@ -527,9 +527,9 @@ def add(a: Nat, b: Nat) -> Nat:
     case 1n+p:
       1n+add(p, b)
 
-assert comm:
-  forall +a: Nat
-  forall +b: Nat
+law comm:
+  for +a: Nat
+  for +b: Nat
   {add(a, b) == add(b, a) : Nat}
 
 def comm(a, b):

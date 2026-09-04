@@ -42,8 +42,8 @@ type Mode is Data:
   InNm{v: U32}
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-assert prng:
-  forall +x: U32
+law prng:
+  for +x: U32
   U32
 
 def prng(x):
@@ -52,26 +52,26 @@ def prng(x):
   U32.xor(d, U32.shln(d, 5n))
 
 # line seed: hash of the line index
-assert seed:
-  forall i: U32
+law seed:
+  for i: U32
   U32
 
 def seed(i):
   prng(((i + 1) * 2654435761 : U32))
 
 # placeholder seed: the line seed salted by the template position
-assert salt:
-  forall s: U32
-  forall k: U32
+law salt:
+  for s: U32
+  for k: U32
   U32
 
 def salt(s, k):
   prng(U32.xor(s, (k * 2654435761 : U32)))
 
 # the operator: + - * / by the two low bits of the seed
-assert op.pick:
-  forall b1: Bool
-  forall b0: Bool
+law op.pick:
+  for b1: Bool
+  for b0: Bool
   Char
 
 def op.pick(b1, b0):
@@ -85,19 +85,19 @@ def op.pick(b1, b0):
     case True{} True{}:
       '/'
 
-assert op:
-  forall +t: U32
-  forall rest: String
+law op:
+  for +t: U32
+  for rest: String
   String
 
 def op(t, rest):
   SCon{op.pick(U32.is_ne(U32.and(t, 2), 0), U32.is_ne(U32.and(t, 1), 0)), rest}
 
 # an identifier: n random lowercase letters, one prng step each
-assert ident:
-  forall n: Nat
-  forall t: U32
-  forall rest: String
+law ident:
+  for n: Nat
+  for t: U32
+  for rest: String
   String
 
 def ident(n, t, rest):
@@ -109,10 +109,10 @@ def ident(n, t, rest):
       SCon{Chr{(97 + u % 26 : U32)}, ident(p, u, rest)}
 
 # a number: n random decimal digits, one prng step each
-assert num:
-  forall n: Nat
-  forall t: U32
-  forall rest: String
+law num:
+  for n: Nat
+  for t: U32
+  for rest: String
   String
 
 def num(n, t, rest):
@@ -126,11 +126,11 @@ def num(n, t, rest):
 # one placeholder in front of the rest of the line: an identifier of
 # 1 + (t & 7) letters, a number of 1 + t % 6 digits, an operator, or
 # the template character itself
-assert expand:
-  forall sl: Slot
-  forall c: U32
-  forall +t: U32
-  forall rest: String
+law expand:
+  for sl: Slot
+  for c: U32
+  for +t: U32
+  for rest: String
   String
 
 def expand(sl, c, t, rest):
@@ -145,10 +145,10 @@ def expand(sl, c, t, rest):
       SCon{Chr{c}, rest}
 
 # the slot of a template character: i, n, o, or a literal
-assert slot.go:
-  forall i: Bool
-  forall n: Bool
-  forall o: Bool
+law slot.go:
+  for i: Bool
+  for n: Bool
+  for o: Bool
   Slot
 
 def slot.go(i, n, o):
@@ -162,18 +162,18 @@ def slot.go(i, n, o):
     case _ _ _:
       Lit{}
 
-assert slot:
-  forall +c: U32
+law slot:
+  for +c: U32
   Slot
 
 def slot(c):
   slot.go(U32.is_eq(c, 105), U32.is_eq(c, 110), U32.is_eq(c, 111))
 
 # one template character, read twice: for its slot and as a literal
-assert gen.at:
-  forall +c: U32
-  forall t: U32
-  forall rest: String
+law gen.at:
+  for +c: U32
+  for t: U32
+  for rest: String
   String
 
 def gen.at(c, t, rest):
@@ -181,10 +181,10 @@ def gen.at(c, t, rest):
 
 # the line: the template expanded character by character, placeholder
 # k seeded by salt(s, k), each expansion consed onto the built tail
-assert gen:
-  forall tpl: String
-  forall +s: U32
-  forall +k: U32
+law gen:
+  for tpl: String
+  for +s: U32
+  for +k: U32
   String
 
 def gen(tpl, s, k):
@@ -194,17 +194,17 @@ def gen(tpl, s, k):
     case SCon{Chr{c}, u}:
       gen.at(c, salt(s, k), gen(u, s, (k + 1 : U32)))
 
-assert tpl:
+law tpl:
   String
 
 def tpl():
   "i = ( n o i ) o ( n o i ) o ( n o i ) ;"
 
 # the class of a source character
-assert cls.go:
-  forall l: Bool
-  forall d: Bool
-  forall s: Bool
+law cls.go:
+  for l: Bool
+  for d: Bool
+  for s: Bool
   Cls
 
 def cls.go(l, d, s):
@@ -218,8 +218,8 @@ def cls.go(l, d, s):
     case _ _ _:
       Punct{}
 
-assert cls:
-  forall +c: U32
+law cls:
+  for +c: U32
   Cls
 
 def cls(c):
@@ -227,19 +227,19 @@ def cls(c):
     U32.is_le(48, c) && U32.is_le(c, 57), U32.is_eq(c, 32))
 
 # one token into the line checksum
-assert mix:
-  forall acc: U32
-  forall kind: U32
-  forall x: U32
+law mix:
+  for acc: U32
+  for kind: U32
+  for x: U32
   U32
 
 def mix(acc, kind, x):
   U32.xor((acc * 2654435761 : U32), (kind * 40503 + x : U32))
 
 # FNV-1a: one letter into the identifier hash
-assert fnv:
-  forall h: U32
-  forall c: U32
+law fnv:
+  for h: U32
+  for c: U32
   U32
 
 def fnv(h, c):
@@ -248,11 +248,11 @@ def fnv(h, c):
 # the machine: (mode, acc) steps over one classified character; a
 # letter extends an identifier, a digit a number, and anything else
 # closes the open token, then starts what the character begins
-assert step.at:
-  forall m: Mode
-  forall k: Cls
-  forall c: U32
-  forall acc: U32
+law step.at:
+  for m: Mode
+  for k: Cls
+  for c: U32
+  for acc: U32
   Mode & U32
 
 def step.at(m, k, c, acc):
@@ -282,19 +282,19 @@ def step.at(m, k, c, acc):
     case InNm{v} Punct{}:
       (Gap{}, mix(mix(acc, 2, v), 3, c))
 
-assert step:
-  forall m: Mode
-  forall +c: U32
-  forall acc: U32
+law step:
+  for m: Mode
+  for +c: U32
+  for acc: U32
   Mode & U32
 
 def step(m, c, acc):
   step.at(m, cls(c), c, acc)
 
 # end of line: close the open token
-assert flush:
-  forall m: Mode
-  forall acc: U32
+law flush:
+  for m: Mode
+  for acc: U32
   U32
 
 def flush(m, acc):
@@ -307,9 +307,9 @@ def flush(m, acc):
       mix(acc, 2, v)
 
 # the lexer: one step per character, (mode, acc) riding as r
-assert lex:
-  forall s: String
-  forall r: Mode & U32
+law lex:
+  for s: String
+  for r: Mode & U32
   U32
 
 def lex(s, r):
@@ -322,17 +322,17 @@ def lex(s, r):
       lex(t, step(m, c, acc))
 
 # one line: generate it, then lex it
-assert line:
-  forall i: U32
+law line:
+  for i: U32
   U32
 
 def line(i):
   lex(gen(tpl(), seed(i), 0), (Gap{}, 0))
 
 # batch tree over the line index space; line checksums sum
-assert batch:
-  forall +d: Nat
-  forall +i: U32
+law batch:
+  for +d: Nat
+  for +i: U32
   U32
 
 def batch(d, i):
@@ -343,31 +343,31 @@ def batch(d, i):
       a b = batch(p, i) batch(p, (i + U32.shln(1, p) : U32))
       (a + b : U32)
 
-assert size.small:
+law size.small:
   Nat
 
 def size.small():
   8n
 
-assert expect.small:
+law expect.small:
   U32
 
 def expect.small():
   1822208108
 
-assert size.big:
+law size.big:
   Nat
 
 def size.big():
   23n
 
-assert expect.big:
+law expect.big:
   U32
 
 def expect.big():
   2401049475
 
-assert main:
+law main:
   IO(Unit)
 
 def main():
