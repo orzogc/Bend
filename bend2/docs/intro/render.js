@@ -19,7 +19,7 @@
 // marked "red" or "green" is written in that ink.
 
 const READ = 0.32;
-const cost = s => (s = s.replace(/[*+~#%>/]/g, "").trim()) ? s.split(/\s+/)
+const cost = s => (s = s.replace(/[*+~#%/]/g, "").trim()) ? s.split(/\s+/)
                    .reduce((n, w) => n + (/\d/.test(w) ? 2 : 1), 0) : 0;
 
 const co = "co", punch = "punch", quick = "quick", left = "left", red = "red", green = "green";
@@ -43,12 +43,12 @@ const BEATS = [
   ["say", "#How?"],
   ["reveal", "LAWS|.|bend", 64],
   ["say", "A new file that lists *invariants*", "that models are *forced* to follow."],
-  ["say", "For example, consider a game with one law:", ">\"the player can't win\""],
+  ["say", "For example, consider a game with one law:", "%\"the player can't win\""],
   ["laws"],
   ["say", "Let's see it in action!"],
   ["intro"],
   ["say", "So far, it works as intended!"],
-  ["say", "Now, let's *prompt* a new feature:", ">\"please, make the board wrap around\""],
+  ["say", "Now, let's *prompt* a new feature:", "%\"please, make the board wrap around\""],
   ["say", "Without *LAWS.bend*:"],
   ["walk"],
   ["say", "Oops! The new feature *introduced a bug*.", "Nothing stopped the AI from *breaking the laws*.", red],
@@ -679,14 +679,12 @@ S.reduce = (u, dur) => {
 };
 
 // ------------------------------------------------------------------- beats
-// ~ is a dim aside in smaller type, % a full-size line in dim ink, > a
-// full-size line in bold blue (a law, a prompt), # is a title, "" is a
-// breath of space
+// ~ is a dim aside in smaller type, % a quote (a law, a prompt): a
+// full-size line in bold blue, # is a title, "" is a breath of space
 function sayLines(b) {
   return b.slice(2).filter(s => !TAG.has(s)).map(s => s[0] === "~"
     ? { s: s.slice(1), size: 22, pitch: 40, color: DIM }
-    : s[0] === "%" ? { s: s.slice(1), size: 34, pitch: 62, color: DIM }
-    : s[0] === ">" ? { s: "*" + s.slice(1) + "*", size: 34, pitch: 62, color: BLUE }
+    : s[0] === "%" ? { s: "*" + s.slice(1) + "*", size: 34, pitch: 62, color: BLUE }
     : s[0] === "#" ? { s: "*" + s.slice(1).replace(/([,.:;?]*)$/, "*$1"), size: 44, pitch: 78, color: INK }
     : s[0] === "/" ? { s: s.slice(1), size: 30, pitch: 56, color: INK, slant: true }
     : s === "" ? { s, size: 34, pitch: 30, color: INK }
@@ -759,7 +757,7 @@ for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
 const TOTAL = Math.max(260, DUR);
 BEATS[BEATS.length - 1][1] += TOTAL - DUR; DUR = TOTAL;
 const SCENES = BEATS.map(b => [b[0] === "say"
-  ? "“" + b[2].replace(/[*+~#%>/]/g, "") : b[0] + (b[2] && !TAG.has(b[2]) ? " " + b[2] : ""), b[1]]);
+  ? "“" + b[2].replace(/[*+~#%/]/g, "") : b[0] + (b[2] && !TAG.has(b[2]) ? " " + b[2] : ""), b[1]]);
 
 // -------------------------------------------------------------------- main
 function draw(t) {
