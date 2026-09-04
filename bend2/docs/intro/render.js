@@ -719,6 +719,9 @@ for (const b of BEATS) {
 }
 const T0 = []; let DUR = 0;
 for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
+// the film runs four minutes to the frame: the end card takes up the slack
+const TOTAL = 240;
+BEATS[BEATS.length - 1][1] += TOTAL - DUR; DUR = TOTAL;
 const SCENES = BEATS.map(b => [b[0] === "say"
   ? "“" + b[2].replace(/[*+~#%/]/g, "") : b[0] + (b[2] && !TAG.has(b[2]) ? " " + b[2] : ""), b[1]]);
 
