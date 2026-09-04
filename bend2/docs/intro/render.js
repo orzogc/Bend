@@ -48,7 +48,7 @@ const BEATS = [
   ["say", "Let's see it in action!"],
   ["intro"],
   ["say", "So far, it works as intended!"],
-  ["say", "Now, let's *prompt* a new feature:", "%\"please, make the map *wrap around*\""],
+  ["say", "Now, let's *prompt* a new feature:", "%\"please, make the board *wrap around*\""],
   ["say", "Without *LAWS.bend*:"],
   ["walk"],
   ["say", "Oops! The feature *introduced a bug*.", "Nothing stopped the AI from *breaking the laws*.", red],
