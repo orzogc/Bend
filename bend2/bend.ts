@@ -325,8 +325,8 @@ export type Span  = { src: string; beg: Loc; end: Loc; };
 // Machine
 export type LHS   = { t: HTerm; n: number; def: Name; qs: Quant[]; u?: Bool };
 export type Frame =
-  | { $: "APP"; x: HTerm } // _(x)
-  | { $: "MAT"; t: Extract<HTerm, { $: "Mat" }>; e: HTerm; lhs: { t: () => HTerm; n: number } | null } // \{c:h;m}(_)
+  | { $: "APP"; x: HTerm; s?: Span } // _(x)
+  | { $: "MAT"; t: Extract<HTerm, { $: "Mat" }>; e: HTerm; lhs: { t: () => HTerm; n: number } | null; s?: Span } // \{c:h;m}(_)
   | { $: "VAR"; l: Extract<HTerm, { $: "Var" }>; a?: Extract<HTerm, { $: "Ann" }> } // a share cell being filled
   | { $: "MNA"; b: HTerm; s?: Span } // _ <&> b
   | { $: "MNB"; a: HTerm; s?: Span } // a <&> _
@@ -707,12 +707,12 @@ export function lhs_descend(lhs: LHS, sp: HTerm[]): Cmp {
 // Term
 // ====
 
-export function term_apply(fn: HTerm, tm: HTerm): HTerm {
+export function term_apply(fn: HTerm, tm: HTerm, s?: Span): HTerm {
   const f = term_strip(fn);
   if (f.$ === "Lam") {
     return f.f(tm);
   }
-  return App(f, tm);
+  return App(f, tm, s);
 }
 
 export function term_unapply<X>(tm: TermOf<X>): [TermOf<X>, TermOf<X>[]] {
@@ -1169,7 +1169,7 @@ export function tele_unbind(book: Book, T: HTerm): { doms: Array<[Quant, Name, H
   let tel = T;
   for (let t = tele_open(book, tel); t !== null; t = tele_open(book, tel)) {
     doms.push([t.q, t.k, t.A]);
-    tel = t.B(Var(t.k, doms.length - 1));
+    tel = t.B(Var(t.k, doms.length - 1, t.s));
   }
   return { doms, ret: term_wnf(book, tel) };
 }
@@ -1815,7 +1815,7 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
     case "\\": {
       parse_bump(p);
       parse_eat(p, "{");
-      return parse_term_mat(p);
+      return parse_term_mat(p, beg);
     }
     case "%": {
       return parse_term_rwt(p, beg);
@@ -2102,6 +2102,7 @@ export function parse_term_args(p: Parse, close: string): LTerm[] {
 }
 
 export function parse_term_all(p: Parse, exi: boolean): LTerm {
+  const beg = p.pos;
   parse_bump(p);
   const q = exi ? Lone() : parse_quant(p);
   const k = parse_name(p);
@@ -2113,7 +2114,8 @@ export function parse_term_all(p: Parse, exi: boolean): LTerm {
   const B  = parse_term(p);
   parse_close(p, n0);
   if (exi) {
-    return App(App(Ref("Exists"), A), Lam(k, i, B));
+    const s = parse_span(p, beg);
+    return App(App(Ref("Exists", s), A, s), Lam(k, i, B, s), s);
   }
   return All(q, k, i, A, B);
 }
@@ -2134,7 +2136,7 @@ export function parse_term_tup(p: Parse, beg: Loc, n0: number): LTerm {
   return out;
 }
 
-export function parse_term_mat(p: Parse): LTerm {
+export function parse_term_mat(p: Parse, beg: Loc): LTerm {
   const arms: Array<[Name, LTerm]> = [];
   let tail: LTerm = Efq();
   while (true) {
@@ -2157,9 +2159,11 @@ export function parse_term_mat(p: Parse): LTerm {
     parse_eat(p, "}");
     break;
   }
+  const s = parse_span(p, beg);
+  tail.s ??= s;
   let out = tail;
   for (let i = arms.length - 1; i >= 0; i--) {
-    out = Mat(arms[i][0], arms[i][1], out);
+    out = Mat(arms[i][0], arms[i][1], out, s);
   }
   return out;
 }
@@ -2188,10 +2192,11 @@ export function parse_term_rwt(p: Parse, beg: Loc): LTerm {
   parse_take(p, ";");
   const f = parse_block(p);
   const s = parse_span(p, beg);
-  return Rwt(e, Lam("_", xi, Lam(k, ei, P), s), f, s);
+  return Rwt(e, Lam("_", xi, Lam(k, ei, P, e0.s), s), f, s);
 }
 
 export function parse_term_brc(p: Parse): LTerm {
+  const beg = p.pos;
   parse_bump(p);
   parse_skip(p);
   if (parse_take(p, "==")) {
@@ -2212,7 +2217,8 @@ export function parse_term_brc(p: Parse): LTerm {
     parse_eat(p, ":");
     const T = parse_term(p);
     parse_eat(p, "}");
-    return All(Lone(), "_", parse_open(p, "_"), Eql(a, b, T), Ref("Empty"));
+    const s = parse_span(p, beg);
+    return All(Lone(), "_", parse_open(p, "_"), Eql(a, b, T, s), Ref("Empty", s), s);
   }
   parse_eat(p, ":");
   const T = parse_term(p);
@@ -2573,14 +2579,16 @@ export function parse_assert(p: Parse, book: Book): void {
   parse_fresh(p, k);
   parse_eat(p, ":");
   const n0  = p.sc.stk.length;
-  const cls: Array<[Bool, Quant, Name, number, LTerm]> = [];
+  const cls: Array<[Bool, Quant, Name, number, LTerm, Span]> = [];
   while (parse_at_word(p, "for") || parse_at_word(p, "exs")) {
     const all = parse_word(p, "for");
     if (!all) {
       parse_word(p, "exs");
     }
     const q = all ? parse_quant(p) : Lone();
+    const beg = p.pos;
     const c = parse_name(p);
+    const s = parse_span(p, beg);
     parse_eat(p, ":");
     let A = parse_term(p);
     if (parse_word(p, "where")) {
@@ -2588,14 +2596,14 @@ export function parse_assert(p: Parse, book: Book): void {
       const i  = parse_open(p, c);
       const w  = parse_term(p);
       parse_close(p, n1);
-      A = App(App(Ref("Exists"), A), Lam(c, i, w));
+      A = App(App(Ref("Exists", s), A, s), Lam(c, i, w, s), s);
     }
-    cls.push([all, q, c, parse_open(p, c), A]);
+    cls.push([all, q, c, parse_open(p, c), A, s]);
   }
   let T = parse_block(p);
   for (let j = cls.length - 1; j >= 0; j--) {
-    const [all, q, c, i, A] = cls[j];
-    T = all ? All(q, c, i, A, T) : App(App(Ref("Exists"), A), Lam(c, i, T));
+    const [all, q, c, i, A, s] = cls[j];
+    T = all ? All(q, c, i, A, T, s) : App(App(Ref("Exists", s), A, s), Lam(c, i, T, s), s);
   }
   parse_close(p, n0);
   let n = 0;
@@ -2776,7 +2784,7 @@ export function match_flatten(m: Match, vars: PVar[], fr: () => number): LTerm {
 }
 
 export function rows_pick_ctr(rows: Rows, x: PVar, k: Name, xs: Patt[]): Rows {
-  const kx = patt_term({ $: "PCtr", k, x: xs });
+  const kx = patt_term({ $: "PCtr", k, x: xs, s: x.s });
   return rows.flatMap((row): Rows => {
     const p0 = row.p[0];
     switch (p0.$) {
@@ -2937,7 +2945,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
         continue main;
       }
       case "App": {
-        frs.push({ $: "APP", x: term_cell(tm.x) });
+        frs.push({ $: "APP", x: term_cell(tm.x), s: tm.s });
         lhs = null;
         tm = tm.f;
         continue main;
@@ -2952,7 +2960,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
           } else if (lhs !== null) {
             const pt: () => HTerm = lhs.t;
             const pn: number = lhs.n;
-            lhs = { t: () => term_apply(pt(), fr.x), n: pn - 1 };
+            lhs = { t: () => term_apply(pt(), fr.x, fr.s), n: pn - 1 };
           }
           tm = tm.f(fr.x);
           continue main;
@@ -2963,7 +2971,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
           break focus;
         } else {
           const fr = frs.pop() as Extract<Frame, { $: "APP" }>;
-          frs.push({ $: "MAT", t: tm, e: fr.x, lhs });
+          frs.push({ $: "MAT", t: tm, e: fr.x, lhs, s: fr.s });
           tm = fr.x;
           lhs = null;
           continue main;
@@ -3025,7 +3033,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
             continue main;
           }
           case "APP": {
-            tm = term_apply(tm, fr.x);
+            tm = term_apply(tm, fr.x, fr.s);
             continue back;
           }
           case "MNA": {
@@ -3077,7 +3085,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
                     }
                   }
                   case "Efq": {
-                    tm = term_apply(fr.lhs === null ? fr.t : fr.lhs.t(), fr.e);
+                    tm = term_apply(fr.lhs === null ? fr.t : fr.lhs.t(), fr.e, fr.s);
                     continue back;
                   }
                   default: {
@@ -3089,7 +3097,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
                 }
               }
             } else {
-              tm = term_apply(fr.lhs === null ? fr.t : fr.lhs.t(), fr.e);
+              tm = term_apply(fr.lhs === null ? fr.t : fr.lhs.t(), fr.e, fr.s);
               continue back;
             }
           }
@@ -3729,7 +3737,7 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
   term_check(book, { t: Ref(k), n: 0, def: k, qs: [] }, adt.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
   const { doms, ret: kind } = tele_unbind(book, adt.T);
   if (kind.$ !== "Typ" || doms.length !== adt.n) {
-    throw Err(book, ctx_nil(), "a kind (type " + k + "<..> is Kind(g))", kind, undefined, k);
+    throw Err(book, ctx_nil(), "a kind (type " + k + "<..> is Kind(g))", kind, kind.s, k);
   }
   for (const ctr of adt.c) {
     let tel: HTerm = ctr.T;
@@ -3742,7 +3750,7 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
       }
       term_check(book, { t: Ref(ctr.k), n: 0, def: ctr.k, qs: [] }, t_all.A, None(), goal, ctx, d);
       ctx = ctx_bind(ctx, d, t_all.q, t_all.k, t_all.A);
-      tel = t_all.B(Var(t_all.k, d));
+      tel = t_all.B(Var(t_all.k, d, t_all.s));
     }
     const exp = "a telescope tipped at " + k + " applied to its own parameters";
     const tip = term_wnf(book, tel);
@@ -3763,12 +3771,12 @@ export function def_valid(book: Book, k: Name, def: Def): void {
   if (def.i) {
     let tel = term_strip(def.T);
     for (let d = 0; tel.$ === "All"; d++) {
-      tel = term_strip(tel.B(Var(tel.k, d)));
+      tel = term_strip(tel.B(Var(tel.k, d, tel.s)));
     }
     const [h] = term_unapply(tel);
     const io  = book.tlds["IO"];
     if (h.$ !== "Ref" || h.k !== "IO" || io === undefined || io.$ !== "Def" || io.b !== true) {
-      throw Err(book, ctx_nil(), "a foreign definition answering base's IO", k);
+      throw Err(book, ctx_nil(), "a foreign definition answering base's IO", k, tel.s, k);
     }
   }
   if (def.v !== null) {
