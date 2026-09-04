@@ -1145,7 +1145,8 @@ function ctr_build(fl: File, k: Bend.Name, exprs: string[]): string {
   const s = at < 0 ? null : fl.spares.splice(at, 1)[0];
   const got = s === null ? alloc : s.z ? `${s.name} ? ${s.name} : ${alloc}`
     : s.name;
-  return `term_ctr(${cid}, ${node_fill(fl, "nd", got, exprs)})`;
+  return `term_ctr(${cid}, ${node_fill(fl, "nd", got, exprs,
+    fl.cb.hot.has(k))})`;
 }
 
 // Mat
@@ -1873,11 +1874,11 @@ function seg_ref(fl: File, fid: string): string {
 // ====
 
 function node_fill(fl: File, k: string, alloc: string,
-  exprs: string[]): string {
+  exprs: string[], shr = false): string {
   const nd = name_local(fl, k);
   file_push(fl, `u64 ${nd} = ${alloc};`);
   exprs.forEach((w, j) => {
-    file_push(fl, `e.mem[${nd} + ${j}] = ${w};`);
+    file_push(fl, `e.mem[${nd} + ${j}] = ${shr ? `rfc_seal(e, ${w})` : w};`);
   });
   return nd;
 }
@@ -1969,7 +1970,8 @@ function facts_lend(cb: Carb, A: HTerm): boolean {
     && lay_of(cb.book, A).ks.includes("box");
 }
 
-function facts_scan(cb: Carb, k: Bend.Name): boolean {
+function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
+  first: boolean): boolean {
   memo_gc();
   const np = cb.poly.size;
   let pi = 0;
@@ -1994,6 +1996,9 @@ function facts_scan(cb: Carb, k: Bend.Name): boolean {
     }
   };
   const site_hot = (A: HTerm | null, n: number) => {
+    if (first) {
+      sites.push(A);
+    }
     if (n > 1 && lay_of(cb.book, A).ks.includes("box")) {
       facts_hot(cb, A, true);
     }
@@ -2136,11 +2141,18 @@ function facts_build(cb: Carb): void {
     cb.live.set(k, def_lays(cb, k).map((l) => l.ks.map(() =>
       cb.dyn.has(k))));
   }
+  const sites: (HTerm | null)[] = [];
+  let first = true;
   for (let go = true; go;) {
     go = false;
     for (const k of cb.brw.keys()) {
-      go = facts_scan(cb, k) || go;
+      go = facts_scan(cb, k, sites, first) || go;
     }
+    first = false;
+  }
+  for (let seen = -1; seen < cb.hot.size;) {
+    seen = cb.hot.size;
+    sites.forEach((T) => facts_hot(cb, T, false));
   }
 }
 
@@ -3261,6 +3273,7 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   };
   table("FID_ARITY_T", entries.map((s) => s.params.length));
   table("FID_BANGS_T", entries.map((s) => Number(cb.bangs.has(s.def))));
+  defs.push(`#define BANGS ${cb.bangs.size}`, "");
   const nofk = new Set(done_defs(cb).filter(([, tld]) => !term_any(cb,
     tld.h as HTerm, (s) => (s.$ === "Let" && s.k.length >= 2)
       || call_kind(cb, s)?.k === CLO_APPLY)).map(([k]) => k));
@@ -3288,6 +3301,8 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   const rs = ns.map((i) => "r" + i).join(", ");
   const load = [...ns].reverse().map((r) =>
     `    case ${r + 1}: r${r} = e.mem[a + ${r}]; \\\n`).join("");
+  defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail".split(" ")
+    .reduce((m, k, i) => m | (cb.hot.has(k) ? 1 << i : 0), 0)}`, "");
   const pass = ns.map((i) =>
     `    case ${i}: r${i} = res[0]; \\\n      break; \\\n`).join("");
   defs.push(`#define WL_LAST \\\n  switch (war) { \\\n${pass}  }`);
@@ -4311,39 +4326,12 @@ OUTLINE Term rfc_wrap(Env e, Term t, u32 cnt) {
   return (t & ~LOC_MASK) | RFC_BIT | r;
 }
 
-OUTLINE void term_seal(Env e, Term t) {
-  Corpus H = e.mem;
-  u64 up   = 0;
-  Loc loc  = term_loc(t);
-  u32 n    = cid_boxn((u32)term_aux(t));
-  u32 j    = 0;
-  for (;;) {
-    if (j < n) {
-      Term f = H[loc + j];
-      if (term_triv(f) || term_rfc(f) || term_tag(f) != TAG_CTR) {
-        j += 1;
-        continue;
-      }
-      Loc r = heap_alloc(e, 0);
-      H[loc + j] = (f & ~LOC_MASK) | RFC_BIT | r;
-      H[r] = up;
-      up   = loc | ((u64)j << 40) | ((u64)n << 48);
-      loc  = term_loc(f);
-      n    = cid_boxn((u32)term_aux(f));
-      j    = 0;
-    } else if (up == 0) {
-      return;
-    } else {
-      Loc p = up & LOC_MASK;
-      j     = (u8)(up >> 40);
-      n     = (u8)(up >> 48);
-      Loc r = term_loc(H[p + j]);
-      up    = H[r];
-      H[r]  = ((u64)loc << 24) | 1;
-      loc   = p;
-      j    += 1;
-    }
+INLINE Term rfc_seal(Env e, Term t) {
+  if (term_triv(t) || term_rfc(t)
+    || term_tag(t) == TAG_BUF || term_tag(t) == TAG_ARR) {
+    return t;
   }
+  return rfc_wrap(e, t, 1);
 }
 
 INLINE Term rfc_sole(Env e, Term t) {
@@ -4371,23 +4359,20 @@ INLINE bool rfc_out(Env e, Loc r) {
   return true;
 }
 
-INLINE void rfc_bump(Env e, Loc r, u32 k) {
-  u32 c = a32_add(a32_at(e.mem, r), k);
-  if ((c & RFC_CNT) >= RFC_CNT - k) {
+INLINE void rfc_bump(Env e, Loc r) {
+  u32 c = a32_add(a32_at(e.mem, r), 1);
+  if ((c & RFC_CNT) >= RFC_CNT - 1) {
     err_post(e.mem, ERR_RFCS);
   }
 }
 
 HOT Term term_keep(Env e, Term t) {
   if (term_rfc(t)) {
-    rfc_bump(e, term_loc(t), 1);
+    rfc_bump(e, term_loc(t));
     return t;
   }
   if (term_triv(t)) {
     return t;
-  }
-  if (term_tag(t) == TAG_CTR) {
-    term_seal(e, t);
   }
   return rfc_wrap(e, t, 2);
 }
@@ -4403,7 +4388,7 @@ OUTLINE void span_fade(Env e, Term t, Loc src, u32 n) {
   for (u32 j = 0; j < n; j += 1) {
     Term f = e.mem[src + j];
     if (term_rfc(f)) {
-      rfc_bump(e, term_loc(f), 1);
+      rfc_bump(e, term_loc(f));
     } else if (!term_triv(f)) {
       err_post(e.mem, ERR_RFCS);
     }
@@ -4478,9 +4463,17 @@ static void term_drop(Env e, Term t) {
         if (tag == TAG_ARR) {
           cls = 64 | blk_cls(e, t);
         } else {
-          u32 ar = tag == TAG_CTR ? cid_arity(aux)
-            : fid_arity(aux) - (tag == TAG_CLO);
-          n   = tag == TAG_CTR ? cid_boxn(aux) : ar;
+          u32 ar;
+          if (tag == TAG_CTR) {
+            ar = cid_arity(aux);
+            n  = cid_boxn(aux);
+          } else if (tag == TAG_CLO) {
+            ar = fid_arity(aux) - 1;
+            n  = ar;
+          } else {
+            ar = fid_arity(aux);
+            n  = ar;
+          }
           cls = cls_fit(tag == TAG_TSK ? ar + 2 : ar);
         }
         c0 = H[loc];
@@ -4663,11 +4656,12 @@ INLINE Term blk_new(Env e, bool arr, Nat d, u32 lgs, u32 n, THR Term* v) {
       if (d >= 24) {
         err_post(H, ERR_RFCS);
       } else if (term_rfc(w)) {
-        rfc_bump(e, term_loc(w), (1u << d) - 1);
-      } else {
-        if (term_tag(w) == TAG_CTR) {
-          term_seal(e, w);
+        u32 k = (1u << d) - 1;
+        u32 got = a32_add(a32_at(H, term_loc(w)), k);
+        if ((got & RFC_CNT) >= RFC_CNT - k) {
+          err_post(H, ERR_RFCS);
         }
+      } else {
         w = rfc_wrap(e, w, 1u << d);
       }
     }
@@ -5719,8 +5713,8 @@ int main(int argc, char** argv) {
     thr = 1;
     gpu = 0;
   }
-  bool dev = gpu != 0 && gpu_probe();
-  if (gpu == 1 && !dev) {
+  bool dev = gpu != 0 && BANGS > 0 && gpu_probe();
+  if (gpu == 1 && BANGS > 0 && !dev) {
     cli_fail("--gpu on, but this binary found no GPU device", NULL);
   }
   long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
