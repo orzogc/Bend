@@ -25,8 +25,8 @@ const cost = s => (s = s.replace(/[*+~#%/]/g, "").trim()) ? s.split(/\s+/)
 const co = "co", punch = "punch", quick = "quick", left = "left", red = "red", green = "green";
 const TAG = new Set([co, punch, quick, left, red, green]);
 const BEATS = [
-  ["say", "#Bend 2 is here!", "- it's *FAST* like C", "- it *SCALES* like CUDA",
-          "- it *PROVES* like Lean", "- vibe-coding *WORKS*", left],
+  ["say", "#Bend 2 is here!", "A new programming language", "- that's *FAST* like C",
+          "- that *SCALES* like CUDA", "- that *PROVES* like Lean", "- where vibe-coding *WORKS*", left],
   ["check"],
   ["bench", "gameoflife"],
   ["par", "gameoflife", co],
@@ -685,7 +685,7 @@ function sayLines(b) {
   return b.slice(2).filter(s => !TAG.has(s)).map(s => s[0] === "~"
     ? { s: s.slice(1), size: 22, pitch: 40, color: DIM }
     : s[0] === "%" ? { s: "*" + s.slice(1) + "*", size: 34, pitch: 62, color: BLUE }
-    : s[0] === "#" ? { s: "*" + s.slice(1).replace(/([,.:;?]*)$/, "*$1"), size: 44, pitch: 78, color: INK }
+    : s[0] === "#" ? { s: "*" + s.slice(1).replace(/([,.:;]*)$/, "*$1"), size: 44, pitch: 78, color: INK }
     : s[0] === "/" ? { s: s.slice(1), size: 30, pitch: 56, color: INK, slant: true }
     : s === "" ? { s, size: 34, pitch: 30, color: INK }
     : { s, size: 34, pitch: 62, color: INK });
