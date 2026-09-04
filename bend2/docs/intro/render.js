@@ -720,7 +720,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { check: 10.5, bench: 9.5, par: 11.5, dist: DALL + 1.5, eval: EDONE + 1.9,
-                reduce: RDONE + 3.2, laws: 16.6, intro: 8.0, walk: 6.3, block: 5.8, end: 24.0 };
+                reduce: RDONE + 3.2, laws: 16.6, intro: 8.0, walk: 6.3, block: 5.8, end: 10.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));
@@ -732,7 +732,8 @@ for (const b of BEATS) {
 const T0 = []; let DUR = 0;
 for (const b of BEATS) { T0.push(DUR); DUR += b[1]; }
 // the film runs four minutes to the frame: the end card takes up the slack
-const TOTAL = 240;
+// the end card takes the slack up to four minutes, never under its own 10 s
+const TOTAL = Math.max(240, DUR);
 BEATS[BEATS.length - 1][1] += TOTAL - DUR; DUR = TOTAL;
 const SCENES = BEATS.map(b => [b[0] === "say"
   ? "“" + b[2].replace(/[*+~#%/]/g, "") : b[0] + (b[2] && !TAG.has(b[2]) ? " " + b[2] : ""), b[1]]);
