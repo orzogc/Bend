@@ -478,26 +478,20 @@ function cellBox(x, y, w, h, fill, a) {
   cx.fillStyle = deepen(fill, Math.min(1/c, 1.5)); cx.fillRect(x + g/2, y + g/2, w - g, h - g);
   if (a !== undefined) cx.globalAlpha = 1;
 }
-// Numbers wear 2048's tiles (gabrielecirulli/2048, style/main.css),
-// softened halfway toward white to sit with the film's pastels, one even
-// climb over the whole run: a core's sum goes from the 2 tile's beige to
-// the 8 tile's orange as it counts up to 55, then the folds carry the
-// totals from that orange to the 64 tile's red, and the final result alone
-// wears the 2048 yellow. The ink is 2048's dark brown throughout.
+// Numbers wear the film's own blue: a sum starts in the sky blue of the
+// task grid and deepens as it grows, one even climb, until the total wears
+// the very blue of Bend's bars. Ink is navy on the light tiles and white on
+// the deep ones.
 const mix = (h1, h2, f) => "#" + rgb(h1).map((c, k) => Math.round(lerp(c, rgb(h2)[k], f)).toString(16).padStart(2, "0")).join("");
-const TILES = ["#eee4da", "#ede0c8", "#f2b179", "#f59563", "#f67c5f", "#f65e3b", "#edc22e"]
-              .map(t => mix(t, "#ffffff", 0.5));
-const TINK = "#776e65";
+const TILES = [SKY, "#c3d7ef", "#a6c3e6", "#86acdb", "#6693cd", "#3f73b3", BLUE];
 // a value's rung on the tiles, fractional: 0..2 while the leaf counts up,
-// 2..5 over the fold levels (log2 of value / leaf) but the last, which is 6
-function rung(v) {
-  const l = clamp(Math.log2(v/LEAF), 0, LEVELS);
-  return v <= LEAF ? 2*v/LEAF : l < LEVELS - 1 ? 2 + 3*l/(LEVELS - 1) : 5 + (l - LEVELS + 1);
-}
+// 2..6 over the fold levels (log2 of value / leaf)
+const rung = v => v <= LEAF ? 2*v/LEAF : 2 + 4*clamp(Math.log2(v/LEAF), 0, LEVELS)/LEVELS;
 function heat(v) {
   const t = rung(v), i = Math.min(Math.floor(t), TILES.length - 2);
   return mix(TILES[i], TILES[i + 1], t - i);
 }
+const ink = v => rung(v) < 3.5 ? "#1f2f45" : "#f4f8fc";
 function cellText(s, x, y, w, h, a, color) {
   const fs = fitText(w, h);
   if (fs < 5 || a <= 0) return;
@@ -579,7 +573,7 @@ S.eval = (u, dur) => {
     if (a <= 0) continue;
     const j = clamp(Math.floor((u - E0 - phase(c, r))/ESTEP), 0, EVAL.length - 1);
     cellBox(x, y, w, h, j ? heat(EVALV[j]) : SKY, a);
-    cellText(EVAL[j], x, y, w, h, a, j ? TINK : BLUE);
+    cellText(EVAL[j], x, y, w, h, a, j ? ink(EVALV[j]) : BLUE);
   }
   // the caption and the pointer stay as the dive begins, and fade with it
   const g = 1 - ease((u - ED)/0.4);
@@ -615,8 +609,7 @@ S.reduce = (u, dur) => {
   const m1 = ease(p/MERGE), m2 = ease((p - MERGE)/(1 - MERGE)), landed = folding && p >= MERGE;
   const camr = u < R0 ? camLerp(CAME, camAt(0), ease(u/ZO)) : camLerp(camAt(j), camAt(j + 1), m2);
   const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
-  const v1 = LEAF*Math.pow(2, j), v2 = 2*v1, val = num(v1), val2 = num(v2);
-  const fill = heat(v1), fill2 = heat(v2);
+  const v1 = LEAF*Math.pow(2, j), v2 = 2*v1;
   // the other cores return as the camera pulls back, and leave once the
   // total is in: the last frame is one cell alone
   const others = u < R0 ? clamp(u/0.6, 0, 1) : j < LEVELS ? 1 : 1 - ease((u - RDONE - 0.4)/0.6);
@@ -643,8 +636,9 @@ S.reduce = (u, dur) => {
     const a = alpha(c, r)*(folding && odd ? 1 - ease((m1 - 0.6)/0.4) : 1);
     if (a <= 0) continue;
     if (folding && odd) { cx.globalAlpha = a; cx.fillStyle = BG; cx.fillRect(x, y, cw, ch); cx.globalAlpha = 1; }
-    cellBox(x, y, cw, ch, landed && !odd ? fill2 : fill, a);
-    cellText(landed && !odd ? val2 : val, x, y, cw, ch, a, TINK);
+    const v = landed && !odd ? v2 : v1;
+    cellBox(x, y, cw, ch, heat(v), a);
+    cellText(num(v), x, y, cw, ch, a, ink(v));
   }
   cx.globalAlpha = ease((u - RDONE - 0.8)/0.4);
   T("Final result!", W/2, 600, 24, GREEN, "center", true);
