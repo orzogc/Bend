@@ -51,10 +51,10 @@ const BEATS = [
   ["say", "Now, let's *prompt* a new feature:", "%\"please, make the board *wrap around*\""],
   ["say", "Without *LAWS.bend*:"],
   ["walk"],
-  ["say", "Oops! The feature *introduced a bug*.", "Nothing stopped the AI from *breaking the laws*.", red],
+  ["say", "Oops! The new feature *introduced a bug*.", "Nothing stopped the AI from *breaking the laws*.", red],
   ["say", "With *LAWS.bend*:"],
   ["block"],
-  ["say", "The AI placed a wall!", "The feature landed with *no bugs*.", green],
+  ["say", "The AI placed a wall!", "The new feature landed with *no bugs*.", green],
   ["say", "But *why*?"],
   ["say", "Because Bend *forced* the model", "to *comply with the laws*.", green],
   ["say", "The rules in *LAWS.bend* are enforced by the same",
@@ -212,14 +212,29 @@ function bar(x, v, vmax, name, color, a, over, mul) {
 // one readout straight above a parallel bar: the speedup, the cores it
 // took, and an arrow down to the bar
 const G3 = 150, SPY = 280;
+// the readout lands a word at a time, each rising into its place in the
+// finished lines: "11x" "faster" / "on" "16" "CPU" "cores". A "+" word
+// glues to the one before, so the GPU count lands as 16 then 384
 function speedup(B, v, i, chip, u, t0) {
   const a = ease((u - t0)/0.6);
   if (a <= 0) return;
-  const x = slotX(i, 3, G3) + BW/2, dy = 14*(1 - a);
+  const x = slotX(i, 3, G3) + BW/2, lines = [[times(B.seq/v), "faster"], ["on", ...chip.split(" "), "cores"]];
+  let k = 0;
+  lines.forEach((ws, li) => {
+    const size = li ? 20 : 26, y = SPY + 30*li;
+    font(size, true);
+    const sp = cx.measureText(" ").width;
+    const toks = ws.map((w, j) => [w.replace(/^\+/, ""), j && w[0] !== "+" ? sp : 0, !(li && !j)]);
+    let px = x - toks.reduce((n, [w, g, b]) => { font(size, b); return n + g + cx.measureText(w).width; }, 0)/2;
+    for (const [w, g, b] of toks) {
+      const wa = ease((u - t0 - 0.4*k++)/0.4);
+      px += g; cx.globalAlpha = wa;
+      T(w, px, y + 6*(1 - wa), size, AMBER, "left", b);
+      px += cx.measureText(w).width;
+    }
+  });
   cx.globalAlpha = a;
-  T(times(B.seq/v) + " faster", x, SPY + dy, 26, AMBER, "center", true);
-  rich("on *" + chip + "*", x, SPY + 30 + dy, 20, AMBER);
-  bow(x, SPY + 48 + dy, x, barTop(v, B.seq) - 44, -0.2, AMBER, a);
+  bow(x, SPY + 48, x, barTop(v, B.seq) - 44, -0.2, AMBER, a);
   cx.globalAlpha = 1;
 }
 const S = {};
@@ -257,9 +272,9 @@ S.bench = (u, dur, b) => {
 S.par = (u, dur, b) => {
   const B = BENCH[b[2]], vz = chart(B, u, ease((u - 0.6)/0.9), false);
   bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, ease((u - 2.0)/0.5));
-  speedup(B, B.par, 1, "16 CPU cores", u, 2.8);
+  speedup(B, B.par, 1, "16 CPU", u, 2.8);
   bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 5.6)/0.5));
-  speedup(B, B.gpu, 2, "16384 GPU cores", u, 6.4);
+  speedup(B, B.gpu, 2, "16 +384 GPU", u, 6.4);
 };
 
 // five bars, then the gap between Bend and the field, pointed out
@@ -719,7 +734,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { check: 10.5, bench: 9.5, par: 11.5, dist: DALL + 1.5, eval: EDONE + 1.9,
+const FIXED = { check: 10.5, bench: 9.5, par: 12.0, dist: DALL + 1.5, eval: EDONE + 1.9,
                 reduce: RDONE + 3.2, laws: 17.8, intro: 8.0, walk: 6.3, block: 5.8, end: 10.0 };
 for (const b of BEATS) {
   if (b[0] === "say") {
