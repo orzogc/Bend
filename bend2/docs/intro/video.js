@@ -1,14 +1,15 @@
 // Renders the film. Usage:
-//   node video.js            docs/intro.mp4 (1280x720, 60fps) and docs/intro.gif (640px wide, 30fps; the cube at 15)
+//   node video.js            docs/intro.mp4 (1920x1080, 60fps) and docs/intro.gif (640px wide, 30fps; the cube at 15)
 //   node video.js 3 9 26     stills at those seconds into shots/
 // Frames stream straight into ffmpeg; nothing lands on disk but the outputs.
 const { createCanvas } = require("canvas");
 const fs = require("fs"), path = require("path"), { spawn, spawnSync } = require("child_process");
 const { draw, setCtx, DUR, SCENES, T0 } = require("./render.js");
 
-const W = 1280, H = 720, FPS = 60, OUT = path.join(__dirname, "..", "..", "..", "docs");
-const cv = createCanvas(W, H);
-setCtx(cv.getContext("2d"));
+// the film is drawn in 1280x720 units; the canvas is that, scaled to 1080p
+const K = 1.5, W = 1280*K, H = 720*K, FPS = 60, OUT = path.join(__dirname, "..", "..", "..", "docs");
+const cv = createCanvas(W, H), ctx = cv.getContext("2d");
+ctx.scale(K, K); setCtx(ctx);
 
 const args = process.argv.slice(2);
 if (args.length) {
