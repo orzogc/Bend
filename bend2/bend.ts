@@ -262,8 +262,9 @@ export type Uses = PMap<Quant>;
 // Term
 export type BodyOf<B> = B extends [infer T] ? T : B;
 export type LetsOf<B> = BodyOf<B> extends Function ? (xs: TermOf<B>[]) => TermOf<B> : BodyOf<B>;
+export type SubsOf<B> = BodyOf<B> extends Function ? TermOf<NoInfer<B>> : HTerm;
 export type TermOf<B> = (
-  | { $: "Var"; k: Name; i: number; v?: HTerm }                                    // x
+  | { $: "Var"; k: Name; i: number; v?: SubsOf<B> }                                // x
   | { $: "Ref"; k: Name; b?: Bool }                                                // x
   | { $: "Sub"; i: number; v: TermOf<B>; f: TermOf<B> }                            // x <- v; f
   | { $: "Let"; k: Name[]; i: number[]; q: Quant[]; v: TermOf<B>[]; f: LetsOf<B> } // x y = v w; f
@@ -344,7 +345,7 @@ export type Err  = { $: "Err"; bok: Book; exp: Expr; obs?: Expr; ctx: Ctx; def?:
 // Term
 // ----
 
-export function Var<X>(k: Name, i: number, s?: Span, v?: HTerm): TermOf<X> {
+export function Var<X>(k: Name, i: number, s?: Span, v?: SubsOf<X>): TermOf<X> {
   return { $: "Var", k, i, s, v };
 }
 
@@ -357,7 +358,7 @@ export function Sub<X>(i: number, v: TermOf<X>, f: TermOf<X>, s?: Span): TermOf<
 }
 
 export function Let(k: Name[], i: number[], v: LTerm[], f: LTerm, s?: Span, q?: Quant[]): LTerm;
-export function Let(k: Name[], i: number[], v: HTerm[], f: (xs: HTerm[]) => HTerm, s?: Span, q?: Quant[]): HTerm;
+export function Let(k: Name[], i: number[], v: HTerm[], f: (xs: HTerm[]) => HTerm, s?: Span, q?: Quant[]): Extract<HTerm, { $: "Let" }>;
 export function Let(k: Name[], i: number[], v: LTerm[] | HTerm[], f: LTerm | ((xs: HTerm[]) => HTerm), s?: Span, q?: Quant[]): LTerm | HTerm {
   return { $: "Let", k, i, q: q ?? k.map(() => Lone()), v, f, s } as LTerm;
 }
@@ -382,8 +383,10 @@ export function All<X>(q: Quant, k: Name, i: number, A: NoInfer<TermOf<[X]>>, B:
   return { $: "All", q, k, i, A, B, s };
 }
 
-export function Lam<X>(k: Name, i: number, f: X, s?: Span): TermOf<[X]> {
-  return { $: "Lam", k, i, f, s };
+export function Lam(k: Name, i: number, f: LTerm, s?: Span): LTerm;
+export function Lam(k: Name, i: number, f: HBody, s?: Span): HTerm;
+export function Lam(k: Name, i: number, f: LTerm | HBody, s?: Span): LTerm | HTerm {
+  return { $: "Lam", k, i, f, s } as LTerm | HTerm;
 }
 
 export function App<X>(f: TermOf<X>, x: TermOf<X>, s?: Span): TermOf<X> {
@@ -735,6 +738,19 @@ export function term_cell(t: HTerm, k: Name = "_"): HTerm {
     return t;
   }
   return Var(k, -1, t.s, t);
+}
+
+export function term_cells(t: HTerm): HTerm {
+  switch (t.$) {
+    case "Ctr": return Ctr(t.k, t.x.map((x) => term_cell(x)), t.s);
+    case "ADT": return ADT(t.k, t.x.map((x) => term_cell(x)), t.s, t.r);
+    case "All": return All(t.q, t.k, t.i, term_cell(t.A), t.B, t.s);
+    case "Mat": return Mat(t.k, term_cell(t.h), term_cell(t.m), t.s);
+    case "Eql": return Eql(term_cell(t.a), term_cell(t.b), term_cell(t.T), t.s);
+    case "Min": return Min(term_cell(t.a), term_cell(t.b), t.s);
+    case "Typ": return Typ(term_cell(t.g), t.s);
+    default: return t;
+  }
 }
 
 export function term_force<X>(t: TermOf<X>): TermOf<X> {
@@ -3002,10 +3018,9 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
       } else {
         switch (fr.$) {
           case "VAR": {
-            if (tm.$ === "Ctr") {
-              tm = Ctr(tm.k, tm.x.map((x: HTerm) => term_cell(x)), tm.s);
-            }
-            fr.l.v = fr.a === undefined ? tm : Ann(tm, fr.a.T, fr.a.s);
+            tm = term_cells(tm);
+            fr.l.v = fr.a === undefined ? tm
+              : Ann(tm, term_cell(fr.a.T), fr.a.s);
             fr.l.i = -2;
             continue main;
           }
