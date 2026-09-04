@@ -696,7 +696,7 @@ S.reveal = (u, dur, b) => {
 S.end = (u, dur) => {
   T("Bend", W/2, 290, 64, INK, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
-  T("fast  ·  scalable  ·  no mistakes", W/2, 360, 24, GREEN, "center");
+  T("fast  ·  parallel  ·  no mistakes", W/2, 360, 24, GREEN, "center");
   cx.globalAlpha = ease((u - 1.8)/0.5);
   T("Python syntax · C speed · CPU and GPU · proofs", W/2, 430, 19, DIM, "center");
   T("github.com/HigherOrderCO/Bend", W/2, 480, 22, "#1a5fd0", "center");
