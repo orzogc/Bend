@@ -740,7 +740,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { check: 12.0, bench: 11.0, par: 14.5, dist: DALL + 1.5, eval: EDONE + 1.9,
+const FIXED = { check: 11.2, bench: 10.2, par: 13.8, dist: DALL + 1.5, eval: EDONE + 1.9,
                 reduce: RDONE + 3.2, laws: 17.8, intro: 8.0, walk: 6.3, block: 5.8, end: 7.1 };
 for (const b of BEATS) {
   if (b[0] === "say") {
