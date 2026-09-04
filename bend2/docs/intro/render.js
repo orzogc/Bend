@@ -212,27 +212,31 @@ function bar(x, v, vmax, name, color, a, over, mul) {
 // one readout straight above a parallel bar: the speedup, the cores it
 // took, and an arrow down to the bar
 const G3 = 150, SPY = 280;
-// the readout lands a word at a time, each rising into its place in the
-// finished lines: "11x" "faster" / "on" "16" "CPU" "cores". A "+" word
-// glues to the one before, so the GPU count lands as 16 then 384
-function speedup(B, v, i, chip, u, t0) {
+// the readout lands in steps: "11x faster"; then "on" with a count that
+// runs from 1 up to the core count (the GPU's pauses at 16, then runs on
+// to 16384 in log steps); then the chip's name. The line is laid out for
+// the final count, so nothing shifts as it runs
+function speedup(B, v, i, counts, chip, u, t0) {
   const a = ease((u - t0)/0.6);
   if (a <= 0) return;
-  const x = slotX(i, 3, G3) + BW/2, lines = [[times(B.seq/v), "faster"], ["on", ...chip.split(" "), "cores"]];
-  let k = 0;
-  lines.forEach((ws, li) => {
-    const size = li ? 20 : 26, y = SPY + 30*li;
-    font(size, true);
-    const sp = cx.measureText(" ").width;
-    const toks = ws.map((w, j) => [w.replace(/^\+/, ""), j && w[0] !== "+" ? sp : 0, !(li && !j)]);
-    let px = x - toks.reduce((n, [w, g, b]) => { font(size, b); return n + g + cx.measureText(w).width; }, 0)/2;
-    for (const [w, g, b] of toks) {
-      const wa = ease((u - t0 - 0.4*k++)/0.4);
-      px += g; cx.globalAlpha = wa;
-      T(w, px, y + 6*(1 - wa), size, AMBER, "left", b);
-      px += cx.measureText(w).width;
-    }
-  });
+  const x = slotX(i, 3, G3) + BW/2, T1 = t0 + 0.5, RUN = 0.8, PAUSE = 0.4, RUN2 = 1.2;
+  cx.globalAlpha = a;
+  T(times(B.seq/v) + " faster", x, SPY + 6*(1 - a), 26, AMBER, "center", true);
+  let n = Math.round(lerp(1, counts[0], clamp((u - T1)/RUN, 0, 1))), tEnd = T1 + RUN;
+  if (counts[1]) {
+    const q = clamp((u - tEnd - PAUSE)/RUN2, 0, 1);
+    if (q > 0) n = Math.round(counts[0]*Math.pow(counts[1]/counts[0], q));
+    tEnd += PAUSE + RUN2;
+  }
+  font(20); const onW = cx.measureText("on ").width;
+  font(20, true); const numW = cx.measureText(String(counts[counts.length - 1])).width, chipW = cx.measureText(" " + chip).width;
+  const oa = ease((u - T1)/0.4), ca = ease((u - tEnd - 0.1)/0.4), y = SPY + 30;
+  let px = x - (onW + numW + chipW)/2;
+  cx.globalAlpha = oa;
+  T("on ", px, y + 6*(1 - oa), 20, AMBER, "left"); px += onW;
+  T(String(n), px, y + 6*(1 - oa), 20, AMBER, "left", true); px += numW;
+  cx.globalAlpha = ca;
+  T(" " + chip, px, y + 6*(1 - ca), 20, AMBER, "left", true);
   cx.globalAlpha = a;
   bow(x, SPY + 48, x, barTop(v, B.seq) - 44, -0.2, AMBER, a);
   cx.globalAlpha = 1;
@@ -272,9 +276,9 @@ S.bench = (u, dur, b) => {
 S.par = (u, dur, b) => {
   const B = BENCH[b[2]], vz = chart(B, u, ease((u - 0.6)/0.9), false);
   bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, ease((u - 2.0)/0.5));
-  speedup(B, B.par, 1, "16 CPU", u, 2.8);
+  speedup(B, B.par, 1, [16], "CPU cores", u, 2.8);
   bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 5.6)/0.5));
-  speedup(B, B.gpu, 2, "16 +384 GPU", u, 6.4);
+  speedup(B, B.gpu, 2, [16, 16384], "GPU cores", u, 6.4);
 };
 
 // five bars, then the gap between Bend and the field, pointed out
