@@ -34,7 +34,7 @@ const BEATS = [
   ["dist"],
   ["eval", co],
   ["reduce", co],
-  ["say", "*The entire language can run on GPUs.*", "",
+  ["say", "*The entire language is parallelizable!*", "",
           "Objects, arrays, allocator, collector,", "pattern-matching, closures, recursion.", "",
           "*Everything* compiles to *kernels*!"],
   ["say", "Bend is fast in a single CPU core.", "And scales to massive GPU clusters."],
