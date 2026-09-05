@@ -174,14 +174,17 @@
 -- directional at kinds, at ADT residuals (peeling more fits peeling
 -- fewer) and at function domains, which compare swapped (compare LE).
 --
--- TYPING (§9). One judgment, Check β L sp q Γ t T π u: under the
+-- TYPING (§9). One judgment, Check β Φ L sp q Γ t T π u: under the
 -- equation L and the pending spine sp, at demand q, t has type T
 -- consuming π and elaborates to u, the certified term with its dead
 -- parts erased to the token Quant (bend.ts answers the elaborated term;
--- comp.ts erases exactly these parts). Every rule is bend.ts's rule of
--- the same name, spelled as its derivation comment. The var rule charges the ambient demand; a type position, an
--- erased argument, a kind's quantity, an equality endpoint and a motive
--- check dead; no rule coerces dead to live. A live reference to a
+-- comp.ts erases exactly these parts). Φ names the judgment's two tests,
+-- conversion (Le) and ex-falso (CtxDead): Pol.std, bend.ts's; PART II
+-- also reads the rules under a coarser pair for dead code. Every rule is
+-- bend.ts's rule of the same name, spelled as its derivation comment.
+-- The var rule charges the ambient demand; a type position, an erased
+-- argument, a kind's quantity, an equality endpoint and a motive check
+-- dead; no rule coerces dead to live. A live reference to a
 -- definition with no body needs the native flag; a live self-reference
 -- must head a call whose pending spine descends against the equation's
 -- columns (infer-ref), the equation being the def's own left-hand side
