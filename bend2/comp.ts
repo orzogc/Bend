@@ -41,8 +41,6 @@ type Field = { at: number; lay: Lay };
 
 type Cell = { arr: string; at: string };
 
-type Loop = { def: Bend.Name; params: string[]; ks: Kind[] };
-
 type Val = { ws: string[]; lay: Lay; av?: (Cell | null)[] };
 
 type Bind = { val: Val; n: number };
@@ -110,7 +108,6 @@ type File = Carb & {
   brwl: Set<string>;
   segs: Seg[];
   seg: Seg;
-  loop: Loop | null;
   tab: number;
   decl: string;
   cids: Map<string, [number, number]>;
@@ -1736,10 +1733,8 @@ function cid_reg(fl: File, k: Bend.Name, abi = -1): string {
 // ====
 
 function file_new(cb: Carb, decl: string): File {
-  return { ...cb, decl, segs: [], loop: null,
-    seg: { fid: "", def: "", lines: [], params: [], ks: [], frame: null,
-      refs: new Set() }, tab: 2, cids: new Map(), tabs: new Map(), spins: [],
-    spun: new Map(),
+  return { ...cb, decl, segs: [], seg: seg_new("", false, []), tab: 2,
+    cids: new Map(), tabs: new Map(), spins: [], spun: new Map(),
     reqs: "", resw: 1, fuel: 0, fresh: new Map(), spares: [], uses: new Map(),
     local: new Set(), brwl: new Set() };
 }
@@ -1785,14 +1780,12 @@ function spare_flush(fl: File): void {
 // Seg
 // ===
 
-function seg_new(fl: File, name: string, seq: boolean, params: string[],
-  def = "", resw = 1, ks: Kind[] = params.map(() => "w64")): Seg {
+function seg_new(name: string, seq: boolean, params: string[], resw = 1,
+  ks: Kind[] = params.map(() => "w64")): Seg {
   const pop = params.length - resw;
-  const seg: Seg = { fid: seg_fid(name), def, lines: [], params, ks,
+  return { fid: seg_fid(name), def: name, lines: [], params, ks,
     refs: new Set(), frame: seq ? { pop, resw,
       at: params.slice(0, pop).map((_, i) => i - pop) } : null };
-  fl.segs.push(seg);
-  return seg;
 }
 
 function seg_fid(k: Bend.Name): string {
@@ -2453,16 +2446,13 @@ function emit_bang(fl: File, ck: Call, args: string[]): void {
 }
 
 function emit_jump(fl: File, args: string[], k: Bend.Name): void {
-  const loop = fl.loop;
-  if (loop === null || loop.def !== k) {
+  if (fl.seg.def !== k) {
     args.forEach((a, i) => file_push(fl, `r${i} = ${a};`));
     return file_push(fl, `WL_JMP(${seg_ref(fl, seg_fid(k))});`);
   }
-  if (loop.params === fl.seg.params) {
-    fl.seg.spin = true;
-  }
-  emit_hold(fl, args, "j", loop.ks).forEach((j, i) => {
-    file_push(fl, `${loop.params[i]} = ${j};`);
+  fl.seg.spin = true;
+  emit_hold(fl, args, "j", fl.seg.ks).forEach((j, i) => {
+    file_push(fl, `${fl.seg.params[i]} = ${j};`);
   });
   file_push(fl, "WL_AGAIN;");
 }
@@ -2581,8 +2571,6 @@ function emit_params(fl: File, k: Bend.Name): Val[] {
     }
   }));
   fl.fuel = 64;
-  fl.loop = { def: k, params: vals.flatMap((v) => v.ws),
-    ks: lays.flatMap((l) => l.ks) };
   return vals;
 }
 
@@ -2597,24 +2585,24 @@ function emit_native(fl: File, ck: Call, ers: HTerm[]): string {
   fl.spun.set(key, name);
   const tld = fl.book.tlds[ck.k] as Def;
   const ret = def_ret(fl, ck.k);
-  const outer = { seg: fl.seg, spares: fl.spares, loop: fl.loop,
-    uses: fl.uses, tab: fl.tab, brwl: fl.brwl, fuel: fl.fuel };
-  const refs = new Set<string>();
-  Object.assign(fl, { seg: { ...fl.seg, lines: [], refs }, spares: [], tab: 2,
-    uses: new Map(), brwl: new Set(fl.brwl) });
+  const outer = { ...fl };
+  Object.assign(fl, { spares: [], tab: 2, uses: new Map(),
+    brwl: new Set(fl.brwl) });
   const vals = emit_params(fl, ck.k);
-  const { params: sp, ks } = fl.loop as Loop;
+  const seg = seg_new(ck.k, false, vals.flatMap((v) => v.ws), 1,
+    vals.flatMap((v) => v.lay.ks));
+  fl.seg = seg;
   const dst = { ws: ret.ks.map(() => name_local(fl, "v")), lay: ret };
   emit_body(fl, tld.h as HTerm, tld.T, ers, vals, dst);
   fl.spins.push([name, [`HOT Term ${name}(Env e, THR Term* o${
-    sp.map((p, i) => `, ${lay_c(ks[i])} ${p}`).join("")}) {`,
+    seg.params.map((p, i) => `, ${lay_c(seg.ks[i])} ${p}`).join("")}) {`,
   "  u32 wpoll = 0;",
   ...dst.ws.map((v, j) => `  ${lay_c(ret.ks[j])} ${v} = 0;`),
-  "  WL_SPIN", ...fl.seg.lines, "    break;", "  }",
+  "  WL_SPIN", ...seg.lines, "    break;", "  }",
   ...dst.ws.map((v, j) => `  o[${j}] = ${v};`),
-  "  return 1;", "}"].join("\n"), refs]);
+  "  return 1;", "}"].join("\n"), seg.refs]);
   Object.assign(fl, outer);
-  refs.forEach((r) => fl.seg.refs.add(r));
+  seg.refs.forEach((r) => fl.seg.refs.add(r));
   return name;
 }
 
@@ -2850,7 +2838,7 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
       if (ck === null) {
         return emit_put(fl, dst, emit_expr(fl, x, ty));
       }
-      const self = fl.loop !== null && fl.loop.def === ck.k;
+      const self = fl.seg.def === ck.k;
       if (dst === null && fl.slots.has(ck.k)) {
         return emit_step(fl, ck);
       }
@@ -3077,10 +3065,11 @@ function compile_def(fl: File, k: Bend.Name, tld: Def): void {
   fl.brwl = new Set();
   memo_gc();
   const vals = emit_params(fl, k);
-  const { params, ks } = fl.loop as Loop;
   const seq = fl.mint.get(k) === true;
   const resw = seq ? vals.at(-1)?.ws.length ?? 0 : 0;
-  fl.seg = seg_new(fl, k, seq, params, k, resw, ks);
+  fl.seg = seg_new(k, seq, vals.flatMap((v) => v.ws), resw,
+    vals.flatMap((v) => v.lay.ks));
+  fl.segs.push(fl.seg);
   const st = fl.slots.get(k);
   if (st !== undefined) {
     const live = (cs: Capture[]) => cs.filter((c) => quant_live(c.q));
@@ -3107,13 +3096,13 @@ function compile_reqs(fl: File): void {
   fl.reqs += eff_src(new URL("./effs/sys.c", import.meta.url).pathname, seen);
   fl.reqs += NATIVE.IO;
   fl.spares = [];
-  fl.loop = null;
   for (const [k, tld] of done_defs(fl, def_foreign)) {
     fl.reqs += eff_src(tld.i!.find((x) => x.endsWith(".c"))
       ?? die("no .c import: " + k), seen);
     const qp = [...live_doms(fl.book, tld), [0, "k"]].map(([, n]) =>
       name_local(fl, n as string));
-    fl.seg = seg_new(fl, k, false, qp, k);
+    fl.seg = seg_new(k, false, qp);
+    fl.segs.push(fl.seg);
     cid_reg(fl, k, qp.length);
     file_push(fl, `res[0] = ${ctr_build(fl, k, qp)};`);
     file_push(fl, "WL_RETN(1);");
@@ -3229,11 +3218,8 @@ export function compile_book(book: Bend.Book): string {
     s.dead = !live.has(s.fid) || (!clo && def_foreign(cb.book.tlds[s.def]));
   }
   fl.spins = fl.spins.filter(([n]) => live.has(n));
-  const ext = (fid: string, n: number, dead: boolean): Seg =>
-    ({ fid, def: "", lines: [], params: Array(n).fill(""), ks: [],
-      frame: null, refs: new Set(), dead });
-  const entries = [...fl.segs, ext("FID_IO_EMIT", 1, !clo),
-    ...clo ? [ext("FID_CLO_APPLY", 2, false)] : []];
+  const entries = [...fl.segs, { ...seg_new("io_emit", false, [""]),
+    dead: !clo }, ...clo ? [seg_new("clo_apply", false, ["", ""])] : []];
   const defs = compile_tables(fl, entries);
   return width_fold(TEMPLATE
     .replace(/^\/\/ Tables\n\/\/ ======$/m,
