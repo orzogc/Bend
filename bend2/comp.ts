@@ -2439,7 +2439,7 @@ function emit_res(fl: File, ws: string[]): void {
 function emit_step(fl: File, ck: Call): void {
   const vs = emit_vals(fl, ck.k, ck.args);
   const n = vs.length - 1;
-  const ws = emit_args(fl, ck.k, ck.args, n, vs.slice(0, n), emit_held(fl));
+  const ws = emit_args(fl, ck.k, vs.slice(0, n), emit_held(fl));
   const rs = val_own(fl, val_to(fl, vs[n], def_lays(fl, ck.k)[n]));
   spare_flush(fl);
   emit_frame(fl, ws, null);
@@ -2467,10 +2467,9 @@ function emit_jump(fl: File, args: string[], k: Bend.Name): void {
   file_push(fl, "WL_AGAIN;");
 }
 
-function emit_vals(fl: File, k: Bend.Name, args: HTerm[],
-  n = args.length): Val[] {
+function emit_vals(fl: File, k: Bend.Name, args: HTerm[]): Val[] {
   const lent = fl.brw.get(k) ?? [];
-  return args.slice(0, n).map((a, i) => {
+  return args.map((a, i) => {
     const x = Bend.term_strip(a);
     const b = lent[i] === true && x.$ === "Var"
       ? fl.uses.get(probe_of(x)) : undefined;
@@ -2478,8 +2477,7 @@ function emit_vals(fl: File, k: Bend.Name, args: HTerm[],
   });
 }
 
-function emit_args(fl: File, k: Bend.Name, args: HTerm[],
-  n = args.length, vs = emit_vals(fl, k, args, n),
+function emit_args(fl: File, k: Bend.Name, vs: Val[],
   skip = new Set<string>()): string[] {
   const lent = fl.brw.get(k) ?? [];
   const lays = def_lays(fl, k);
@@ -2494,10 +2492,10 @@ function emit_args(fl: File, k: Bend.Name, args: HTerm[],
 }
 
 function emit_call(fl: File, ck: Call, km: Call | null): void {
-  const cargs = emit_args(fl, ck.k, ck.args);
+  const cargs = emit_args(fl, ck.k, emit_vals(fl, ck.k, ck.args));
   const step = fl.slots.has(km?.k as string);
-  const cexps = km ? emit_args(fl, km.k, km.args,
-    km.args.length - 1, undefined, step ? emit_held(fl) : new Set()) : [];
+  const cexps = km ? emit_args(fl, km.k, emit_vals(fl, km.k,
+    km.args.slice(0, -1)), step ? emit_held(fl) : new Set()) : [];
   spare_flush(fl);
   if (km !== null && step) {
     emit_frame(fl, cexps, seg_fid(km.k));
@@ -2550,8 +2548,8 @@ function emit_fuse(fl: File, ck: Call, dst: Dst): void {
   const args = emit_vals(fl, ck.k, ck.args);
   if (!flat_of(fl, ck.k)) {
     const lent = fl.brw.get(ck.k) ?? [];
-    const vs = fl.mint.has(ck.k) ? args : val_split(emit_args(fl, ck.k,
-      ck.args, args.length, args), def_lays(fl, ck.k));
+    const vs = fl.mint.has(ck.k) ? args
+      : val_split(emit_args(fl, ck.k, args), def_lays(fl, ck.k));
     const mine = vs.flatMap((v, i) => lent[i] !== true ? [] : v.ws.filter(
       (w, j) => v.lay.ks[j] === "box" && !fl.brwl.has(w)));
     mine.forEach((w) => fl.brwl.add(w));
@@ -2560,7 +2558,7 @@ function emit_fuse(fl: File, ck: Call, dst: Dst): void {
   }
   const out = emit_dst(fl, def_ret(fl, ck.k));
   const name = emit_native(fl, ck, ers);
-  const ws = emit_args(fl, ck.k, ck.args, args.length, args);
+  const ws = emit_args(fl, ck.k, args);
   const o = name_local(fl, "o");
   file_push(fl, `Term ${o}[${out.ws.length}];`);
   block(fl, `if (${name}(${["e", o, ...ws].join(", ")}) == 0) {`, () => {
@@ -2876,8 +2874,10 @@ function emit_fork(fl: File, x: HLet): void {
   const jc = call_kind(fl, o.b) as Call;
   const k1 = fl.forks.get(o.ps[0]) as Bend.Name;
   const alias = (w: string) => emit_alias(fl, w, "a");
-  const margs = calls.map((c) => emit_args(fl, c.k, c.args).map(alias));
-  const caps = emit_args(fl, jc.k, jc.args, jc.args.length - n).map(alias);
+  const margs = calls.map((c) =>
+    emit_args(fl, c.k, emit_vals(fl, c.k, c.args)).map(alias));
+  const caps = emit_args(fl, jc.k,
+    emit_vals(fl, jc.k, jc.args.slice(0, -n))).map(alias);
   spare_flush(fl);
   const kj = seg_fid(jc.k);
   block(fl, "if (!seq) {", () => {
