@@ -1866,7 +1866,7 @@ function facts_hot(cb: Carb, B: HTerm | null, force: boolean): void {
 
 function facts_lend(cb: Carb, A: HTerm): boolean {
   const t = ty_adt(cb.book, A);
-  return t !== null && t.k !== "Array" && WORDS[t.k] === undefined
+  return t !== null && t.k !== "Array"
     && lay_of(cb.book, A).ks.includes("box");
 }
 
