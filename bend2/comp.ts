@@ -4643,8 +4643,7 @@ INLINE Ring ring_flip(u32 i) {
   return i / CUBE_SIDE + CUBE_SIDE * (i % CUBE_SIDE);
 }
 
-#define ring_pick(b, s, c) \
-  ((s) == 0 ? (b) : (b) + (s) * (CUR_STEP(c) & (CUBE_SIDE - 1)))
+#define ring_pick(b, s, c) ((b) + (s) * (CUR_STEP(c) & (CUBE_SIDE - 1)))
 
 // Task
 // ====
