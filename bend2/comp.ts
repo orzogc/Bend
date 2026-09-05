@@ -661,18 +661,14 @@ function tpl_jso(o: string): string {
   return o === "==" || o === "!=" ? o + "=" : o;
 }
 
-function tpl(t: string): (xs: string[]) => string {
-  const ps = t.split(/\$(\d)/);
-  return (xs) => ps.map((p, i) => (i % 2 === 1 ? xs[+p] : p)).join("");
-}
-
-function tpl_run(t: Gen, xs: string[]): string {
-  return typeof t === "string" ? tpl(t)(xs) : t(xs);
+function tpl(t: Gen, xs: string[]): string {
+  return typeof t !== "string" ? t(xs)
+    : t.split(/\$(\d)/).map((p, i) => (i % 2 === 1 ? xs[+p] : p)).join("");
 }
 
 function tpl_nat(u: string, f: string): Gen {
   return ([p]) => /^\d/.test(p) ? (BigInt(parseInt(p)) + 1n) + u
-    : tpl(f)([p]);
+    : tpl(f, [p]);
 }
 
 // Memo
@@ -2665,13 +2661,13 @@ function emit_intr(fl: File, it: Intr, x: HTerm,
     const as = ws.map((z) => emit_alias(fl, z, "a"));
     const vs: string[] = [];
     for (const p of it.parts) {
-      vs.push(emit_alias(fl, tpl(p)([...as, ...vs]), "a"));
+      vs.push(emit_alias(fl, tpl(p, [...as, ...vs]), "a"));
     }
     return val_new(vs, lay_of(fl.book, ty ?? tele_unbind(fl.book,
       (fl.book.tlds[k] as Bend.Def).T).ret));
   }
   const dup = typeof it.C === "string" && /\$(\d)[^]*\$\1/.test(it.C);
-  const out = tpl_run(it.C!, dup ? ws.map((a) => emit_alias(fl, a, "a")) : ws);
+  const out = tpl(it.C!, dup ? ws.map((a) => emit_alias(fl, a, "a")) : ws);
   const lay = lay_of(fl.book, ty);
   return val_new([out], lay.ks.length === 1 ? lay : BOX);
 }
@@ -2689,7 +2685,7 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null): Val {
     const vs = flds.map((f) => emit_expr(fl, f, null));
     return val_new([vs.length === 1 && vs[0].ws.length > 1
       ? `(${vs[0].ws.map((w, i) => `((u64)${w} << ${i})`).join(" | ")})`
-      : tpl_run(fn, vs.map(val_word))], lay);
+      : tpl(fn, vs.map(val_word))], lay);
   }
   if (adt.k === "Array") {
     const el = arr_elem(fl.book, adt.x[0]);
@@ -2942,7 +2938,7 @@ function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
   if (xs.includes(null)) {
     return null;
   }
-  return tpl_run(js ? it.JS : it.C, xs as string[]);
+  return tpl(js ? it.JS : it.C, xs as string[]);
 }
 
 function emit_tab(fl: File, rows: Chain | null, ty: HTerm): number | null {
@@ -3318,7 +3314,7 @@ function js_call(fl: File, k: Bend.Name, args: HTerm[],
   if (intr !== null) {
     const xs = exprs.map((e) => ATOM.test(e) || STRLIT.test(e)
       ? e : emit_hold(fl, [e], "x")[0]);
-    return pre + tpl_run(intr, xs);
+    return pre + tpl(intr, xs);
   }
   const call = js_sat(k) + "(" + exprs.join(", ") + ")";
   return def_foreign(tld) ? pre + call
@@ -3378,7 +3374,7 @@ function js_expr(fl: File, tm: HTerm,
         .map((f) => js_expr(fl, f, null));
       const native = OPTIMIZED[adt.k]?.JS;
       if (native !== undefined) {
-        return tpl_run(native.intr[x.k] ?? die(x.k + NATIVE_DIE), exprs);
+        return tpl(native.intr[x.k] ?? die(x.k + NATIVE_DIE), exprs);
       }
       return exprs.reduce((e, z, j) => e + ", " + keys[j] + ": " + z,
         "{$: \"" + x.k + "\"") + "}";
@@ -3429,7 +3425,7 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
     const native = OPTIMIZED[adt.k]?.JS;
     const bodies = arms.map(([k, h]) => () => {
       const { keys, el } = js_ctr(fl, adt, k);
-      const fields = el?.map((e) => tpl(e)([s]))
+      const fields = el?.map((e) => tpl(e, [s]))
         ?? keys.map((n) => s + "." + n);
       js_func(fl, h, null, [...fields, ...rest]);
     });
@@ -3441,7 +3437,7 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
     }
     return emit_chain(fl, (i) => native === undefined
       ? s + ".$ === \"" + arms[i][0] + "\""
-      : tpl(native.cond?.[arms[i][0]] ?? die(arms[i][0] + NATIVE_DIE))([s]),
+      : tpl(native.cond?.[arms[i][0]] ?? die(arms[i][0] + NATIVE_DIE), [s]),
     bodies);
   }
   if (x.$ === "Let") {
