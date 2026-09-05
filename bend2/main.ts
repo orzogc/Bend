@@ -1,7 +1,22 @@
 // HUMAN NOTE: this particular file is AI written and nobody really cares.
+//
+// Run, this file is the CLI. Imported, it is the loader that makes `import
+// Game from "./x.bend"` work: a bun plugin (preload it in bunfig.toml, list
+// it under [serve.static] plugins, or hand it to Bun.build) and a node hook
+// (node --import). A .bend module exports every filled, non-base, non-IO
+// def, wrapped so a JS caller passes the live arguments, in one call or
+// curried, and gets a plain value back: a constructor is {$: "Name", field:
+// value, ...}, a closure is a function, Nat is BigInt, Bool, String and U32
+// are native. A page bundles through Bun.build with the loader on, since
+// the bun build CLI takes no plugins.
 
 import * as child from "node:child_process";
 import * as fs from "node:fs";
+import * as mod from "node:module";
+import * as url from "node:url";
+import * as thr from "node:worker_threads";
+
+import type { BunPlugin } from "bun";
 
 import * as Bend from "./bend.ts";
 import * as Comp from "./comp.ts";
@@ -12,7 +27,16 @@ import * as Comp from "./comp.ts";
 // Constants
 // =========
 
-const USAGE = "usage: bend <file.bend> [--check | -o <bin> | --to <out.c|.js>]";
+const USAGE = "usage: bend <file.bend> [--check | -o <bin> | --to <out.c|.js>]"
+  + "\n       bend <page.html> -o <dir>";
+
+const PLUGIN: BunPlugin = {
+  name: "bend",
+  setup(build) {
+    build.onLoad({ filter: /\.bend$/ }, async (args) =>
+      ({ contents: await load_js(args.path), loader: "js" }));
+  },
+};
 
 // CLI
 // ===
@@ -34,11 +58,15 @@ async function cli(): Promise<void> {
   if (flag === "--to" && !/\.(c|js)$/.test(out)) {
     cli_fail("--to expects a .c or a .js file, not " + out);
   }
+  if (path.endsWith(".html")) {
+    if (flag !== "-o") {
+      cli_fail("a page bundles with -o <dir>");
+    }
+    return cli_bundle(path, out);
+  }
 
-  const book = Bend.book_nil();
   try {
-    await Bend.book_load(book, path, "", new Map());
-    Bend.book_valid(book);
+    const book = await book_read(path);
     if (emit) {
       if (book.hols > 0) {
         throw "Error: the book has TODOs and cannot compile";
@@ -58,8 +86,7 @@ async function cli(): Promise<void> {
       console.log(Bend.term_show(Bend.term_lower(snf)));
     }
   } catch (e) {
-    const err = e as Bend.Err;
-    console.error(err?.$ === "Err" ? Bend.err_show(err) : String(e));
+    console.error(book_err(e));
     process.exit(1);
   }
 }
@@ -74,6 +101,19 @@ function cli_build(bin: string): void {
   if (child.spawnSync("clang", gpu, { stdio: "ignore" }).status !== 0
     && child.spawnSync("clang", cpu, { stdio: "inherit" }).status !== 0) {
     cli_fail("clang failed to build " + bin);
+  }
+}
+
+async function cli_bundle(page: string, dir: string): Promise<void> {
+  const out = await Bun.build({
+    entrypoints: [page],
+    outdir: dir,
+    target: "browser",
+    minify: true,
+    plugins: [PLUGIN],
+  });
+  for (const a of out.outputs) {
+    console.log(a.path + " (" + (a.size / 1024).toFixed(1) + "kb)");
   }
 }
 
@@ -98,6 +138,56 @@ function cli_fail(msg: string): never {
   process.exit(1);
 }
 
+// Book
+// ====
+
+async function book_read(path: string): Promise<Bend.Book> {
+  const book = Bend.book_nil();
+  await Bend.book_load(book, path, "", new Map());
+  Bend.book_valid(book);
+  return book;
+}
+
+function book_err(e: unknown): string {
+  const err = e as Bend.Err;
+  return err?.$ === "Err" ? Bend.err_show(err) : String(e);
+}
+
+// Load
+// ====
+
+async function load_js(path: string): Promise<string> {
+  let book: Bend.Book;
+  try {
+    book = await book_read(path);
+  } catch (e) {
+    throw new Error(book_err(e));
+  }
+  if (book.hols > 0) {
+    throw new Error(path + " has TODOs and cannot compile");
+  }
+  const outs = [...new Set(book.order)].filter((k) => {
+    const tld = book.tlds[k];
+    return tld.$ === "Def" && tld.v !== null && tld.b !== true
+      && tld.i === undefined && Comp.io_base(book, tld.T) === null;
+  });
+  return Comp.js_lib(book, outs);
+}
+
+export async function load(u: string, context: unknown,
+  next: (u: string, context: unknown) => unknown): Promise<unknown> {
+  return u.endsWith(".bend")
+    ? { format: "module", shortCircuit: true,
+      source: await load_js(url.fileURLToPath(u)) }
+    : next(u, context);
+}
+
+export default PLUGIN;
+
 if (import.meta.main) {
   await cli();
+} else if (typeof Bun !== "undefined") {
+  Bun.plugin(PLUGIN);
+} else if (thr.isMainThread) {
+  mod.register(import.meta.url);
 }

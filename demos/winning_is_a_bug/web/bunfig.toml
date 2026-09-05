@@ -1,4 +1,4 @@
-preload = ["bend-lang/plugin"]
+preload = ["../../../bend2/main.ts"]
 
 [serve.static]
-plugins = ["bend-lang/plugin"]
+plugins = ["../../../bend2/main.ts"]
