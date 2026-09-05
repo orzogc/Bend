@@ -804,8 +804,9 @@ def CtxDead (β : Book) (Γ : Ctx) : Prop :=
 structure Pol : Type where
   conv : Term → Term → Prop
   efq  : Ctx → Prop
+  kind : Prop
 
-def Pol.std (β : Book) : Pol := ⟨Le β, CtxDead β⟩
+def Pol.std (β : Book) : Pol := ⟨Le β, CtxDead β, True⟩
 
 -- Check β Φ L sp q Γ t T π u: under the equation L and the pending spine
 -- sp (the arguments above t, infer-app's sp), at demand q, t has type T
@@ -882,7 +883,7 @@ inductive Check (β : Book) (Φ : Pol) : LHS → List Term → Quant → Ctx →
   -- where L binds the next column by x while one remains
   -- ------------------------------------------------ check-lam
   -- Γ ⊢ λ f : @q' A -> B ~ tail π
-  | lam : Check β Φ L [] .None Γ A (.Typ (.Qua q')) πA .Qnt →
+  | lam : (Φ.kind → Check β Φ L [] .None Γ A (.Typ (.Qua q')) πA .Qnt) →
           Check β Φ L.lam [] q (⟨q', A, none⟩ :: Γ) f B π uf →
           Quant.le (π 0) q' →
           Check β Φ L sp q Γ (.Lam f) (.All q' A B) (Uses.tail π) (Term.era q (.Lam uf))
@@ -906,7 +907,7 @@ inductive Check (β : Book) (Φ : Pol) : LHS → List Term → Quant → Ctx →
   -- ------------------------------------------------------------------- check-let
   -- Γ ⊢ qb x = v; b : T ~ πv + tail π
   | let_ : Check β Φ L [] (Quant.dem qb q) Γ v A πv uv →
-           Check β Φ L [] .None Γ A (.Typ (.Qua qb)) πA .Qnt →
+           (Φ.kind → Check β Φ L [] .None Γ A (.Typ (.Qua qb)) πA .Qnt) →
            Check β Φ L.shift [] q (⟨qb, A, some v⟩ :: Γ) b (Term.shift 0 T) π ub →
            Quant.le (π 0) qb →
            Check β Φ L sp q Γ (.Let qb v b) T (Uses.add πv (Uses.tail π))
@@ -5274,10 +5275,10 @@ theorem Check.void_sp (h : Check β Φ L sp q Γ t T π u) :
   | qua => intro sp'; exact .qua
   | min _ _ iha ihb => intro sp'; exact .min (iha []) (ihb [])
   | all _ _ ihA ihB => intro sp'; exact .all (ihA []) (ihB [])
-  | lam _ _ hle ihA ihf => intro sp'; exact .lam (ihA []) (ihf []) hle
+  | lam _ _ hle ihA ihf => intro sp'; exact .lam (fun hk => ihA hk []) (ihf []) hle
   | app _ _ ihf ihx => intro sp'; exact .app (ihf _) (ihx [])
   | appLam ha _ ih => intro sp'; exact .appLam ha (ih sp')
-  | let_ _ _ _ hle ihv ihA ihb => intro sp'; exact .let_ (ihv []) (ihA []) (ihb []) hle
+  | let_ _ _ _ hle ihv ihA ihb => intro sp'; exact .let_ (ihv []) (fun hk => ihA hk []) (ihb []) hle
   | eql _ _ _ ihT iha ihb => intro sp'; exact .eql (ihT []) (iha []) (ihb [])
   | rfl hc => intro sp'; exact .rfl hc
   | rwt _ _ _ ihe ihP ihf => intro sp'; exact .rwt (ihe []) (ihP []) (ihf [])
@@ -6005,11 +6006,11 @@ theorem Check.weaken (hβ : Book.Closed β) (hΦ : Φ.Weak) {sp : List Term}
   | qua => exact .qua
   | min _ _ iha ihb => exact .min iha ihb
   | all _ _ ihA ihB => exact .all ihA ihB
-  | lam _ _ hle ihA ihf => exact .lam ihA ihf hle
+  | lam _ _ hle ihA ihf => exact .lam (fun hk => ihA hk) ihf hle
   | app _ _ ihf ihx => exact .app ihf ihx
   | appLam ha _ ih =>
     exact .appLam (Term.Closed.mono _ _ _ ha (by simp only [List.length_append]; omega)) ih
-  | let_ _ _ _ hle ihv ihA ihb => exact .let_ ihv ihA ihb hle
+  | let_ _ _ _ hle ihv ihA ihb => exact .let_ ihv (fun hk => ihA hk) ihb hle
   | eql _ _ _ ihT iha ihb => exact .eql ihT iha ihb
   | rfl hc =>
     refine .rfl ?_
@@ -6111,7 +6112,7 @@ theorem Check.ins (hβ : Book.Closed β) (hΦ : Φ.Weak) {sp : List Term}
   | lam _ _ hle ihA ihf =>
     intro n U Γ' hins sp'
     rw [Uses.lift_tail, Term.shift_era]
-    refine .lam (ihA hins []) (ihf (Ins.succ hins) []) ?_
+    refine .lam (fun hk => ihA hk hins []) (ihf (Ins.succ hins) []) ?_
     rw [Uses.lift_head]; exact hle
   | app _ _ ihf ihx =>
     intro n U Γ' hins sp'
@@ -6128,7 +6129,7 @@ theorem Check.ins (hβ : Book.Closed β) (hΦ : Φ.Weak) {sp : List Term}
     rw [Uses.lift_add, Uses.lift_tail, Term.shift_era]
     have hb' := ihb (Ins.succ hins) []
     rw [Term.shift_shift0] at hb'
-    refine .let_ (ihv hins []) (ihA hins []) hb' ?_
+    refine .let_ (ihv hins []) (fun hk => ihA hk hins []) hb' ?_
     rw [Uses.lift_head]; exact hle
   | eql _ _ _ ihT iha ihb =>
     intro n U Γ' hins sp'
@@ -6364,7 +6365,7 @@ theorem Check.subst (hβ : Book.Closed β) (hΦ : Φ.Weak) {sp : List Term}
     subst hΓ
     rw [Uses.del_tail, Term.subst_era]
     simp only [Term.subst, hw0, huw0]
-    refine .lam (ihA Γ _root_.rfl (by simp) (fun hne => absurd (hA.none_at _) hne))
+    refine .lam (fun hk => ihA hk Γ _root_.rfl (by simp) (fun hne => absurd ((hA hk).none_at _) hne))
       (ihf (⟨_, _, none⟩ :: Γ) _root_.rfl hq h1) ?_
     rw [Uses.del_head]; exact hle
   | app _ _ ihf ihx =>
@@ -6396,7 +6397,7 @@ theorem Check.subst (hβ : Book.Closed β) (hΦ : Φ.Weak) {sp : List Term}
       Term.subst_shift0_closed hw] at hb'
     refine .let_ (ihv Γ _root_.rfl (Quant.dem_ne_many hq)
       (fun hne => h1 (fun he => hne (Quant.add_eq_none he).1)))
-      (ihA Γ _root_.rfl (by simp) (fun hne => absurd (hA.none_at _) hne)) hb' ?_
+      (fun hk => ihA hk Γ _root_.rfl (by simp) (fun hne => absurd ((hA hk).none_at _) hne)) hb' ?_
     rw [Uses.del_head]; exact hle
   | eql hT ha hb ihT iha ihb =>
     intro Γ hΓ hq h1
@@ -6615,7 +6616,7 @@ theorem SpineLt.fill (hf : Book.fill β β') (h : SpineLt β qs j cs ts) : Spine
   | there hq he _ ih => exact .there hq (he.fill hf) ih
 
 theorem Check.fill (hf : Book.fill β β') (hc : ∀ x y, Φ.conv x y → Φ'.conv x y)
-    (he : ∀ Γ, Φ.efq Γ → Φ'.efq Γ) {sp : List Term}
+    (he : ∀ Γ, Φ.efq Γ → Φ'.efq Γ) (hk : Φ'.kind → Φ.kind) {sp : List Term}
     (h : Check β Φ L sp q Γ t T π u) : Check β' Φ' L sp q Γ t T π u := by
   induction h with
   | var hg => exact .var hg
@@ -6636,10 +6637,10 @@ theorem Check.fill (hf : Book.fill β β') (hc : ∀ x y, Φ.conv x y → Φ'.co
   | qua => exact .qua
   | min _ _ iha ihb => exact .min iha ihb
   | all _ _ ihA ihB => exact .all ihA ihB
-  | lam _ _ hle ihA ihf => exact .lam ihA ihf hle
+  | lam _ _ hle ihA ihf => exact .lam (fun hk' => ihA (hk hk')) ihf hle
   | app _ _ ihf ihx => exact .app ihf ihx
   | appLam ha _ ih => exact .appLam ha ih
-  | let_ _ _ _ hle ihv ihA ihb => exact .let_ ihv ihA ihb hle
+  | let_ _ _ _ hle ihv ihA ihb => exact .let_ ihv (fun hk' => ihA (hk hk')) ihb hle
   | eql _ _ _ ihT iha ihb => exact .eql ihT iha ihb
   | rfl hc' => exact .rfl (hc'.fill hf)
   | rwt _ _ _ ihe ihP ihf => exact .rwt ihe ihP ihf
@@ -6650,7 +6651,7 @@ theorem Check.fill (hf : Book.fill β β') (hc : ∀ x y, Φ.conv x y → Φ'.co
 
 theorem Check.fill_std (hf : Book.fill β β') {sp : List Term}
     (h : Check β (Pol.std β) L sp q Γ t T π u) : Check β' (Pol.std β') L sp q Γ t T π u :=
-  h.fill hf (fun _ _ (hl : Le β _ _) => hl.fill hf) (fun _ (hd : CtxDead β _) => hd.fill hf)
+  h.fill hf (fun _ _ (hl : Le β _ _) => hl.fill hf) (fun _ (hd : CtxDead β _) => hd.fill hf) (fun _ => trivial)
 
 theorem Tree.fill (hf : Book.fill β β') (h : Tree β n t) : Tree β' n t := by
   induction h with
@@ -6703,12 +6704,12 @@ theorem Check.unwall {sp : List Term} (h : Check β Φ L' sp q Γ t T π u) :
     exact .all (ihA L _root_.rfl) (ihB L.shift (LHS.up_shift L).symm)
   | lam _ _ hle ihA ihf =>
     intro L hL; subst hL
-    exact .lam (ihA L _root_.rfl) (ihf L.lam (LHS.up_lam L).symm) hle
+    exact .lam (fun hk => ihA hk L _root_.rfl) (ihf L.lam (LHS.up_lam L).symm) hle
   | app _ _ ihf ihx => intro L hL; exact .app (ihf L hL) (ihx L hL)
   | appLam ha _ ih => intro L hL; exact .appLam ha (ih L hL)
   | let_ _ _ _ hle ihv ihA ihb =>
     intro L hL; subst hL
-    exact .let_ (ihv L _root_.rfl) (ihA L _root_.rfl) (ihb L.shift (LHS.up_shift L).symm) hle
+    exact .let_ (ihv L _root_.rfl) (fun hk => ihA hk L _root_.rfl) (ihb L.shift (LHS.up_shift L).symm) hle
   | eql _ _ _ ihT iha ihb => intro L hL; exact .eql (ihT L hL) (iha L hL) (ihb L hL)
   | rfl hc => intro L hL; exact .rfl hc
   | rwt _ _ _ ihe ihP ihf => intro L hL; exact .rwt (ihe L hL) (ihP L hL) (ihf L hL)
@@ -6977,7 +6978,7 @@ theorem Check.all_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp 
     exact ⟨πA, πB, hA, hB, hΦ.trans hcv hc, hπ, hu⟩
 
 theorem Check.lam_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Lam f) T π u) :
-    ∃ q' A B πA π' uf, Check β Φ L [] .None Γ A (.Typ (.Qua q')) πA .Qnt ∧
+    ∃ q' A B πA π' uf, (Φ.kind → Check β Φ L [] .None Γ A (.Typ (.Qua q')) πA .Qnt) ∧
       Check β Φ L.lam [] q (⟨q', A, none⟩ :: Γ) f B π' uf ∧ Quant.le (π' 0) q' ∧
       Φ.conv (Ctx.δ Γ 0 (.All q' A B)) (Ctx.δ Γ 0 T) ∧
       π = Uses.tail π' ∧ u = Term.era q (.Lam uf) := by
@@ -7009,7 +7010,7 @@ theorem Check.app_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp 
 
 theorem Check.let_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Let qb v b) T π u) :
     ∃ A T0 πv uv πA π' ub, Check β Φ L [] (Quant.dem qb q) Γ v A πv uv ∧
-      Check β Φ L [] .None Γ A (.Typ (.Qua qb)) πA .Qnt ∧
+      (Φ.kind → Check β Φ L [] .None Γ A (.Typ (.Qua qb)) πA .Qnt) ∧
       Check β Φ L.shift [] q (⟨qb, A, some v⟩ :: Γ) b (Term.shift 0 T0) π' ub ∧
       Quant.le (π' 0) qb ∧ Φ.conv (Ctx.δ Γ 0 T0) (Ctx.δ Γ 0 T) ∧
       π = Uses.add πv (Uses.tail π') ∧ u = Term.era q (.Let qb uv ub) := by
@@ -8403,7 +8404,7 @@ theorem Check.beta (hβ : Book.Closed β)
   rcases h.app_inv hΦ with ⟨q', A, B, πf, uf, πa, ua, hf, ha, hle, hπ, hu⟩ | ⟨g, T0, hg, _, hb, hle⟩
   · obtain ⟨q1, A1, B1, πA, π1, uf1, hA, hb, hle1, hleF, hπf, huf⟩ := hf.lam_inv hΦ
     obtain ⟨rfl, hAA, hBB⟩ := Le.all_inv hβ hleF .refl .refl
-    have hA1 : Term.Closed 0 A1 := hA.closed
+    have hA1 : Term.Closed 0 A1 := (hA trivial).closed
     have hres : Check β (Pol.std β) (LHS.void β) [] .Lone [] (Term.subst 0 a f)
         (Term.subst 0 a B1) (Uses.del 0 π1) (Term.subst 0 ua uf1) := by
       by_cases hq : q1 = .None
@@ -8427,7 +8428,7 @@ theorem Check.let_step (hβ : Book.Closed β)
       (Term.subst 0 uv ub) ∧ u = .Let qb uv ub := by
   have hΦ := Pol.std_pre hβ
   obtain ⟨A, T0, πv, uv, πA, π1, ub, hv, hA, hb, hle1, hle, hπ, hu⟩ := h.let_inv hΦ
-  have hA0 : Term.Closed 0 A := hA.closed
+  have hA0 : Term.Closed 0 A := (hA trivial).closed
   have hres : Check β (Pol.std β) (LHS.void β) [] .Lone [] (Term.subst 0 v b)
       (Term.subst 0 v (Term.shift 0 T0)) (Uses.del 0 π1) (Term.subst 0 uv ub) := by
     by_cases hq : qb = .None
@@ -8708,11 +8709,11 @@ theorem Check.red_bind (hβ : Book.Closed β) {sp : List Term}
   | qua => intro Γ' _; exact .qua
   | min _ _ iha ihb => intro Γ' hΓ; exact .min (iha _ hΓ) (ihb _ hΓ)
   | all _ _ ihA ihB => intro Γ' hΓ; exact .all (ihA _ hΓ) (ihB _ (.rigid hΓ))
-  | lam _ _ hle ihA ihf => intro Γ' hΓ; exact .lam (ihA _ hΓ) (ihf _ (.rigid hΓ)) hle
+  | lam _ _ hle ihA ihf => intro Γ' hΓ; exact .lam (fun hk => ihA hk _ hΓ) (ihf _ (.rigid hΓ)) hle
   | app _ _ ihf ihx => intro Γ' hΓ; exact .app (ihf _ hΓ) (ihx _ hΓ)
   | appLam ha _ ih => intro Γ' hΓ; exact .appLam (by rw [hΓ.length]; exact ha) (ih _ hΓ)
   | let_ _ _ _ hle ihv ihA ihb =>
-    intro Γ' hΓ; exact .let_ (ihv _ hΓ) (ihA _ hΓ) (ihb _ (.val .refl hΓ)) hle
+    intro Γ' hΓ; exact .let_ (ihv _ hΓ) (fun hk => ihA hk _ hΓ) (ihb _ (.val .refl hΓ)) hle
   | eql _ _ _ ihT iha ihb => intro Γ' hΓ; exact .eql (ihT _ hΓ) (iha _ hΓ) (ihb _ hΓ)
   | rfl hc =>
     intro Γ' hΓ
@@ -9020,8 +9021,9 @@ def Sub (M M' : List Charge) : Prop := ∀ x, M.count x ≤ M'.count x
 -- ever runs, and an affine binder may occur once in each); every other
 -- node charges the sum of its parts. A lambda or let redex on a closed
 -- argument, and a match on a constructor, may be priced by its contractum
--- instead — the pricing the unfold uses to see through the case tree to
--- its leaves, column after column
+-- instead (the argument closed and deep: the strategy's redexes, whose
+-- arguments it never enters) — the pricing the unfold uses to see through
+-- the case tree to its leaves, column after column
 mutual
 inductive CG (β : Book) : Term → List Charge → Prop
   | ref   : Book.defn β k = some d → Pins.of β d.n us pins → CGs β us Ms →
@@ -9044,16 +9046,16 @@ inductive CG (β : Book) : Term → List Charge → Prop
   | rwt   : CG β e Me → CG β f Mf → CG β (.Rwt e P f) (Me ++ Mf)
   | let_  : CG β v Mv → CG β b Mb → CG β (.Let q v b) (Mv ++ Mb)
   -- contractum pricing
-  | beta  : a.Closed 0 → CG β (Term.apps (Term.subst 0 a f) us) M →
+  | beta  : a.Closed 0 → Deep β a → CG β (Term.apps (Term.subst 0 a f) us) M →
             CG β (Term.apps (.Lam f) (a :: us)) M
-  | letC  : v.Closed 0 → CG β (Term.subst 0 v b) M → CG β (.Let q v b) M
+  | letC  : v.Closed 0 → Deep β v → CG β (Term.subst 0 v b) M → CG β (.Let q v b) M
   | matc  : Book.adt β a = some A → AdtD.ctr A c = some C →
-            us.length = A.pn + C.fn →
-            CG β (Term.apps h (us.drop A.pn)) M →
-            CG β (.App (.Mat a c h m) (Term.apps (.Ctr a c) us)) M
-  | matm  : (a', c') ≠ (a, c) →
-            CG β (.App m (Term.apps (.Ctr a' c') us)) M →
-            CG β (.App (.Mat a c h m) (Term.apps (.Ctr a' c') us)) M
+            us.length = A.pn + C.fn → (∀ u ∈ us, u.Closed 0) → Deeps β us →
+            CG β (Term.apps h (us.drop A.pn ++ more)) M →
+            CG β (Term.apps (.Mat a c h m) (Term.apps (.Ctr a c) us :: more)) M
+  | matm  : (a', c') ≠ (a, c) → (∀ u ∈ us, u.Closed 0) → Deeps β us →
+            CG β (Term.apps m (Term.apps (.Ctr a' c') us :: more)) M →
+            CG β (Term.apps (.Mat a c h m) (Term.apps (.Ctr a' c') us :: more)) M
 inductive CGs (β : Book) : List Term → List Charge → Prop
   | nil  : CGs β [] []
   | cons : CG β u M → CGs β us Ms → CGs β (u :: us) (M ++ Ms)
@@ -9806,18 +9808,26 @@ theorem Term.occ_letC_le (hvc : v.Closed 0) :
   rw [Term.occ_subst_ge hvc b 0 d (Nat.zero_le d)]
   simp only [Term.occ]; omega
 
+theorem List.map_subst_closed {us : List Term} (hcl : ∀ u ∈ us, Term.Closed 0 u) (d : Nat)
+    (v : Term) : us.map (Term.subst d v) = us := by
+  rw [List.map_congr_left (g := id)
+    (fun u hu => Term.subst_closed u 0 d v (hcl u hu) (Nat.zero_le d))]
+  exact List.map_id us
+
 theorem Term.occ_matc_le :
-    Term.occ d (Term.apps h (us.drop n))
-      ≤ Term.occ d (.App (.Mat a c h m) (Term.apps (.Ctr a c) us)) := by
-  rw [Term.occ_apps]
-  simp only [Term.occ, nat_max]
-  rw [Term.occ_apps]
-  simp only [Term.occ]
+    Term.occ d (Term.apps h (us.drop n ++ more))
+      ≤ Term.occ d (Term.apps (.Mat a c h m) (Term.apps (.Ctr a c) us :: more)) := by
+  simp only [Term.occ_apps, Term.occ, nat_max, List.map_append, List.sum_append,
+    List.map_cons, List.sum_cons]
   have := sum_map_drop_le (Term.occ d) us n
+  have : Term.occ d h ≤ max (Term.occ d h) (Term.occ d m) := Nat.le_max_left _ _
   omega
 
-theorem Term.occ_matm_le : Term.occ d (.App m x) ≤ Term.occ d (.App (.Mat a c h m) x) := by
-  simp only [Term.occ, nat_max]; omega
+theorem Term.occ_matm_le :
+    Term.occ d (Term.apps m (x :: more)) ≤ Term.occ d (Term.apps (.Mat a c h m) (x :: more)) := by
+  simp only [Term.occ_apps, Term.occ, nat_max, List.map_cons, List.sum_cons]
+  have : Term.occ d m ≤ max (Term.occ d h) (Term.occ d m) := Nat.le_max_right _ _
+  omega
 
 -- a match's substituted arms are covered by the cover plus the copies
 theorem CG.subst_mat {Mv : List Charge} (hh : CG β h' Mh') (hm : CG β m' Mm')
@@ -9911,7 +9921,7 @@ theorem CG.subst (hb : CG β b Mb) (hv : CG β v Mv) (hvc : v.Closed 0) (d : Nat
     · intro x
       have := h1 x; have := h2 x
       simp only [Term.occ, List.count_append, Nat.add_mul]; omega
-  | .beta hac hc => by
+  | .beta hac hd hc => by
     obtain ⟨M', hM', hle⟩ := CG.subst hc hv hvc d
     have hsh := Term.shift_closed v 0 0 hvc (Nat.le_refl 0)
     have hsa := Term.subst_closed _ 0 d v hac (Nat.zero_le d)
@@ -9920,8 +9930,8 @@ theorem CG.subst (hb : CG β b Mb) (hv : CG β v Mv) (hvc : v.Closed 0) (d : Nat
     rw [Term.subst_apps, Term.subst_subst0, hsa, hsh] at hM'
     rw [Term.subst_apps]
     simp only [Term.subst, List.map, hsh, hsa]
-    exact .beta hac hM'
-  | .letC hvc' hc => by
+    exact .beta hac hd hM'
+  | .letC hvc' hd hc => by
     obtain ⟨M', hM', hle⟩ := CG.subst hc hv hvc d
     have hsh := Term.shift_closed v 0 0 hvc (Nat.le_refl 0)
     have hsv := Term.subst_closed _ 0 d v hvc' (Nat.zero_le d)
@@ -9929,20 +9939,25 @@ theorem CG.subst (hb : CG β b Mb) (hv : CG β v Mv) (hvc : v.Closed 0) (d : Nat
       (Nat.add_le_add_left (Nat.mul_le_mul_right _ (Term.occ_letC_le hvc')) _)⟩
     rw [Term.subst_subst0, hsv, hsh] at hM'
     simp only [Term.subst, hsh, hsv]
-    exact .letC hvc' hM'
-  | .matc hk hc hlen hM => by
+    exact .letC hvc' hd hM'
+  | .matc hk hc hlen hcl hd hM => by
     obtain ⟨M', hM', hle⟩ := CG.subst hM hv hvc d
     refine ⟨M', ?_, fun x => Nat.le_trans (hle x)
       (Nat.add_le_add_left (Nat.mul_le_mul_right _ Term.occ_matc_le) _)⟩
-    rw [Term.subst_apps, List.map_drop] at hM'
-    simp only [Term.subst, Term.subst_apps]
-    exact .matc hk hc (by simp [hlen]) hM'
-  | .matm hne hM => by
+    have hmap := List.map_subst_closed hcl d v
+    rw [Term.subst_apps, List.map_append, List.map_drop, hmap] at hM'
+    rw [Term.subst_apps]
+    simp only [List.map_cons, Term.subst, Term.subst_apps, hmap]
+    exact .matc hk hc hlen hcl hd hM'
+  | .matm hne hcl hd hM => by
     obtain ⟨M', hM', hle⟩ := CG.subst hM hv hvc d
     refine ⟨M', ?_, fun x => Nat.le_trans (hle x)
       (Nat.add_le_add_left (Nat.mul_le_mul_right _ Term.occ_matm_le) _)⟩
-    simp only [Term.subst, Term.subst_apps] at hM' ⊢
-    exact .matm hne hM'
+    have hmap := List.map_subst_closed hcl d v
+    rw [Term.subst_apps] at hM'
+    rw [Term.subst_apps]
+    simp only [List.map_cons, Term.subst, Term.subst_apps, hmap] at hM' ⊢
+    exact .matm hne hcl hd hM'
 theorem CGs.subst (hus : CGs β us Ms) (hv : CG β v Mv) (hvc : v.Closed 0) (d : Nat) :
     ∃ Ms', CGs β (us.map (Term.subst d v)) Ms' ∧
       ∀ x, Ms'.count x ≤ Ms.count x + (us.map (Term.occ d)).sum * Mv.count x :=
@@ -10507,8 +10522,9 @@ theorem Book.fill.refl (β : Book) : Book.fill β β :=
 
 -- the judgment only grows with its policy
 theorem Check.mono (hc : ∀ x y, Φ.conv x y → Φ'.conv x y) (he : ∀ Γ, Φ.efq Γ → Φ'.efq Γ)
-    {sp : List Term} (h : Check β Φ L sp q Γ t T π u) : Check β Φ' L sp q Γ t T π u :=
-  Check.fill (Book.fill.refl β) hc he h
+    (hk : Φ'.kind → Φ.kind) {sp : List Term} (h : Check β Φ L sp q Γ t T π u) :
+    Check β Φ' L sp q Γ t T π u :=
+  Check.fill (Book.fill.refl β) hc he hk h
 
 -- a type fitted above a stable head form reduces to the same head form
 theorem Le.typ_r (h : Le β (.Typ g) b) : ∃ g', Red β .strong b (.Typ g') := by
@@ -10597,14 +10613,15 @@ def CtrOkD (β : Book) (Φ : Pol) (pn : Nat) (G : Term) : Ctx → Nat → Term �
       CtrOkD β Φ pn G (⟨q, A, none⟩ :: Γ) (i + 1) B
   | _, _, _ => True
 
-theorem CtrOkD.mono (hc : ∀ x y, Φ.conv x y → Φ'.conv x y) (he : ∀ Γ, Φ.efq Γ → Φ'.efq Γ) :
+theorem CtrOkD.mono (hc : ∀ x y, Φ.conv x y → Φ'.conv x y) (he : ∀ Γ, Φ.efq Γ → Φ'.efq Γ)
+    (hk : Φ'.kind → Φ.kind) :
     ∀ {T : Term} {Γ : Ctx} {i : Nat}, CtrOkD β Φ pn G Γ i T → CtrOkD β Φ' pn G Γ i T := by
   intro T
   induction T with
   | All q A B _ ih =>
     intro Γ i h
     obtain ⟨⟨π, hA⟩, hB⟩ := h
-    exact ⟨⟨π, hA.mono hc he⟩, ih hB⟩
+    exact ⟨⟨π, hA.mono hc he hk⟩, ih hB⟩
   | _ => intros; trivial
 
 -- instantiating the walk's outermost binder at a closed value
@@ -10660,7 +10677,7 @@ def Term.instG : List Term → Term → Term
 -- the parameter prefix of a constructor spine instantiates the walk (E's
 -- Args.params with the walk carried along; the parameters check dead)
 theorem CtrOkD.params (hβ : Book.Closed β) (hΦ : Φ.Weak)
-    (hc : ∀ x y, Le β x y → Φ.conv x y) (he : ∀ Γ, CtxDead β Γ → Φ.efq Γ)
+    (hc : ∀ x y, Le β x y → Φ.conv x y) (he : ∀ Γ, CtxDead β Γ → Φ.efq Γ) (hk : Φ.kind → True)
     (hefq : ∀ Γ b0 w, Φ.efq (Γ ++ [b0]) → Φ.efq (Ctx.substLast w Γ)) :
     ∀ {qs : List Term} {pn : Nat} {ps0 : List Term} {Tw T0 Tm G : Term} {πp : Uses} {up : List Term},
     WTele a r ps0 pn fn Tw → CtrOkD β Φ pn G [] 0 Tw →
@@ -10692,7 +10709,7 @@ theorem CtrOkD.params (hβ : Book.Closed β) (hΦ : Φ.Weak)
       rw [WTele.retip_subst hwB r' 0 x] at hB
       obtain ⟨⟨πK, hK⟩, hrest⟩ := hD
       have hx0 : Check β Φ (LHS.void β) [] .None [] x K Uses.zero .Qnt :=
-        (hx.dead.void).mono hc he
+        (hx.dead.void).mono hc he hk
       have hD' := CtrOkD.substLast hβ hΦ (fun Γ => hefq Γ ⟨qw, K, none⟩ x) (hx.closed) rfl hx0
         (.inr ⟨pk, rfl, rfl, rfl⟩) (Γ := []) hwB.isTele hrest
       obtain ⟨TS, hI, hF, hle', hD'', hup⟩ := ih hw' hD' hr hB (by simp at hlen; omega)
@@ -10709,7 +10726,7 @@ theorem CtrOkD.params (hβ : Book.Closed β) (hΦ : Φ.Weak)
 -- the field walk: every field checks at a domain the instantiated walk
 -- kinds — at the family's kind for a Lone field, at Kind(q) otherwise
 theorem CtrOkD.fields (hβ : Book.Closed β) (hΦ : Φ.Weak)
-    (hc : ∀ x y, Le β x y → Φ.conv x y) (he : ∀ Γ, CtxDead β Γ → Φ.efq Γ)
+    (hc : ∀ x y, Le β x y → Φ.conv x y) (he : ∀ Γ, CtxDead β Γ → Φ.efq Γ) (hk : Φ.kind → True)
     (hefq : ∀ Γ b0 w, Φ.efq (Γ ++ [b0]) → Φ.efq (Ctx.substLast w Γ)) :
     ∀ {xs : List Term} {fn : Nat} {ps : List Term} {TS T0 T1 : Term} {πs : Uses} {us : List Term},
     FTele a r ps fn TS → CtrOkD β Φ 0 G' [] 0 TS →
@@ -10733,7 +10750,7 @@ theorem CtrOkD.fields (hβ : Book.Closed β) (hΦ : Φ.Weak)
       rw [FTele.retip_subst hFB r' 0 x] at hB
       obtain ⟨⟨πF, hKF⟩, hrest⟩ := hD
       have hx0 : Check β Φ (LHS.void β) [] .None [] x F Uses.zero .Qnt :=
-        (hx.dead.void).mono hc he
+        (hx.dead.void).mono hc he hk
       have hD' := CtrOkD.substLast hβ hΦ (fun Γ => hefq Γ ⟨qf, F, none⟩ x) (hx.closed) rfl hx0
         (.inl ⟨rfl, rfl, rfl⟩) (Γ := []) hFB.isTele hrest
       cases j with
@@ -10868,7 +10885,7 @@ theorem Check.beta_app (hβ : Book.Closed β) {sp : List Term}
   obtain ⟨q1, A1, B1, πA, π1, uf1, hA, hb, hle1, hleF, hπf, huf⟩ := hf.lam_inv hΦ
   cases huf
   obtain ⟨rfl, hAA, hBB⟩ := Le.all_inv hβ hleF .refl .refl
-  have hA1 : Term.Closed 0 A1 := hA.closed
+  have hA1 : Term.Closed 0 A1 := (hA trivial).closed
   have hres : Check β (Pol.std β) (LHS.void β) [] .Lone [] (Term.subst 0 x g)
       (Term.subst 0 x B1) (Uses.del 0 π1) (Term.subst 0 ux ug) := by
     by_cases hq : q1 = .None
@@ -11249,8 +11266,8 @@ theorem Check.data_deep_aux (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataP
       rw [← List.take_append_drop A0.pn as] at hargs
       obtain ⟨Tm, πp, up, πx, ux, hargsP, hargsF, _, rfl⟩ := hargs.split
       obtain ⟨TS, _, hFT, hle', hD', hup⟩ :=
-        CtrOkD.params hβ hP.weak hP.std hP.efq hP.efqS hshape hD hargsP hle0 (by simp; omega)
-      have hfields := CtrOkD.fields hβ hP.weak hP.std hP.efq hP.efqS
+        CtrOkD.params hβ hP.weak hP.std hP.efq (fun _ => trivial) hP.efqS hshape hD hargsP hle0 (by simp; omega)
+      have hfields := CtrOkD.fields hβ hP.weak hP.std hP.efq (fun _ => trivial) hP.efqS
         (by simpa using hFT) hD' hargsF hle' (by simp; omega)
       -- the family's instantiated kind fits Data
       obtain ⟨r', ps', hred, _, hcs⟩ := hl.adt_r
@@ -11285,5 +11302,243 @@ theorem Check.data_deep_aux (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataP
       · rw [Term.weight_apps]
         simp only [Term.weight, Nat.zero_add]
         exact List.sum_map_zero _ fun u hu => (hall u hu).2 β'
+
+
+-- ============================================================================
+-- §Ka The quantity-blind conversion (the dead policy), syntactically.
+-- Strong reduction includes eta, which can change a binder's quantity, and
+-- Le compares All only at equal quantities; so the metatheory of dead code
+-- reads Check under a conversion that erases binder quantities, on the
+-- book as well (a dref step unfolds a body).
+-- ============================================================================
+
+-- erase binder quantities: every All becomes a Lone arrow
+def Term.qer : Term → Term
+  | .All _ A B   => .All .Lone (Term.qer A) (Term.qer B)
+  | .Typ g       => .Typ (Term.qer g)
+  | .Min a b     => .Min (Term.qer a) (Term.qer b)
+  | .Lam f       => .Lam (Term.qer f)
+  | .App f a     => .App (Term.qer f) (Term.qer a)
+  | .Mat a c h m => .Mat a c (Term.qer h) (Term.qer m)
+  | .Eql x y T   => .Eql (Term.qer x) (Term.qer y) (Term.qer T)
+  | .Rwt e P f   => .Rwt (Term.qer e) (Term.qer P) (Term.qer f)
+  | .Let q v b   => .Let q (Term.qer v) (Term.qer b)
+  | t            => t
+
+def CtrD.qer (C : CtrD) : CtrD := { C with ty := Term.qer C.ty }
+def AdtD.qer (A : AdtD) : AdtD := { A with sig := Term.qer A.sig, ctrs := A.ctrs.map CtrD.qer }
+def DefD.qer (d : DefD) : DefD := { d with ty := Term.qer d.ty, body := d.body.map Term.qer }
+def TLD.qer : TLD → TLD
+  | .adt A  => .adt A.qer
+  | .defn d => .defn d.qer
+def Book.qer (β : Book) : Book := β.map TLD.qer
+
+-- the dead policy: conversion up to binder quantities, ex-falso free
+def Pol.dead (β : Book) : Pol :=
+  ⟨fun a b => Le (Book.qer β) (Term.qer a) (Term.qer b), fun _ => True, False⟩
+
+-- qer commutes with the term algebra
+theorem Term.qer_shift (t : Term) : ∀ d, Term.qer (Term.shift d t) = Term.shift d (Term.qer t) := by
+  induction t <;> intro d <;> simp [Term.qer, Term.shift, *]
+  split <;> rfl
+
+theorem Term.qer_shiftN (n : Nat) (t : Term) :
+    Term.qer (Term.shiftN n t) = Term.shiftN n (Term.qer t) := by
+  induction n <;> simp [Term.shiftN, Term.qer_shift, *]
+
+theorem Term.qer_subst (t : Term) : ∀ d w,
+    Term.qer (Term.subst d w t) = Term.subst d (Term.qer w) (Term.qer t) := by
+  induction t <;> intro d w <;> simp [Term.qer, Term.subst, Term.qer_shift, *]
+  split <;> (try split) <;> rfl
+
+theorem Term.qer_apps (h : Term) (as : List Term) :
+    Term.qer (Term.apps h as) = Term.apps (Term.qer h) (as.map Term.qer) := by
+  induction as generalizing h <;> simp [Term.apps, Term.qer, *]
+
+theorem Term.qer_spine (t : Term) :
+    Term.spine (Term.qer t) = (Term.qer (Term.spine t).1, (Term.spine t).2.map Term.qer) := by
+  induction t <;> simp [Term.qer, Term.spine, *]
+
+theorem Term.qer_occ (t : Term) : ∀ i, Term.occ i (Term.qer t) = Term.occ i t := by
+  induction t <;> intro i <;> simp [Term.qer, Term.occ, *]
+
+theorem Term.qer_qer (t : Term) : Term.qer (Term.qer t) = Term.qer t := by
+  induction t <;> simp [Term.qer, *]
+
+theorem Term.qer_closed (t : Term) : ∀ n, Term.Closed n t → Term.Closed n (Term.qer t) := by
+  induction t <;> intro n h <;> simp_all [Term.qer, Term.Closed]
+
+-- qer commutes with the book lookups
+theorem Book.qer_length (β : Book) : (Book.qer β).length = β.length := by simp [Book.qer]
+
+theorem Book.qer_tld (β : Book) : ∀ k, Book.tld (Book.qer β) k = (Book.tld β k).map TLD.qer := by
+  unfold Book.qer
+  induction β <;> intro k <;> cases k <;> simp [Book.tld, *]
+
+theorem Book.qer_defn (β : Book) (k : Nat) :
+    Book.defn (Book.qer β) k = (Book.defn β k).map DefD.qer := by
+  unfold Book.defn; rw [Book.qer_tld]
+  cases Book.tld β k with
+  | none => rfl
+  | some t => cases t <;> rfl
+
+theorem Book.qer_adt (β : Book) (a : Nat) :
+    Book.adt (Book.qer β) a = (Book.adt β a).map AdtD.qer := by
+  unfold Book.adt; rw [Book.qer_tld]
+  cases Book.tld β a with
+  | none => rfl
+  | some t => cases t <;> rfl
+
+theorem AdtD.qer_ctr (A : AdtD) (c : Nat) :
+    AdtD.ctr A.qer c = (AdtD.ctr A c).map CtrD.qer := by
+  show AdtD.ctr.go (A.ctrs.map CtrD.qer) c = (AdtD.ctr.go A.ctrs c).map CtrD.qer
+  generalize A.ctrs = l
+  induction l generalizing c with
+  | nil => rfl
+  | cons C cs ih => cases c <;> simp [AdtD.ctr.go, ih]
+
+theorem Book.qer_empty (β : Book) (a : Nat) (r : List Nat) :
+    Book.empty (Book.qer β) a r ↔ Book.empty β a r := by
+  unfold Book.empty; rw [Book.qer_adt]
+  cases Book.adt β a <;> simp [AdtD.qer]
+
+theorem Book.Closed.qer (hβ : Book.Closed β) : Book.Closed (Book.qer β) := by
+  intro k t ht
+  rw [Book.qer_tld] at ht
+  cases h0 : Book.tld β k with
+  | none => simp [h0] at ht
+  | some t0 =>
+    rw [h0] at ht; simp at ht; subst ht
+    have hc := hβ k t0 h0
+    cases t0 with
+    | adt A =>
+      refine ⟨Term.qer_closed _ _ hc.1, fun c C hC => ?_⟩
+      rw [AdtD.qer_ctr] at hC
+      cases h1 : AdtD.ctr A c with
+      | none => simp [h1] at hC
+      | some C0 => rw [h1] at hC; simp at hC; subst hC; exact Term.qer_closed _ _ (hc.2 c C0 h1)
+    | defn d =>
+      refine ⟨Term.qer_closed _ _ hc.1, fun b hb => ?_⟩
+      cases h1 : d.body with
+      | none => simp [DefD.qer, h1] at hb
+      | some b0 => simp [DefD.qer, h1] at hb; subst hb; exact Term.qer_closed _ _ (hc.2 b0 h1)
+
+-- reduction, conversion and fitting survive the erasure (on the book too)
+theorem Step.qer (h : Step β p a b) : Step (Book.qer β) p (Term.qer a) (Term.qer b) := by
+  induction h with
+  | beta => simp only [Term.qer, Term.qer_subst]; exact .beta
+  | let_ => simp only [Term.qer, Term.qer_subst]; exact .let_
+  | @dref k d b s hk hb hs hn =>
+    have e : (Term.spine (Term.qer s)).2 = (Term.spine s).2.map Term.qer := by rw [Term.qer_spine]
+    rw [Term.qer_apps, ← e]
+    exact .dref (k := k) (d := d.qer) (by rw [Book.qer_defn, hk]; rfl) (by simp [DefD.qer, hb])
+      (by rw [Term.qer_spine, hs]; rfl) (by rw [e]; simp [DefD.qer, hn])
+  | @drefS k d b s hp hk hb hs =>
+    have e : (Term.spine (Term.qer s)).2 = (Term.spine s).2.map Term.qer := by rw [Term.qer_spine]
+    rw [Term.qer_apps, ← e]
+    exact .drefS (k := k) (d := d.qer) hp (by rw [Book.qer_defn, hk]; rfl) (by simp [DefD.qer, hb])
+      (by rw [Term.qer_spine, hs]; rfl)
+  | @aref k A hk hpn =>
+    exact .aref (A := A.qer) (by rw [Book.qer_adt, hk]; rfl) (by simpa [AdtD.qer] using hpn)
+  | @matc a A c C ps xs h m hA hC hps hxs =>
+    simp only [Term.qer, Term.qer_apps, List.map_append]
+    exact .matc (A := A.qer) (C := C.qer) (by rw [Book.qer_adt, hA]; rfl)
+      (by rw [AdtD.qer_ctr, hC]; rfl) (by simpa [AdtD.qer] using hps) (by simpa [CtrD.qer] using hxs)
+  | matm hne => simp only [Term.qer, Term.qer_apps]; exact .matm hne
+  | rwt => exact .rwt
+  | minLM => exact .minLM
+  | minLN => exact .minLN
+  | minRM => exact .minRM
+  | minRN => exact .minRN
+  | minLL => exact .minLL
+  | eta hp ho =>
+    simp only [Term.qer, Term.qer_subst]
+    exact .eta hp (by rw [Term.qer_occ]; exact ho)
+  | typ_g hp _ ih => exact .typ_g hp ih
+  | min_a _ ih => exact .min_a ih
+  | min_b _ ih => exact .min_b ih
+  | all_a hp _ ih => exact .all_a hp ih
+  | all_b hp _ ih => exact .all_b hp ih
+  | lam_f hp _ ih => exact .lam_f hp ih
+  | app_f _ ih => exact .app_f ih
+  | app_a _ ih => exact .app_a ih
+  | mat_h _ ih => exact .mat_h ih
+  | mat_m _ ih => exact .mat_m ih
+  | eql_a _ ih => exact .eql_a ih
+  | eql_b _ ih => exact .eql_b ih
+  | eql_t _ ih => exact .eql_t ih
+  | rwt_e _ ih => exact .rwt_e ih
+  | rwt_p _ ih => exact .rwt_p ih
+  | rwt_f _ ih => exact .rwt_f ih
+  | let_v _ ih => exact .let_v ih
+  | let_b hp _ ih => exact .let_b hp ih
+
+theorem Red.qer (h : Red β p a b) : Red (Book.qer β) p (Term.qer a) (Term.qer b) := by
+  induction h with
+  | refl => exact .refl
+  | step s _ ih => exact .step s.qer ih
+
+theorem Conv.qer (h : Conv β a b) : Conv (Book.qer β) (Term.qer a) (Term.qer b) :=
+  let ⟨c, r1, r2⟩ := h; ⟨Term.qer c, r1.qer, r2.qer⟩
+
+theorem KLe.qer (h : KLe β g k) : KLe (Book.qer β) (Term.qer g) (Term.qer k) := by
+  induction h with
+  | many r => exact .many r.qer
+  | lone r hq => exact .lone r.qer hq
+  | minL r _ _ ih1 ih2 => exact .minL r.qer ih1 ih2
+  | minR1 r _ ih => exact .minR1 r.qer ih
+  | minR2 r _ ih => exact .minR2 r.qer ih
+  | conv c => exact .conv c.qer
+
+theorem Le.qer (h : Le β a b) : Le (Book.qer β) (Term.qer a) (Term.qer b) := by
+  induction h with
+  | conv c => exact .conv c.qer
+  | red r1 r2 _ ih => exact .red r1.qer r2.qer ih
+  | typ k => exact .typ k.qer
+  | all _ _ ih1 ih2 => exact .all ih1 ih2
+  | adt hsub hlen hc =>
+    rw [Term.qer_apps, Term.qer_apps]
+    refine .adt hsub (by simp [hlen]) (fun i p p' hp hp' => ?_)
+    simp at hp hp'
+    obtain ⟨p0, h1, rfl⟩ := hp
+    obtain ⟨p0', h2, rfl⟩ := hp'
+    exact (hc i p0 p0' h1 h2).qer
+
+-- the dead policy is a preorder, weak, coarser than the standard one, and
+-- still reads kinds; a stuck Lone never fits under Many
+theorem Pol.dead_refl (β : Book) (a : Term) : (Pol.dead β).conv a a := Le.refl _
+
+theorem Pol.dead_trans (hβ : Book.Closed β) (h1 : (Pol.dead β).conv a b)
+    (h2 : (Pol.dead β).conv b c) : (Pol.dead β).conv a c :=
+  Le.trans hβ.qer h1 h2
+
+theorem Pol.dead_weak (hβ : Book.Closed β) : (Pol.dead β).Weak where
+  subst d w x y h := by
+    show Le _ _ _; rw [Term.qer_subst, Term.qer_subst]; exact Le.subst hβ.qer h d _
+  shift d x y h := by
+    show Le _ _ _; rw [Term.qer_shift, Term.qer_shift]; exact Le.shift hβ.qer h d
+  append _ _ _ := trivial
+  ins _ _ _ _ _ _ := trivial
+
+theorem Pol.dead_std (_hβ : Book.Closed β) : ∀ x y, Le β x y → (Pol.dead β).conv x y :=
+  fun _ _ h => h.qer
+
+theorem Pol.dead_kind (_hβ : Book.Closed β) :
+    ∀ G, KLe β G (.Qua .Many) → (Pol.dead β).conv (.Typ G) (.Typ (.Qua .Many)) :=
+  fun _ h => Le.typ h.qer
+
+theorem Pol.dead_typ_inv (hβ : Book.Closed β) (h : (Pol.dead β).conv (.Typ g) (.Typ k)) :
+    KLe (Book.qer β) (Term.qer g) (Term.qer k) :=
+  Le.typ_inv hβ.qer h .refl .refl
+
+theorem KLe.lone_many (_hβ : Book.Closed β) : ¬ KLe β (.Qua .Lone) (.Qua .Many) := by
+  intro h
+  cases h with
+  | many r => cases r.qua_inv
+  | lone r hq => cases r.qua_inv; exact hq rfl
+  | minL r _ _ => cases r.qua_inv
+  | minR1 r _ => cases r.qua_inv
+  | minR2 r _ => cases r.qua_inv
+  | conv c => cases c.qua_inv
 
 end BendCore
