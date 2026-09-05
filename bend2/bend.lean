@@ -202,8 +202,9 @@
 -- THE CLAIMS (§11), over any Ok book:
 -- (1) confluence of strong reduction; (3) progress at live demand; and,
 -- with the wall up and the natives filled, (2) subject reduction along
--- weak steps of closed live terms (dead code preserves nothing: a dead
--- arm may inhabit Empty); (4) weak normalization of closed live terms;
+-- live weak steps of closed live terms (those at positions the
+-- elaboration keeps: dead code preserves nothing, a dead arm may
+-- inhabit Empty); (4) weak normalization of closed live terms;
 -- (5) consistency: no closed live term inhabits an emptied family.
 -- ============================================================================
 
@@ -1072,10 +1073,49 @@ def church_rosser : Prop :=
     Book.Ok β → Red β .strong a b → Red β .strong a c →
     ∃ d, Red β .strong b d ∧ Red β .strong c d
 
+-- LiveStep β t u t': a weak step of t at a position its elaboration u
+-- keeps. A dead argument, an equality endpoint or a motive never runs
+-- (comp.ts erased it) and preserves nothing (a dead term may inhabit
+-- Empty); and the argument of a beta redex is not stepped (bend.ts fires
+-- the redex first: permission (e))
+inductive LiveStep (β : Book) : Term → Term → Term → Prop
+  | beta  : LiveStep β (.App (.Lam f) a) u (Term.subst 0 a f)
+  | let_  : LiveStep β (.Let q v b) u (Term.subst 0 v b)
+  | dref  : Book.defn β k = some d → d.body = some b →
+            (Term.spine s).1 = .Ref k → (Term.spine s).2.length = d.n →
+            LiveStep β s u (Term.apps b (Term.spine s).2)
+  | aref  : Book.adt β k = some A → A.pn = 0 → LiveStep β (.Ref k) u (.Adt k [])
+  | matc  : Book.adt β a = some A → AdtD.ctr A c = some C →
+            ps.length = A.pn → xs.length = C.fn →
+            LiveStep β (.App (.Mat a c h m) (Term.apps (.Ctr a c) (ps ++ xs))) u
+              (Term.apps h xs)
+  | matm  : (a', c') ≠ (a, c) →
+            LiveStep β (.App (.Mat a c h m) (Term.apps (.Ctr a' c') as)) u
+              (.App m (Term.apps (.Ctr a' c') as))
+  | rwt   : LiveStep β (.Rwt .Rfl P f) u f
+  | minLM : LiveStep β (.Min (.Qua .Many) b) u b
+  | minLN : LiveStep β (.Min (.Qua .None) b) u (.Qua .None)
+  | minRM : LiveStep β (.Min a (.Qua .Many)) u a
+  | minRN : LiveStep β (.Min a (.Qua .None)) u (.Qua .None)
+  | minLL : LiveStep β (.Min (.Qua .Lone) (.Qua .Lone)) u (.Qua .Lone)
+  | min_a : LiveStep β a ua a' → LiveStep β (.Min a b) (.Min ua ub) (.Min a' b)
+  | min_b : LiveStep β b ub b' → LiveStep β (.Min a b) (.Min ua ub) (.Min a b')
+  | app_f : LiveStep β f uf f' → LiveStep β (.App f x) (.App uf ux) (.App f' x)
+  | app_a : (∀ g, f ≠ .Lam g) → ux ≠ .Qnt → LiveStep β x ux x' →
+            LiveStep β (.App f x) (.App uf ux) (.App f x')
+  | mat_h : LiveStep β h uh h' →
+            LiveStep β (.Mat a c h m) (.Mat a c uh um) (.Mat a c h' m)
+  | mat_m : LiveStep β m um m' →
+            LiveStep β (.Mat a c h m) (.Mat a c uh um) (.Mat a c h m')
+  | rwt_e : LiveStep β e ue e' → LiveStep β (.Rwt e P f) (.Rwt ue uP uf) (.Rwt e' P f)
+  | rwt_f : LiveStep β f uf f' → LiveStep β (.Rwt e P f) (.Rwt ue uP uf) (.Rwt e P f')
+  | let_v : LiveStep β v uv v' → uv ≠ .Qnt →
+            LiveStep β (.Let q v b) (.Let q uv ub) (.Let q v' b)
+
 def subject_reduction : Prop :=
   ∀ (β : Book) (t t' T : Term) (π : Uses) (u : Term),
     Book.Ok β → Book.Wall β → Book.Filled β →
-    Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u → Step β .weak t t' →
+    Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u → LiveStep β t u t' →
     ∃ π' u', Check β (Pol.std β) (LHS.void β) [] .Lone [] t' T π' u'
 
 def progress : Prop :=
