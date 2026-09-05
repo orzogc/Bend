@@ -4259,13 +4259,6 @@ INLINE Term rfc_seal(Env e, Term t) {
   return rfc_wrap(e, t, 1);
 }
 
-INLINE Term rfc_sole(Env e, Term t) {
-  Loc  r = term_loc(t);
-  Term s = (t & ~(RFC_BIT | LOC_MASK)) | (e.mem[r] >> 24);
-  heap_free(e, 0, r);
-  return s;
-}
-
 INLINE u64 rfc_view(Env e, Loc r) {
   DEV u32* w = a32_at(e.mem, r);
   u64 cell = ((u64)a32_load(w + 1) << 32) | a32_load(w);
@@ -4275,13 +4268,16 @@ INLINE u64 rfc_view(Env e, Loc r) {
   return cell;
 }
 
-INLINE bool rfc_out(Env e, Loc r) {
+INLINE Term rfc_out(Env e, Term t) {
+  Loc      r = term_loc(t);
   DEV u32* p = a32_at(e.mem, r);
   if ((a32_sub_rel(p, 1) & RFC_CNT) != 1) {
-    return false;
+    return 0;
   }
   a32_acq(p);
-  return true;
+  Term s = (t & ~(RFC_BIT | LOC_MASK)) | (e.mem[r] >> 24);
+  heap_free(e, 0, r);
+  return s;
 }
 
 INLINE void rfc_bump(Env e, Loc r) {
@@ -4370,7 +4366,7 @@ static void term_drop(Env e, Term t) {
   u32  step = 0;
   for (;;) {
     if (!term_triv(t) && term_rfc(t)) {
-      t = rfc_out(e, term_loc(t)) ? rfc_sole(e, t) : 0;
+      t = rfc_out(e, t);
     }
     if (!term_triv(t) && term_tag(t) == TAG_CLO
       && fid_arity((u32)term_aux(t)) == 1) {
