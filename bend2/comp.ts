@@ -1124,7 +1124,8 @@ function def_raise(book: Bend.Book, t: HTerm, left: number): number {
   return s.$ === "Efq" ? 99 : 0;
 }
 
-function def_foreign(tld: Bend.TLD | undefined): boolean {
+function def_foreign(tld: Bend.TLD | undefined):
+  tld is Bend.Def & { i: string[] } {
   return tld?.$ === "Def" && tld.i !== undefined;
 }
 
@@ -1710,9 +1711,9 @@ function done_live(tld: Bend.TLD | undefined): tld is Bend.Def {
   return tld?.$ === "Def" && tld.v !== null;
 }
 
-function done_defs(cb: Carb): [Bend.Name, Def][] {
+function done_defs(cb: Carb, live = done_live): [Bend.Name, Def][] {
   return [...cb.done].map((k) => [k, cb.book.tlds[k]] as [Bend.Name, Def])
-    .filter((p) => done_live(p[1]));
+    .filter((p) => live(p[1]));
 }
 
 // Cid
@@ -3104,18 +3105,15 @@ function compile_reqs(fl: File): void {
   fl.reqs += NATIVE.IO;
   fl.spares = [];
   fl.loop = null;
-  for (const k of fl.done) {
-    const tld = fl.book.tlds[k];
-    if (tld.$ === "Def" && def_foreign(tld)) {
-      fl.reqs += eff_src(tld.i!.find((x) => x.endsWith(".c"))
-        ?? die("no .c import: " + k), seen);
-      const qp = [...live_doms(fl.book, tld), [0, "k"]].map(([, n]) =>
-        name_local(fl, n as string));
-      fl.seg = seg_new(fl, k, false, qp, k);
-      cid_reg(fl, k, qp.length);
-      file_push(fl, `res[0] = ${ctr_build(fl, k, qp)};`);
-      file_push(fl, "WL_RETN(1);");
-    }
+  for (const [k, tld] of done_defs(fl, def_foreign)) {
+    fl.reqs += eff_src(tld.i!.find((x) => x.endsWith(".c"))
+      ?? die("no .c import: " + k), seen);
+    const qp = [...live_doms(fl.book, tld), [0, "k"]].map(([, n]) =>
+      name_local(fl, n as string));
+    fl.seg = seg_new(fl, k, false, qp, k);
+    cid_reg(fl, k, qp.length);
+    file_push(fl, `res[0] = ${ctr_build(fl, k, qp)};`);
+    file_push(fl, "WL_RETN(1);");
   }
 }
 
@@ -3457,11 +3455,8 @@ export function js_lib(book: Bend.Book, outs: Bend.Name[] | null): string {
     memo_gc();
     js_def(fl, k, def);
   }
-  for (const k of cb.done) {
-    const tld = cb.book.tlds[k];
-    if (tld.$ === "Def" && def_foreign(tld)) {
-      js_def(fl, k, tld);
-    }
+  for (const [k, tld] of done_defs(cb, def_foreign)) {
+    js_def(fl, k, tld);
   }
   const seen = new Set<string>();
   const srcs: string[] = [];
