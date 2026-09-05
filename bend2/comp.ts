@@ -805,13 +805,11 @@ function live_doms(book: Bend.Book, tld: Bend.Def): Dom[] {
 // Intr
 // ====
 
-function intr_of(c: Carb, k: Bend.Name): Intr | undefined {
-  return memo(INTRS, k, () => {
-    const it = def_own(c.book.tlds[k]) ? OPERATIONS[eff_name(k)] : undefined;
-    return it !== undefined
-      && (it.C !== undefined || it.parts !== undefined || it.call === true)
-      ? it : null;
-  }) ?? undefined;
+function intr_of(c: Carb, k: Bend.Name, js = false): Intr | undefined {
+  const it = memo(INTRS, k, () =>
+    def_own(c.book.tlds[k]) ? OPERATIONS[eff_name(k)] ?? null : null);
+  return it !== null && (js || it.C !== undefined || it.parts !== undefined
+    || it.call === true) ? it : undefined;
 }
 
 // Call
@@ -3216,10 +3214,6 @@ function js_f32(bits: number): string {
   return Object.is(v, -0) ? "-0" : String(v);
 }
 
-function js_intr(book: Bend.Book, k: Bend.Name): Gen | null {
-  return def_own(book.tlds[k]) ? OPERATIONS[eff_name(k)]?.JS ?? null : null;
-}
-
 function js_call(fl: File, k: Bend.Name, args: HTerm[],
   tail: boolean): string {
   let exprs = args.map((x) => js_expr(fl, x, null));
@@ -3231,7 +3225,7 @@ function js_call(fl: File, k: Bend.Name, args: HTerm[],
   if (tld.$ === "ADT") {
     return "null";
   }
-  const intr = js_intr(fl.book, k);
+  const intr = intr_of(fl, k, true)?.JS ?? null;
   if (intr === null && tld.v === null && tld.i === undefined) {
     die("a live call into the law " + k);
   }
@@ -3383,7 +3377,7 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
 function js_def(fl: File, k: Bend.Name, def: Def): void {
   fl.fresh = new Map();
   fl.fuel = 64;
-  if (js_intr(fl.book, k.split("$")[0]) !== null) {
+  if (intr_of(fl, k.split("$")[0], true) !== undefined) {
     return;
   }
   const params = live_doms(fl.book, def).map(([, n]) => name_local(fl, n));
