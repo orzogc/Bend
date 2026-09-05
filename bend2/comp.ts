@@ -730,14 +730,14 @@ function term_spine(cf: Carb, tm: HTerm): Spine {
   });
 }
 
-function term_eta(book: Bend.Book, t: HTerm, T: HTerm,
-  n: number): HTerm {
+function term_eta(book: Bend.Book, t: HTerm, T: HTerm, n: number,
+  leaf: (u: HTerm, U: HTerm) => HTerm = (u) => u): HTerm {
   if (n === 0) {
-    return t;
+    return leaf(t, T);
   }
   const all = ty_all(book, T) ?? die("an eta past its type");
   return Bend.Ann(Bend.Lam("x", 0, (y) =>
-    term_eta(book, Bend.App(t, y), all.B(y), n - 1)), T);
+    term_eta(book, Bend.App(t, y), all.B(y), n - 1, leaf)), T);
 }
 
 function term_kids(cf: Carb, tm: HTerm): HTerm[] {
@@ -874,15 +874,9 @@ function call_eta(cb: Carb, t: HTerm): HTerm | null {
     cb.dyn.add(m.t.k);
     return null;
   }
-  if (intr || direct) {
-    return term_eta(cb.book, t, T, n);
-  }
-  const cut = (u: HTerm, U: HTerm, j: number): HTerm =>
-    j === 0 ? Bend.Let(["r"], [0], [Bend.Ann(u, U)],
-      (xs: HTerm[]) => Bend.Ann(xs[0], U))
-    : Bend.Ann(Bend.Lam("x", 0, (y) => cut(Bend.App(u, y),
-      (ty_all(cb.book, U) as HAll).B(y), j - 1)), U);
-  return cut(t, T, n);
+  const cut = (u: HTerm, U: HTerm): HTerm => Bend.Let(["r"], [0],
+    [Bend.Ann(u, U)], (xs: HTerm[]) => Bend.Ann(xs[0], U));
+  return term_eta(cb.book, t, T, n, intr || direct ? undefined : cut);
 }
 
 function call_self(cf: Carb, k: Bend.Name): boolean {
