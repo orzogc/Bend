@@ -90,7 +90,6 @@ type Carb = {
   kn: number;
   done: Set<Bend.Name>;
   queue: Bend.Name[];
-  runs: Set<Bend.Name>;
   bangs: Set<Bend.Name>;
   sites: Map<Bend.Name, number>;
   brw: Map<Bend.Name, boolean[]>;
@@ -1304,7 +1303,6 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     kn: 0,
     done: new Set(),
     queue: roots,
-    runs: new Set(),
     bangs: new Set(),
     sites: new Map(),
     brw: new Map(),
@@ -1665,12 +1663,11 @@ function flat_tails(cb: Carb, t: HTerm): Bend.Name[] {
 function flat_of(cb: Carb, k: Bend.Name): boolean {
   return memo(FLATS, k, () => {
     const tld = cb.mint.has(k) ? cb.book.tlds[k] : carb_fresh(cb, k);
-    if (tld?.$ !== "Def" || tld.h === undefined || def_foreign(tld)
-      || cb.runs.has(k)) {
+    if (tld?.$ !== "Def" || tld.h === undefined || def_foreign(tld)) {
       return false;
     }
     const body = tld.h;
-    cb.runs.add(k);
+    FLATS.set(k, false);
     let selfs = 0;
     const bad = term_any(cb, body, (s) => {
       if (s.$ === "Let" && s.k.length >= 2) {
@@ -1687,7 +1684,6 @@ function flat_of(cb: Carb, k: Bend.Name): boolean {
       return ck.bang === true || ck.k === CLO_APPLY
         || (ck.k !== k && !flat_of(cb, ck.k));
     });
-    cb.runs.delete(k);
     return !bad && selfs === flat_tails(cb, body).filter((c) => c === k).length;
   });
 }
