@@ -101,11 +101,17 @@
 --       so its measure is dropped by the rule), where bend.ts adds it;
 --   (e) (x => f)(a) types by the app rule too when the lambda is typed,
 --       where bend.ts takes one beta step first (both are here).
+-- Two premises the declarative form needs that bend.ts gets for free from
+-- its pipeline: check-lam kinds the binder's domain at the binder's
+-- quantity (bend.ts kinded it when the arrow was formed, and every goal
+-- it meets was formed), and a constructor head's parameter binders are
+-- erased (a bend.ts value never carries them). Each keeps a Many binder
+-- from ever copying a function: what the Data layer's soundness rests on.
 -- THE MODEL REFUSES one thing bend.ts accepts: a book with an @unsafe
 -- def or a surviving ?TODO. bend.ts reports both in its verdict, and the
 -- claims are for clean verdicts. Every other bend.ts permission is a
 -- rule below.
--- TWO HYPOTHESES beyond Book.Ok enter the termination claims (4, 5):
+-- TWO HYPOTHESES beyond Book.Ok enter claims (2), (4) and (5):
 --   Wall: no live call runs ahead in fill order. A user def cannot make
 --       one (a live reference needs a filled or native target), but a
 --       base def may live-call a base law filled later — the b flag —
@@ -113,10 +119,15 @@
 --       the pending law that calls it back). The checker tests descent
 --       on self-calls only, so those cycles are trusted by inspection,
 --       like the natives; the model says so by naming the hypothesis.
---   Tipped: every bodiless native (base's F32 primitives, a foreign
---       fill) is typed at a telescope tipped at a family with a
---       constructor. It is what makes a stuck native call harmless;
---       base.bend satisfies it (F32, U32, Bool, String, Maybe, IO).
+--   Filled: no definition is bodiless. A stuck native is a value the
+--       machine never opens, so a native of an emptied type would void
+--       the dead arm of a match (preservation fails there), and a native
+--       at Void{e: Empty} is an inconsistency outright. So the claims
+--       speak of the book with its natives filled; Book.Native (every
+--       native admits a filling that validates: a constant does for
+--       base's F32, U32, Bool, String, Maybe and IO natives) carries
+--       consistency back to the shipped book (consistency_natives),
+--       since a filling only grows typing.
 --
 -- NOT MODELED. Char, PMap, the number sections, Show, Parse, Flatten,
 -- imports and the error window are pipeline and presentation concerns.
@@ -182,10 +193,11 @@
 -- has an emptied type (check-efq).
 --
 -- THE CLAIMS (§11), over any Ok book:
--- (1) confluence of strong reduction; (2) subject reduction along weak
--- steps of closed terms; (3) progress at live demand; (4) weak
--- normalization of closed live terms; (5) consistency: no closed live
--- term inhabits an empty family, given Tipped natives.
+-- (1) confluence of strong reduction; (3) progress at live demand; and,
+-- with the wall up and the natives filled, (2) subject reduction along
+-- weak steps of closed live terms (dead code preserves nothing: a dead
+-- arm may inhabit Empty); (4) weak normalization of closed live terms;
+-- (5) consistency: no closed live term inhabits an emptied family.
 -- ============================================================================
 
 namespace BendCore
@@ -752,19 +764,23 @@ inductive MatGoal (q' : Quant) : Nat → Term → Term → Term → Term → Pro
   | succ : MatGoal q' n (Term.shift 1 B) (.App (Term.shift 0 s) (.Var 0)) Bf G →
            MatGoal q' (n + 1) B s (.All qf F Bf) (.All (Quant.mul qf q') F G)
 
--- retip r n ty: reannotate the Adt head at the tip of an n-binder
--- telescope with the peeled set r. A constructor checks against the
--- REMAINDER of its family (bend.ts ctrs_find over book_adt's filtered
--- constructors): its head type here carries any peeled set that does not
--- contain it, which is what lets a mismatched scrutinee re-check at the
--- peeled domain of a match's tail
-def Term.retip (r : List Nat) : Nat → Term → Term
-  | 0, t =>
+-- retip r pn n ty: the type of a constructor head, from its declared
+-- telescope of pn parameters and n - pn fields: the parameter binders
+-- are erased (a value never carries its family's parameters — bend.ts
+-- check-ctr reads them off the goal and checks only the fields), and the
+-- Adt at the tip is reannotated with the peeled set r. A constructor
+-- checks against the REMAINDER of its family (ctrs_find over book_adt's
+-- filtered constructors): its head type here carries any peeled set that
+-- does not contain it, which is what lets a mismatched scrutinee re-check
+-- at the peeled domain of a match's tail
+def Term.retip (r : List Nat) : Nat → Nat → Term → Term
+  | 0, 0, t =>
     match (Term.spine t).1 with
     | .Adt a _ => Term.apps (.Adt a r) (Term.spine t).2
     | _        => t
-  | n + 1, .All q A B => .All q A (Term.retip r n B)
-  | _ + 1, t => t
+  | pn + 1, n + 1, .All _ A B => .All .None A (Term.retip r pn n B)
+  | 0, n + 1, .All q A B => .All q A (Term.retip r 0 n B)
+  | _, _, t => t
 
 -- CtxDead β Γ: some LIVE binding in scope has an emptied datatype, so the
 -- region is unreachable (bend.ts ctx_dead; an erased binding proves
@@ -815,10 +831,10 @@ inductive Check (β : Book) : LHS → List Term → Quant → Ctx → Term → T
   | adt : Book.adt β a = some A →
           Check β L sp q Γ (.Adt a r) A.sig Uses.zero (Term.era q (.Adt a r))
   -- β[a].cs[c] = ctr(T)    c not peeled by r
-  -- ----------------------------------------- check-ctr (head; the
-  -- Γ ⊢ Ctr a c : retip r T ~ {}                parameters and fields apply)
+  -- ----------------------------------------- check-ctr (head; the erased
+  -- Γ ⊢ Ctr a c : retip r T ~ {}                parameters and the fields apply)
   | ctr : Book.adt β a = some A → AdtD.ctr A c = some C → c ∉ r →
-          Check β L sp q Γ (.Ctr a c) (Term.retip r (A.pn + C.fn) C.ty) Uses.zero
+          Check β L sp q Γ (.Ctr a c) (Term.retip r A.pn (A.pn + C.fn) C.ty) Uses.zero
             (Term.era q (.Ctr a c))
   -- Γ ⊢ g : Quant    (dead)
   -- ------------------------- infer-typ
@@ -843,11 +859,13 @@ inductive Check (β : Book) : LHS → List Term → Quant → Ctx → Term → T
           Check β L.shift [] .None (⟨q', A, none⟩ :: Γ) B (.Typ (.Qua .Lone)) πB .Qnt →
           Check β L sp q Γ (.All q' A B) (.Typ (.Qua .Lone)) Uses.zero
             (Term.era q (.All q' .Qnt .Qnt))
+  -- Γ ⊢ A : Kind(q')    (dead: the goal's arrow was formed under infer-all)
   -- Γ, q' A ⊢ f : B ~ π    π[0] <= q'
   -- where L binds the next column by x while one remains
   -- ------------------------------------------------ check-lam
   -- Γ ⊢ λ f : @q' A -> B ~ tail π
-  | lam : Check β L.lam [] q (⟨q', A, none⟩ :: Γ) f B π uf →
+  | lam : Check β L [] .None Γ A (.Typ (.Qua q')) πA .Qnt →
+          Check β L.lam [] q (⟨q', A, none⟩ :: Γ) f B π uf →
           Quant.le (π 0) q' →
           Check β L sp q Γ (.Lam f) (.All q' A B) (Uses.tail π) (Term.era q (.Lam uf))
   -- Γ ⊢ f : @q' A -> B ~ πf (with x pending)    Γ ⊢ x : A ~ πx at dem q' q
@@ -1004,17 +1022,29 @@ def Book.Wall (β : Book) : Prop :=
   ∀ k d b, Book.defn β k = some d → d.body = some b →
     ∃ π u, Check β ⟨k, .Ref k, d.n, d.qs, true⟩ [] .Lone [] b d.ty π u
 
--- Tipped β T: a telescope tipped at a family with a constructor. The
--- consistency claim assumes it of every bodiless native's type: a stuck
--- native call then never inhabits an empty family (base's F32 primitives
--- answer F32, U32, Bool or String; a foreign fill answers IO)
-inductive Tipped (β : Book) : Term → Prop
-  | adt : Book.adt β a = some A → A.ctrs ≠ [] → Tipped β (Term.apps (.Adt a r) ps)
-  | all : Tipped β B → Tipped β (.All q A B)
-  | red : Red β .strong T T' → Tipped β T' → Tipped β T
+-- Book.Filled β: no definition is bodiless. Book.Native β: every bodiless
+-- native could be filled — a case tree of its arity checks live against
+-- its type under its own equation with the wall up. A constant fills each
+-- of base.bend's natives (they answer F32, U32, Bool, String, Maybe or
+-- IO). The termination claims are stated for filled books: a stuck
+-- native of an emptied type would void the dead arm of a match, and an
+-- axiom at Void{e: Empty} is an inconsistency. Book.fill carries them
+-- over: typing only grows when a native gains a body (Check.fill, PART II)
+def Book.Filled (β : Book) : Prop :=
+  ∀ k d, Book.defn β k = some d → d.body ≠ none
 
-def Book.Tipped (β : Book) : Prop :=
-  ∀ k d, Book.defn β k = some d → d.body = none → BendCore.Tipped β d.ty
+def Book.Native (β : Book) : Prop :=
+  ∀ k d, Book.defn β k = some d → d.body = none →
+    ∃ w π u, Tree β d.n w ∧ Check β ⟨k, .Ref k, d.n, d.qs, true⟩ [] .Lone [] w d.ty π u
+
+-- β' fills β: the same book, except that a bodiless definition may have
+-- gained a body
+def Book.fill (β β' : Book) : Prop :=
+  β.length = β'.length ∧
+  ∀ k, (∀ A, Book.adt β k = some A ↔ Book.adt β' k = some A) ∧
+    ∀ d, Book.defn β k = some d →
+      ∃ d', Book.defn β' k = some d' ∧ d'.n = d.n ∧ d'.qs = d.qs ∧ d'.ty = d.ty ∧
+        d'.b = d.b ∧ (d.body ≠ none → d'.body = d.body)
 
 -- ============================================================================
 -- §11 Claims (bend.ts states these in prose; PART II proves them)
@@ -1026,9 +1056,10 @@ def church_rosser : Prop :=
     ∃ d, Red β .strong b d ∧ Red β .strong c d
 
 def subject_reduction : Prop :=
-  ∀ (β : Book) (q : Quant) (t t' T : Term) (π : Uses) (u : Term),
-    Book.Ok β → Check β (LHS.void β) [] q [] t T π u → Step β .weak t t' →
-    ∃ π' u', Check β (LHS.void β) [] q [] t' T π' u'
+  ∀ (β : Book) (t t' T : Term) (π : Uses) (u : Term),
+    Book.Ok β → Book.Wall β → Book.Filled β →
+    Check β (LHS.void β) [] .Lone [] t T π u → Step β .weak t t' →
+    ∃ π' u', Check β (LHS.void β) [] .Lone [] t' T π' u'
 
 def progress : Prop :=
   ∀ (β : Book) (q : Quant) (t T : Term) (π : Uses) (u : Term),
@@ -1037,921 +1068,29 @@ def progress : Prop :=
 
 def normalization : Prop :=
   ∀ (β : Book) (t T : Term) (π : Uses) (u : Term),
-    Book.Ok β → Book.Wall β → Check β (LHS.void β) [] .Lone [] t T π u →
+    Book.Ok β → Book.Wall β → Book.Filled β →
+    Check β (LHS.void β) [] .Lone [] t T π u →
     ∃ v π' u', Red β .weak t v ∧ Term.Value β v ∧
       Check β (LHS.void β) [] .Lone [] v T π' u'
 
+-- no closed live term inhabits an emptied family: one with no
+-- constructor, or one with every constructor peeled
 def consistency : Prop :=
-  ∀ (β : Book) (a : Nat) (A : AdtD) (r : List Nat) (ps : List Term)
+  ∀ (β : Book) (a : Nat) (r : List Nat) (ps : List Term)
     (t : Term) (π : Uses) (u : Term),
-    Book.Ok β → Book.Wall β → Book.Tipped β →
-    Book.adt β a = some A → A.ctrs = [] →
+    Book.Ok β → Book.Wall β → Book.Filled β → Book.empty β a r →
+    ¬ Check β (LHS.void β) [] .Lone [] t (Term.apps (.Adt a r) ps) π u
+
+-- and for a book with natives: through any filling of them
+def consistency_natives : Prop :=
+  ∀ (β : Book) (a : Nat) (r : List Nat) (ps : List Term)
+    (t : Term) (π : Uses) (u : Term),
+    Book.Ok β → Book.Wall β → Book.Native β → Book.empty β a r →
     ¬ Check β (LHS.void β) [] .Lone [] t (Term.apps (.Adt a r) ps) π u
 
 
 
--- ============================================================================
--- ============================================================================
---
--- PART II — THE METATHEORY
---
--- Everything below proves the claims of §11, and the
--- witnesses. Nothing below is needed to READ the language; nothing
--- above depends on anything below.
---
--- ============================================================================
--- ============================================================================
 
--- ============================================================================
--- METATHEORY §A — the de Bruijn algebra of Term.shift / Term.subst
--- ============================================================================
-
-theorem getD_append_left {d0 : α} : ∀ (l1 l2 : List α) (j : Nat),
-    j < l1.length → (l1 ++ l2).getD j d0 = l1.getD j d0 := by
-  intro l1
-  induction l1 with
-  | nil => intro l2 j hj; simp at hj
-  | cons x xs ih =>
-    intro l2 j hj
-    cases j with
-    | zero => rfl
-    | succ j =>
-      show (xs ++ l2).getD j d0 = xs.getD j d0
-      exact ih l2 j (by simp only [List.length_cons] at hj; omega)
-
-theorem getD_append_right {d0 : α} : ∀ (l1 l2 : List α) (j : Nat),
-    (l1 ++ l2).getD (l1.length + j) d0 = l2.getD j d0 := by
-  intro l1
-  induction l1 with
-  | nil =>
-    intro l2 j
-    simp only [List.nil_append, List.length_nil, Nat.zero_add]
-  | cons x xs ih =>
-    intro l2 j
-    simp only [List.cons_append, List.length_cons]
-    rw [show xs.length + 1 + j = (xs.length + j) + 1 from by omega]
-    show (xs ++ l2).getD (xs.length + j) d0 = l2.getD j d0
-    exact ih l2 j
-
-theorem getD_mem {dft : α} : ∀ (l : List α) (i : Nat), i < l.length →
-    l.getD i dft ∈ l := by
-  intro l
-  induction l with
-  | nil => intro i hi; exact absurd hi (by simp)
-  | cons x xs ih =>
-    intro i hi
-    cases i with
-    | zero => exact List.mem_cons_self
-    | succ i =>
-      refine List.mem_cons_of_mem x ?_
-      exact ih i (by simp only [List.length_cons] at hi; omega)
-
-theorem map_getD (f : α → γ) (d0 : γ) (d1 : α) :
-    ∀ (l : List α) (j : Nat), j < l.length →
-    (l.map f).getD j d0 = f (l.getD j d1) := by
-  intro l
-  induction l with
-  | nil => intro j hj; exact absurd hj (by simp)
-  | cons x xs ih =>
-    intro j hj
-    cases j with
-    | zero => rfl
-    | succ j =>
-      exact ih j (by simp only [List.length_cons] at hj; omega)
-
-theorem Term.shift_shift (t : Term) : ∀ (d e : Nat), d ≤ e →
-    (t.shift e).shift d = (t.shift d).shift (e + 1) := by
-  induction t <;> intro d e h
-  case Var i =>
-    simp only [Term.shift]
-    repeat' split
-    all_goals try simp only [Term.shift]
-    repeat' split
-    all_goals first
-    | rfl
-    | (exfalso; omega)
-    | (simp only [Term.Var.injEq]; omega)
-  all_goals simp [Term.shift, *, Nat.succ_le_succ h]
-
-theorem Term.shift_shift0 (t : Term) (d : Nat) :
-    Term.shift (d + 1) (Term.shift 0 t) = Term.shift 0 (Term.shift d t) :=
-  (Term.shift_shift t 0 d (Nat.zero_le d)).symm
-
-theorem Term.subst_shift (t : Term) : ∀ (d : Nat) (w : Term),
-    Term.subst d w (t.shift d) = t := by
-  induction t <;> intro d w
-  case Var i =>
-    simp only [Term.shift]
-    repeat' split
-    all_goals try simp only [Term.subst]
-    repeat' split
-    all_goals first
-    | rfl
-    | (exfalso; omega)
-    | (simp only [Term.Var.injEq]; omega)
-  all_goals simp [Term.shift, Term.subst, *]
-
-theorem Term.shift_subst_lt (t : Term) : ∀ (d e : Nat) (w : Term), d ≤ e →
-    (Term.subst e w t).shift d = Term.subst (e + 1) (w.shift d) (t.shift d) := by
-  induction t <;> intro d e w h
-  case Var i =>
-    simp only [Term.subst]
-    repeat' split
-    all_goals try simp only [Term.shift]
-    repeat' split
-    all_goals try simp only [Term.subst]
-    repeat' split
-    all_goals first
-    | rfl
-    | (exfalso; omega)
-    | (simp only [Term.Var.injEq]; omega)
-  all_goals simp [Term.shift, Term.subst, Term.shift_shift, *, Nat.succ_le_succ h]
-
-theorem Term.shift_jmotive (a T : Term) (d : Nat) :
-    Term.shift d (Term.jmotive a T)
-      = Term.jmotive (Term.shift d a) (Term.shift d T) := by
-  simp [Term.jmotive, Term.shift, Term.shift_shift0]
-
-theorem Term.subst_jmotive (a T : Term) (d : Nat) (w : Term) :
-    Term.subst d w (Term.jmotive a T)
-      = Term.jmotive (Term.subst d w a) (Term.subst d w T) := by
-  simp [Term.jmotive, Term.subst, Term.shift_subst_lt _ 0 d w (Nat.zero_le d)]
-
-theorem Term.shift_subst_ge (t : Term) : ∀ (d e : Nat) (w : Term), e ≤ d →
-    (Term.subst e w t).shift d = Term.subst e (w.shift d) (t.shift (d + 1)) := by
-  induction t <;> intro d e w h
-  case Var i =>
-    simp only [Term.subst]
-    repeat' split
-    all_goals try simp only [Term.shift]
-    repeat' split
-    all_goals try simp only [Term.subst]
-    repeat' split
-    all_goals first
-    | rfl
-    | (exfalso; omega)
-    | (simp only [Term.Var.injEq]; omega)
-  all_goals simp [Term.shift, Term.subst, Term.shift_shift, *, Nat.succ_le_succ h]
-
-theorem Term.subst_subst (t : Term) : ∀ (d e : Nat) (w u : Term), e ≤ d →
-    Term.subst d w (Term.subst e u t)
-      = Term.subst e (Term.subst d w u) (Term.subst (d + 1) (w.shift e) t) := by
-  induction t <;> intro d e w u h
-  case Var i =>
-    simp only [Term.subst]
-    repeat' split
-    all_goals try simp only [Term.subst, Term.subst_shift]
-    repeat' split
-    all_goals first
-    | rfl
-    | (exfalso; omega)
-    | (simp only [Term.Var.injEq]; omega)
-  all_goals simp [Term.subst, Term.shift_shift, Term.shift_subst_lt,
-                  *, Nat.succ_le_succ h]
-
-theorem Term.shift_subst0 (t w : Term) (d : Nat) :
-    (Term.subst 0 w t).shift d = Term.subst 0 (w.shift d) (t.shift (d + 1)) :=
-  Term.shift_subst_ge t d 0 w (Nat.zero_le d)
-
-theorem Term.subst_subst0 (t w u : Term) (d : Nat) :
-    Term.subst d w (Term.subst 0 u t)
-      = Term.subst 0 (Term.subst d w u) (Term.subst (d + 1) (w.shift 0) t) :=
-  Term.subst_subst t d 0 w u (Nat.zero_le d)
-
-theorem Term.Closed.mono (t : Term) : ∀ (n m : Nat), t.Closed n → n ≤ m →
-    t.Closed m := by
-  induction t <;> intro n m hc h <;> simp only [Term.Closed] at *
-  case Var => omega
-  case Typ ih => exact ih n m hc h
-  case Min iha ihb => exact ⟨iha n m hc.1 h, ihb n m hc.2 h⟩
-  case All ihA ihB => exact ⟨ihA n m hc.1 h, ihB (n+1) (m+1) hc.2 (by omega)⟩
-  case Lam ihf => exact ihf (n+1) (m+1) hc (by omega)
-  case App ihf iha => exact ⟨ihf n m hc.1 h, iha n m hc.2 h⟩
-  case Mat ihh ihm => exact ⟨ihh n m hc.1 h, ihm n m hc.2 h⟩
-  case Eql iha ihb ihT =>
-    exact ⟨iha n m hc.1 h, ihb n m hc.2.1 h, ihT n m hc.2.2 h⟩
-  case Rwt ihe ihP ihf =>
-    exact ⟨ihe n m hc.1 h, ihP n m hc.2.1 h, ihf n m hc.2.2 h⟩
-  case Let ihv ihb => exact ⟨ihv n m hc.1 h, ihb (n+1) (m+1) hc.2 (by omega)⟩
-
-theorem Term.shift_closed (t : Term) : ∀ (n d : Nat), t.Closed n → n ≤ d →
-    t.shift d = t := by
-  induction t <;> intro n d hc h <;> simp only [Term.Closed] at hc <;>
-    simp only [Term.shift]
-  case Var => rw [if_pos (by omega)]
-  case Typ ih => rw [ih n d hc h]
-  case Min iha ihb => rw [iha n d hc.1 h, ihb n d hc.2 h]
-  case All ihA ihB =>
-    rw [ihA n d hc.1 h, ihB (n+1) (d+1) hc.2 (by omega)]
-  case Lam ihf => rw [ihf (n+1) (d+1) hc (by omega)]
-  case App ihf iha => rw [ihf n d hc.1 h, iha n d hc.2 h]
-  case Mat ihh ihm => rw [ihh n d hc.1 h, ihm n d hc.2 h]
-  case Eql iha ihb ihT =>
-    rw [iha n d hc.1 h, ihb n d hc.2.1 h, ihT n d hc.2.2 h]
-  case Rwt ihe ihP ihf =>
-    rw [ihe n d hc.1 h, ihP n d hc.2.1 h, ihf n d hc.2.2 h]
-  case Let ihv ihb =>
-    rw [ihv n d hc.1 h, ihb (n+1) (d+1) hc.2 (by omega)]
-
-theorem Term.occ_closed : ∀ (t : Term) (n d : Nat), t.Closed n → n ≤ d →
-    Term.occ d t = 0 := by
-  intro t
-  induction t <;> intro n d hc hle <;>
-    simp only [Term.occ, Term.Closed] at *
-  case Var i => rw [if_neg (by omega)]
-  case Typ ih => exact ih n d hc hle
-  case Min iha ihb => rw [iha n d hc.1 hle, ihb n d hc.2 hle]
-  case All ihA ihB =>
-    rw [ihA n d hc.1 hle, ihB (n + 1) (d + 1) hc.2 (by omega)]
-  case Lam ihf => exact ihf (n + 1) (d + 1) hc (by omega)
-  case App ihf iha => rw [ihf n d hc.1 hle, iha n d hc.2 hle]
-  case Mat ihh ihm =>
-    rw [ihh n d hc.1 hle, ihm n d hc.2 hle]
-    rfl
-  case Eql iha ihb ihT =>
-    rw [iha n d hc.1 hle, ihb n d hc.2.1 hle, ihT n d hc.2.2 hle]
-  case Rwt ihe ihP ihf =>
-    rw [ihe n d hc.1 hle, ihP n d hc.2.1 hle, ihf n d hc.2.2 hle]
-  case Let ihv ihb =>
-    rw [ihv n d hc.1 hle, ihb (n + 1) (d + 1) hc.2 (by omega)]
-
-theorem Term.occ_subst_closed (hw : w.Closed 0) :
-    ∀ (u : Term) (d i : Nat), i < d →
-    Term.occ i (Term.subst d w u) = Term.occ i u := by
-  intro u
-  induction u <;> intro d i hid <;>
-    simp only [Term.subst, Term.occ]
-  case Var j =>
-    by_cases h1 : j = d
-    · rw [if_pos h1]
-      rw [Term.occ_closed w 0 i hw (Nat.zero_le i)]
-      rw [if_neg (by omega)]
-    · rw [if_neg h1]
-      by_cases h2 : d < j
-      · rw [if_pos h2]
-        simp only [Term.occ]
-        rw [if_neg (by omega), if_neg (by omega)]
-      · rw [if_neg h2]
-        rfl
-  case Typ ih => exact ih d i hid
-  case Min iha ihb => rw [iha d i hid, ihb d i hid]
-  case All ihA ihB =>
-    rw [ihA d i hid,
-      show Term.shift 0 w = w from Term.shift_closed w 0 0 hw (Nat.le_refl 0),
-      ihB (d + 1) (i + 1) (by omega)]
-  case Lam ihf =>
-    rw [show Term.shift 0 w = w from Term.shift_closed w 0 0 hw (Nat.le_refl 0),
-      ihf (d + 1) (i + 1) (by omega)]
-  case App ihf iha => rw [ihf d i hid, iha d i hid]
-  case Mat ihh ihm => rw [ihh d i hid, ihm d i hid]
-  case Eql iha ihb ihT =>
-    rw [iha d i hid, ihb d i hid, ihT d i hid]
-  case Rwt ihe ihP ihf =>
-    rw [ihe d i hid, ihP d i hid, ihf d i hid]
-  case Let ihv ihb =>
-    rw [ihv d i hid,
-      show Term.shift 0 w = w from Term.shift_closed w 0 0 hw (Nat.le_refl 0),
-      ihb (d + 1) (i + 1) (by omega)]
-
-theorem Term.occ_shift_ge : ∀ (t : Term) (d e : Nat), e ≤ d →
-    Term.occ (d + 1) (Term.shift e t) = Term.occ d t := by
-  intro t
-  induction t <;> intro d e he
-  case Var i =>
-    simp only [Term.shift]
-    by_cases h1 : i < e
-    · rw [if_pos h1]
-      simp only [Term.occ]
-      split <;> (try split) <;> omega
-    · rw [if_neg h1]
-      simp only [Term.occ]
-      split <;> (try split) <;> omega
-  all_goals simp [Term.shift, Term.occ, *, Nat.succ_le_succ he]
-
-theorem Term.occ_apps (d : Nat) : ∀ (as : List Term) (f : Term),
-    Term.occ d (Term.apps f as) = Term.occ d f + (as.map (Term.occ d)).sum := by
-  intro as
-  induction as with
-  | nil => intro f; simp [Term.apps]
-  | cons x xs ih =>
-    intro f
-    show Term.occ d (Term.apps (.App f x) xs) = _
-    rw [ih (.App f x)]
-    simp only [Term.occ, List.map, List.sum_cons]
-    omega
-
--- substitution of a closed-value environment at depth d, one value at
--- a time — exactly the shape the drive's betas leave behind
-def Term.msubstAt (d : Nat) : List Term → Term → Term
-  | [],      t => t
-  | v :: vs, t => Term.msubstAt d vs (Term.subst d v t)
-
-theorem Term.occ_shift_lt : ∀ (t : Term) (i e : Nat), i < e →
-    Term.occ i (Term.shift e t) = Term.occ i t := by
-  intro t
-  induction t <;> intro i e hie
-  case Var j =>
-    simp only [Term.shift]
-    by_cases h1 : j < e
-    · rw [if_pos h1]
-    · rw [if_neg h1]
-      simp only [Term.occ]
-      rw [if_neg (by omega), if_neg (by omega)]
-  all_goals simp [Term.shift, Term.occ, *, Nat.succ_lt_succ hie]
-
-theorem Term.occ_shift_self : ∀ (t : Term) (e : Nat),
-    Term.occ e (Term.shift e t) = 0 := by
-  intro t
-  induction t <;> intro e
-  case Var j =>
-    simp only [Term.shift]
-    by_cases h1 : j < e
-    · rw [if_pos h1]
-      simp only [Term.occ]
-      rw [if_neg (by omega)]
-    · rw [if_neg h1]
-      simp only [Term.occ]
-      rw [if_neg (by omega)]
-  all_goals simp [Term.shift, Term.occ, *]
-
--- occurrence bookkeeping for the eta rule: substitution at or above an
--- absent variable keeps it absent, and substituting an unused slot is
--- indifferent to the payload
-theorem Term.occ_subst_lt_zero : ∀ (t : Term) (e i : Nat) (w : Term),
-    i < e → Term.occ i t = 0 → Term.occ i w = 0 →
-    Term.occ i (Term.subst e w t) = 0 := by
-  intro t
-  induction t <;> intro e i w hie ht hw <;>
-    simp only [Term.subst, Term.occ] at ht ⊢
-  case Var j =>
-    by_cases h1 : j = e
-    · rw [if_pos h1]; exact hw
-    · rw [if_neg h1]
-      by_cases h2 : e < j
-      · rw [if_pos h2]
-        simp only [Term.occ]
-        rw [if_neg (by omega)]
-      · rw [if_neg h2]
-        simp only [Term.occ] at ht ⊢
-        exact ht
-  case Typ ih => exact ih e i w hie ht hw
-  case Min iha ihb =>
-    rw [iha e i w hie (by omega) hw, ihb e i w hie (by omega) hw]
-  case All ihA ihB =>
-    rw [ihA e i w hie (by omega) hw,
-      ihB (e + 1) (i + 1) (Term.shift 0 w) (by omega) (by omega)
-        (by rw [Term.occ_shift_ge w i 0 (Nat.zero_le i)]; exact hw)]
-  case Lam ihf =>
-    rw [ihf (e + 1) (i + 1) (Term.shift 0 w) (by omega) ht
-      (by rw [Term.occ_shift_ge w i 0 (Nat.zero_le i)]; exact hw)]
-  case App ihf iha =>
-    rw [ihf e i w hie (by omega) hw, iha e i w hie (by omega) hw]
-  case Mat ihh ihm =>
-    rw [Nat.max_eq_zero_iff] at ht
-    rw [ihh e i w hie (by omega) hw, ihm e i w hie (by omega) hw]
-    simp
-  case Eql iha ihb ihT =>
-    rw [iha e i w hie (by omega) hw, ihb e i w hie (by omega) hw,
-      ihT e i w hie (by omega) hw]
-  case Rwt ihe ihP ihf =>
-    rw [ihe e i w hie (by omega) hw, ihP e i w hie (by omega) hw,
-      ihf e i w hie (by omega) hw]
-  case Let ihv ihb =>
-    rw [ihv e i w hie (by omega) hw,
-      ihb (e + 1) (i + 1) (Term.shift 0 w) (by omega) (by omega)
-        (by rw [Term.occ_shift_ge w i 0 (Nat.zero_le i)]; exact hw)]
-
-theorem Term.occ_subst_zero : ∀ (t : Term) (e i : Nat) (w : Term),
-    e ≤ i → Term.occ (i + 1) t = 0 → Term.occ i w = 0 →
-    Term.occ i (Term.subst e w t) = 0 := by
-  intro t
-  induction t <;> intro e i w hei ht hw <;>
-    simp only [Term.subst, Term.occ] at ht ⊢
-  case Var j =>
-    have hj : j ≠ i + 1 := by
-      intro hj
-      rw [if_pos hj] at ht
-      simp at ht
-    by_cases h1 : j = e
-    · rw [if_pos h1]; exact hw
-    · rw [if_neg h1]
-      by_cases h2 : e < j
-      · rw [if_pos h2]
-        simp only [Term.occ]
-        rw [if_neg (by omega)]
-      · rw [if_neg h2]
-        simp only [Term.occ]
-        rw [if_neg (by omega)]
-  case Typ ih => exact ih e i w hei ht hw
-  case Min iha ihb =>
-    rw [iha e i w hei (by omega) hw, ihb e i w hei (by omega) hw]
-  case All ihA ihB =>
-    rw [ihA e i w hei (by omega) hw,
-      ihB (e + 1) (i + 1) (Term.shift 0 w) (by omega) (by omega)
-        (by rw [Term.occ_shift_ge w i 0 (Nat.zero_le i)]; exact hw)]
-  case Lam ihf =>
-    rw [ihf (e + 1) (i + 1) (Term.shift 0 w) (by omega) ht
-      (by rw [Term.occ_shift_ge w i 0 (Nat.zero_le i)]; exact hw)]
-  case App ihf iha =>
-    rw [ihf e i w hei (by omega) hw, iha e i w hei (by omega) hw]
-  case Mat ihh ihm =>
-    rw [Nat.max_eq_zero_iff] at ht
-    rw [ihh e i w hei (by omega) hw, ihm e i w hei (by omega) hw]
-    simp
-  case Eql iha ihb ihT =>
-    rw [iha e i w hei (by omega) hw, ihb e i w hei (by omega) hw,
-      ihT e i w hei (by omega) hw]
-  case Rwt ihe ihP ihf =>
-    rw [ihe e i w hei (by omega) hw, ihP e i w hei (by omega) hw,
-      ihf e i w hei (by omega) hw]
-  case Let ihv ihb =>
-    rw [ihv e i w hei (by omega) hw,
-      ihb (e + 1) (i + 1) (Term.shift 0 w) (by omega) (by omega)
-        (by rw [Term.occ_shift_ge w i 0 (Nat.zero_le i)]; exact hw)]
-
-theorem Term.occ_zero_subst_irrel : ∀ (t : Term) (e : Nat) (w w' : Term),
-    Term.occ e t = 0 → Term.subst e w t = Term.subst e w' t := by
-  intro t
-  induction t <;> intro e w w' ht <;>
-    simp only [Term.subst, Term.occ] at ht ⊢
-  case Var j =>
-    by_cases h1 : j = e
-    · exfalso
-      rw [if_pos h1] at ht
-      simp at ht
-    · rw [if_neg h1, if_neg h1]
-  case Typ ih => rw [ih e w w' ht]
-  case Min iha ihb => rw [iha e w w' (by omega), ihb e w w' (by omega)]
-  case All ihA ihB =>
-    rw [ihA e w w' (by omega),
-      ihB (e + 1) (Term.shift 0 w) (Term.shift 0 w') (by omega)]
-  case Lam ihf => rw [ihf (e + 1) (Term.shift 0 w) (Term.shift 0 w') ht]
-  case App ihf iha => rw [ihf e w w' (by omega), iha e w w' (by omega)]
-  case Mat ihh ihm =>
-    rw [Nat.max_eq_zero_iff] at ht
-    rw [ihh e w w' (by omega), ihm e w w' (by omega)]
-  case Eql iha ihb ihT =>
-    rw [iha e w w' (by omega), ihb e w w' (by omega), ihT e w w' (by omega)]
-  case Rwt ihe ihP ihf =>
-    rw [ihe e w w' (by omega), ihP e w w' (by omega), ihf e w w' (by omega)]
-  case Let ihv ihb =>
-    rw [ihv e w w' (by omega),
-      ihb (e + 1) (Term.shift 0 w) (Term.shift 0 w') (by omega)]
-
-theorem Term.subst_var_eq_subst_above : ∀ (t : Term) (d : Nat) (w : Term),
-    Term.occ (d + 1) t = 0 →
-    Term.subst d (.Var d) t = Term.subst (d + 1) w t := by
-  intro t
-  induction t <;> intro d w ht <;>
-    simp only [Term.subst, Term.occ] at ht ⊢
-  case Var j =>
-    have hj : j ≠ d + 1 := by
-      intro he
-      rw [if_pos he] at ht
-      simp at ht
-    by_cases h1 : j = d
-    · rw [if_pos h1, if_neg (by omega), if_neg (by omega), h1]
-    · rw [if_neg h1]
-      by_cases h2 : d < j
-      · rw [if_pos h2, if_neg (by omega), if_pos (by omega)]
-      · rw [if_neg h2, if_neg (by omega), if_neg (by omega)]
-  case Typ ih => rw [ih d w ht]
-  case Min iha ihb => rw [iha d w (by omega), ihb d w (by omega)]
-  case All ihA ihB =>
-    rw [ihA d w (by omega)]
-    have hs : Term.shift 0 (Term.Var d) = .Var (d + 1) := by
-      simp only [Term.shift]
-      rw [if_neg (by omega)]
-    rw [hs, ihB (d + 1) (Term.shift 0 w) (by omega)]
-  case Lam ihf =>
-    have hs : Term.shift 0 (Term.Var d) = .Var (d + 1) := by
-      simp only [Term.shift]
-      rw [if_neg (by omega)]
-    rw [hs, ihf (d + 1) (Term.shift 0 w) ht]
-  case App ihf iha => rw [ihf d w (by omega), iha d w (by omega)]
-  case Mat ihh ihm =>
-    rw [Nat.max_eq_zero_iff] at ht
-    rw [ihh d w (by omega), ihm d w (by omega)]
-  case Eql iha ihb ihT =>
-    rw [iha d w (by omega), ihb d w (by omega), ihT d w (by omega)]
-  case Rwt ihe ihP ihf =>
-    rw [ihe d w (by omega), ihP d w (by omega), ihf d w (by omega)]
-  case Let ihv ihb =>
-    rw [ihv d w (by omega)]
-    have hs : Term.shift 0 (Term.Var d) = .Var (d + 1) := by
-      simp only [Term.shift]
-      rw [if_neg (by omega)]
-    rw [hs, ihb (d + 1) (Term.shift 0 w) (by omega)]
-
-theorem Term.subst_closed (t : Term) : ∀ (n d : Nat) (w : Term), t.Closed n →
-    n ≤ d → Term.subst d w t = t := by
-  induction t <;> intro n d w hc h <;> simp only [Term.Closed] at hc <;>
-    simp only [Term.subst]
-  case Var => rw [if_neg (by omega), if_neg (by omega)]
-  case Typ ih => rw [ih n d w hc h]
-  case Min iha ihb => rw [iha n d w hc.1 h, ihb n d w hc.2 h]
-  case All ihA ihB =>
-    rw [ihA n d w hc.1 h, ihB (n+1) (d+1) (w.shift 0) hc.2 (by omega)]
-  case Lam ihf => rw [ihf (n+1) (d+1) (w.shift 0) hc (by omega)]
-  case App ihf iha => rw [ihf n d w hc.1 h, iha n d w hc.2 h]
-  case Mat ihh ihm => rw [ihh n d w hc.1 h, ihm n d w hc.2 h]
-  case Eql iha ihb ihT =>
-    rw [iha n d w hc.1 h, ihb n d w hc.2.1 h, ihT n d w hc.2.2 h]
-  case Rwt ihe ihP ihf =>
-    rw [ihe n d w hc.1 h, ihP n d w hc.2.1 h, ihf n d w hc.2.2 h]
-  case Let ihv ihb =>
-    rw [ihv n d w hc.1 h, ihb (n+1) (d+1) (w.shift 0) hc.2 (by omega)]
-
--- substituting an absent variable is a renaming that shift undoes
-theorem Term.shift_subst_occ : ∀ (t : Term) (d : Nat) (w : Term),
-    Term.occ d t = 0 → Term.shift d (Term.subst d w t) = t := by
-  intro t
-  induction t <;> intro d w ht <;> simp only [Term.subst, Term.occ] at ht ⊢
-  case Var i =>
-    have hne : i ≠ d := by intro h; rw [if_pos h] at ht; simp at ht
-    rw [if_neg hne]
-    split <;> simp only [Term.shift] <;> split <;>
-      first | rfl | (exfalso; omega) | (simp only [Term.Var.injEq]; omega)
-  case Typ ih => simp only [Term.shift, ih d w ht]
-  case Min iha ihb => simp only [Term.shift, iha d w (by omega), ihb d w (by omega)]
-  case All ihA ihB =>
-    simp only [Term.shift, ihA d w (by omega), ihB (d + 1) _ (by omega)]
-  case Lam ihf => simp only [Term.shift, ihf (d + 1) _ ht]
-  case App ihf iha => simp only [Term.shift, ihf d w (by omega), iha d w (by omega)]
-  case Mat ihh ihm =>
-    rw [Nat.max_eq_zero_iff] at ht
-    simp only [Term.shift, ihh d w ht.1, ihm d w ht.2]
-  case Eql iha ihb ihT =>
-    simp only [Term.shift, iha d w (by omega), ihb d w (by omega), ihT d w (by omega)]
-  case Rwt ihe ihP ihf =>
-    simp only [Term.shift, ihe d w (by omega), ihP d w (by omega), ihf d w (by omega)]
-  case Let ihv ihb =>
-    simp only [Term.shift, ihv d w (by omega), ihb (d + 1) _ (by omega)]
-  all_goals simp [Term.shift]
-
--- the context and the equation: Ctx.get on a cons, the let expansion of
--- a term with no variable at or above its depth, and the void equation
--- as a fixed point of the walks
-theorem Ctx.get_zero (b : Bind) (Γ : Ctx) : Ctx.get (b :: Γ) 0 = some b.shift := rfl
-
-theorem Ctx.get_succ (b : Bind) (Γ : Ctx) (i : Nat) :
-    Ctx.get (b :: Γ) (i + 1) = (Ctx.get Γ i).map Bind.shift := rfl
-
-theorem Ctx.δ_closed : ∀ (Γ : Ctx) (d : Nat) (t : Term), Term.Closed d t →
-    Ctx.δ Γ d t = t := by
-  intro Γ
-  induction Γ with
-  | nil => intro d t _; rfl
-  | cons b Γ ih =>
-    intro d t hc
-    simp only [Ctx.δ]
-    split
-    · rw [Term.subst_closed t d d _ hc (Nat.le_refl d)]; exact ih d t hc
-    · exact ih (d + 1) t (Term.Closed.mono t d (d + 1) hc (by omega))
-
-theorem LHS.shift_void (β : Book) : (LHS.void β).shift = LHS.void β := rfl
-
-theorem LHS.lam_void (β : Book) : (LHS.void β).lam = LHS.void β := rfl
-
-theorem LHS.mat_void (β : Book) (a c fn : Nat) :
-    (LHS.void β).mat a c fn = LHS.void β := rfl
-
-theorem LHS.cols_void (β : Book) : (LHS.void β).cols = [] := rfl
-
--- ============================================================================
--- METATHEORY §A2 — the spine kit: Term.apps algebra and inversion.
--- Constructor values are Adt/Ctr-headed application spines; these are
--- the lemmas that let the redex rules (matc, matm) and the canonical-
--- form arguments decompose them.
--- ============================================================================
-
-theorem Term.apps_append (f : Term) (xs ys : List Term) :
-    Term.apps f (xs ++ ys) = Term.apps (Term.apps f xs) ys := by
-  induction xs generalizing f with
-  | nil => rfl
-  | cons x xs ih => simp only [List.cons_append, Term.apps, ih]
-
-theorem Term.apps_snoc (f : Term) (xs : List Term) (x : Term) :
-    Term.apps f (xs ++ [x]) = .App (Term.apps f xs) x := by
-  rw [Term.apps_append]; rfl
-
-theorem getD_take {d0 : α} : ∀ (l : List α) (m i : Nat), i < m →
-    (l.take m).getD i d0 = l.getD i d0 := by
-  intro l
-  induction l with
-  | nil => intro m i _; simp
-  | cons x xs ih =>
-    intro m i him
-    cases m with
-    | zero => omega
-    | succ m =>
-      cases i with
-      | zero => rfl
-      | succ i =>
-        show (xs.take m).getD i d0 = xs.getD i d0
-        exact ih m i (by omega)
-
-theorem take_getD_self (d0 : α) : ∀ (l : List α) (m : Nat),
-    l.length = m + 1 → l.take m ++ [l.getD m d0] = l := by
-  intro l
-  induction l with
-  | nil => intro m h; simp at h
-  | cons x xs ih =>
-    intro m h
-    cases m with
-    | zero =>
-      simp only [List.length_cons] at h
-      cases xs with
-      | nil => rfl
-      | cons y ys => simp at h
-    | succ m =>
-      show x :: (xs.take m ++ [xs.getD m d0]) = x :: xs
-      rw [ih m (by simp only [List.length_cons] at h; omega)]
-
-theorem Term.shift_apps (d : Nat) (f : Term) (xs : List Term) :
-    Term.shift d (Term.apps f xs)
-      = Term.apps (Term.shift d f) (xs.map (Term.shift d)) := by
-  induction xs generalizing f with
-  | nil => rfl
-  | cons x xs ih => simp only [Term.apps, List.map, ih, Term.shift]
-
-theorem Term.subst_apps (d : Nat) (w f : Term) (xs : List Term) :
-    Term.subst d w (Term.apps f xs)
-      = Term.apps (Term.subst d w f) (xs.map (Term.subst d w)) := by
-  induction xs generalizing f with
-  | nil => rfl
-  | cons x xs ih => simp only [Term.apps, List.map, ih, Term.subst]
-
-theorem Term.subst_apps_closed (d : Nat) (w : Term) {b : Term}
-    (hbc : b.Closed 0) : ∀ (xs : List Term),
-    Term.subst d w (Term.apps b xs) = Term.apps b (xs.map (Term.subst d w)) := by
-  intro xs
-  rw [Term.subst_apps, Term.subst_closed b 0 d w hbc (Nat.zero_le d)]
-
-theorem Term.spine_apps_of (g : Term) :
-    ∀ (xs : List Term), Term.spine (Term.apps g xs)
-      = ((Term.spine g).1, (Term.spine g).2 ++ xs) := by
-  intro xs
-  induction xs generalizing g with
-  | nil => simp [Term.apps]
-  | cons x rest ih =>
-    show Term.spine (Term.apps (.App g x) rest) = _
-    rw [ih (.App g x)]
-    simp [Term.spine]
-
-theorem Term.spine_apps {h : Term} (hh : h.IsHead) (xs : List Term) :
-    Term.spine (Term.apps h xs) = (h, xs) := by
-  have hs : Term.spine h = (h, []) := by
-    cases h <;> first
-    | rfl
-    | exact absurd hh (by simp [Term.IsHead])
-  rw [Term.spine_apps_of h xs, hs]
-  simp
-
-theorem Term.apps_spine : ∀ (t : Term),
-    Term.apps (Term.spine t).1 (Term.spine t).2 = t := by
-  intro t
-  induction t <;> try rfl
-  case App f a ihf _ =>
-    show Term.apps (Term.spine f).1 ((Term.spine f).2 ++ [a]) = _
-    rw [Term.apps_snoc, ihf]
-
-theorem Term.apps_head_inv {h h' : Term} (hh : h.IsHead) (hh' : h'.IsHead)
-    {xs ys : List Term} (heq : Term.apps h xs = Term.apps h' ys) :
-    h = h' ∧ xs = ys := by
-  have e := congrArg Term.spine heq
-  rw [Term.spine_apps hh, Term.spine_apps hh'] at e
-  exact ⟨congrArg Prod.fst e, congrArg Prod.snd e⟩
-
--- an App equal to a spine over a head splits at the last argument
-theorem apps_shape : ∀ (as : List Term) (h t : Term),
-    Term.apps h as = t →
-    (as = [] ∧ t = h) ∨
-    ∃ as0 alast, as = as0 ++ [alast] ∧ t = .App (Term.apps h as0) alast := by
-  intro as
-  induction as with
-  | nil => intro h t he; exact .inl ⟨_root_.rfl, he.symm⟩
-  | cons x rest ih =>
-    intro h t he
-    rcases ih (.App h x) t he with ⟨h1, h2⟩ | ⟨r0, rl, h1, h2⟩
-    · subst h1
-      exact .inr ⟨[], x, _root_.rfl, h2⟩
-    · subst h1
-      exact .inr ⟨x :: r0, rl, _root_.rfl, h2⟩
-
-theorem Term.app_eq_apps {h f a : Term} (hh : h.IsHead)
-    {xs : List Term} (heq : Term.App f a = Term.apps h xs) :
-    ∃ ys, xs = ys ++ [a] ∧ f = Term.apps h ys := by
-  have e := congrArg Term.spine heq
-  rw [Term.spine_apps hh] at e
-  simp only [Term.spine] at e
-  refine ⟨(Term.spine f).2, ?_, ?_⟩
-  · have e2 := congrArg Prod.snd e
-    simp only at e2
-    exact e2.symm
-  · have e1 : (Term.spine f).1 = h := congrArg Prod.fst e
-    rw [← e1, Term.apps_spine]
-
--- a Let is never a weak value
-theorem Term.Value.let_absurd (hv : Term.Value β (.Let qb v b)) :
-    False := by
-  generalize ht : Term.Let qb v b = t0 at hv
-  cases hv <;> first
-    | exact Term.noConfusion ht
-    | exact Term.noConfusion
-        (Term.apps_head_inv (h := .Let qb v b) (xs := []) (by trivial) (by trivial) ht).1
-
--- the function of an application value is a value: the head is the same
--- and the spine is one shorter
-theorem Term.Value.app_inv (hv : Term.Value β (.App f a)) : Term.Value β f := by
-  generalize ht : Term.App f a = t0 at hv
-  cases hv with
-  | lam => exact Term.noConfusion ht
-  | mat => exact Term.noConfusion ht
-  | ref hk hg =>
-    obtain ⟨ys, hys, hf⟩ := Term.app_eq_apps (by trivial) ht
-    subst hf hys
-    rcases hg with hg | hg
-    · exact .ref hk (.inl (by simp at hg; omega))
-    · exact .ref hk (.inr hg)
-  | @matS x as _ _ _ _ hx hne =>
-    obtain ⟨ys, hys, hf⟩ := Term.app_eq_apps (by trivial) ht
-    subst hf
-    cases ys with
-    | nil => exact .mat
-    | cons y ys =>
-      have h1 : x = y := (List.cons.inj hys).1
-      subst h1
-      exact .matS hx hne
-  | _ =>
-    obtain ⟨ys, _, hf⟩ := Term.app_eq_apps (by trivial) ht
-    subst hf
-    constructor <;> assumption
-
--- a bare Ref is a value only when its definition is stuck: positive
--- arity or no body
-theorem Term.Value.ref_cases (hv : Term.Value β (.Ref k)) :
-    ∀ {d : DefD}, Book.defn β k = some d → 0 < d.n ∨ d.body = none := by
-  intro d hk
-  generalize ht : Term.Ref k = t0 at hv
-  cases hv with
-  | lam => exact Term.noConfusion ht
-  | mat => exact Term.noConfusion ht
-  | fam hk2 _ =>
-    obtain ⟨h1, _⟩ :=
-      Term.apps_head_inv (h := .Ref k) (xs := []) (by trivial) (by trivial) ht
-    cases h1
-    cases h : Book.tld β k with
-    | none => simp [Book.adt, h] at hk2
-    | some t => cases t <;> simp [Book.adt, Book.defn, h] at hk hk2
-  | ref hk2 hg =>
-    obtain ⟨h1, h2⟩ :=
-      Term.apps_head_inv (h := .Ref k) (xs := []) (by trivial) (by trivial) ht
-    cases h1
-    rw [hk] at hk2
-    cases hk2
-    rw [← h2] at hg
-    rcases hg with hg | hg
-    · exact .inl (by simp at hg; omega)
-    · exact .inr hg
-  | _ =>
-    exact Term.noConfusion
-      (Term.apps_head_inv (h := .Ref k) (xs := []) (by trivial) (by trivial) ht).1
-
--- a value stays a value under a shift, and under the substitution of a
--- variable it does not mention
-theorem Term.shift_inj (h : Term.shift d a = Term.shift d b) : a = b := by
-  have := congrArg (Term.subst d .Qnt) h
-  rwa [Term.subst_shift, Term.subst_shift] at this
-
-theorem Term.Value.shift (hv : Term.Value β t) (d : Nat) :
-    Term.Value β (Term.shift d t) := by
-  induction hv <;> simp only [Term.shift_apps, Term.shift]
-  case var => split <;> exact .var
-  case ref hk hg => exact .ref hk (by simpa using hg)
-  case min ha hb hab iha ihb =>
-    exact .min iha (fun h => ‹_ ≠ _› (Term.shift_inj (b := .Qua .Many) h))
-      (fun h => ‹_ ≠ _› (Term.shift_inj (b := .Qua .None) h)) ihb
-      (fun h => ‹_ ≠ _› (Term.shift_inj (b := .Qua .Many) h))
-      (fun h => ‹_ ≠ _› (Term.shift_inj (b := .Qua .None) h))
-      (fun h => hab ⟨Term.shift_inj (b := .Qua .Lone) h.1,
-        Term.shift_inj (b := .Qua .Lone) h.2⟩)
-  case rwt hne ih => exact .rwt ih (fun h => hne (Term.shift_inj (b := .Rfl) h))
-  case matS hne ih =>
-    refine .matS ih ?_
-    intro a' c' xs heq
-    apply hne a' c' (xs.map (Term.subst d .Qnt))
-    have := congrArg (Term.subst d .Qnt) heq
-    rwa [Term.subst_shift, Term.subst_apps] at this
-  all_goals constructor <;> assumption
-
-theorem Term.Value.subst (hv : Term.Value β t) (ho : Term.occ d t = 0) (w : Term) :
-    Term.Value β (Term.subst d w t) := by
-  have inj : ∀ {a b : Term}, Term.occ d a = 0 → Term.subst d w a = b →
-      Term.shift d b = b → a = b := by
-    intro a b ha h hb
-    rw [← Term.shift_subst_occ a d w ha, h, hb]
-  induction hv <;> simp only [Term.subst_apps, Term.subst]
-  case var i as =>
-    rw [Term.occ_apps] at ho
-    simp only [Term.occ] at ho
-    rw [if_neg (by intro h; rw [if_pos h] at ho; omega)]
-    split <;> exact .var
-  case ref hk hg => exact .ref hk (by simpa using hg)
-  case min a b as ha hb hab iha ihb =>
-    rw [Term.occ_apps] at ho
-    simp only [Term.occ] at ho
-    exact .min (iha (by omega)) (fun h => ‹_ ≠ _› (inj (by omega) h _root_.rfl))
-      (fun h => ‹_ ≠ _› (inj (by omega) h _root_.rfl)) (ihb (by omega))
-      (fun h => ‹_ ≠ _› (inj (by omega) h _root_.rfl))
-      (fun h => ‹_ ≠ _› (inj (by omega) h _root_.rfl))
-      (fun h => hab ⟨inj (by omega) h.1 _root_.rfl, inj (by omega) h.2 _root_.rfl⟩)
-  case rwt e P f as he hne ih =>
-    rw [Term.occ_apps] at ho
-    simp only [Term.occ] at ho
-    exact .rwt (ih (by omega)) (fun h => hne (inj (by omega) h _root_.rfl))
-  case matS x as hx hne ih =>
-    rw [Term.occ_apps] at ho
-    simp only [Term.occ, List.map_cons, List.sum_cons] at ho
-    refine .matS (ih (by omega)) ?_
-    intro a' c' xs heq
-    apply hne a' c' (xs.map (Term.shift d))
-    have := congrArg (Term.shift d) heq
-    rwa [Term.shift_subst_occ _ _ _ (by omega), Term.shift_apps] at this
-  all_goals constructor <;> assumption
-
--- a Ctr-headed spine is never a binder-former: the redex heads a spine
--- cannot be
-theorem Term.apps_ctr_ne {a c : Nat} {as : List Term} {t : Term}
-    (ht : t.IsHead) (hne : t ≠ .Ctr a c) :
-    Term.apps (.Ctr a c) as ≠ t := by
-  intro heq
-  have e := congrArg Term.spine heq
-  rw [Term.spine_apps (by trivial)] at e
-  have hs : Term.spine t = (t, []) := by
-    cases t <;> first
-    | rfl
-    | exact absurd ht (by simp [Term.IsHead])
-  rw [hs] at e
-  exact hne (congrArg Prod.fst e).symm
-
-theorem Term.apps_adt_ne {a : Nat} {r : List Nat} {as : List Term} {t : Term}
-    (ht : t.IsHead) (hne : t ≠ .Adt a r) :
-    Term.apps (.Adt a r) as ≠ t := by
-  intro heq
-  have e := congrArg Term.spine heq
-  rw [Term.spine_apps (by trivial)] at e
-  have hs : Term.spine t = (t, []) := by
-    cases t <;> first
-    | rfl
-    | exact absurd ht (by simp [Term.IsHead])
-  rw [hs] at e
-  exact hne (congrArg Prod.fst e).symm
-
-def Term.size : Term → Nat
-  | .Var _         => 1
-  | .Ref _         => 1
-  | .Typ g         => 1 + Term.size g
-  | .Qnt           => 1
-  | .Qua _         => 1
-  | .Min a b       => 1 + Term.size a + Term.size b
-  | .All _ A B     => 1 + Term.size A + Term.size B
-  | .Lam f         => 1 + Term.size f
-  | .App f a       => 1 + Term.size f + Term.size a
-  | .Adt _ _       => 1
-  | .Ctr _ _       => 1
-  | .Mat _ _ h m   => 1 + Term.size h + Term.size m
-  | .Efq           => 1
-  | .Eql a b T     => 1 + Term.size a + Term.size b + Term.size T
-  | .Rfl           => 1
-  | .Rwt e P f     => 1 + Term.size e + Term.size P + Term.size f
-  | .Let _ v b     => 1 + Term.size v + Term.size b
-
-theorem Term.size_spine_arg : ∀ (t : Term), ∀ x ∈ (Term.spine t).2,
-    Term.size x < Term.size t := by
-  intro t
-  induction t with
-  | App f a ihf iha =>
-    intro x hx
-    simp only [Term.spine] at hx
-    rcases List.mem_append.mp hx with h1 | h2
-    · have := ihf x h1
-      simp only [Term.size]
-      omega
-    · rw [List.mem_singleton.mp h2]
-      simp only [Term.size]
-      omega
-  | _ =>
-    intro x hx
-    first
-    | exact nomatch hx
-    | (simp only [Term.spine] at hx; exact nomatch hx)
-
-theorem Term.size_pos : ∀ t : Term, 1 ≤ Term.size t := by
-  intro t
-  cases t <;> simp only [Term.size] <;> omega
-
--- ============================================================================
 
 
 
