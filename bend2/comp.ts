@@ -588,8 +588,6 @@ const TELES: Map<HTerm, ReturnType<typeof Bend.tele_unbind>> = new Map();
 
 const REFS: Map<Bend.Name, Set<Bend.Name>> = new Map();
 
-const FRESH: Set<Bend.Name> = new Set();
-
 const FOLDS: Map<HTerm, HTerm | null> = new Map();
 
 const FLATS: Map<Bend.Name, boolean> = new Map();
@@ -1272,20 +1270,17 @@ function mint(cb: Carb, def: Bend.Name, stem: string, scope: Capture[],
 
 function carb_fresh(cb: Carb, k: Bend.Name): TLD | undefined {
   const tld = cb.src[k];
-  if (!FRESH.has(k)) {
-    FRESH.add(k);
-    if (tld?.$ === "Def" && tld.e !== undefined) {
-      const h = Bend.term_higher(tld.e);
-      const n = tld.n + Math.min(def_raise(cb.book, h, tld.n),
-        tele_unbind(cb.book, tld.T).doms.length - tld.n);
-      cb.src[k] = { ...tld, n, h };
-    }
+  if (tld?.$ === "Def" && tld.e !== undefined && tld.h === undefined) {
+    const h = Bend.term_higher(tld.e);
+    const n = tld.n + Math.min(def_raise(cb.book, h, tld.n),
+      tele_unbind(cb.book, tld.T).doms.length - tld.n);
+    cb.src[k] = { ...tld, n, h };
   }
   return cb.src[k];
 }
 
 function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
-  [TELES, REFS, FRESH, NODES, CYCLES, FLATS, RECS, INTRS]
+  [TELES, REFS, NODES, CYCLES, FLATS, RECS, INTRS]
     .forEach((m) => m.clear());
   memo_gc();
   const book: Book = { ...src, tlds: { ...src.tlds } };
