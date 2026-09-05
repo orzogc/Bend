@@ -3673,8 +3673,8 @@ typedef u32 Monk;
 #define M_RING_PUT         0
 #define M_RING_GET         1
 #define M_HEAD             2
-#define M_HUGE             (2 + 2 * NCLS)
-#define M_SNAP             (3 + 2 * NCLS)
+#define M_HUGE             (2 + 4 * NCLS)
+#define M_SNAP             (3 + 4 * NCLS)
 #define monk_word(H, m, w) ((H) + MONK_OFF + (u64)(w) * CUBE + (m))
 
 typedef u32 Ring;
@@ -3738,7 +3738,7 @@ typedef u32* Cursor;
 #define ROT_STEP     10125u
 #define RING_LEN     (1ull << 10)
 #define STAK_LEN     (1ull << 11)
-#define MONK_WORDS   32ull
+#define MONK_WORDS   40ull
 #define NCLS         9
 #define HUGE_CLS     (32 - NCLS)
 #define ALC_WORDS    (2 * NCLS)
@@ -4006,19 +4006,21 @@ INLINE void page_stack_push(Corpus H, Cls cls, Loc loc) {
 #if DEVICE
 #define ALC_AT(e, i) (e).alc[(i) * CUBE_SIDE]
 
-INLINE Monk alc_monk(Env e) {
-  return (e.mnk + a32_load(a32_at(e.mem, H_ROT))) & (u32)(CUBE - 1);
+INLINE DEV u64* alc_slot(Env e, bool move) {
+  u32  rot = a32_load(a32_at(e.mem, H_ROT));
+  Monk m   = move ? (e.mnk + ROT_STEP) & (u32)(CUBE - 1) : e.mnk;
+  return monk_word(e.mem, m, M_HEAD + ((rot & 1) ^ move) * ALC_WORDS);
 }
-INLINE void alc_open(Env e) {
-  Monk m = alc_monk(e);
+INLINE void alc_open(Env e, bool move) {
+  DEV u64* w = alc_slot(e, move);
   for (u32 i = 0; i < ALC_WORDS; i += 1) {
-    ALC_AT(e, i) = *monk_word(e.mem, m, M_HEAD + i);
+    ALC_AT(e, i) = w[i * CUBE];
   }
 }
-INLINE void alc_close(Env e) {
-  Monk m = alc_monk(e);
+INLINE void alc_close(Env e, bool move) {
+  DEV u64* w = alc_slot(e, move);
   for (u32 i = 0; i < ALC_WORDS; i += 1) {
-    *monk_word(e.mem, m, M_HEAD + i) = ALC_AT(e, i);
+    w[i * CUBE] = ALC_AT(e, i);
   }
 }
 #else
@@ -4846,7 +4848,8 @@ extern "C" __global__ void grow_dev(Corpus H) {
   Ring rg  = (row << 7) + stride * lane;
   GRPV u64 tg_alc[CUBE_SIDE * ALC_WORDS];
   Env  e   = { H, rg, tg_alc + lane };
-  alc_open(e);
+  u32  move = a32_load(a32_at(H, H_ROT)) & 2;
+  alc_open(e, move);
   GA32 tg_cur;
   GA32 tg_grew;
   GA32 tg_has;
@@ -4880,7 +4883,7 @@ extern "C" __global__ void grow_dev(Corpus H) {
     }
     seen_grew = grew;
   }
-  alc_close(e);
+  alc_close(e, move && stride != 1);
 }
 
 #ifdef __METAL_VERSION__
@@ -4894,9 +4897,9 @@ extern "C" __global__ void work_dev(Corpus H) {
 #endif
   GRPV u64 tg_alc[CUBE_SIDE * ALC_WORDS];
   Env e = { H, tid, tg_alc + lane };
-  alc_open(e);
+  alc_open(e, false);
   monk_work(e, (Stk)(H + STAK_OFF + tid), ring_flip(tid));
-  alc_close(e);
+  alc_close(e, false);
 }
 
 #endif
@@ -5273,6 +5276,7 @@ static void gpu_pass(u32 f) {
 
 static void gpu_round(Corpus H, u32 f) {
   gpu_pass(f);
+  a32_store(a32_at(H, H_ROT), a32_load(a32_at(H, H_ROT)) & 1);
   u32 ec = a32_load(a32_at(H, H_ERROR_CODE));
   if (ec > ERR_DEEP || (u64)a32_load(a32_at(H, H_PAGE_BUMP)) > gpu_cap) {
     ec = ERR_HEAP;
@@ -5388,7 +5392,7 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
         H[tl]     = TERM_HOLE;
         H[tl + 1] = 0;
         a32_store(a32_at(H, H_CURSOR), 1);
-        a32_add(a32_at(H, H_ROT), ROT_STEP);
+        a32_store(a32_at(H, H_ROT), (a32_load(a32_at(H, H_ROT)) ^ 1) | 2);
         ring_push(H, 0, t);
         cube_run(H, true);
         Term rv[WL_RESW];
