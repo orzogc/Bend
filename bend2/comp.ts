@@ -5521,46 +5521,33 @@ OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
   Term x = term_clo(FID_IO_EMIT, 0);
   for (;;) {
     Term fs[256];
-    u32 c = (u32)term_aux(op);
-    if (term_tag(op) == TAG_CLO) {
-      if (c == FID_IO_EMIT) {
-        return 0;
-      }
-      u32 war = fid_arity(c);
-      if (war > 1) {
-        spare_free(e, cls_fit(war - 1), ctr_take(e, op, war - 1, fs));
-      }
-      Effect run = io_eff_at(io_eff_fids, c);
-      if (run != NULL) {
-        op = x;
-        x = run(e, fs);
-        continue;
-      }
-      Loc a = task_node(e, c, TERM_HOLE, 0, 0);
-      for (u32 i = 0; i + 1 < war; i += 1) {
-        e.mem[a + i] = fs[i];
-      }
-      e.mem[a + war - 1] = x;
-      op = corpus_eval(H, term_tsk(c, a));
-      continue;
-    }
-    if (c == CID_EMIT) {
+    u32  c   = (u32)term_aux(op);
+    bool clo = term_tag(op) == TAG_CLO;
+    u32  n   = clo ? fid_arity(c) - 1 : cid_arity(c);
+    if (c == (clo ? FID_IO_EMIT : CID_EMIT)) {
       return 0;
     }
-    if (c == CID_HALT) {
-      spare_free(e, cls_fit(2), ctr_take(e, op, 2, fs));
+    spare_free(e, cls_fit(n), ctr_take(e, op, n, fs));
+    if (!clo && c == CID_HALT) {
       int code = (int)(u32)fs[0];
       io_errs(e, fs[1]);
       return code;
     }
-    Effect run = term_tag(op) == TAG_CTR ? io_eff_at(io_eff_cids, c) : NULL;
-    if (run == NULL) {
+    Effect run = io_eff_at(clo ? io_eff_fids : io_eff_cids, c);
+    if (run == NULL && !clo) {
       err_fail(ERR_FIDS, "an alien request");
     }
-    u32 n = cid_arity(c);
-    spare_free(e, cls_fit(n), ctr_take(e, op, n, fs));
-    op = fs[n - 1];
-    x = run(e, fs);
+    if (run == NULL) {
+      Loc a = task_node(e, c, TERM_HOLE, 0, 0);
+      for (u32 i = 0; i < n; i += 1) {
+        e.mem[a + i] = fs[i];
+      }
+      e.mem[a + n] = x;
+      op = corpus_eval(H, term_tsk(c, a));
+      continue;
+    }
+    op = clo ? x : fs[n - 1];
+    x  = run(e, fs);
   }
 }
 
