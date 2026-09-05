@@ -3687,6 +3687,7 @@ typedef u32 Ring;
 #define H_HUGE_FREE  32ull
 #define H_ROOT_DONE  57ull
 #define H_CURSOR     58ull
+#define H_ROT        59ull
 #define H_ERROR_CODE 64ull
 #define H_ROOT_WORD  65ull
 
@@ -3733,6 +3734,7 @@ typedef u32* Cursor;
 #define QUANTUM_BITS (DEVICE ? PAGE_BITS : 12)
 #define CUBE_SIDE    128
 #define CUBE         (1ull << 14)
+#define ROT_STEP     10125u
 #define RING_LEN     (1ull << 10)
 #define STAK_LEN     (1ull << 11)
 #define MONK_WORDS   32ull
@@ -3778,7 +3780,7 @@ static CUfunction gpu_work_pso;
 static u64 gpu_cap;
 #endif
 
-static u64 ALC[CUBE_SIDE][ALC_WORDS];
+static u64 ALC[CUBE_SIDE + 1][ALC_WORDS];
 
 static bool io_gpu;
 static Stk  io_stk;
@@ -4003,26 +4005,24 @@ INLINE void page_stack_push(Corpus H, Cls cls, Loc loc) {
 #if DEVICE
 #define ALC_AT(e, i) (e).alc[(i) * CUBE_SIDE]
 
+INLINE Monk alc_monk(Env e) {
+  return (e.mnk + a32_load(a32_at(e.mem, H_ROT))) & (u32)(CUBE - 1);
+}
 INLINE void alc_open(Env e) {
+  Monk m = alc_monk(e);
   for (u32 i = 0; i < ALC_WORDS; i += 1) {
-    ALC_AT(e, i) = *monk_word(e.mem, e.mnk, M_HEAD + i);
+    ALC_AT(e, i) = *monk_word(e.mem, m, M_HEAD + i);
   }
 }
 INLINE void alc_close(Env e) {
+  Monk m = alc_monk(e);
   for (u32 i = 0; i < ALC_WORDS; i += 1) {
-    *monk_word(e.mem, e.mnk, M_HEAD + i) = ALC_AT(e, i);
+    *monk_word(e.mem, m, M_HEAD + i) = ALC_AT(e, i);
   }
 }
 #else
 #define ALC_AT(e, i) ALC[(e).mnk][i]
 #endif
-
-INLINE u64 alc_load(Env e, u32 ride, Cls c) {
-  return ALC_AT(e, ride * NCLS + c);
-}
-INLINE void alc_store(Env e, u32 ride, Cls c, u64 v) {
-  ALC_AT(e, ride * NCLS + c) = v;
-}
 
 #define cls_quantum(cls) (1u << ((cls) > QUANTUM_BITS ? (cls) : QUANTUM_BITS))
 
@@ -4061,22 +4061,22 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
     return page_loc(page_claim(H, 1u << (cls - PAGE_BITS)));
   }
   Page p = page_claim(H, cls_quantum(cls) >> PAGE_BITS);
-  alc_store(e, 1, cls, ((u64)(1u << cls) << 32) | (p + 1));
+  ALC_AT(e, NCLS + cls) = ((u64)(1u << cls) << 32) | (p + 1);
   return page_loc(p);
 }
 
 HOT Loc heap_alloc(Env e, Cls cls) {
   Corpus H = e.mem;
   if (cls < NCLS) {
-    u64 h = alc_load(e, 0, cls);
+    u64 h = ALC_AT(e, cls);
     if (h != 0) {
-      alc_store(e, 0, cls, H[h]);
+      ALC_AT(e, cls) = H[h];
       return h;
     }
-    u64 own  = alc_load(e, 1, cls);
+    u64 own  = ALC_AT(e, NCLS + cls);
     u32 used = (u32)(own >> 32);
     if ((u32)own != 0 && used < cls_quantum(cls)) {
-      alc_store(e, 1, cls, own + ((u64)(1u << cls) << 32));
+      ALC_AT(e, NCLS + cls) = own + ((u64)(1u << cls) << 32);
       return page_loc((u32)own - 1) + used;
     }
   }
@@ -4089,8 +4089,8 @@ HOT void heap_free(Env e, Cls cls, Loc loc) {
     return;
   }
   if (cls < NCLS) {
-    H[loc] = alc_load(e, 0, cls);
-    alc_store(e, 0, cls, loc);
+    H[loc] = ALC_AT(e, cls);
+    ALC_AT(e, cls) = loc;
   } else {
     heap_free_huge(e, cls, loc);
   }
@@ -5296,6 +5296,8 @@ static void gpu_round(Corpus H, u32 f) {
 // ====
 
 static void cube_run(Corpus H, bool gpu) {
+  memcpy(ALC[pool_size], ALC[0], sizeof ALC[0]);
+  memmove(ALC[0], ALC[1], pool_size * sizeof ALC[0]);
   for (;;) {
     u32 f = a32_load(a32_at(H, H_CURSOR));
     a32_store(a32_at(H, H_CURSOR), 0);
@@ -5385,6 +5387,7 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
         H[tl]     = TERM_HOLE;
         H[tl + 1] = 0;
         a32_store(a32_at(H, H_CURSOR), 1);
+        a32_add(a32_at(H, H_ROT), ROT_STEP);
         ring_push(H, 0, t);
         cube_run(H, true);
         Term rv[WL_RESW];
