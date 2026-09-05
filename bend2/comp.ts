@@ -3111,13 +3111,13 @@ function compile_reqs(fl: File): void {
 
 function compile_tables(fl: File, entries: Seg[]): string[] {
   const defs: string[] = [];
-  for (const ms of [[...fl.cids.keys()].map((k) => [k, cid_mac(k)]),
-    [...entries.map((s) => [s.def, s.fid]), ["exit", "FID_EXIT"]]]) {
-    if (ms.length > 65536 || new Set(ms.map((p) => p[1])).size < ms.length) {
+  for (const ms of [[...fl.cids.keys()].map(cid_mac),
+    [...entries.map((s) => s.fid), "FID_EXIT"]]) {
+    if (ms.length > 65536 || new Set(ms).size < ms.length) {
       die("an id over 65535");
     }
-    const w = Math.max(...ms.map((p) => p[1].length));
-    defs.push(...ms.map(([, m], i) => `#define ${m.padEnd(w)} ${i}`), "");
+    const w = Math.max(...ms.map((m) => m.length));
+    defs.push(...ms.map((m, i) => `#define ${m.padEnd(w)} ${i}`), "");
   }
   const table = (nm: string, vals: number[]) => {
     if (vals.some((v) => v > 255)) {
