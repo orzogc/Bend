@@ -948,12 +948,8 @@ function lay_adt(book: Bend.Book, t: HAdt): Lay {
   if (t.k === "Array" || tld?.$ !== "ADT" || lay_cyclic(book, t.k)) {
     return BOX;
   }
-  const arms = tld.c.map((c): Arm => {
-    const T = ty_tele(book, c.T, t.x);
-    const doms = tele_unbind(book, T).doms.filter(live_dom);
-    return { k: c.k, fs: lay_fields(book, doms.map(([, , A]) => A)) };
-  });
-  return lay_pack(arms);
+  return lay_pack(tld.c.map((c): Arm =>
+    ({ k: c.k, fs: lay_fields(book, ctr_doms(book, c, t.x)) })));
 }
 
 function lay_fields(book: Bend.Book, As: (HTerm | null)[]): Field[] {
@@ -1053,8 +1049,10 @@ function ctr_tail(book: Bend.Book, ctr: Bend.Ctr): Dom[] {
   return doms.slice(doms.length - ctr.n);
 }
 
-function ctr_doms(book: Bend.Book, ctr: Bend.Ctr): HTerm[] {
-  return ctr_tail(book, ctr).filter(live_dom).map(([, , A]) => A);
+function ctr_doms(book: Bend.Book, ctr: Bend.Ctr, xs?: HTerm[]): HTerm[] {
+  const doms = xs === undefined ? ctr_tail(book, ctr)
+    : tele_unbind(book, ty_tele(book, ctr.T, xs)).doms;
+  return doms.filter(live_dom).map(([, , A]) => A);
 }
 
 function ctr_flds(book: Bend.Book, k: Bend.Name,
@@ -1898,9 +1896,7 @@ function facts_hot(cb: Carb, B: HTerm | null, force: boolean): void {
   if (tld?.$ === "ADT") {
     for (const c of tld.c) {
       cb.hot.add(c.k);
-      const T = ty_tele(cb.book, c.T, w.x);
-      tele_unbind(cb.book, T).doms.filter(live_dom)
-        .forEach(([, , A]) => facts_hot(cb, A, true));
+      ctr_doms(cb.book, c, w.x).forEach((A) => facts_hot(cb, A, true));
     }
   }
 }
@@ -2023,9 +2019,9 @@ function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
         }
         for (const [c, h] of arms) {
           const ctr = cb.book.ctrs[c];
-          const doms = ctr ? ctr_tail(cb.book, ctr) : [];
+          const As = ctr ? ctr_doms(cb.book, ctr) : [];
           const arm = flat ? lay_arm(s.lay, c) : null;
-          const fs = doms.filter(live_dom).map(([, , A], f): Slot => {
+          const fs = As.map((A, f): Slot => {
             let root: Root | null = null;
             if (s !== null && lay_of(cb.book, A).ks.includes("box")) {
               if (facts_lend(cb, A)) {
