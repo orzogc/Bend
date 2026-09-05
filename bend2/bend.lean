@@ -22260,14 +22260,55 @@ theorem Norm.drive (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β w 
   obtain ⟨t'', π'', u'', hr', h'', hd''⟩ := ih _ hlt t' π' u' M' rfl hM' h'
   exact ⟨t'', π'', u'', hr.trans hr', h'', hd''⟩
 
+-- a weak run is eta-free: Kd's StepB / RedB (what Kd2b's dead preservation
+-- runs along)
+theorem Step.weak_stepB (h : Step β .weak a b) : StepB β a b := by
+  induction h with
+  | beta => exact .beta
+  | let_ => exact .let_
+  | dref hk hb hs _ => exact .dref hk hb hs
+  | drefS hp => exact Strength.noConfusion hp
+  | aref hk hp => exact .aref hk hp
+  | matc hk hc hp hx => exact .matc hk hc hp hx
+  | matm hne => exact .matm hne
+  | rwt => exact .rwt
+  | minLM => exact .minLM
+  | minLN => exact .minLN
+  | minRM => exact .minRM
+  | minRN => exact .minRN
+  | minLL => exact .minLL
+  | eta hp => exact Strength.noConfusion hp
+  | typ_g hp => exact Strength.noConfusion hp
+  | min_a _ ih => exact .min_a ih
+  | min_b _ ih => exact .min_b ih
+  | all_a hp => exact Strength.noConfusion hp
+  | all_b hp => exact Strength.noConfusion hp
+  | lam_f hp => exact Strength.noConfusion hp
+  | app_f _ ih => exact .app_f ih
+  | app_a _ ih => exact .app_a ih
+  | mat_h _ ih => exact .mat_h ih
+  | mat_m _ ih => exact .mat_m ih
+  | eql_a _ ih => exact .eql_a ih
+  | eql_b _ ih => exact .eql_b ih
+  | eql_t _ ih => exact .eql_t ih
+  | rwt_e _ ih => exact .rwt_e ih
+  | rwt_p _ ih => exact .rwt_p ih
+  | rwt_f _ ih => exact .rwt_f ih
+  | let_v _ ih => exact .let_v ih
+  | let_b hp => exact Strength.noConfusion hp
+
+theorem Red.weak_redB (h : Red β .weak a b) : RedB β a b := by
+  induction h with
+  | refl => exact .refl
+  | step s _ ih => exact .step s.weak_stepB ih
+
 -- ----------------------------------------------------------------------------
--- The two facts still being closed elsewhere, threaded as hypotheses:
---   hη  : EtaSR β   (Kb; Kd's DataPol.dead_eta hok hη gives the dead policy's
---                    kind facts; Kd2b will deliver DataPol.dead hok alone)
+-- The one fact still being closed elsewhere, threaded as a hypothesis:
 --   hbo : BodiesOk β (N4's syntactic leaf condition on every body, taken by
 --                    Unfold.meas_full; N4c will drop it)
--- The swap is marked SWAP below: two lines in Check.side, then the final
--- block at the end of the file
+-- (Kd2b's DataPol.dead' hok made the dead policy's kind facts unconditional,
+-- so the former EtaSR hypothesis is gone.) The swap is marked SWAP below:
+-- one line in Check.side, then the final block at the end of the file
 -- ----------------------------------------------------------------------------
 
 def BodiesOk (β : Book) : Prop :=
@@ -22277,9 +22318,9 @@ def BodiesOk (β : Book) : Prop :=
 -- affine bound or the chargeless Data argument at a beta or let, and the
 -- unfold's decrease at a saturated definition spine
 theorem Check.side (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β true 0 β βe)
-    (hη : EtaSR β) (hbo : BodiesOk β) {sp : List Term}
+    (hbo : BodiesOk β) {sp : List Term}
     (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π u) : Side βe u := by
-  have hP := DataPol.dead_eta hok hη      -- SWAP: have hP := DataPol.dead hok
+  have hP := DataPol.dead' hok
   have hK := Book.OkK.dead hok
   refine ⟨fun f a hf hd => ?_, fun q v b hf hd => ?_,
     fun k dE b us M hf hkE hbE hlen hus hM => ?_⟩
@@ -22297,7 +22338,7 @@ theorem Check.side (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β tr
     have hlen' : us.length = d.n := hlen.trans hn.symm
     have hmany : ∀ (i : Nat) ux, us[i]? = some ux → d.qs.getD i .Lone = .Many → CG βe ux [] :=
       fun i ux hux hq => (Check.fired_many hok hF hP hK (Pol.dead_pre hok.closed)
-        (fun hA hr => ⟨_, _, Check.dead_red hok (SubstSR.holds hok.closed) hη hA hr.strong⟩)
+        (fun hA hr => ⟨_, _, Check.dead_redB hok hA _root_.rfl hr.weak_redB⟩)
         h hf hk hlen' i hq hux ((hus.mem ux (List.mem_of_getElem? hux)).era' hE)).1 βe
     exact Unfold.meas_full hok hF hE hP hK hk hb ((Book.Ok.defn hok hk).2.2.2 b0 hb).1
       (hbo k d b0 hk hb) hkE hbE h' hlen' hus hmany hM
@@ -22306,37 +22347,36 @@ theorem Check.side (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β tr
 
 -- the engine: every closed live term of a filled Ok book with the wall up
 -- normalizes
-theorem norm_all (hok : Book.Ok β) (hW : Book.Wall β) (hF : Book.Filled β)
-    (hη : EtaSR β) (hbo : BodiesOk β)
+theorem norm_all (hok : Book.Ok β) (hW : Book.Wall β) (hF : Book.Filled β) (hbo : BodiesOk β)
     (h : Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u) : Norm β t T := by
   obtain ⟨βe, hE⟩ := hW.era
   exact Norm.drive hok hF hE (fun h hs hM =>
-    SStep.meas hs hM h.closed_era (Check.side hok hF hE hη hbo h)) h
+    SStep.meas hs hM h.closed_era (Check.side hok hF hE hbo h)) h
 
 -- ----------------------------------------------------------------------------
--- The claims (spec §11), with the two hypotheses
+-- The claims (spec §11), with the BodiesOk hypothesis
 -- ----------------------------------------------------------------------------
 
 -- (5) consistency: a normal form of an emptied family is refuted by
 -- Check.deep_empty
 theorem consistency_holds' :
     ∀ (β : Book) (a : Nat) (r : List Nat) (ps : List Term) (t : Term) (π : Uses) (u : Term),
-      Book.Ok β → Book.Wall β → Book.Filled β → EtaSR β → BodiesOk β → Book.empty β a r →
+      Book.Ok β → Book.Wall β → Book.Filled β → BodiesOk β → Book.empty β a r →
       ¬ Check β (Pol.std β) (LHS.void β) [] .Lone [] t (Term.apps (.Adt a r) ps) π u := by
-  intro β a r ps t π u hok hW hF hη hbo hemp h
-  obtain ⟨_, _, _, _, h', hd⟩ := norm_all hok hW hF hη hbo h
+  intro β a r ps t π u hok hW hF hbo hemp h
+  obtain ⟨_, _, _, _, h', hd⟩ := norm_all hok hW hF hbo h
   exact Check.deep_empty hok hF h' hd (Le.refl _) hemp
 
 -- (4) normalization: the normal form's subject reduces by appLam betas
 -- to a value with the same erasure (Check.deep_value)
 theorem normalization_holds' :
     ∀ (β : Book) (t T : Term) (π : Uses) (u : Term),
-      Book.Ok β → Book.Wall β → Book.Filled β → EtaSR β → BodiesOk β →
+      Book.Ok β → Book.Wall β → Book.Filled β → BodiesOk β →
       Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u →
       ∃ v π' u', Red β .weak t v ∧ Term.Value β v ∧
         Check β (Pol.std β) (LHS.void β) [] .Lone [] v T π' u' := by
-  intro β t T π u hok hW hF hη hbo h
-  obtain ⟨t', π', u', hr, h', hd⟩ := norm_all hok hW hF hη hbo h
+  intro β t T π u hok hW hF hbo h
+  obtain ⟨t', π', u', hr, h', hd⟩ := norm_all hok hW hF hbo h
   obtain ⟨v, π'', hrv, hv, hcv⟩ := Check.deep_value hok.closed h' (by decide) hd
   exact ⟨v, π'', u', hr.trans hrv, hv, hcv⟩
 
@@ -22344,30 +22384,30 @@ theorem normalization_holds' :
 -- condition, whose ex-falso obligation is consistency
 theorem subject_reduction_holds' :
     ∀ (β : Book) (t t' T : Term) (π : Uses) (u : Term),
-      Book.Ok β → Book.Wall β → Book.Filled β → EtaSR β → BodiesOk β →
+      Book.Ok β → Book.Wall β → Book.Filled β → BodiesOk β →
       Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u → LiveStep β t u t' →
       ∃ π' u', Check β (Pol.std β) (LHS.void β) [] .Lone [] t' T π' u' := by
-  intro β t t' T π u hok hW hF hη hbo h hs
+  intro β t t' T π u hok hW hF hbo h hs
   obtain ⟨βe, hE⟩ := hok.era
   obtain ⟨π', u', h', _⟩ := Check.step hok hE (V := fun _ _ => True)
     (fun _ ha e r ps hc hemp =>
-      consistency_holds' β e r ps _ _ _ hok hW hF hη hbo hemp (ha.cnv (Le.conv hc)))
+      consistency_holds' β e r ps _ _ _ hok hW hF hbo hemp (ha.cnv (Le.conv hc)))
     hs.lstep h
   exact ⟨π', u', h'⟩
 
 -- (5') consistency through any filling of the natives: D's fill lemmas
 -- carry Ok, Wall, emptiness and the derivation to the filled book, where
--- the two hypotheses are needed
+-- the hypothesis is needed
 theorem consistency_natives_holds' :
     ∀ (β : Book) (a : Nat) (r : List Nat) (ps : List Term) (t : Term) (π : Uses) (u : Term),
       Book.Ok β → Book.Wall β → Book.Native β →
-      (∀ β', Book.fill β β' → Book.fillOk β β' → EtaSR β' ∧ BodiesOk β') →
+      (∀ β', Book.fill β β' → Book.fillOk β β' → BodiesOk β') →
       Book.empty β a r →
       ¬ Check β (Pol.std β) (LHS.void β) [] .Lone [] t (Term.apps (.Adt a r) ps) π u := by
   intro β a r ps t π u hok hW hN hp hemp h
   obtain ⟨β', hf, hfo, hF'⟩ := Book.fill_exists hN
   exact consistency_holds' β' a r ps t π u (Book.Ok.fill hf hfo hok) (Book.Wall.fill hf hfo hW)
-    hF' (hp β' hf hfo).1 (hp β' hf hfo).2 (hemp.fill hf) ((h.fill_std hf).void_sp [])
+    hF' (hp β' hf hfo) (hemp.fill hf) ((h.fill_std hf).void_sp [])
 
 -- (1) confluence and (3) progress are B's and G's: church_rosser_holds,
 -- progress_holds
@@ -22380,10 +22420,10 @@ theorem consistency_natives_holds' :
 #print axioms consistency_natives_holds'
 
 -- ----------------------------------------------------------------------------
--- SWAP (once Kd2b's `DataPol.dead hok` and N4c's `Unfold.meas_full` without
--- BodyOk exist): apply the two SWAP lines in Check.side, delete `hη`/`hbo`
--- from Check.side and norm_all, replace `BodiesOk` by `True` and every
--- `EtaSR β →`/`BodiesOk β →` premise above by nothing, and uncomment:
+-- SWAP (once N4c's `Unfold.meas_full` without BodyOk exists): apply the SWAP
+-- line in Check.side, delete `hbo` from Check.side and norm_all, delete
+-- every `BodiesOk β →` premise above (and the `∀ β', … → BodiesOk β'` one)
+-- with its `hbo`/`hp` uses, and uncomment:
 --
 -- theorem subject_reduction_holds : subject_reduction := fun β t t' T π u hok hW hF h hs =>
 --   subject_reduction_holds' β t t' T π u hok hW hF h hs
