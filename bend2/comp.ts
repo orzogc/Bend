@@ -47,7 +47,7 @@ type Val = { ws: string[]; lay: Lay; av?: (Cell | null)[] };
 
 type Bind = { val: Val; n: number };
 
-type Dst = { ws: string[]; lay: Lay } | null;
+type Dst = Val | null;
 
 type Seg = {
   fid: string;
@@ -2180,7 +2180,7 @@ function val_to(fl: File, v: Val, lay: Lay): Val {
     return val_new(arms[0].fs.flatMap((f, j) =>
       val_to(fl, val_field(v, from.fs[j]), f.lay).ws), lay);
   }
-  const out = emit_hold(fl, lay.ks.map(() => "0"), "o", lay.ks);
+  const out = emit_dst(fl, lay, "o").ws;
   const tag = emit_alias(fl, v.ws[0], "t");
   emit_chain(fl, (i) => `${tag} == ${i}`, arms.map((arm, i) => () => {
     file_push(fl, `${out[0]} = ${i};`);
@@ -2228,7 +2228,7 @@ function val_unbox(fl: File, v: Val, lay: Lay): Val {
     return val_new(gs.flatMap((g) => g.ws), lay,
       gs.flatMap((g) => g.av ?? g.ws.map(() => null)));
   }
-  const out = emit_hold(fl, lay.ks.map(() => "0"), "o", lay.ks);
+  const out = emit_dst(fl, lay, "o").ws;
   const av: (Cell | null)[] = out.map(() => null);
   const bodies = arms.map((arm, i) => () => {
     file_push(fl, `${out[0]} = ${i};`);
@@ -2567,7 +2567,7 @@ function emit_fuse(fl: File, ck: Call, dst: Dst): void {
     file_push(fl, "return 0;");
   });
   out.ws.forEach((v, j) => file_push(fl, `${v} = ${o}[${j}];`));
-  emit_put(fl, dst, val_new(out.ws, out.lay));
+  emit_put(fl, dst, out);
 }
 
 function emit_params(fl: File, k: Bend.Name): Val[] {
@@ -2620,8 +2620,8 @@ function emit_native(fl: File, ck: Call, ers: HTerm[]): string {
   return name;
 }
 
-function emit_dst(fl: File, lay: Lay): Exclude<Dst, null> {
-  return { ws: emit_hold(fl, lay.ks.map(() => "0"), "v", lay.ks), lay };
+function emit_dst(fl: File, lay: Lay, k = "v"): Val {
+  return { ws: emit_hold(fl, lay.ks.map(() => "0"), k, lay.ks), lay };
 }
 
 function emit_intr(fl: File, it: Intr, x: HTerm,
@@ -2780,7 +2780,7 @@ function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): Val {
       if (ck !== null && flat_call(fl, x)) {
         const dst = emit_dst(fl, def_ret(fl, ck.k));
         emit_fuse(fl, ck, dst);
-        return val_new(dst.ws, dst.lay);
+        return dst;
       }
       const g = m.t;
       if (g.$ !== "Ref" && m.args.length === 0) {
