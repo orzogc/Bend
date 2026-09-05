@@ -2268,8 +2268,8 @@ function arr_flush(fl: File, a: string): void {
 }
 
 function arr_lay(el: Lay): Lay {
-  return { ks: ["box", ...el.ks], arms: [{ k: "Tuple",
-    fs: [{ at: 0, lay: BOX }, { at: 1, lay: el }] }] };
+  return lay_pack([{ k: "Tuple",
+    fs: [{ at: 0, lay: BOX }, { at: 1, lay: el }] }]);
 }
 
 function arr_cells(fl: File, a: string, at: string, el: Lay,
