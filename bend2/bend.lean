@@ -4621,31 +4621,13 @@ theorem Le.tag (h : Le β a b) (ha : 6 ≤ a.tag) (hb : 6 ≤ b.tag) : a.tag = b
   | all => rfl
   | adt => simp [Term.tag]
 
-theorem Le.conv_symm (h : Conv β a b) : Le β b a := .conv h.symm
-
 -- head clashes: a fit between two stable head forms of different tags
 -- is False (Le.tag / Conv.tag decide every pair; these are the named ones)
 theorem Le.typ_all (h : Le β (.Typ g) (.All q A B)) : False := by simpa [Term.tag] using h.tag
-theorem Le.all_typ (h : Le β (.All q A B) (.Typ g)) : False := by simpa [Term.tag] using h.tag
-theorem Le.typ_adt (h : Le β (.Typ g) (Term.apps (.Adt a r) ps)) : False := by simpa [Term.tag] using h.tag
-theorem Le.adt_typ (h : Le β (Term.apps (.Adt a r) ps) (.Typ g)) : False := by simpa [Term.tag] using h.tag
-theorem Le.typ_eql (h : Le β (.Typ g) (.Eql x y T)) : False := by simpa [Term.tag] using h.tag
-theorem Le.eql_typ (h : Le β (.Eql x y T) (.Typ g)) : False := by simpa [Term.tag] using h.tag
-theorem Le.typ_qnt (h : Le β (.Typ g) .Qnt) : False := by simpa [Term.tag] using h.tag
-theorem Le.qnt_typ (h : Le β .Qnt (.Typ g)) : False := by simpa [Term.tag] using h.tag
 theorem Le.all_adt (h : Le β (.All q A B) (Term.apps (.Adt a r) ps)) : False := by simpa [Term.tag] using h.tag
 theorem Le.adt_all (h : Le β (Term.apps (.Adt a r) ps) (.All q A B)) : False := by simpa [Term.tag] using h.tag
 theorem Le.all_eql (h : Le β (.All q A B) (.Eql x y T)) : False := by simpa [Term.tag] using h.tag
-theorem Le.eql_all (h : Le β (.Eql x y T) (.All q A B)) : False := by simpa [Term.tag] using h.tag
 theorem Le.all_qnt (h : Le β (.All q A B) .Qnt) : False := by simpa [Term.tag] using h.tag
-theorem Le.qnt_all (h : Le β .Qnt (.All q A B)) : False := by simpa [Term.tag] using h.tag
-theorem Le.adt_eql (h : Le β (Term.apps (.Adt a r) ps) (.Eql x y T)) : False := by simpa [Term.tag] using h.tag
-theorem Le.eql_adt (h : Le β (.Eql x y T) (Term.apps (.Adt a r) ps)) : False := by simpa [Term.tag] using h.tag
-theorem Le.adt_qnt (h : Le β (Term.apps (.Adt a r) ps) .Qnt) : False := by simpa [Term.tag] using h.tag
-theorem Le.qnt_adt (h : Le β .Qnt (Term.apps (.Adt a r) ps)) : False := by simpa [Term.tag] using h.tag
-theorem Le.eql_qnt (h : Le β (.Eql x y T) .Qnt) : False := by simpa [Term.tag] using h.tag
-theorem Le.qnt_eql (h : Le β .Qnt (.Eql x y T)) : False := by simpa [Term.tag] using h.tag
-
 -- Le.adt's index form and the inductive Convs coincide
 theorem Convs.get (h : Convs β xs ys) : ∀ (i : Nat) x y,
     xs[i]? = some x → ys[i]? = some y → Conv β x y := by
@@ -5039,9 +5021,6 @@ theorem Le.trans_lr (hβ : Book.Closed β) (h : Le β a b) :
 theorem Le.trans (hβ : Book.Closed β) (h1 : Le β a b) (h2 : Le β b c) : Le β a c :=
   (h1.trans_lr hβ).1 c h2
 
-theorem Le.conv_l (hβ : Book.Closed β) (hc : Conv β a b) (h : Le β b c) : Le β a c :=
-  (Le.conv hc).trans hβ h
-
 theorem Le.conv_r (hβ : Book.Closed β) (h : Le β a b) (hc : Conv β b c) : Le β a c :=
   h.trans hβ (.conv hc)
 
@@ -5075,12 +5054,6 @@ theorem Le.subst (hβ : Book.Closed β) (h : Le β a b) :
 theorem Le.substR (hβ : Book.Closed β) (h : Le β a b) (hw : Conv β w w') (d : Nat) :
     Le β (Term.subst d w a) (Term.subst d w' b) :=
   (h.subst hβ d w).conv_r hβ (hw.substR hβ d b)
-
--- the Le inversions: align both sides at their head forms, then read the
--- head relation off Le.inv
-theorem Le.tag_red (hβ : Book.Closed β) (h : Le β a b) (ra : Red β .strong a a')
-    (rb : Red β .strong b b') (ha : 6 ≤ a'.tag) (hb : 6 ≤ b'.tag) : a'.tag = b'.tag :=
-  ((h.red_l hβ ra).red_r hβ rb).tag ha hb
 
 theorem Le.typ_inv (hβ : Book.Closed β) (h : Le β a b) (ra : Red β .strong a (.Typ g))
     (rb : Red β .strong b (.Typ k)) : KLe β g k := by
@@ -5560,14 +5533,6 @@ theorem Bind.shiftN_T : ∀ (n : Nat) (b : Bind), (Bind.shiftN n b).T = Term.shi
   | zero => intro b; rfl
   | succ n ih => intro b; show Term.shift 0 (Bind.shiftN n b).T = _; rw [ih]; rfl
 
-theorem Bind.shiftN_v : ∀ (n : Nat) (b : Bind), (Bind.shiftN n b).v = b.v.map (Term.shiftN n) := by
-  intro n; induction n with
-  | zero => intro b; obtain ⟨q, T, v⟩ := b; cases v <;> rfl
-  | succ n ih =>
-    intro b
-    show ((Bind.shiftN n b).v).map (Term.shift 0) = _
-    rw [ih, Option.map_map]; rfl
-
 theorem Ctx.get_append_ge : ∀ (Γ Δ : Ctx) (j : Nat),
     Ctx.get (Γ ++ Δ) (Γ.length + j) = (Ctx.get Δ j).map (Bind.shiftN Γ.length) := by
   intro Γ
@@ -5685,13 +5650,6 @@ theorem Ctx.substLast_length (w : Term) : ∀ (Γ : Ctx), (Ctx.substLast w Γ).l
   intro Γ; induction Γ with
   | nil => rfl
   | cons b Γ ih => simp only [Ctx.substLast, List.length_cons, ih]
-
-theorem Ctx.substLast_rigid (w : Term) : ∀ (Γ : Ctx), (Ctx.substLast w Γ).rigid = Γ.rigid := by
-  intro Γ; induction Γ with
-  | nil => rfl
-  | cons b Γ ih =>
-    obtain ⟨q, T, v⟩ := b
-    cases v <;> simp only [Ctx.substLast, Bind.substAt, Ctx.rigid, Option.map_none, Option.map_some, ih]
 
 theorem Bind.shift_substAt (hw : Term.Closed 0 w) (b : Bind) (k : Nat) :
     (b.substAt k w).shift = b.shift.substAt (k + 1) w := by
@@ -5827,17 +5785,6 @@ theorem Uses.del_one_eq (n : Nat) (q : Quant) :
   by_cases h1 : j < n
   · rw [if_pos h1, if_neg (show ¬ j = n by omega)]
   · rw [if_neg h1, if_neg (show ¬ j + 1 = n by omega)]
-
-theorem Uses.del_one_gt (n i : Nat) (q : Quant) (h : n < i + 1) :
-    Uses.del n (Uses.one (i + 1) q) = Uses.one i q := by
-  funext j
-  simp only [Uses.del, Uses.one]
-  by_cases h1 : j < n
-  · rw [if_pos h1, if_neg (show ¬ j = i + 1 by omega), if_neg (show ¬ j = i by omega)]
-  · rw [if_neg h1]
-    by_cases h2 : j = i
-    · rw [if_pos (show j + 1 = i + 1 by omega), if_pos h2]
-    · rw [if_neg (show ¬ j + 1 = i + 1 by omega), if_neg h2]
 
 theorem Uses.del_zero (n : Nat) : Uses.del n Uses.zero = Uses.zero := by
   funext j; simp only [Uses.del, Uses.zero]; split <;> rfl
@@ -5989,10 +5936,6 @@ theorem Ctx.δ_red (hβ : Book.Closed β) (Δ : Ctx) (d : Nat) (h : Red β p x y
 theorem Ctx.δ_conv (hβ : Book.Closed β) (Δ : Ctx) (d : Nat) (h : Conv β x y) :
     Conv β (Ctx.δ Δ d x) (Ctx.δ Δ d y) :=
   Ctx.δ_rel (Conv β) (fun d w _ _ h => Conv.subst hβ h (Conv.refl w) d) Δ d x y h
-
-theorem Ctx.δ_le (hβ : Book.Closed β) (Δ : Ctx) (d : Nat) (h : Le β x y) :
-    Le β (Ctx.δ Δ d x) (Ctx.δ Δ d y) :=
-  Ctx.δ_rel (Le β) (fun d w _ _ h => h.subst hβ d w) Δ d x y h
 
 theorem CtxDead.append (hβ : Book.Closed β) (Δ : Ctx) (hd : CtxDead β Γ) :
     CtxDead β (Γ ++ Δ) := by
@@ -7989,28 +7932,12 @@ theorem Check.VT.at_qnt (hβ : Book.Closed β) (hvt : Check.VT β v T) (hT : Le 
   | adtF _ _ hl | ctrF _ _ _ hl | ref _ _ _ hl | ctr _ _ _ _ hl | rfl hl =>
     simpa [Term.tag] using (Le.trans hβ hl hT).tag
 
--- the general canonical forms
-theorem Check.canon_all (hok : Book.Ok β) (hq : q ≠ .None) {sp : List Term} (hv : Term.Value β v)
-    (h : Check β (Pol.std β) (LHS.void β) sp q [] v T π u) (hT : Le β T (.All q' A B)) :
-    Term.FunV β v ∨ Check.VS β q v u :=
-  (Check.value_inv hok hq hv h).imp (fun hvt => hvt.at_all hok.closed hT) id
-
 theorem Check.canon_adt (hok : Book.Ok β) (hq : q ≠ .None) {sp : List Term} (hv : Term.Value β v)
     (h : Check β (Pol.std β) (LHS.void β) sp q [] v T π u)
     (hT : Le β T (Term.apps (.Adt a r) ps)) :
     (∃ c A C as, v = Term.apps (.Ctr a c) as ∧ Book.adt β a = some A ∧ AdtD.ctr A c = some C ∧
       c ∉ r ∧ as.length = A.pn + C.fn ∧ Convs β (as.take A.pn) ps) ∨ Check.VS β q v u :=
   (Check.value_inv hok hq hv h).imp (fun hvt => hvt.at_adt hok.closed hT) id
-
-theorem Check.canon_eql (hok : Book.Ok β) (hq : q ≠ .None) {sp : List Term} (hv : Term.Value β v)
-    (h : Check β (Pol.std β) (LHS.void β) sp q [] v T π u) (hT : Le β T (.Eql a b T')) :
-    v = .Rfl ∨ Check.VS β q v u :=
-  (Check.value_inv hok hq hv h).imp (fun hvt => hvt.at_eql hok.closed hT) id
-
-theorem Check.canon_qnt (hok : Book.Ok β) (hq : q ≠ .None) {sp : List Term} (hv : Term.Value β v)
-    (h : Check β (Pol.std β) (LHS.void β) sp q [] v T π u) (hT : Le β T .Qnt) :
-    (∃ q', v = .Qua q') ∨ Check.VS β q v u :=
-  (Check.value_inv hok hq hv h).imp (fun hvt => hvt.at_qnt hok.closed hT) id
 
 -- Term.Bad β q v u: the value v, erased to u, hides down its stuck positions a
 -- closed live term of an emptied family (with its erasure). What holds a
@@ -8024,28 +7951,6 @@ inductive Term.Bad (β : Book) (q : Quant) : Term → Term → Prop
            Term.Bad β q (Term.apps (.Mat a c h m) (x :: as)) (Term.apps (.Mat a c uh um) (ux :: us))
   | minL : Term.Bad β q a ua → Term.Bad β q (.Min a b) (.Min ua ub)
   | minR : Term.Bad β q b ub → Term.Bad β q (.Min a b) (.Min ua ub)
-
-theorem Term.Bad.witness (hb : Term.Bad β q v u) :
-    ∃ x a r ps πx ux, Book.empty β a r ∧
-      Check β (Pol.std β) (LHS.void β) [] q [] x (Term.apps (.Adt a r) ps) πx ux ∧
-      Term.size x < Term.size v ∧ Term.size ux < Term.size u := by
-  induction hb with
-  | efq hemp hx =>
-    exact ⟨_, _, _, _, _, _, hemp, hx,
-      Term.size_spine_arg _ _ (by rw [Term.spine_apps (h := .Efq) (by trivial)]; simp),
-      Term.size_spine_arg _ _ (by rw [Term.spine_apps (h := .Efq) (by trivial)]; simp)⟩
-  | rwt _ ih =>
-    obtain ⟨x, a, r, ps, πx, ux, hemp, hx, h1, h2⟩ := ih
-    exact ⟨x, a, r, ps, πx, ux, hemp, hx, Nat.lt_trans h1 (Term.size_rwt _ _ _ _),
-      Nat.lt_trans h2 (Term.size_rwt _ _ _ _)⟩
-  | matS _ ih =>
-    obtain ⟨x, a, r, ps, πx, ux, hemp, hx, h1, h2⟩ := ih
-    exact ⟨x, a, r, ps, πx, ux, hemp, hx, Nat.lt_trans h1 (Term.size_matS _ _ _ _ _ _),
-      Nat.lt_trans h2 (Term.size_matS _ _ _ _ _ _)⟩
-  | minL _ ih | minR _ ih =>
-    obtain ⟨x, a, r, ps, πx, ux, hemp, hx, h1, h2⟩ := ih
-    exact ⟨x, a, r, ps, πx, ux, hemp, hx, Nat.lt_trans h1 (by simp only [Term.size]; omega),
-      Nat.lt_trans h2 (by simp only [Term.size]; omega)⟩
 
 -- in a filled book a closed live value that hides no emptied-typed term is
 -- a typed head: a stuck spine's stuck position is a smaller value of an
@@ -8082,28 +7987,12 @@ theorem Check.value_filled (hok : Book.Ok β) (hF : Book.Filled β) (hq : q ≠ 
       exact absurd he (hnx _ _ _)
     | efqS hemp hx => exact (hnb (.efq hemp hx)).elim
 
--- the exact canonical forms of a filled book
-theorem Check.canon_all' (hok : Book.Ok β) (hF : Book.Filled β) (hq : q ≠ .None) {sp : List Term}
-    (hv : Term.Value β v) (h : Check β (Pol.std β) (LHS.void β) sp q [] v T π u)
-    (hnb : ¬ Term.Bad β q v u) (hT : Le β T (.All q' A B)) : Term.FunV β v :=
-  (Check.value_filled hok hF hq hv h hnb).at_all hok.closed hT
-
 theorem Check.canon_adt' (hok : Book.Ok β) (hF : Book.Filled β) (hq : q ≠ .None) {sp : List Term}
     (hv : Term.Value β v) (h : Check β (Pol.std β) (LHS.void β) sp q [] v T π u)
     (hnb : ¬ Term.Bad β q v u) (hT : Le β T (Term.apps (.Adt a r) ps)) :
     ∃ c A C as, v = Term.apps (.Ctr a c) as ∧ Book.adt β a = some A ∧ AdtD.ctr A c = some C ∧
       c ∉ r ∧ as.length = A.pn + C.fn ∧ Convs β (as.take A.pn) ps :=
   (Check.value_filled hok hF hq hv h hnb).at_adt hok.closed hT
-
-theorem Check.canon_eql' (hok : Book.Ok β) (hF : Book.Filled β) (hq : q ≠ .None) {sp : List Term}
-    (hv : Term.Value β v) (h : Check β (Pol.std β) (LHS.void β) sp q [] v T π u)
-    (hnb : ¬ Term.Bad β q v u) (hT : Le β T (.Eql a b T')) : v = .Rfl :=
-  (Check.value_filled hok hF hq hv h hnb).at_eql hok.closed hT
-
-theorem Check.canon_qnt' (hok : Book.Ok β) (hF : Book.Filled β) (hq : q ≠ .None) {sp : List Term}
-    (hv : Term.Value β v) (h : Check β (Pol.std β) (LHS.void β) sp q [] v T π u)
-    (hnb : ¬ Term.Bad β q v u) (hT : Le β T .Qnt) : ∃ q', v = .Qua q' :=
-  (Check.value_filled hok hF hq hv h hnb).at_qnt hok.closed hT
 
 -- a closed live value of an emptied family hides an emptied-typed term:
 -- the constructor case contradicts the peeled set
@@ -8947,15 +8836,6 @@ theorem Check.step (hok : Book.Ok β) (hE : Book.Era β w 0 β βe)
     · exact .inl (.let_v hs)
     · exact .inr _root_.rfl
 
--- the instance for a filled book with G's residual: a fired beta/let takes a
--- value whose erasure is not Bad (canon_empty refutes the emptied binder)
-theorem Check.step_bad (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β w 0 β βe)
-    (hs : LStep β (fun a ua => Term.Value β a ∧ ¬ Term.Bad β .Lone a ua) t u t')
-    (h : Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u) :
-    ∃ π' u', Check β (Pol.std β) (LHS.void β) [] .Lone [] t' T π' u' ∧
-      (Step βe .weak u u' ∨ u' = u) :=
-  Check.step hok hE (fun hv hx e r ps hred hemp => hv.2
-    (Check.canon_empty hok hF (by decide) hv.1 hx (Le.conv hred) hemp)) hs h
 
 
 -- ============================================================================
@@ -9266,9 +9146,6 @@ theorem MLe.refl : MLe M M := .inr (.refl _)
 
 theorem MLt_of_MLe_MLt (h1 : MLe M3 M2) (h2 : MLt M2 M1) : MLt M3 M1 :=
   h1.elim (fun h => h.trans h2) (fun h => h2.perm_l h.symm)
-
-theorem MLt_of_MLt_MLe (h1 : MLt M3 M2) (h2 : MLe M2 M1) : MLt M3 M1 :=
-  h2.elim (fun h => h1.trans h) (fun h => h1.perm_r h)
 
 theorem MLe.trans (h1 : MLe M3 M2) (h2 : MLe M2 M1) : MLe M3 M1 :=
   h2.elim (fun h => .inl (MLt_of_MLe_MLt h1 h))
@@ -9664,43 +9541,6 @@ theorem Pins.of.subst (h : Pins.of β n us pins) (d : Nat) (w : Term) :
     exact .some hc hu ih
   | miss _ ih => exact .miss ih
 
-theorem Pins.lt_append : ∀ (pre : Pins) {p q : Option Nat} {ps qs : Pins},
-    ps.length = qs.length → Pin.lt p q → Pins.lt (pre ++ p :: ps) (pre ++ q :: qs) := by
-  intro pre
-  induction pre with
-  | nil => intro p q ps qs hl h; exact .here h hl
-  | cons x pre ih => intro p q ps qs hl h; exact .there (ih hl h)
-
-theorem Pins.lt_of_index : ∀ (j : Nat) {ps qs : Pins} {p q : Option Nat},
-    ps.length = qs.length → (∀ i, i < j → ps[i]? = qs[i]?) →
-    ps[j]? = some p → qs[j]? = some q → Pin.lt p q → Pins.lt ps qs := by
-  intro j
-  induction j with
-  | zero =>
-    intro ps qs p q hl _ hp hq hlt
-    cases ps with
-    | nil => simp at hp
-    | cons x ps =>
-      cases qs with
-      | nil => simp at hq
-      | cons y qs =>
-        simp at hp hq
-        subst hp hq
-        exact .here hlt (by simpa using hl)
-  | succ j ih =>
-    intro ps qs p q hl hpre hp hq hlt
-    cases ps with
-    | nil => simp at hp
-    | cons x ps =>
-      cases qs with
-      | nil => simp at hq
-      | cons y qs =>
-        have h0 := hpre 0 (by omega)
-        simp at h0
-        subst h0
-        exact .there (ih (by simpa using hl) (fun i hi => by simpa using hpre (i + 1) (by omega))
-          (by simpa using hp) (by simpa using hq) hlt)
-
 -- ---------------------------------------------------------------------------
 -- Sub and CG
 -- ---------------------------------------------------------------------------
@@ -9764,11 +9604,6 @@ theorem CG.apps (hf : CG β h Mh) : ∀ {us : List Term} {Ms : List Charge},
     | cons hu hus =>
       rw [← List.append_assoc]
       exact ih (.app hf hu) hus
-
-theorem CG.ref_full (hk : Book.defn β k = some d) (hus : Deeps β us)
-    (hc : ∀ u ∈ us, u.Closed 0) (hn : d.n ≤ us.length) (hM : CGs β us Ms) :
-    CG β (Term.apps (.Ref k) us) ((k, (us.take d.n).map (Option.some ∘ Term.csize β)) :: Ms) :=
-  .ref hk (Pins.of.full d.n hus hc hn) hM
 
 theorem CG.exists : ∀ (u : Term), ∃ M, CG β u M := by
   intro u
@@ -10585,13 +10420,6 @@ theorem Le.qnt_r (h : Le β .Qnt b) : Red β .strong b .Qnt := by
   · exact Term.noConfusion r1.qnt_inv
   · exact absurd r1.qnt_inv (Term.apps_adt_ne (by trivial) (fun e => Term.noConfusion e))
 
-theorem Le.eql_r (h : Le β (.Eql x y T) b) : ∃ x' y' T', Red β .strong b (.Eql x' y' T') := by
-  rcases h.inv with ⟨c, r1, r2⟩ | ⟨_, _, r1, _⟩ | ⟨_, _, _, _, _, r1, _⟩ | ⟨_, _, _, _, _, r1, _⟩
-  · obtain ⟨x', y', T', rfl, _⟩ := r1.eql_inv; exact ⟨x', y', T', r2⟩
-  · obtain ⟨_, _, _, h', _⟩ := r1.eql_inv; exact Term.noConfusion h'
-  · obtain ⟨_, _, _, h', _⟩ := r1.eql_inv; exact Term.noConfusion h'
-  · obtain ⟨_, _, _, h', _⟩ := r1.eql_inv; exact absurd h' (Term.apps_adt_ne (by trivial) (fun e => Term.noConfusion e))
-
 theorem Le.adt_r (h : Le β (Term.apps (.Adt a r) ps) b) :
     ∃ r' ps', Red β .strong b (Term.apps (.Adt a r') ps') ∧ (∀ c, c ∈ r' → c ∈ r) ∧ Convs β ps ps' := by
   rcases h.inv with ⟨c, r1, r2⟩ | ⟨_, _, r1, _⟩ | ⟨_, _, _, _, _, r1, _⟩ | ⟨x, r0, ps0, r', ps', r1, r2, hsub, hl, hc⟩
@@ -11379,10 +11207,6 @@ theorem Term.qer_shift (t : Term) : ∀ d, Term.qer (Term.shift d t) = Term.shif
   induction t <;> intro d <;> simp [Term.qer, Term.shift, *]
   split <;> rfl
 
-theorem Term.qer_shiftN (n : Nat) (t : Term) :
-    Term.qer (Term.shiftN n t) = Term.shiftN n (Term.qer t) := by
-  induction n <;> simp [Term.shiftN, Term.qer_shift, *]
-
 theorem Term.qer_subst (t : Term) : ∀ d w,
     Term.qer (Term.subst d w t) = Term.subst d (Term.qer w) (Term.qer t) := by
   induction t <;> intro d w <;> simp [Term.qer, Term.subst, Term.qer_shift, *]
@@ -11399,14 +11223,8 @@ theorem Term.qer_spine (t : Term) :
 theorem Term.qer_occ (t : Term) : ∀ i, Term.occ i (Term.qer t) = Term.occ i t := by
   induction t <;> intro i <;> simp [Term.qer, Term.occ, *]
 
-theorem Term.qer_qer (t : Term) : Term.qer (Term.qer t) = Term.qer t := by
-  induction t <;> simp [Term.qer, *]
-
 theorem Term.qer_closed (t : Term) : ∀ n, Term.Closed n t → Term.Closed n (Term.qer t) := by
   induction t <;> intro n h <;> simp_all [Term.qer, Term.Closed]
-
--- qer commutes with the book lookups
-theorem Book.qer_length (β : Book) : (Book.qer β).length = β.length := by simp [Book.qer]
 
 theorem Book.qer_tld (β : Book) : ∀ k, Book.tld (Book.qer β) k = (Book.tld β k).map TLD.qer := by
   unfold Book.qer
@@ -11433,11 +11251,6 @@ theorem AdtD.qer_ctr (A : AdtD) (c : Nat) :
   induction l generalizing c with
   | nil => rfl
   | cons C cs ih => cases c <;> simp [AdtD.ctr.go, ih]
-
-theorem Book.qer_empty (β : Book) (a : Nat) (r : List Nat) :
-    Book.empty (Book.qer β) a r ↔ Book.empty β a r := by
-  unfold Book.empty; rw [Book.qer_adt]
-  cases Book.adt β a <;> simp [AdtD.qer]
 
 theorem Book.Closed.qer (hβ : Book.Closed β) : Book.Closed (Book.qer β) := by
   intro k t ht
@@ -12022,15 +11835,6 @@ theorem Check.betaD (hβ : Book.Closed β) (hS : SubstSR β) {sp : List Term}
     exact (Pol.dead_weak hβ).subst 0 _ _ _ hBB
   · cases hg; exact ((hb.void_sp []).cnv hle).dead
 
-theorem Check.letD (hβ : Book.Closed β) (hS : SubstSR β) {sp : List Term}
-    (h : Check β (Pol.dead β) L sp .None Γ (.Let qb v b) T π u) :
-    Check β (Pol.dead β) (LHS.void β) [] .None Γ (Term.subst 0 v b) T Uses.zero .Qnt := by
-  obtain ⟨A, T0, πv, uv, πA, π1, ub, hv, _, hb, _, hle, _, _⟩ := h.let_inv (Pol.dead_pre hβ)
-  rw [Quant.dem_none] at hv
-  have hres := hS hb.void hv.void (.inr _root_.rfl)
-  rw [Term.subst_shift] at hres
-  exact hres.cnv hle
-
 -- a definition's body, dead, at the dead policy, in any context
 theorem Check.bodyD (hok : Book.Ok β) (hk : Book.defn β k = some d) (hb : d.body = some b) (Γ : Ctx) :
     Check β (Pol.dead β) (LHS.void β) [] .None Γ b d.ty Uses.zero .Qnt := by
@@ -12051,13 +11855,6 @@ theorem Check.drefD (hok : Book.Ok β) {sp : List Term} (hk : Book.defn β k = s
     have hc' := (Check.bodyD hok hk hb Γ).void_sp (as ++ sp)
     exact (((Check.apps (hc'.cnv hle0) hargs).cnv hle).void_sp []).dead
   · exact (Book.defn_adt_clash hk hA).elim
-
-theorem Check.arefD (hβ : Book.Closed β) {sp : List Term} (hA : Book.adt β k = some A)
-    (h : Check β (Pol.dead β) L sp .None Γ (.Ref k) T π u) :
-    Check β (Pol.dead β) (LHS.void β) [] .None Γ (.Adt k []) T Uses.zero .Qnt := by
-  rcases h.ref_inv (Pol.dead_pre hβ) with ⟨d, hd, _⟩ | ⟨A', hA', _, hle, _, _⟩
-  · exact (Book.defn_adt_clash hd hA).elim
-  · rw [hA] at hA'; cases hA'; exact (Check.adt hA).cnv hle
 
 theorem Check.rwtD (hβ : Book.Closed β) {sp : List Term}
     (h : Check β (Pol.dead β) L sp .None Γ (.Rwt .Rfl P f) T π u) :
@@ -12533,12 +12330,6 @@ theorem Check.dead_par (hok : Book.Ok β) (hS : SubstSR β) (hη : EtaSR β) {sp
   | cnv _ hc iht =>
     intro t' hp
     exact (iht hq _ hp).cnv hc
-
--- the brief's shapes: one strong step, a strong run
-theorem Check.dead_step (hok : Book.Ok β) (hS : SubstSR β) (hη : EtaSR β)
-    (h : Check β (Pol.dead β) (LHS.void β) [] .None Γ t T π u) (hs : Step β .strong t t') :
-    ∃ u', Check β (Pol.dead β) (LHS.void β) [] .None Γ t' T Uses.zero u' :=
-  ⟨.Qnt, Check.dead_par hok hS hη h _root_.rfl t' hs.par⟩
 
 theorem Check.dead_red (hok : Book.Ok β) (hS : SubstSR β) (hη : EtaSR β)
     (h : Check β (Pol.dead β) (LHS.void β) [] .None Γ t T π u) (hr : Red β .strong t t') :
@@ -13455,25 +13246,6 @@ theorem Eta.bad_only (h : Eta β (.Min (.Lam (.App (.Qua .Many) (.Var 0))) .Qnt)
     | lam_f h => cases h with | app_f h => cases h | app_a h => cases h
   | min_b h => cases h
 
-theorem Eta.qua_min (h : Eta β (.Min (.Qua q) .Qnt) t) : False := by
-  cases h with
-  | min_a h => cases h
-  | min_b h => cases h
-
-theorem eta_post_fails : ∃ (β : Book) (a c : Term), Red β .strong a c ∧
-    ¬ ∃ b, RedB β a b ∧ Etas β b c := by
-  refine ⟨[], .Min (.Lam (.App (.Qua .Many) (.Var 0))) .Qnt, .Qnt, ?_, ?_⟩
-  · exact .step (.min_a (.eta _root_.rfl _root_.rfl)) (.step .minLM .refl)
-  · rintro ⟨b, hr, he⟩
-    cases hr with
-    | step s _ => exact StepB.bad_none s
-    | refl =>
-      cases he with
-      | step s he' =>
-        rw [Eta.bad_only s] at he'
-        cases he' with
-        | step s' _ => exact Eta.qua_min s'
-
 -- ----------------------------------------------------------------------------
 -- and it stays false for DEAD-TYPED closed terms: infer-app types (λ_. Quant) x
 -- through its beta reduct, so x is garbage the checker never sees; an eta
@@ -13501,46 +13273,10 @@ theorem Eta.bad_app (h : Eta β (.App (.Lam .Qnt) (.Min (.Lam (.App (.Qua .Many)
   | app_f h => cases h with | lam_f h => cases h
   | app_a h => rw [Eta.bad_only h]
 
-theorem Eta.bad_app2 (h : Eta β (.App (.Lam .Qnt) (.Min (.Qua .Many) .Qnt)) t) : False := by
-  cases h with
-  | app_f h => cases h with | lam_f h => cases h
-  | app_a h => exact Eta.qua_min h
-
-theorem eta_post_fails_typed (β : Book) : ∃ (a c : Term),
-    Check β (Pol.dead β) (LHS.void β) [] .None [] a (.Typ (.Qua .Lone)) Uses.zero .Qnt ∧
-    Red β .strong a c ∧ ¬ ∃ b, RedB β a b ∧ Etas β b c := by
-  refine ⟨.App (.Lam .Qnt) (.Min (.Lam (.App (.Qua .Many) (.Var 0))) .Qnt),
-    .App (.Lam .Qnt) .Qnt, Check.appLam (by simp [Term.Closed]) Check.qnt, ?_, ?_⟩
-  · exact .step (.app_a (.min_a (.eta _root_.rfl _root_.rfl))) (.step (.app_a .minLM) .refl)
-  · rintro ⟨b, hr, he⟩
-    cases hr with
-    | step s hr' =>
-      rw [StepB.bad_app s] at hr'
-      cases hr' with
-      | refl => cases he with | step s' _ => cases s'
-      | step s' _ => exact StepB.qnt s'
-    | refl =>
-      cases he with
-      | step s he' =>
-        rw [Eta.bad_app s] at he'
-        cases he' with
-        | step s' _ => exact Eta.bad_app2 s'
-
 -- ----------------------------------------------------------------------------
 -- Kc's SubstSR.holds discharges Kb's first hypothesis; the eta one remains
 -- ----------------------------------------------------------------------------
 
-theorem Check.kind_red_eta (hok : Book.Ok β) (hη : EtaSR β)
-    (h : Check β (Pol.dead β) (LHS.void β) [] .None [] A K π u) (hr : Red β .strong A A') :
-    (∀ q X Y, A' = .All q X Y → (Pol.dead β).conv (.Typ (.Qua .Lone)) K) ∧
-    (∀ g, A' = .Typ g → (Pol.dead β).conv (.Typ (.Qua .Lone)) K) ∧
-    (A' = .Qnt → (Pol.dead β).conv (.Typ (.Qua .Lone)) K) ∧
-    (∀ a r ps A0, A' = Term.apps (.Adt a r) ps → Book.adt β a = some A0 → ps.length = A0.pn →
-      ∃ G, STele β A0.pn A0.sig G ∧ (Pol.dead β).conv (.Typ (Term.instG ps G)) K) :=
-  Check.kind_red hok (SubstSR.holds hok.closed) hη h hr
-
-theorem DataPol.dead_eta (hok : Book.Ok β) (hη : EtaSR β) : DataPol β (Pol.dead β) :=
-  DataPol.dead hok (SubstSR.holds hok.closed) hη
 
 -- ============================================================================
 -- §Kd2a — eta-free parallel reduction and the untyped eta lemmas
@@ -14582,23 +14318,6 @@ theorem Etas.inv (h : Etas β s u) : EtasC β s u ∨
       · cases hc; left; constructor <;> first | assumption | exact .step ‹_› ‹_›
       · cases hX <;> exact .inr ⟨_, _, _root_.rfl, .step ‹_› h1, h2, h3⟩
 
-theorem Etas.head_all (h : Etas β s (.All q X Y)) :
-    (∃ q' X' Y', s = .All q' X' Y') ∨ ∃ Z, s = .Lam Z := by
-  rcases h.inv with hc | ⟨Z, F, rfl, -⟩
-  · cases hc; exact .inl ⟨_, _, _, _root_.rfl⟩
-  · exact .inr ⟨Z, _root_.rfl⟩
-
-theorem Etas.head_typ (h : Etas β s (.Typ g)) :
-    (∃ g', s = .Typ g') ∨ ∃ Z, s = .Lam Z := by
-  rcases h.inv with hc | ⟨Z, F, rfl, -⟩
-  · cases hc; exact .inl ⟨_, _root_.rfl⟩
-  · exact .inr ⟨Z, _root_.rfl⟩
-
-theorem Etas.head_qnt (h : Etas β s .Qnt) : s = .Qnt ∨ ∃ Z, s = .Lam Z := by
-  rcases h.inv with hc | ⟨Z, F, rfl, -⟩
-  · cases hc; exact .inl _root_.rfl
-  · exact .inr ⟨Z, _root_.rfl⟩
-
 -- forward stability: an eta chain from a leaf-headed spine stays on that
 -- head, arguments pointwise
 def Term.IsLeaf : Term → Prop
@@ -15429,15 +15148,6 @@ theorem Spine.peel (hh : h.IsHead) (he : Etas β f (Term.apps h us)) (a : Term) 
     ∃ w, RedB β (.App f a) w ∧ Tow β h (us ++ [a]) w :=
   Etas.peel _ _ _ hh (by rw [Term.apps_snoc]; exact Etas.app he .refl)
 
-theorem Etas.head_adt (he : Etas β s (Term.apps (.Adt a r) ps)) :
-    ∃ w, RedB β s w ∧
-      ((∃ Z, w = .Lam Z) ∨ ∃ ps', w = Term.apps (.Adt a r) ps' ∧ Etass β ps' ps) := by
-  obtain ⟨w, h1, h2⟩ := Etas.peel _ _ _ (by trivial) he
-  refine ⟨w, h1, ?_⟩
-  rcases h2.cases with h | ⟨h', qs, rfl, hh, hqs⟩
-  · exact .inl h
-  · cases hh; exact .inr ⟨qs, _root_.rfl, hqs⟩
-
 -- a tower over a Ref spine unfolds under its binders and then collapses
 theorem Tow.dref (hβ : Book.Closed β) (hk : Book.defn β k = some d) (hb : d.body = some b)
     (ht : Tow β (.Ref k) ps w) : ∃ w', RedB β w w' ∧ Etas β w' (Term.apps b ps) := by
@@ -15529,11 +15239,6 @@ theorem Etas.beta_commute_aux (hβ : Book.Closed β) : ∀ (u : Term),
     · cases hZ
     · cases hc
     · cases hZ
-
-theorem Etas.beta_commute (hβ : Book.Closed β)
-    (h : Etas β u (Term.apps (.App (.Lam g) a) us)) :
-    ∃ u', RedB β u u' ∧ Etas β u' (Term.apps (Term.subst 0 a g) us) :=
-  (Etas.beta_commute_aux hβ u).1 g a us h
 
 theorem Tower.peel (hβ : Book.Closed β) (h : Etas β F (.Lam g)) (a : Term) :
     ∃ g₀, RedB β (.App F a) (Term.subst 0 a g₀) ∧ Etas β g₀ g :=
@@ -16566,18 +16271,6 @@ theorem Check.kind_red' (hok : Book.Ok β)
         rw [hA0] at hA1; cases hA1
         rcases Args.steleD hβ hSt hargs hle0 with ⟨hlt, _⟩ | ⟨heq, _⟩ <;> omega
 
--- the Adt disjunct at Data, as N4c consumes it
-theorem Check.kind_red_adt_open (hok : Book.Ok β)
-    (h : Check β (Pol.dead β) (LHS.void β) [] .None Γ A (.Typ (.Qua .Many)) π u)
-    (hr : Red β .strong A (Term.apps (.Adt a r) ps)) (hA0 : Book.adt β a = some A0)
-    (hlen : ps.length = A0.pn) :
-    ∃ G, STele β A0.pn A0.sig G ∧
-      KLe (Book.qer β) (Term.qer (Ctx.δ Γ 0 (Term.instGo ps G))) (.Qua .Many) := by
-  obtain ⟨G, hSt, hc⟩ := (Check.kind_red' hok h hr).2.2.2 _ _ _ _ _root_.rfl hA0 hlen
-  refine ⟨G, hSt, ?_⟩
-  rw [Ctx.δ_typ, Ctx.δ_typ, Ctx.δ_closed Γ 0 (.Qua .Many) trivial] at hc
-  exact Pol.dead_typ_inv hok.closed hc
-
 -- the closed instance, in Kb's exact shape (no hypotheses)
 theorem Check.kind_red_closed (hok : Book.Ok β)
     (h : Check β (Pol.dead β) (LHS.void β) [] .None [] A K π u) (hr : Red β .strong A A') :
@@ -16833,13 +16526,6 @@ theorem Pins.of.snoc (h : Pins.of β n us pins) (x : Term) : Pins.of β n (us ++
   | none _ ih => exact .none ih
   | some hc hu _ ih => exact .some hc hu ih
   | miss h' _ => exact .none h'
-
-theorem Pins.of.extend (h : Pins.of β n us pins) : ∀ (vs : List Term),
-    Pins.of β n (us ++ vs) pins := by
-  intro vs
-  induction vs generalizing us with
-  | nil => simpa using h
-  | cons v vs ih => rw [List.append_cons]; exact ih (h.snoc v)
 
 -- pricings of the heads (a spine form in a rule never equals a bare head)
 theorem CG.ctr_head (h : CG β (.Ctr a c) M) : M = [] := by
@@ -17590,46 +17276,6 @@ theorem SStep.meas (hs : SStep β u u') (hM : CG β u M) (hc : u.Closed 0) (hsid
 -- a pin fits another: equal or below
 def Pin.le (p q : Option Nat) : Prop := p = q ∨ Pin.lt p q
 
-theorem Pin.le_some (h : a ≤ b) : Pin.le (some a) (some b) := by
-  rcases Nat.lt_or_eq_of_le h with h | rfl
-  · exact .inr h
-  · exact .inl rfl
-
-theorem Pin.le_none (p : Option Nat) : Pin.le p none := by
-  cases p <;> simp [Pin.le, Pin.lt]
-
-theorem Pin.lt_none (n : Nat) : Pin.lt (some n) none := trivial
-
--- the lexicographic order from pointwise fits up to a strict pin
-theorem Pins.lt_of_le_lt : ∀ (j : Nat) {ps qs : Pins}, ps.length = qs.length →
-    (∀ i, i < j → ∀ p q, ps[i]? = some p → qs[i]? = some q → Pin.le p q) →
-    ∀ {p q}, ps[j]? = some p → qs[j]? = some q → Pin.lt p q → Pins.lt ps qs := by
-  intro j
-  induction j with
-  | zero =>
-    intro ps qs hl _ p q hp hq hlt
-    cases ps with
-    | nil => simp at hp
-    | cons x ps =>
-      cases qs with
-      | nil => simp at hq
-      | cons y qs =>
-        simp at hp hq; subst hp hq
-        exact .here hlt (by simpa using hl)
-  | succ j ih =>
-    intro ps qs hl hpre p q hp hq hlt
-    cases ps with
-    | nil => simp at hp
-    | cons x ps =>
-      cases qs with
-      | nil => simp at hq
-      | cons y qs =>
-        rcases hpre 0 (by omega) x y (by simp) (by simp) with rfl | h0
-        · exact .there (ih (by simpa using hl)
-            (fun i hi p q hp hq => hpre (i + 1) (by omega) p q (by simpa using hp) (by simpa using hq))
-            (by simpa using hp) (by simpa using hq) hlt)
-        · exact .here h0 (by simpa using hl)
-
 -- the instantiation of a term by an environment: entry i (innermost first)
 -- is a closed value for the variable, or none — a binder kept as a variable
 def Term.inst (d : Nat) : List (Option Term) → Term → Term
@@ -17823,16 +17469,8 @@ theorem Term.instL_apps (d : Nat) (ρ : List Term) (f : Term) (xs : List Term) :
     Term.instL d ρ (Term.apps f xs) = Term.apps (Term.instL d ρ f) (xs.map (Term.instL d ρ)) := by
   unfold Term.instL; rw [Term.inst_apps]
 
-theorem Term.instL_app (d : Nat) (ρ : List Term) (f x : Term) :
-    Term.instL d ρ (.App f x) = .App (Term.instL d ρ f) (Term.instL d ρ x) := Term.instL_apps d ρ f [x]
-
 theorem Term.instL_ctr (d : Nat) (ρ : List Term) (a c : Nat) : Term.instL d ρ (.Ctr a c) = .Ctr a c :=
   Term.inst_ctr d _ a c
-
-theorem Term.instL_ref (d : Nat) (ρ : List Term) (k : Nat) : Term.instL d ρ (.Ref k) = .Ref k :=
-  Term.inst_ref d _ k
-
-theorem Term.instL_qnt (d : Nat) (ρ : List Term) : Term.instL d ρ .Qnt = .Qnt := Term.inst_qnt d _
 
 theorem Term.instL_head (d : Nat) (ρ : List Term) {h : Term} (hs : ∀ d w, Term.subst d w h = h) :
     Term.instL d ρ h = h := Term.inst_head d _ hs
@@ -17847,23 +17485,9 @@ theorem Term.instL_mat (d : Nat) (ρ : List Term) (a c : Nat) (h m : Term) :
     Term.instL d ρ (.Mat a c h m) = .Mat a c (Term.instL d ρ h) (Term.instL d ρ m) :=
   Term.inst_mat d _ a c h m
 
-theorem Term.instL_min (d : Nat) (ρ : List Term) (a b : Term) :
-    Term.instL d ρ (.Min a b) = .Min (Term.instL d ρ a) (Term.instL d ρ b) := Term.inst_min d _ a b
-
-theorem Term.instL_rwt (d : Nat) (ρ : List Term) (e P f : Term) :
-    Term.instL d ρ (.Rwt e P f) = .Rwt (Term.instL d ρ e) (Term.instL d ρ P) (Term.instL d ρ f) :=
-  Term.inst_rwt d _ e P f
-
-theorem Term.instL_var_lt (d : Nat) (ρ : List Term) (i : Nat) (hi : i < d) :
-    Term.instL d ρ (.Var i) = .Var i := Term.inst_var_lt d _ i hi
-
 theorem Term.instL_var_some (d : Nat) (ρ : List Term) (hc : ∀ v ∈ ρ, Term.Closed 0 v)
     (h : ρ[i]? = some v) : Term.instL d ρ (.Var (d + i)) = v :=
   (Term.inst_var d (ρ.map some) i (Env.Closed.map hc)).1 v (by simp [h])
-
-theorem Term.instL_var_none (d : Nat) (ρ : List Term) (hc : ∀ v ∈ ρ, Term.Closed 0 v)
-    (h : ρ[i]? = none) : ∃ j, d ≤ j ∧ Term.instL d ρ (.Var (d + i)) = .Var j :=
-  (Term.inst_var d (ρ.map some) i (Env.Closed.map hc)).2.2 (by simp [h])
 
 theorem Term.instL_shift (d : Nat) : ∀ (ρ : List Term), (∀ v ∈ ρ, Term.Closed 0 v) → ∀ (t : Term),
     Term.instL (d + 1) ρ (Term.shift 0 t) = Term.shift 0 (Term.instL d ρ t) := by
@@ -18059,17 +17683,6 @@ theorem DomP.spine (hh : h.IsHead) (hnv : ∀ i, h ≠ .Var i) (hnc : ∀ a c, h
   · rcases h1.shape with ⟨i, e1⟩ | ⟨a, c, vs, e1⟩
     · exact absurd (Term.apps_head_inv (ys := []) hh (by trivial) e1).1 (hnv i)
     · exact absurd (Term.apps_head_inv hh (by trivial) e1).1 (hnc a c)
-
-theorem DomP.var_spine (i : Nat) (us : List Term) (hne : us ≠ []) (e : Term) :
-    DomP β βe ρ D (Term.apps (.Var i) us) e := by
-  intro p _
-  refine ⟨fun h1 => ?_, fun h1 => ?_⟩
-  · rcases h1.shape with ⟨j, e1, _⟩ | ⟨a, c, _, _, ps, xs, _, _, _, _, _, _, e1, _, _⟩
-    · exact (hne (Term.apps_head_inv (ys := []) (by trivial) (by trivial) e1).2).elim
-    · exact Term.noConfusion (Term.apps_head_inv (by trivial) (by trivial) e1).1
-  · rcases h1.shape with ⟨j, e1⟩ | ⟨a, c, vs, e1⟩
-    · exact (hne (Term.apps_head_inv (ys := []) (by trivial) (by trivial) e1).2).elim
-    · exact Term.noConfusion (Term.apps_head_inv (by trivial) (by trivial) e1).1
 
 -- ----------------------------------------------------------------------------
 -- the budget: the charges an environment lends to a use vector — each
@@ -18518,16 +18131,6 @@ def Term.shiftNAt : Nat → Nat → Term → Term
   | 0,     _, t => t
   | n + 1, d, t => Term.shift d (Term.shiftNAt n d t)
 
-theorem Term.shiftN_lams : ∀ (n j : Nat) (X : Term),
-    Term.shiftN n (Term.lams j X) = Term.lams j (Term.shiftNAt n j X) := by
-  intro n
-  induction n with
-  | zero => intro j X; rfl
-  | succ n ih =>
-    intro j X
-    simp only [Term.shiftN, Term.shiftNAt]
-    rw [ih, Term.shift_lams, Nat.zero_add]
-
 theorem Term.subst_var_shift : ∀ (t : Term) (d : Nat),
     Term.subst d (.Var d) (Term.shift (d + 1) t) = t := by
   intro t
@@ -18701,17 +18304,6 @@ theorem Conv.instL (hβ : Book.Closed β) (h : Conv β a b) : ∀ (d : Nat) (ρ 
   induction ρ generalizing d with
   | nil => exact h
   | cons v ρ ih => rw [Term.instL_cons, Term.instL_cons]; exact (ih (d + 1)).subst hβ (Conv.refl v) d
-
-theorem Term.instL_subst0 (d : Nat) : ∀ (ρ : List Term), (∀ v ∈ ρ, Term.Closed 0 v) → ∀ (x : Term), x.Closed 0 →
-    ∀ (B : Term), Term.instL d ρ (Term.subst 0 x B) = Term.subst 0 x (Term.instL (d + 1) ρ B) := by
-  intro ρ
-  induction ρ generalizing d with
-  | nil => intro _ x _ B; rfl
-  | cons v ρ ih =>
-    intro hc x hx B
-    rw [Term.instL_cons, Term.instL_cons, ih (d + 1) (fun v hv => hc v (by simp [hv])) x hx B,
-      Term.subst_subst0, Term.subst_closed x 0 d v hx (Nat.zero_le d),
-      Term.shift_closed v 0 0 (hc v (by simp)) (Nat.le_refl 0)]
 
 -- a pinning's pins are the sizes of the pinned arguments
 theorem Pins.of.get (h : Pins.of β n us pins) : ∀ (i : Nat) (m : Nat),
@@ -18997,12 +18589,6 @@ theorem CGs.nil_inv' : ∀ {us : List Term} {M : List Charge}, CGs β us M → M
 
 theorem CGs.nil_inv (h : CGs β us []) : ∀ u ∈ us, CG β u [] := CGs.nil_inv' h rfl
 
-theorem Quant.mul_many (h : Quant.mul qf q' = .Many) : (qf = .Many ∧ q' ≠ .None) ∨ (q' = .Many ∧ qf ≠ .None) := by
-  cases qf <;> cases q' <;> simp_all [Quant.mul, Quant.add]
-
-theorem Quant.le_ne_many (h : Quant.le p q) (hq : q ≠ .Many) : p ≠ .Many := by
-  cases p <;> cases q <;> simp_all [Quant.le]
-
 -- flat case trees: a match peels an original column, never a pending field
 -- (the fields of a peeled column are bound by the arm's lambdas first)
 -- ----------------------------------------------------------------------------
@@ -19249,13 +18835,6 @@ theorem Check.ctr_fields_qs (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataP
       exact (Check.data_deep_aux hok hF hP hK _ (Nat.le_refl _) hx' hKF hdu).1
     · subst hqf; exact hx'.none_era _root_.rfl
 
-theorem FTele.allQs_length : ∀ (k : Nat) {ps : List Term} {T : Term}, FTele a r ps k T →
-    (Term.allQs k T).length = k := by
-  intro k
-  induction k with
-  | zero => intro ps T _; rfl
-  | succ k ih => intro ps T h; obtain ⟨qf, F, B, rfl, hB⟩ := h; simp [Term.allQs, ih hB]
-
 theorem List.drop_succ_eq' : ∀ (l : List Term) (a : Nat), l.drop (a + 1) = (l.drop a).drop 1 := by
   intro l a
   induction a generalizing l with
@@ -19297,8 +18876,6 @@ def EnvO.Aff (env : List Ent) (π : Uses) : Prop :=
   ∀ (j : Nat) e, env[j]? = some e → e.sub = true → e.chg ≠ [] → π j ≠ .Many
 
 theorem EnvO.ρ_cons (e : Ent) (env : List Ent) : EnvO.ρ (e :: env) = e.ρ :: EnvO.ρ env := rfl
-
-theorem EnvO.ρ_length (env : List Ent) : (EnvO.ρ env).length = env.length := by simp [EnvO.ρ]
 
 theorem Uses.tail_zero : Uses.tail Uses.zero = Uses.zero := rfl
 
@@ -19442,9 +19019,6 @@ theorem PricedO.value (hq : q ≠ .None) (he : env[j]? = some e) (hs : e.sub = t
     PricedO k pins env (Uses.one j q) e.chg :=
   ⟨[], e.chg, .refl _, by simp, EnvO.budget_one hq env j e he hs⟩
 
-theorem PricedO.perm (h : PricedO k pins env π M) (hp : M.Perm M') : PricedO k pins env π M' :=
-  let ⟨Y, R, hp', hY, hR⟩ := h; ⟨Y, R, hp.symm.trans hp', hY, hR⟩
-
 theorem PricedO.cover (h1 : PricedO k pins env π1 M1) (h2 : PricedO k pins env π2 M2)
     (hle1 : ∀ i, π1 i ≠ .None → π i ≠ .None) (hle2 : ∀ i, π2 i ≠ .None → π i ≠ .None) :
     ∃ M, Sub M1 M ∧ Sub M2 M ∧ PricedO k pins env π M := by
@@ -19478,41 +19052,6 @@ theorem Term.inst_let (d : Nat) : ∀ (ρ : List (Option Term)), Env.Closed ρ �
     | some w =>
       simp only [Term.inst]; rw [ih (d + 1) hc.tail]
       simp only [Term.subst]; rw [Term.shift_closed w 0 0 hc.head (Nat.le_refl 0)]
-
-theorem Term.inst_all (d : Nat) : ∀ (ρ : List (Option Term)), Env.Closed ρ → ∀ (q : Quant) (A B : Term),
-    Term.inst d ρ (.All q A B) = .All q (Term.inst d ρ A) (Term.inst (d + 1) ρ B) := by
-  intro ρ
-  induction ρ generalizing d with
-  | nil => intro _ q A B; rfl
-  | cons e0 ρ ih =>
-    intro hc q A B
-    cases e0 with
-    | none => simp only [Term.inst]; exact ih (d + 1) hc.tail q A B
-    | some w =>
-      simp only [Term.inst]; rw [ih (d + 1) hc.tail]
-      simp only [Term.subst]; rw [Term.shift_closed w 0 0 hc.head (Nat.le_refl 0)]
-
-theorem Term.inst_typ (d : Nat) : ∀ (ρ : List (Option Term)) (g : Term),
-    Term.inst d ρ (.Typ g) = .Typ (Term.inst d ρ g) := by
-  intro ρ
-  induction ρ generalizing d with
-  | nil => intro g; rfl
-  | cons e0 ρ ih =>
-    intro g
-    cases e0 with
-    | none => simp only [Term.inst]; exact ih (d + 1) g
-    | some w => simp only [Term.inst]; rw [ih (d + 1)]; rfl
-
-theorem Term.inst_eql (d : Nat) : ∀ (ρ : List (Option Term)) (a b T : Term),
-    Term.inst d ρ (.Eql a b T) = .Eql (Term.inst d ρ a) (Term.inst d ρ b) (Term.inst d ρ T) := by
-  intro ρ
-  induction ρ generalizing d with
-  | nil => intro a b T; rfl
-  | cons e0 ρ ih =>
-    intro a b T
-    cases e0 with
-    | none => simp only [Term.inst]; exact ih (d + 1) a b T
-    | some w => simp only [Term.inst]; rw [ih (d + 1)]; rfl
 
 -- ----------------------------------------------------------------------------
 -- δ on variables and shapes
@@ -19652,9 +19191,6 @@ theorem Term.apps_ne_var (hnv : ∀ i, x ≠ .Var i) : ∀ (ys : List Term) (i :
   | y :: ys, i => Term.apps_cons_ne_var x y ys i
 
 theorem Term.var_ne_ctr_apps (i : Nat) : ∀ a c xs, Term.Var i ≠ Term.apps (.Ctr a c) xs :=
-  fun a c xs h => Term.noConfusion (Term.apps_head_inv (xs := []) (by trivial) (by trivial) h).1
-
-theorem Term.qnt_ne_ctr_apps : ∀ a c xs, Term.Qnt ≠ Term.apps (.Ctr a c) xs :=
   fun a c xs h => Term.noConfusion (Term.apps_head_inv (xs := []) (by trivial) (by trivial) h).1
 
 -- a bad field (not closed and deep) refutes every verdict on the spine
@@ -20323,16 +19859,6 @@ theorem Dat.of_outer (hok : Book.Ok β) (ho : Outer β Γ r ρS ρO) {sp : List 
 -- kind (Kd2b's instGo, which the outermost-first substitution spells)
 -- ----------------------------------------------------------------------------
 
-theorem Term.instL_subst0' (d : Nat) : ∀ (ρ : List Term), (∀ v ∈ ρ, Term.Closed 0 v) → ∀ (x B : Term),
-    Term.instL d ρ (Term.subst 0 x B) = Term.subst 0 (Term.instL d ρ x) (Term.instL (d + 1) ρ B) := by
-  intro ρ
-  induction ρ generalizing d with
-  | nil => intro _ x B; rfl
-  | cons v ρ ih =>
-    intro hc x B
-    rw [Term.instL_cons, Term.instL_cons, Term.instL_cons, ih (d + 1) (fun v hv => hc v (by simp [hv])) x B,
-      Term.subst_subst0, Term.shift_closed v 0 0 (hc v (by simp)) (Nat.le_refl 0)]
-
 theorem Insts.shiftN (h : Insts T ps T') : ∀ (n : Nat),
     Insts (Term.shiftN n T) (ps.map (Term.shiftN n)) (Term.shiftN n T') := by
   intro n
@@ -20589,17 +20115,6 @@ theorem PureD.shape (h : PureD β βe ρ D x e) :
   | qnt => exact .inr (.inl rfl)
   | ctr hA hC _ hlen _ hf => exact .inr (.inr ⟨_, _, _, _, _, _, hA, hC, hlen, rfl, rfl, hf⟩)
 
-theorem PureD.closed_deep (h : PureD β βe ρ D x e) : e.Closed 0 ∧ Deep βe e := by
-  induction h with
-  | varO _ _ hc hd => exact ⟨hc, hd⟩
-  | qnt => exact ⟨trivial, .qnt⟩
-  | @ctr a A c C era src _ _ _ _ _ _ ih =>
-    refine (Term.ctr_closed_deep_iff _ _ era).mpr fun e he => ?_
-    obtain ⟨i, hi⟩ := List.mem_iff_getElem?.mp he
-    have hil : i < src.length := by
-      have := (List.getElem?_eq_some_iff.mp hi).1; omega
-    exact ih i _ e (List.getElem?_eq_getElem hil) hi
-
 -- a constructor spine on a verdict's side has exactly its declared arguments
 theorem PEq.ctr_len (h : PEq β t p) (ht : t = Term.apps (.Ctr a c) vs) (hA : Book.adt β a = some A)
     (hC : AdtD.ctr A c = some C) : vs.length = A.pn + C.fn := by
@@ -20686,11 +20201,6 @@ theorem Le.shiftN (hβ : Book.Closed β) (h : Le β a b) : ∀ (n : Nat), Le β 
 theorem Le.cl (hβ : Book.Closed β) (h : Le β (Ctx.δ Γ 0 a) (Ctx.δ Γ 0 b)) (r : Nat) (ρS : List Term) (m : Nat) :
     Le β (Term.cl Γ r ρS m a) (Term.cl Γ r ρS m b) :=
   (h.instL hβ r ρS).shiftN hβ m
-
-theorem Term.cl_closed (ht : t.Closed 0) : Term.cl Γ r ρS m t = t := by
-  simp only [Term.cl]
-  rw [Ctx.δ_closed _ _ _ (Term.Closed.mono _ _ _ ht (Nat.zero_le _)),
-    Term.instL_closed _ _ (Term.Closed.mono _ _ _ ht (Nat.zero_le _)), Term.shiftN_closed ht]
 
 theorem Term.cl_apps (hh : h.Closed 0) (xs : List Term) :
     Term.cl Γ r ρS m (Term.apps h xs) = Term.apps h (xs.map (Term.cl Γ r ρS m)) := by
@@ -22982,35 +22492,6 @@ theorem Check.era_min {sp : List Term}
   | cnv _ _ ih => exact ih hL hΓ hq hu
   | _ => subst hq; simp at hu
 
--- a spine's erasure: every argument's derivation (E's Args), read off the
--- erasure's spine from the right (N4's Args.snoc appends an argument)
-theorem snoc_ind {P : List Term → Prop} (h0 : P []) (hs : ∀ xs x, P xs → P (xs ++ [x])) :
-    ∀ xs, P xs := by
-  intro xs
-  rw [← List.reverse_reverse xs]
-  induction xs.reverse with
-  | nil => exact h0
-  | cons x ys ih => rw [List.reverse_cons]; exact hs _ _ ih
-
-theorem Check.era_spine (hβ : Book.Closed β) :
-    ∀ (us sp : List Term) {t T : Term} {π : Uses},
-    Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π (Term.apps u0 us) →
-    ∃ f as T0 π0 T1 πs, Check β (Pol.std β) (LHS.void β) (as ++ sp) .Lone [] f T0 π0 u0 ∧
-      Args β (Pol.std β) (LHS.void β) .Lone [] T0 as T1 πs us ∧ Le β T1 T := by
-  intro us
-  induction us using snoc_ind with
-  | h0 =>
-    intro sp t T π h
-    exact ⟨t, [], T, π, T, Uses.zero, h, .nil, Le.refl _⟩
-  | hs us x ih =>
-    intro sp t T π h
-    rw [Term.apps_snoc] at h
-    obtain ⟨f, x', q', A, B, πf, πx, _, hf, hx, hle⟩ :=
-      Check.era_app hβ h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
-    obtain ⟨f', as, T0, π0, T1, πs, hf', hargs, hle'⟩ := ih _ hf
-    exact ⟨f', as ++ [x'], T0, π0, _, _, by simpa [List.append_assoc] using hf',
-      Args.snoc hargs hle' hx, hle⟩
-
 -- the typed side facts of a fired beta / let (N4's hypotheses): a Lone or
 -- None binder occurs at most once in the body's erasure; a Many binder
 -- holds a Data value, whose deep erasure prices and weighs nothing (N3b)
@@ -23091,44 +22572,6 @@ theorem Check.cols (hβ : Book.Closed β) (hΦ : Pol.Pre Φ) (hW : Φ.Weak)
             (fun Γ h => hefqS Γ _ _ h) [] _root_.rfl (by decide) (fun h => absurd (hB.none_at 0) h)
         simpa using ih (TeleQs.subst hβ hT' 0 a) hBx hargs' hleB (by omega) i x ux hx hux
 
--- a Many column holds a Data value: its deep argument prices and weighs
--- nothing (N3b)
-theorem Check.cols_many (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataPol β Φ)
-    (hK : Book.OkK β Φ) (hΦ : Pol.Pre Φ)
-    (hdead : ∀ {A A' K : Term} {π : Uses} {u : Term},
-      Check β Φ (LHS.void β) [] .None [] A K π u → Red β .weak A A' →
-      ∃ π' u', Check β Φ (LHS.void β) [] .None [] A' K π' u')
-    {n : Nat} {qs : List Quant} {Tw : Term} {πT : Uses} {T0 : Term} {as : List Term}
-    {T1 : Term} {πs : Uses} {us : List Term}
-    (hT : TeleQs β Tw n qs)
-    (hTy : Check β Φ (LHS.void β) [] .None [] Tw (.Typ (.Qua .Lone)) πT .Qnt)
-    (hargs : Args β (Pol.std β) (LHS.void β) .Lone [] T0 as T1 πs us) (hle : Le β Tw T0)
-    (hlen : as.length ≤ n) (i : Nat) (hq : qs.getD i .Lone = .Many)
-    (hux : us[i]? = some ux) (hd : Deep β ux) :
-    (∀ β', CG β' ux []) ∧ ∀ β', Term.weight β' ux = 0 := by
-  have hi : i < as.length := by
-    have := (List.getElem?_eq_some_iff.mp hux).1
-    rwa [hargs.length] at this
-  obtain ⟨A, πx, πA, hx, hA⟩ := Check.cols hok.closed hΦ hP.weak hP.std hP.efq hP.efqS hdead n
-    hT hTy hargs hle hlen i _ ux (List.getElem?_eq_getElem hi) hux
-  rw [hq] at hx hA
-  exact Check.data_deep_aux hok hF hP hK _ (Nat.le_refl _) hx hA hd
-
--- a head erased to a definition reference is typed at the definition's type
-theorem Check.era_ref (hβ : Book.Closed β) {sp : List Term}
-    (h : Check β (Pol.std β) L sp q Γ t T π u) (hL : L = LHS.void β) (hΓ : Γ = [])
-    (hq : q = .Lone) (hu : u = .Ref k) (hk : Book.defn β k = some d) : Le β d.ty T := by
-  induction h with
-  | ref hk' _ _ _ =>
-    subst hL hΓ hq; rw [Term.era_lone] at hu; cases hu
-    rw [hk] at hk'; cases hk'; exact Le.refl _
-  | refA hA _ =>
-    subst hq; rw [Term.era_lone] at hu; cases hu
-    exact (Book.defn_adt_clash hk hA).elim
-  | appLam _ _ ih => exact ih hL hΓ hq hu
-  | cnv _ hle ih => subst hΓ; exact (ih hL _root_.rfl hq hu).trans hβ hle
-  | _ => subst hq; simp at hu
-
 -- ----------------------------------------------------------------------------
 -- The fired position (N4's Fired): below the strategy's congruences sits a
 -- closed live typed term whose erasure is the redex — or the token, at a
@@ -23186,35 +22629,6 @@ theorem Check.fired_let (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataPol �
   | .inl e => Term.noConfusion e
   | .inr ⟨_, _, _, _, h'⟩ => Check.let_side hok hF hP hK h' hd
 
--- a fired definition spine: its arguments' derivations, walked from the
--- definition's type
-theorem Check.fired_ref (hβ : Book.Closed β) {sp : List Term}
-    (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π u)
-    (hf : Fired u (Term.apps (.Ref k) us)) (hk : Book.defn β k = some d) :
-    ∃ T0 as T1 πs, Args β (Pol.std β) (LHS.void β) .Lone [] T0 as T1 πs us ∧ Le β d.ty T0 := by
-  rcases Check.fired hβ h hf with e | ⟨_, _, _, _, h'⟩
-  · exact (Term.apps_ne (by trivial) (by trivial) (fun e => Term.noConfusion e) e).elim
-  · obtain ⟨_, as, T0, _, T1, πs, hh, hargs, _⟩ := Check.era_spine hβ us _ h'
-    exact ⟨T0, as, T1, πs, hargs,
-      Check.era_ref hβ hh _root_.rfl _root_.rfl _root_.rfl _root_.rfl hk⟩
-
--- a Many column of a fired saturated spine holds a chargeless, weightless
--- deep argument
-theorem Check.fired_many (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataPol β Φ)
-    (hK : Book.OkK β Φ) (hΦ : Pol.Pre Φ)
-    (hdead : ∀ {A A' K : Term} {π : Uses} {u : Term},
-      Check β Φ (LHS.void β) [] .None [] A K π u → Red β .weak A A' →
-      ∃ π' u', Check β Φ (LHS.void β) [] .None [] A' K π' u')
-    {sp : List Term} (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π u)
-    (hf : Fired u (Term.apps (.Ref k) us)) (hk : Book.defn β k = some d)
-    (hlen : us.length = d.n) (i : Nat) (hq : d.qs.getD i .Lone = .Many)
-    (hux : us[i]? = some ux) (hd : Deep β ux) :
-    (∀ β', CG β' ux []) ∧ ∀ β', Term.weight β' ux = 0 := by
-  obtain ⟨T0, as, T1, πs, hargs, hle⟩ := Check.fired_ref hok.closed h hf hk
-  obtain ⟨⟨πT, hTy⟩, hT, _⟩ := Book.Ok.defn hok hk
-  exact Check.cols_many hok hF hP hK hΦ hdead hT (hTy.void.mono hP.std hP.efq (fun _ => trivial)) hargs hle
-    (by have := hargs.length; omega) i hq hux hd
-
 -- the drive: while the erasure is not deep, N3's strategy step retypes
 -- the subject and N4's measure step lowers the pricing of the erasure
 -- (well-founded induction on N1's measure)
@@ -23235,48 +22649,6 @@ theorem Norm.drive (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β w 
   obtain ⟨M', hM', hlt⟩ := meas h hs hM
   obtain ⟨t'', π'', u'', hr', h'', hd''⟩ := ih _ hlt t' π' u' M' rfl hM' h'
   exact ⟨t'', π'', u'', hr.trans hr', h'', hd''⟩
-
--- a weak run is eta-free: Kd's StepB / RedB (what Kd2b's dead preservation
--- runs along)
-theorem Step.weak_stepB (h : Step β .weak a b) : StepB β a b := by
-  induction h with
-  | beta => exact .beta
-  | let_ => exact .let_
-  | dref hk hb hs _ => exact .dref hk hb hs
-  | drefS hp => exact Strength.noConfusion hp
-  | aref hk hp => exact .aref hk hp
-  | matc hk hc hp hx => exact .matc hk hc hp hx
-  | matm hne => exact .matm hne
-  | rwt => exact .rwt
-  | minLM => exact .minLM
-  | minLN => exact .minLN
-  | minRM => exact .minRM
-  | minRN => exact .minRN
-  | minLL => exact .minLL
-  | eta hp => exact Strength.noConfusion hp
-  | typ_g hp => exact Strength.noConfusion hp
-  | min_a _ ih => exact .min_a ih
-  | min_b _ ih => exact .min_b ih
-  | all_a hp => exact Strength.noConfusion hp
-  | all_b hp => exact Strength.noConfusion hp
-  | lam_f hp => exact Strength.noConfusion hp
-  | app_f _ ih => exact .app_f ih
-  | app_a _ ih => exact .app_a ih
-  | mat_h _ ih => exact .mat_h ih
-  | mat_m _ ih => exact .mat_m ih
-  | eql_a _ ih => exact .eql_a ih
-  | eql_b _ ih => exact .eql_b ih
-  | eql_t _ ih => exact .eql_t ih
-  | rwt_e _ ih => exact .rwt_e ih
-  | rwt_p _ ih => exact .rwt_p ih
-  | rwt_f _ ih => exact .rwt_f ih
-  | let_v _ ih => exact .let_v ih
-  | let_b hp => exact Strength.noConfusion hp
-
-theorem Red.weak_redB (h : Red β .weak a b) : RedB β a b := by
-  induction h with
-  | refl => exact .refl
-  | step s _ ih => exact .step s.weak_stepB ih
 
 -- N4's side facts at every fired position of a closed live erasure: the
 -- affine bound or the chargeless Data argument at a beta or let, and the
