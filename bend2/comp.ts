@@ -591,9 +591,7 @@ let PIDN = 0;
 
 const DUMMY = probe("~");
 
-const OPENS: Map<Of<"Lam">, { p: Probe; b: HTerm }> = new Map();
-
-const LOPENS: Map<HLet, { ps: Probe[]; b: HTerm }> = new Map();
+const OPENS: Map<Of<"Lam"> | HLet, { ps: Probe[]; b: HTerm }> = new Map();
 
 const USES: Map<HTerm, UMap> = new Map();
 
@@ -691,8 +689,7 @@ function memo<K, V>(m: Map<K, V>, k: K, f: () => V): V {
 }
 
 function memo_gc(): void {
-  [OPENS, LOPENS, USES, FOLDS, SPINES, CONSTS, LAYS]
-    .forEach((m) => m.clear());
+  [OPENS, USES, FOLDS, SPINES, CONSTS, LAYS].forEach((m) => m.clear());
 }
 
 // Probe
@@ -709,17 +706,10 @@ function probe_of(t: HTerm): Probe {
 // Term
 // ====
 
-function term_open(t: Of<"Lam">): { p: Probe; b: HTerm } {
+function term_open(t: Of<"Lam"> | HLet): { ps: Probe[]; b: HTerm } {
   return memo(OPENS, t, () => {
-    const p = probe(t.k);
-    return { p, b: t.f(p) };
-  });
-}
-
-function term_lets(t: HLet): { ps: Probe[]; b: HTerm } {
-  return memo(LOPENS, t, () => {
-    const ps = t.k.map(probe);
-    return { ps, b: t.f(ps) };
+    const ps = (t.$ === "Lam" ? [t.k] : t.k).map(probe);
+    return { ps, b: t.$ === "Lam" ? t.f(ps[0]) : t.f(ps) };
   });
 }
 
@@ -771,7 +761,7 @@ function term_kids(cf: Carb, tm: HTerm): HTerm[] {
     case "Ann": return [t.x];
     case "Lam": return [term_open(t).b];
     case "Let": return [...t.v.filter((_, j) => quant_live(t.q[j])),
-      term_lets(t).b];
+      term_open(t).b];
     case "App": {
       const m = term_spine(cf, t);
       return [m.h, ...m.args];
@@ -1360,7 +1350,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
 
   function cut(caps: Capture[], l: HLet, v: Open,
     rest: (caps: Capture[], body: HTerm) => Open): Open {
-    const { ps: [p], b } = term_lets(l);
+    const { ps: [p], b } = term_open(l);
     const c2 = [...caps, { p, q: l.q[0], A: ty_ann(v(EMPTY)) }];
     const kont = mint(cb, d, "k", c2, 1, () => rest(c2, b), 0,
       [call_kind(cb, v(EMPTY))!.k]);
@@ -1370,7 +1360,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
 
   function bind(caps: Capture[], l: HLet, v: Open,
     rest: (caps: Capture[], body: HTerm) => Open): Open {
-    const { ps: [p], b } = term_lets(l);
+    const { ps: [p], b } = term_open(l);
     const bd = { p, q: l.q[0], A: ty_ann(v(EMPTY)) };
     const body = rest([...caps, bd], b);
     return (env) => Bend.Let(l.k, l.i, [v(env)],
@@ -1438,7 +1428,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
       }
       case "Lam": {
         const all = ty_all(cb.book, ty);
-        const { p, b } = term_open(s);
+        const { ps: [p], b } = term_open(s);
         const cap = { p, q: all?.q ?? Bend.Lone(), A: all?.A ?? null };
         const B = all && all.B(DUMMY);
         const body = func([...caps, cap], b, B,
@@ -1460,7 +1450,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
   }
 
   function alive(s: HLet): HLet {
-    const o = term_lets(s);
+    const o = term_open(s);
     const u = term_uses(cb, o.b);
     const on = s.q.map((q, j) => quant_live(q) && term_use(u, o.ps[j]) > 0);
     const pick = <T>(xs: T[]): T[] => xs.filter((_, j) => on[j]);
@@ -1503,7 +1493,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
 
   function fork(caps: Capture[], s: HLet): Open {
     const n = s.k.length;
-    const o = term_lets(s);
+    const o = term_open(s);
     const next = (stem: string): Bend.Name => d + "$" + stem + (cb.kn + 1);
     const arg_caps = (ck: Call): Capture[] => {
       const tld = cb.book.tlds[ck.k];
@@ -1599,7 +1589,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
       case "Lam": {
         const all = ty_all(cb.book, ty)
           ?? die("an untyped lambda");
-        const { p, b } = term_open(s);
+        const { ps: [p], b } = term_open(s);
         const bd = { p, q: all.q, A: all.A };
         const c2 = [...caps, bd];
         if (!quant_live(all.q)) {
@@ -1704,7 +1694,7 @@ function flat_tails(cb: Carb, t: HTerm): Bend.Name[] {
     case "Ann": return flat_tails(cb, s.x);
     case "Lam": return flat_tails(cb, term_open(s).b);
     case "Mat": return [...flat_tails(cb, s.h), ...flat_tails(cb, s.m)];
-    case "Let": return s.k.length === 1 ? flat_tails(cb, term_lets(s).b) : [];
+    case "Let": return s.k.length === 1 ? flat_tails(cb, term_open(s).b) : [];
     default: {
       const ck = call_kind(cb, s);
       return ck ? [ck.k] : [];
@@ -2041,8 +2031,8 @@ function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
           return;
         }
         const o = term_open(x);
-        env.set(o.p, args[0] ?? null);
-        site_hot(all.A, term_use(term_uses(cb, o.b), o.p));
+        env.set(o.ps[0], args[0] ?? null);
+        site_hot(all.A, term_use(term_uses(cb, o.b), o.ps[0]));
         walk(o.b, all.B(DUMMY), args.slice(1));
         return;
       }
@@ -2081,7 +2071,7 @@ function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
         return;
       }
       case "Let": {
-        const o = term_lets(x);
+        const o = term_open(x);
         x.v.forEach((v, j) => {
           if (call_is(cb, v)) {
             site(v, o.b);
@@ -2571,7 +2561,7 @@ function emit_put(fl: File, dst: Dst, v: Val): void {
 }
 
 function emit_open(fl: File, x: HLet): HTerm {
-  const o = term_lets(x);
+  const o = term_open(x);
   x.k.forEach((k, j) => {
     const v = val_hold(fl, emit_expr(fl, x.v[j], null), k);
     bind_uses(fl, o.ps[j], v, o.b);
@@ -2867,7 +2857,7 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
       }
       const o = term_open(x);
       const v = val_hold(fl, val_to(fl, args[0], lay_of(fl.book, all.A)), x.k);
-      return emit_body(fl, bind_uses(fl, o.p, v, o.b), all.B(DUMMY), ers,
+      return emit_body(fl, bind_uses(fl, o.ps[0], v, o.b), all.B(DUMMY), ers,
         args.slice(1), dst);
     }
     case "Mat":
@@ -2880,7 +2870,7 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
       }
       const vc = call_kind(fl, x.v[0]);
       if (vc !== null && !flat_call(fl, x.v[0])) {
-        return emit_call(fl, vc, call_kind(fl, term_lets(x).b)!);
+        return emit_call(fl, vc, call_kind(fl, term_open(x).b)!);
       }
       return emit_body(fl, emit_open(fl, x), null, ers, [], dst);
     }
@@ -2908,7 +2898,7 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
 
 function emit_fork(fl: File, x: HLet): void {
   const n = x.k.length;
-  const o = term_lets(x);
+  const o = term_open(x);
   const calls = x.v.map((v) => call_kind(fl, v)!);
   const jc = call_kind(fl, o.b) as Call;
   const k1 = fl.forks.get(o.ps[0]) as Bend.Name;
