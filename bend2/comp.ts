@@ -592,8 +592,6 @@ const FOLDS: Map<HTerm, HTerm | null> = new Map();
 
 const FLATS: Map<Bend.Name, boolean> = new Map();
 
-const RECS: Map<Bend.Name, boolean> = new Map();
-
 const INTRS: Map<Bend.Name, Intr | null> = new Map();
 
 const SPINES: Map<HTerm, Spine> = new Map();
@@ -871,12 +869,6 @@ function call_eta(cb: Carb, t: HTerm): HTerm | null {
   const cut = (u: HTerm, U: HTerm): HTerm => Bend.Let(["r"], [0],
     [Bend.Ann(u, U)], (xs: HTerm[]) => Bend.Ann(xs[0], U));
   return term_eta(cb.book, t, T, n, intr || direct ? undefined : cut);
-}
-
-function call_self(cf: Carb, k: Bend.Name): boolean {
-  const body = (cf.book.tlds[k] as Def).h as HTerm;
-  return memo(RECS, k, () =>
-    term_any(cf, body, (s) => call_kind(cf, s)?.k === k));
 }
 
 // Tele
@@ -1280,8 +1272,7 @@ function carb_fresh(cb: Carb, k: Bend.Name): TLD | undefined {
 }
 
 function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
-  [TELES, REFS, NODES, CYCLES, FLATS, RECS, INTRS]
-    .forEach((m) => m.clear());
+  [TELES, REFS, NODES, CYCLES, FLATS, INTRS].forEach((m) => m.clear());
   memo_gc();
   const book: Book = { ...src, tlds: { ...src.tlds } };
   const cb: Carb = {
@@ -2828,8 +2819,7 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
       const once = fl.mint.get(ck.k) === true || (fl.sites.get(ck.k)
         === 1 && !fl.mint.has(ck.k) && !fl.dyn.has(ck.k)
         && ck.bang !== true && !def_foreign(fl.book.tlds[ck.k]));
-      if (!self && !par && (flat_call(fl, x)
-        || (dst === null && once && !call_self(fl, ck.k)))) {
+      if (!self && !par && (flat_call(fl, x) || (dst === null && once))) {
         return emit_fuse(fl, ck, dst);
       }
       return emit_call(fl, ck, null);
