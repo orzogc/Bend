@@ -2135,24 +2135,50 @@ function val_to(fl: File, v: Val, lay: Lay): Val {
   if (lay.arms === null || v.lay.arms === null) {
     die("a layout mismatch");
   }
-  const arms = lay.arms;
-  if (arms.length === 0) {
-    return val_new([], lay);
-  }
-  if (arms.length === 1) {
-    const from = v.lay.arms![0];
-    return val_new(arms[0].fs.flatMap((f, j) =>
-      val_to(fl, val_field(v, from.fs[j]), f.lay).ws), lay);
+  return val_arms(fl, lay, v.ws[0], (t, i) => `${t} == ${i}`, (arm) => {
+    const from = lay_arm(v.lay, arm.k);
+    return arm.fs.map((f, j) => val_to(fl, val_field(v, from.fs[j]), f.lay));
+  });
+}
+
+function val_arms(fl: File, lay: Lay, sel: string,
+  cond: (t: string, i: number) => string, read: (arm: Arm) => Val[],
+  stuck = false): Val {
+  const arms = lay.arms!;
+  if (arms.length <= 1) {
+    const gs = arms.flatMap(read);
+    return val_new(gs.flatMap((g) => g.ws), lay,
+      gs.flatMap((g) => g.ws.map((_, n) => val_cell(g, n))));
   }
   const out = emit_dst(fl, lay, "o").ws;
-  const tag = emit_alias(fl, v.ws[0], "t");
-  emit_chain(fl, (i) => `${tag} == ${i}`, arms.map((arm, i) => () => {
+  const t = emit_alias(fl, sel, "t");
+  const cells = arms.map((): (Cell | null)[] => out.map(() => null));
+  const bodies = arms.map((arm, i) => () => {
     file_push(fl, `${out[0]} = ${i};`);
-    const from = lay_arm(v.lay, arm.k);
-    arm.fs.forEach((f, j) => val_to(fl, val_field(v, from.fs[j]), f.lay).ws
-      .forEach((w, n) => file_push(fl, `${out[f.at + n]} = ${w};`)));
-  }));
-  return val_new(out, lay);
+    read(arm).forEach((g, j) => g.ws.forEach((w, n) => {
+      const at = arm.fs[j].at + n;
+      file_push(fl, `${out[at]} = ${w};`);
+      cells[i][at] = val_cell(g, n);
+    }));
+  });
+  emit_chain(fl, (i) => cond(t, i),
+    stuck ? [...bodies, () => emit_stuck(fl)] : bodies);
+  const av = out.map((o, at): Cell | null => {
+    const cs = cells.map((c) => c[at]);
+    const one = cs[0];
+    if (one !== null && cs.every((c) => c?.arr === one.arr
+      && c.at === one.at)) {
+      return one;
+    }
+    cs.forEach((c, i) => {
+      if (c !== null) {
+        block(fl, `if (${cond(t, i)}) {`,
+          () => file_push(fl, `${o} = blk_keep(e, ${c.at});`));
+      }
+    });
+    return null;
+  });
+  return val_new(out, lay, av);
 }
 
 function val_box(fl: File, v: Val): string {
@@ -2178,36 +2204,11 @@ function val_unbox(fl: File, v: Val, lay: Lay): Val {
     return val_new(v.ws, lay, v.av);
   }
   const t = emit_alias(fl, v.ws[0], "u");
-  const arms = lay.arms!;
-  if (arms.length === 0) {
-    return val_new([], lay);
-  }
-  const read = (arm: Arm): Val[] => {
-    const node = lay_node(fl.book, arm.k);
-    const fs = node_fields(fl, t, node, v);
+  return val_arms(fl, lay, t, (_, i) =>
+    `term_aux(${t}) == ${cid_reg(fl, lay.arms![i].k)}`, (arm) => {
+    const fs = node_fields(fl, t, lay_node(fl.book, arm.k), v);
     return arm.fs.map((f, j) => val_to(fl, fs[j], f.lay));
-  };
-  if (arms.length === 1) {
-    const gs = read(arms[0]);
-    return val_new(gs.flatMap((g) => g.ws), lay,
-      gs.flatMap((g) => g.av ?? g.ws.map(() => null)));
-  }
-  const out = emit_dst(fl, lay, "o").ws;
-  const av: (Cell | null)[] = out.map(() => null);
-  const bodies = arms.map((arm, i) => () => {
-    file_push(fl, `${out[0]} = ${i};`);
-    const gs = read(arm);
-    arm.fs.forEach((f, j) => {
-      gs[j].ws.forEach((w, n) => {
-        file_push(fl, `${out[f.at + n]} = ${w};`);
-        av[f.at + n] = val_cell(gs[j], n) ?? av[f.at + n];
-      });
-    });
-  });
-  bodies.push(() => emit_stuck(fl));
-  emit_chain(fl, (i) => `term_aux(${t}) == ${cid_reg(fl, arms[i].k)}`,
-    bodies);
-  return val_new(out, lay, av);
+  }, true);
 }
 
 // Arr
