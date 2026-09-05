@@ -2431,6 +2431,11 @@ function emit_held(fl: File): Set<string> {
     fl.seg.params.length - (fl.seg.frame?.resw ?? 0)));
 }
 
+function emit_res(fl: File, ws: string[]): void {
+  fl.resw = Math.max(fl.resw, ws.length);
+  ws.forEach((w, j) => file_push(fl, `res[${j}] = ${w};`));
+}
+
 function emit_step(fl: File, ck: Call): void {
   const vs = emit_vals(fl, ck.k, ck.args);
   const n = vs.length - 1;
@@ -2438,8 +2443,7 @@ function emit_step(fl: File, ck: Call): void {
   const rs = val_own(fl, val_to(fl, vs[n], def_lays(fl, ck.k)[n]));
   spare_flush(fl);
   emit_frame(fl, ws, null);
-  fl.resw = Math.max(fl.resw, rs.length);
-  rs.forEach((w, j) => file_push(fl, `res[${j}] = ${w};`));
+  emit_res(fl, rs);
   file_push(fl, `WL_JMP(${seg_ref(fl, seg_fid(ck.k))});`);
 }
 
@@ -2515,8 +2519,7 @@ function emit_call(fl: File, ck: Call, km: Call | null): void {
 function emit_ret(fl: File, v: Val): void {
   spare_flush(fl);
   const ws = val_own(fl, val_to(fl, v, def_ret(fl, fl.seg.def)));
-  fl.resw = Math.max(fl.resw, ws.length);
-  ws.forEach((w, j) => file_push(fl, `res[${j}] = ${w};`));
+  emit_res(fl, ws);
   file_push(fl, `WL_RETN(${ws.length});`);
 }
 
