@@ -2014,7 +2014,6 @@ theorem Term.size_pos : ∀ t : Term, 1 ≤ Term.size t := by
 
 -- ============================================================================
 
-
 -- ============================================================================
 -- METATHEORY §B — confluence: parallel reduction and claim (1).
 -- The parallel step develops redexes and congruences at once; the mat
@@ -6816,5 +6815,751 @@ theorem Book.fill_exists (hN : Book.Native β) :
         rw [Option.map_some, hd1] at ht
         cases ht
         exact hfilled (Book.tld_defn h)
+
+
+-- ============================================================================
+-- METATHEORY §E — generation: every derivation of a given subject shape
+-- factors through its rule, modulo the conversion accumulated by cnv. The
+-- inversions hold for any policy whose conversion is a preorder; the
+-- standard policy is one (C's Le.refl / Le.trans).
+-- ============================================================================
+
+structure Pol.Pre (Φ : Pol) : Prop where
+  refl  : ∀ a, Φ.conv a a
+  trans : ∀ {a b c}, Φ.conv a b → Φ.conv b c → Φ.conv a c
+
+theorem Pol.std_pre (hβ : Book.Closed β) : Pol.Pre (Pol.std β) :=
+  ⟨fun a => Le.refl a, fun h1 h2 => Le.trans hβ h1 h2⟩
+
+theorem Check.var_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Var i) T π u) :
+    ∃ b, Ctx.get Γ i = some b ∧ Φ.conv (Ctx.δ Γ 0 b.T) (Ctx.δ Γ 0 T) ∧
+      π = Uses.one i q ∧ u = Term.era q (.Var i) := by
+  generalize he : Term.Var i = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case var hg => cases he; exact ⟨_, hg, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨b, hg, hcv, hπ, hu⟩ := ih he
+    exact ⟨b, hg, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.ref_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Ref j) T π u) :
+    (∃ d, Book.defn β j = some d ∧
+      (q ≠ .None → d.body ≠ none ∨ d.b = true) ∧
+      (q ≠ .None → L.w = true ∨ d.b = false → j ≤ L.k) ∧
+      (q ≠ .None → j = L.k →
+        SpineLt β L.qs 0 (L.cols.map (Ctx.δ Γ 0)) (sp.map (Ctx.δ Γ 0))) ∧
+      Φ.conv (Ctx.δ Γ 0 d.ty) (Ctx.δ Γ 0 T) ∧ π = Uses.zero ∧ u = Term.era q (.Ref j)) ∨
+    (∃ A, Book.adt β j = some A ∧ A.pn = 0 ∧
+      Φ.conv (Ctx.δ Γ 0 A.sig) (Ctx.δ Γ 0 T) ∧ π = Uses.zero ∧ u = Term.era q (.Ref j)) := by
+  generalize he : Term.Ref j = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case ref hk hb hw hd => cases he; exact .inl ⟨_, hk, hb, hw, hd, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case refA hk h0 => cases he; exact .inr ⟨_, hk, h0, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    rcases ih he with ⟨d, hk, hb, hw, hd, hcv, hπ, hu⟩ | ⟨A, hk, h0, hcv, hπ, hu⟩
+    · exact .inl ⟨d, hk, hb, hw, hd, hΦ.trans hcv hc, hπ, hu⟩
+    · exact .inr ⟨A, hk, h0, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.adt_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Adt a r) T π u) :
+    ∃ A, Book.adt β a = some A ∧ Φ.conv (Ctx.δ Γ 0 A.sig) (Ctx.δ Γ 0 T) ∧
+      π = Uses.zero ∧ u = Term.era q (.Adt a r) := by
+  generalize he : Term.Adt a r = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case adt hk => cases he; exact ⟨_, hk, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨A, hk, hcv, hπ, hu⟩ := ih he
+    exact ⟨A, hk, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.ctr_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Ctr a c) T π u) :
+    ∃ A C r, Book.adt β a = some A ∧ AdtD.ctr A c = some C ∧ c ∉ r ∧
+      Φ.conv (Ctx.δ Γ 0 (Term.retip r A.pn (A.pn + C.fn) C.ty)) (Ctx.δ Γ 0 T) ∧
+      π = Uses.zero ∧ u = Term.era q (.Ctr a c) := by
+  generalize he : Term.Ctr a c = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case ctr hk hc hr => cases he; exact ⟨_, _, _, hk, hc, hr, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨A, C, r, hk, hc0, hr, hcv, hπ, hu⟩ := ih he
+    exact ⟨A, C, r, hk, hc0, hr, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.typ_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Typ g) T π u) :
+    ∃ πg, Check β Φ L [] .None Γ g .Qnt πg .Qnt ∧
+      Φ.conv (Ctx.δ Γ 0 (.Typ (.Qua .Lone))) (Ctx.δ Γ 0 T) ∧
+      π = Uses.zero ∧ u = Term.era q (.Typ .Qnt) := by
+  generalize he : Term.Typ g = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case typ hg _ => cases he; exact ⟨_, hg, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨πg, hg, hcv, hπ, hu⟩ := ih he
+    exact ⟨πg, hg, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.qnt_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ .Qnt T π u) :
+    Φ.conv (Ctx.δ Γ 0 (.Typ (.Qua .Lone))) (Ctx.δ Γ 0 T) ∧ π = Uses.zero ∧ u = .Qnt := by
+  generalize he : Term.Qnt = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case qnt => exact ⟨hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨hcv, hπ, hu⟩ := ih he
+    exact ⟨hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.qua_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Qua q') T π u) :
+    Φ.conv (Ctx.δ Γ 0 .Qnt) (Ctx.δ Γ 0 T) ∧ π = Uses.zero ∧ u = Term.era q (.Qua q') := by
+  generalize he : Term.Qua q' = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case qua => cases he; exact ⟨hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨hcv, hπ, hu⟩ := ih he
+    exact ⟨hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.min_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Min a b) T π u) :
+    ∃ πa ua πb ub, Check β Φ L [] q Γ a .Qnt πa ua ∧ Check β Φ L [] q Γ b .Qnt πb ub ∧
+      Φ.conv (Ctx.δ Γ 0 .Qnt) (Ctx.δ Γ 0 T) ∧
+      π = Uses.add πa πb ∧ u = Term.era q (.Min ua ub) := by
+  generalize he : Term.Min a b = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case min ha hb _ _ => cases he; exact ⟨_, _, _, _, ha, hb, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨πa, ua, πb, ub, ha, hb, hcv, hπ, hu⟩ := ih he
+    exact ⟨πa, ua, πb, ub, ha, hb, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.all_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.All q' A B) T π u) :
+    ∃ πA πB, Check β Φ L [] .None Γ A (.Typ (.Qua q')) πA .Qnt ∧
+      Check β Φ L.shift [] .None (⟨q', A, none⟩ :: Γ) B (.Typ (.Qua .Lone)) πB .Qnt ∧
+      Φ.conv (Ctx.δ Γ 0 (.Typ (.Qua .Lone))) (Ctx.δ Γ 0 T) ∧
+      π = Uses.zero ∧ u = Term.era q (.All q' .Qnt .Qnt) := by
+  generalize he : Term.All q' A B = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case all hA hB _ _ => cases he; exact ⟨_, _, hA, hB, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨πA, πB, hA, hB, hcv, hπ, hu⟩ := ih he
+    exact ⟨πA, πB, hA, hB, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.lam_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Lam f) T π u) :
+    ∃ q' A B πA π' uf, Check β Φ L [] .None Γ A (.Typ (.Qua q')) πA .Qnt ∧
+      Check β Φ L.lam [] q (⟨q', A, none⟩ :: Γ) f B π' uf ∧ Quant.le (π' 0) q' ∧
+      Φ.conv (Ctx.δ Γ 0 (.All q' A B)) (Ctx.δ Γ 0 T) ∧
+      π = Uses.tail π' ∧ u = Term.era q (.Lam uf) := by
+  generalize he : Term.Lam f = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case lam hA hf hle _ _ =>
+    cases he; exact ⟨_, _, _, _, _, _, hA, hf, hle, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨q', A, B, πA, π', uf, hA, hf, hle, hcv, hπ, hu⟩ := ih he
+    exact ⟨q', A, B, πA, π', uf, hA, hf, hle, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.app_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.App f x) T π u) :
+    (∃ q' A B πf uf πx ux, Check β Φ L (x :: sp) q Γ f (.All q' A B) πf uf ∧
+      Check β Φ L [] (Quant.dem q' q) Γ x A πx ux ∧
+      Φ.conv (Ctx.δ Γ 0 (Term.subst 0 x B)) (Ctx.δ Γ 0 T) ∧
+      π = Uses.add πf πx ∧ u = Term.era q (.App uf ux)) ∨
+    (∃ g T0, f = .Lam g ∧ Term.Closed Γ.length x ∧
+      Check β Φ L sp q Γ (Term.subst 0 x g) T0 π u ∧
+      Φ.conv (Ctx.δ Γ 0 T0) (Ctx.δ Γ 0 T)) := by
+  generalize he : Term.App f x = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case app hf hx _ _ =>
+    cases he; exact .inl ⟨_, _, _, _, _, _, _, hf, hx, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case appLam ha hb _ => cases he; exact .inr ⟨_, _, _root_.rfl, ha, hb, hΦ.refl _⟩
+  case cnv _ hc ih =>
+    rcases ih he with ⟨q', A, B, πf, uf, πx, ux, hf, hx, hcv, hπ, hu⟩ | ⟨g, T0, hg, ha, hb, hcv⟩
+    · exact .inl ⟨q', A, B, πf, uf, πx, ux, hf, hx, hΦ.trans hcv hc, hπ, hu⟩
+    · exact .inr ⟨g, T0, hg, ha, hb, hΦ.trans hcv hc⟩
+
+theorem Check.let_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Let qb v b) T π u) :
+    ∃ A T0 πv uv πA π' ub, Check β Φ L [] (Quant.dem qb q) Γ v A πv uv ∧
+      Check β Φ L [] .None Γ A (.Typ (.Qua qb)) πA .Qnt ∧
+      Check β Φ L.shift [] q (⟨qb, A, some v⟩ :: Γ) b (Term.shift 0 T0) π' ub ∧
+      Quant.le (π' 0) qb ∧ Φ.conv (Ctx.δ Γ 0 T0) (Ctx.δ Γ 0 T) ∧
+      π = Uses.add πv (Uses.tail π') ∧ u = Term.era q (.Let qb uv ub) := by
+  generalize he : Term.Let qb v b = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case let_ hv hA hb hle _ _ _ =>
+    cases he; exact ⟨_, _, _, _, _, _, _, hv, hA, hb, hle, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨A, T0, πv, uv, πA, π', ub, hv, hA, hb, hle, hcv, hπ, hu⟩ := ih he
+    exact ⟨A, T0, πv, uv, πA, π', ub, hv, hA, hb, hle, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.eql_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Eql a b T') T π u) :
+    ∃ πT πa πb, Check β Φ L [] .None Γ T' (.Typ (.Qua .Lone)) πT .Qnt ∧
+      Check β Φ L [] .None Γ a T' πa .Qnt ∧ Check β Φ L [] .None Γ b T' πb .Qnt ∧
+      Φ.conv (Ctx.δ Γ 0 (.Typ (.Qua .Many))) (Ctx.δ Γ 0 T) ∧
+      π = Uses.zero ∧ u = Term.era q (.Eql .Qnt .Qnt .Qnt) := by
+  generalize he : Term.Eql a b T' = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case eql hT ha hb _ _ _ =>
+    cases he; exact ⟨_, _, _, hT, ha, hb, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨πT, πa, πb, hT, ha, hb, hcv, hπ, hu⟩ := ih he
+    exact ⟨πT, πa, πb, hT, ha, hb, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.rfl_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ .Rfl T π u) :
+    ∃ a b T0, Conv β (Ctx.δ Γ 0 a) (Ctx.δ Γ 0 b) ∧
+      Φ.conv (Ctx.δ Γ 0 (.Eql a b T0)) (Ctx.δ Γ 0 T) ∧
+      π = Uses.zero ∧ u = Term.era q .Rfl := by
+  generalize he : Term.Rfl = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case rfl hab => exact ⟨_, _, _, hab, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨a, b, T0, hab, hcv, hπ, hu⟩ := ih he
+    exact ⟨a, b, T0, hab, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.rwt_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Rwt e P f) T π u) :
+    ∃ a b T0 πe ue πP πf uf, Check β Φ L [] q Γ e (.Eql a b T0) πe ue ∧
+      Check β Φ L [] .None Γ P (Term.jmotive a T0) πP .Qnt ∧
+      Check β Φ L [] q Γ f (.App (.App P a) .Rfl) πf uf ∧
+      Φ.conv (Ctx.δ Γ 0 (.App (.App P b) e)) (Ctx.δ Γ 0 T) ∧
+      π = Uses.add πe πf ∧ u = Term.era q (.Rwt ue .Qnt uf) := by
+  generalize he : Term.Rwt e P f = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case rwt he0 hP hf _ _ _ =>
+    cases he; exact ⟨_, _, _, _, _, _, _, _, he0, hP, hf, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨a, b, T0, πe, ue, πP, πf, uf, he0, hP, hf, hcv, hπ, hu⟩ := ih he
+    exact ⟨a, b, T0, πe, ue, πP, πf, uf, he0, hP, hf, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.mat_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ (.Mat a c hh mm) T π u) :
+    ∃ A C r ps q' telF B G πh uh πm um,
+      Book.adt β a = some A ∧ AdtD.ctr A c = some C ∧ c ∉ r ∧ ps.length = A.pn ∧
+      (q ≠ .None → q' ≠ .None) ∧ Insts C.ty ps telF ∧
+      MatGoal q' C.fn B (Term.apps (.Ctr a c) ps) telF G ∧
+      Check β Φ (L.mat a c C.fn) [] q Γ hh G πh uh ∧
+      Check β Φ L [] q Γ mm (.All q' (Term.apps (.Adt a (c :: r)) ps) B) πm um ∧
+      Φ.conv (Ctx.δ Γ 0 (.All q' (Term.apps (.Adt a r) ps) B)) (Ctx.δ Γ 0 T) ∧
+      π = Uses.join πh πm ∧ u = Term.era q (.Mat a c uh um) := by
+  generalize he : Term.Mat a c hh mm = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case mat hk hc0 hr hlen hlive hins hgoal hh0 hm0 _ _ =>
+    cases he
+    exact ⟨_, _, _, _, _, _, _, _, _, _, _, _, hk, hc0, hr, hlen, hlive, hins, hgoal, hh0, hm0,
+      hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨A, C, r, ps, q', telF, B, G, πh, uh, πm, um, hk, hc0, hr, hlen, hlive, hins, hgoal,
+      hh0, hm0, hcv, hπ, hu⟩ := ih he
+    exact ⟨A, C, r, ps, q', telF, B, G, πh, uh, πm, um, hk, hc0, hr, hlen, hlive, hins, hgoal,
+      hh0, hm0, hΦ.trans hcv hc, hπ, hu⟩
+
+theorem Check.efq_inv (hΦ : Pol.Pre Φ) {sp : List Term} (h : Check β Φ L sp q Γ .Efq T π u) :
+    ∃ a A r q' ps B, Book.adt β a = some A ∧ (q ≠ .None → q' ≠ .None) ∧
+      (Book.empty β a r ∨ Φ.efq Γ) ∧
+      Φ.conv (Ctx.δ Γ 0 (.All q' (Term.apps (.Adt a r) ps) B)) (Ctx.δ Γ 0 T) ∧
+      π = Uses.zero ∧ u = Term.era q .Efq := by
+  generalize he : Term.Efq = t0 at h
+  induction h <;> try exact Term.noConfusion he
+  case efq hk hlive hd => exact ⟨_, _, _, _, _, _, hk, hlive, hd, hΦ.refl _, _root_.rfl, _root_.rfl⟩
+  case cnv _ hc ih =>
+    obtain ⟨a, A, r, q', ps, B, hk, hlive, hd, hcv, hπ, hu⟩ := ih he
+    exact ⟨a, A, r, q', ps, B, hk, hlive, hd, hΦ.trans hcv hc, hπ, hu⟩
+
+-- ============================================================================
+-- METATHEORY §E2 — spines: a checked application spine walks the head's
+-- type one fitted All at a time (Args: the arguments' demands, measures
+-- and erasures collected along), and a walk rebuilds the checked spine.
+-- ============================================================================
+
+theorem Quant.add_assoc : ∀ a b c : Quant,
+    Quant.add (Quant.add a b) c = Quant.add a (Quant.add b c) := by
+  intro a b c; cases a <;> cases b <;> cases c <;> rfl
+
+theorem Uses.add_zero (π : Uses) : Uses.add π Uses.zero = π := by
+  funext i; show Quant.add (π i) .None = π i; cases π i <;> rfl
+
+theorem Uses.zero_add (π : Uses) : Uses.add Uses.zero π = π := by
+  funext i; rfl
+
+theorem Uses.add_assoc (a b c : Uses) :
+    Uses.add (Uses.add a b) c = Uses.add a (Uses.add b c) := by
+  funext i; exact Quant.add_assoc _ _ _
+
+theorem Term.era_apps_era (q : Quant) (f : Term) (us : List Term) :
+    Term.era q (Term.apps (Term.era q f) us) = Term.era q (Term.apps f us) := by
+  cases q <;> rfl
+
+theorem Check.era_self {sp : List Term} (h : Check β Φ L sp q Γ t T π u) :
+    Term.era q u = u := by
+  cases q
+  · exact (h.none_era _root_.rfl).symm
+  all_goals rfl
+
+-- the let expansion enters an All and commutes with a substitution below
+-- its depth
+theorem Ctx.δ_all : ∀ (Γ : Ctx) (d : Nat) (q : Quant) (A B : Term),
+    Ctx.δ Γ d (.All q A B) = .All q (Ctx.δ Γ d A) (Ctx.δ Γ (d + 1) B) := by
+  intro Γ
+  induction Γ with
+  | nil => intros; rfl
+  | cons b Γ ih =>
+    intro d q A B
+    obtain ⟨_, _, v⟩ := b
+    cases v <;> simp only [Ctx.δ, Term.subst, ih]
+    rfl
+
+theorem Ctx.δ_typ : ∀ (Γ : Ctx) (d : Nat) (g : Term),
+    Ctx.δ Γ d (.Typ g) = .Typ (Ctx.δ Γ d g) := by
+  intro Γ
+  induction Γ with
+  | nil => intros; rfl
+  | cons b Γ ih =>
+    intro d g
+    obtain ⟨_, _, v⟩ := b
+    cases v <;> simp only [Ctx.δ, Term.subst, ih]
+
+theorem Ctx.δ_subst : ∀ (Γ : Ctx) (d e : Nat) (x B : Term), d ≤ e →
+    Ctx.δ Γ e (Term.subst d x B) = Term.subst d (Ctx.δ Γ e x) (Ctx.δ Γ (e + 1) B) := by
+  intro Γ
+  induction Γ with
+  | nil => intros; rfl
+  | cons b Γ ih =>
+    intro d e x B hde
+    obtain ⟨_, _, v⟩ := b
+    cases v <;> simp only [Ctx.δ]
+    · exact ih d (e + 1) x B (by omega)
+    · rw [Term.subst_subst B e d _ x hde, ih d e _ _ hde, Term.shift_shiftN e d _ hde]
+
+inductive Args (β : Book) (Φ : Pol) (L : LHS) (q : Quant) (Γ : Ctx) :
+    Term → List Term → Term → Uses → List Term → Prop
+  | nil  : Args β Φ L q Γ T [] T Uses.zero []
+  | cons : Φ.conv (Ctx.δ Γ 0 T0) (Ctx.δ Γ 0 (.All q' A B)) →
+           Check β Φ L [] (Quant.dem q' q) Γ a A πa ua →
+           Args β Φ L q Γ (Term.subst 0 a B) as T πs us →
+           Args β Φ L q Γ T0 (a :: as) T (Uses.add πa πs) (ua :: us)
+
+theorem Args.length (h : Args β Φ L q Γ T0 as T πs us) : us.length = as.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ _ ih => simp [ih]
+
+-- a walk restarts at any type fitting its start
+theorem Args.le_start (hΦ : Pol.Pre Φ) (h : Args β Φ L q Γ T0 as T πs us)
+    (hc : Φ.conv (Ctx.δ Γ 0 X) (Ctx.δ Γ 0 T0)) :
+    ∃ T', Args β Φ L q Γ X as T' πs us ∧ Φ.conv (Ctx.δ Γ 0 T') (Ctx.δ Γ 0 T) := by
+  cases h with
+  | nil => exact ⟨X, .nil, hc⟩
+  | cons hc0 ha hr => exact ⟨_, .cons (hΦ.trans hc hc0) ha hr, hΦ.refl _⟩
+
+theorem Args.split (h : Args β Φ L q Γ T0 (as ++ bs) T πs us) :
+    ∃ Tm πa ua πb ub, Args β Φ L q Γ T0 as Tm πa ua ∧ Args β Φ L q Γ Tm bs T πb ub ∧
+      πs = Uses.add πa πb ∧ us = ua ++ ub := by
+  induction as generalizing T0 πs us with
+  | nil => exact ⟨T0, Uses.zero, [], πs, us, .nil, h, (Uses.zero_add πs).symm, _root_.rfl⟩
+  | cons a as ih =>
+    simp only [List.cons_append] at h
+    cases h with
+    | cons hc ha hr =>
+      obtain ⟨Tm, πa, ua, πb, ub, h1, h2, hπ, hu⟩ := ih hr
+      subst hπ hu
+      exact ⟨Tm, _, _, πb, ub, .cons hc ha h1, h2, (Uses.add_assoc _ _ _).symm, _root_.rfl⟩
+
+-- inversion of a whole application spine (a Lam head may be a beta redex:
+-- excluded)
+theorem Check.apps_inv (hΦ : Pol.Pre Φ) {sp : List Term} :
+    ∀ (as : List Term) (f : Term), (∀ g, f ≠ .Lam g) →
+    Check β Φ L sp q Γ (Term.apps f as) T π u →
+    ∃ T0 π0 u0 T1 πs us, Check β Φ L (as ++ sp) q Γ f T0 π0 u0 ∧
+      Args β Φ L q Γ T0 as T1 πs us ∧ Φ.conv (Ctx.δ Γ 0 T1) (Ctx.δ Γ 0 T) ∧
+      π = Uses.add π0 πs ∧ u = Term.era q (Term.apps u0 us) := by
+  intro as
+  induction as with
+  | nil =>
+    intro f _ h
+    exact ⟨T, π, u, T, Uses.zero, [], h, .nil, hΦ.refl _, (Uses.add_zero π).symm,
+      h.era_self.symm⟩
+  | cons a as ih =>
+    intro f hl h
+    obtain ⟨T0, π0, u0, T1, πs, us, hfa, hargs, hle, hπ, hu⟩ :=
+      ih (.App f a) (fun _ e => Term.noConfusion e) h
+    rcases hfa.app_inv hΦ with ⟨q', A, B, πf, uf, πa, ua, hf, ha, hle', hπ', hu'⟩ | ⟨g, _, hg, _⟩
+    · obtain ⟨T1', hargs', hle''⟩ := hargs.le_start hΦ hle'
+      subst hπ hu hπ' hu'
+      exact ⟨_, πf, uf, T1', _, _, hf, .cons (hΦ.refl _) ha hargs', hΦ.trans hle'' hle,
+        Uses.add_assoc _ _ _, Term.era_apps_era q (.App uf ua) us⟩
+    · exact absurd hg (hl g)
+
+-- a walk rebuilds the checked spine (cnv at each App)
+theorem Check.apps {sp : List Term} (h : Check β Φ L (as ++ sp) q Γ f T0 π0 u0)
+    (hargs : Args β Φ L q Γ T0 as T1 πs us) :
+    Check β Φ L sp q Γ (Term.apps f as) T1 (Uses.add π0 πs) (Term.era q (Term.apps u0 us)) := by
+  induction hargs generalizing f π0 u0 with
+  | nil => simpa only [Term.apps, List.nil_append, Uses.add_zero, h.era_self] using h
+  | cons hc ha _ ih =>
+    have := ih (Check.app (Check.cnv h hc) ha)
+    rw [Term.era_apps_era, Uses.add_assoc] at this
+    exact this
+
+-- ============================================================================
+-- METATHEORY §E3 — telescopes: substitution and retip transport the shaped
+-- constructor telescopes, a walk against one lands on the family instance,
+-- and the fired arm's goal walks against the scrutinee's fields.
+-- ============================================================================
+
+theorem Term.map_subst_shift (x : Term) : ∀ (ps : List Term),
+    (ps.map (Term.shift 0)).map (Term.subst 0 x) = ps := by
+  intro ps
+  induction ps with
+  | nil => rfl
+  | cons p ps ih => simp [ih, Term.subst_shift]
+
+theorem Term.map_shift_subst (d : Nat) (w : Term) : ∀ (ps : List Term),
+    (ps.map (Term.shift 0)).map (Term.subst (d + 1) (Term.shift 0 w))
+      = (ps.map (Term.subst d w)).map (Term.shift 0) := by
+  intro ps
+  induction ps with
+  | nil => rfl
+  | cons p ps ih => simp only [List.map, ih, Term.shift_subst_lt p 0 d w (Nat.zero_le d)]
+
+theorem FTele.subst : ∀ {k : Nat} {ps : List Term} {B : Term},
+    FTele a r ps k B → ∀ (d : Nat) (w : Term),
+    FTele a r (ps.map (Term.subst d w)) k (Term.subst d w B) := by
+  intro k
+  induction k with
+  | zero =>
+    intro ps B h d w
+    simp only [FTele] at h ⊢
+    subst h
+    rw [Term.subst_apps]; rfl
+  | succ k ih =>
+    intro ps B h d w
+    obtain ⟨qf, F, B0, hB, hrest⟩ := h
+    subst hB
+    refine ⟨qf, _, _, _root_.rfl, ?_⟩
+    have h2 := ih hrest (d + 1) (Term.shift 0 w)
+    rwa [Term.map_shift_subst] at h2
+
+theorem WTele.subst : ∀ {pn : Nat} {ps : List Term} {B : Term},
+    WTele a r ps pn fn B → ∀ (d : Nat) (w : Term),
+    WTele a r (ps.map (Term.subst d w)) pn fn (Term.subst d w B) := by
+  intro pn
+  induction pn with
+  | zero => intro ps B h d w; exact FTele.subst h d w
+  | succ pn ih =>
+    intro ps B h d w
+    obtain ⟨q, K, B0, hB, hrest⟩ := h
+    subst hB
+    refine ⟨q, _, _, _root_.rfl, ?_⟩
+    have h2 := ih hrest (d + 1) (Term.shift 0 w)
+    rwa [List.map_append, Term.map_shift_subst, show [Term.Var 0].map (Term.subst (d + 1) (Term.shift 0 w))
+      = [Term.Var 0] by simp [Term.subst]] at h2
+
+-- one parameter step and one field step: binding the next binder to x
+theorem WTele.param (h : WTele a r ps (pn + 1) fn T) :
+    ∃ q K B, T = .All q K B ∧ WTele a r (ps.map (Term.shift 0) ++ [.Var 0]) pn fn B ∧
+      WTele a r (ps ++ [x]) pn fn (Term.subst 0 x B) := by
+  obtain ⟨q, K, B, hT, hrest⟩ := h
+  refine ⟨q, K, B, hT, hrest, ?_⟩
+  have h2 := WTele.subst hrest 0 x
+  rwa [List.map_append, Term.map_subst_shift, show [Term.Var 0].map (Term.subst 0 x) = [x]
+    by simp [Term.subst]] at h2
+
+theorem FTele.field (h : FTele a r ps (k + 1) T) :
+    ∃ qf F B, T = .All qf F B ∧ FTele a r (ps.map (Term.shift 0)) k B ∧
+      FTele a r ps k (Term.subst 0 x B) := by
+  obtain ⟨qf, F, B, hT, hrest⟩ := h
+  refine ⟨qf, F, B, hT, hrest, ?_⟩
+  have h2 := FTele.subst hrest 0 x
+  rwa [Term.map_subst_shift] at h2
+
+-- retip re-tips a shaped telescope (its first pn binders now erased)
+theorem Term.retip_adt_apps (a : Nat) (r r' : List Nat) (ps : List Term) :
+    Term.retip r' 0 0 (Term.apps (.Adt a r) ps) = Term.apps (.Adt a r') ps := by
+  simp only [Term.retip, Term.spine_apps (h := .Adt a r) trivial]
+
+theorem FTele.retip (r' : List Nat) : ∀ {k : Nat} {ps : List Term} {T : Term},
+    FTele a r ps k T → FTele a r' ps k (Term.retip r' 0 k T) := by
+  intro k
+  induction k with
+  | zero =>
+    intro ps T h
+    simp only [FTele] at h ⊢
+    subst h
+    exact Term.retip_adt_apps a r r' ps
+  | succ k ih =>
+    intro ps T h
+    obtain ⟨qf, F, B, hT, hrest⟩ := h
+    subst hT
+    exact ⟨qf, F, _, _root_.rfl, ih hrest⟩
+
+theorem WTele.retip (r' : List Nat) : ∀ {pn : Nat} {ps : List Term} {T : Term},
+    WTele a r ps pn fn T → WTele a r' ps pn fn (Term.retip r' pn (pn + fn) T) := by
+  intro pn
+  induction pn with
+  | zero => intro ps T h; rw [Nat.zero_add]; exact FTele.retip r' h
+  | succ pn ih =>
+    intro ps T h
+    obtain ⟨q, K, B, hT, hrest⟩ := h
+    subst hT
+    rw [show pn + 1 + fn = pn + fn + 1 by omega]
+    exact ⟨.None, K, _, _root_.rfl, ih hrest⟩
+
+theorem FTele.retip_subst : ∀ {k : Nat} {ps : List Term} {B : Term},
+    FTele a r ps k B → ∀ (r' : List Nat) (d : Nat) (w : Term),
+    Term.subst d w (Term.retip r' 0 k B) = Term.retip r' 0 k (Term.subst d w B) := by
+  intro k
+  induction k with
+  | zero =>
+    intro ps B h r' d w
+    simp only [FTele] at h
+    subst h
+    rw [Term.retip_adt_apps, Term.subst_apps, Term.subst_apps]
+    exact (Term.retip_adt_apps a r r' _).symm
+  | succ k ih =>
+    intro ps B h r' d w
+    obtain ⟨qf, F, B0, hB, hrest⟩ := h
+    subst hB
+    show Term.All qf (Term.subst d w F) (Term.subst (d + 1) (Term.shift 0 w) (Term.retip r' 0 k B0))
+      = Term.All qf (Term.subst d w F) (Term.retip r' 0 k (Term.subst (d + 1) (Term.shift 0 w) B0))
+    rw [ih hrest]
+
+theorem WTele.retip_subst : ∀ {pn : Nat} {ps : List Term} {B : Term},
+    WTele a r ps pn fn B → ∀ (r' : List Nat) (d : Nat) (w : Term),
+    Term.subst d w (Term.retip r' pn (pn + fn) B)
+      = Term.retip r' pn (pn + fn) (Term.subst d w B) := by
+  intro pn
+  induction pn with
+  | zero => intro ps B h r' d w; rw [Nat.zero_add]; exact FTele.retip_subst h r' d w
+  | succ pn ih =>
+    intro ps B h r' d w
+    obtain ⟨q, K, B0, hB, hrest⟩ := h
+    subst hB
+    rw [show pn + 1 + fn = pn + fn + 1 by omega]
+    show Term.All .None (Term.subst d w K) (Term.subst (d + 1) (Term.shift 0 w) (Term.retip r' pn (pn + fn) B0))
+      = Term.All .None (Term.subst d w K) (Term.retip r' pn (pn + fn) (Term.subst (d + 1) (Term.shift 0 w) B0))
+    rw [ih hrest]
+
+-- instantiating convertible telescopes at pointwise convertible arguments
+theorem Insts.conv (hβ : Book.Closed β) :
+    ∀ {ps : List Term} {T X : Term}, Insts T ps X →
+    ∀ {T' Y : Term} {qs : List Term}, Insts T' qs Y →
+    Conv β T T' → Convs β ps qs → Conv β X Y := by
+  intro ps
+  induction ps with
+  | nil => intro T X h T' Y qs h' hc hcs; cases h; cases hcs; cases h'; exact hc
+  | cons p ps ih =>
+    intro T X h T' Y qs h' hc hcs
+    cases h with
+    | cons hrest =>
+      cases hcs with
+      | cons hpq hrest2 =>
+        cases h' with
+        | cons hrest' =>
+          obtain ⟨_, hA, hB⟩ := hc.all_inv
+          exact ih hrest hrest' (Conv.subst hβ hB hpq 0) hrest2
+
+-- one step of a walk against a syntactic All: the argument checks at the
+-- All's domain, and the rest walks the substituted codomains, still fitted
+theorem Args.step (hβ : Book.Closed β)
+    (hle : Le β (Ctx.δ Γ 0 (.All qw K Bw)) (Ctx.δ Γ 0 T0))
+    (h : Args β (Pol.std β) L q Γ T0 (x :: as) T1 πs us) :
+    ∃ πx ux πs' us' B1, πs = Uses.add πx πs' ∧ us = ux :: us' ∧
+      Check β (Pol.std β) L [] (Quant.dem qw q) Γ x K πx ux ∧
+      Le β (Ctx.δ Γ 0 (Term.subst 0 x Bw)) (Ctx.δ Γ 0 (Term.subst 0 x B1)) ∧
+      Args β (Pol.std β) L q Γ (Term.subst 0 x B1) as T1 πs' us' := by
+  cases h with
+  | cons hc hx hr =>
+    rename_i q1 A1 B1 πx ux πs' us'
+    have ra : Red β .strong (Ctx.δ Γ 0 (.All qw K Bw)) (.All qw (Ctx.δ Γ 0 K) (Ctx.δ Γ 1 Bw)) := by
+      rw [Ctx.δ_all]; exact .refl
+    have rb : Red β .strong (Ctx.δ Γ 0 (.All q1 A1 B1)) (.All q1 (Ctx.δ Γ 0 A1) (Ctx.δ Γ 1 B1)) := by
+      rw [Ctx.δ_all]; exact .refl
+    obtain ⟨rfl, hA, hB⟩ := Le.all_inv hβ (Le.trans hβ hle hc) ra rb
+    refine ⟨_, _, _, _, _, _root_.rfl, _root_.rfl, Check.cnv hx hA, ?_, hr⟩
+    rw [Ctx.δ_subst Γ 0 0 _ _ (Nat.le_refl 0), Ctx.δ_subst Γ 0 0 _ _ (Nat.le_refl 0)]
+    exact Le.subst hβ hB 0 _
+
+-- the constructor walk: too few arguments leaves a function type, exactly
+-- enough lands on the family instance, too many is impossible
+theorem Args.wtele (hβ : Book.Closed β) :
+    ∀ {as : List Term} {pn fn : Nat} {ps : List Term} {Tw T0 T1 : Term} {πs : Uses} {us : List Term},
+    WTele a r ps pn fn Tw → Args β (Pol.std β) L q Γ T0 as T1 πs us →
+    Le β (Ctx.δ Γ 0 Tw) (Ctx.δ Γ 0 T0) →
+    (as.length < pn + fn ∧ ∃ qA A B, Le β (Ctx.δ Γ 0 (.All qA A B)) (Ctx.δ Γ 0 T1)) ∨
+    (as.length = pn + fn ∧
+      Le β (Ctx.δ Γ 0 (Term.apps (.Adt a r) (ps ++ as.take pn))) (Ctx.δ Γ 0 T1)) := by
+  intro as
+  induction as with
+  | nil =>
+    intro pn fn ps Tw T0 T1 πs us hw h hle
+    cases h
+    cases pn with
+    | zero =>
+      cases fn with
+      | zero => simp only [WTele, FTele] at hw; subst hw; right; simpa using hle
+      | succ fk => obtain ⟨qf, F, B, hT, _⟩ := hw; subst hT; left; exact ⟨by simp, _, _, _, hle⟩
+    | succ pk => obtain ⟨q0, K, B, hT, _⟩ := hw; subst hT; left; exact ⟨by show 0 < pk + 1 + fn; omega, _, _, _, hle⟩
+  | cons x as ih =>
+    intro pn fn ps Tw T0 T1 πs us hw h hle
+    cases pn with
+    | succ pk =>
+      obtain ⟨qw, K, Bw, hT, _, hw'⟩ := WTele.param (x := x) hw
+      subst hT
+      obtain ⟨πx, ux, πs', us', B1, _, _, _, hB, hr⟩ := Args.step hβ hle h
+      rcases ih hw' hr hB with ⟨hlt, hex⟩ | ⟨hlen, hcv⟩
+      · left; exact ⟨by simp; omega, hex⟩
+      · right; refine ⟨by simp at hlen ⊢; omega, ?_⟩
+        simpa [List.take, List.append_assoc] using hcv
+    | zero =>
+      cases fn with
+      | zero =>
+        exfalso
+        simp only [WTele, FTele] at hw
+        subst hw
+        cases h with
+        | cons hc _ _ =>
+          have := Le.trans hβ hle hc
+          rw [Ctx.δ_apps, Ctx.δ_closed Γ 0 (.Adt a r) (by trivial), Ctx.δ_all] at this
+          exact this.adt_all
+      | succ fk =>
+        obtain ⟨qf, F, Bw, hT, _, hw'⟩ := FTele.field (x := x) hw
+        subst hT
+        obtain ⟨πx, ux, πs', us', B1, _, _, _, hB, hr⟩ := Args.step hβ hle h
+        rcases ih (pn := 0) hw' hr hB with ⟨hlt, hex⟩ | ⟨hlen, hcv⟩
+        · left; exact ⟨by simp at hlt ⊢; omega, hex⟩
+        · right; exact ⟨by simp at hlen ⊢; omega, by simpa using hcv⟩
+
+-- the parameter prefix of a walk against a re-tipped constructor telescope
+-- instantiates the telescope, leaving the field telescope shaped and fitted
+theorem Args.params (hβ : Book.Closed β) :
+    ∀ {qs : List Term} {pn : Nat} {ps0 : List Term} {Tw T0 Tm : Term} {πp : Uses} {up : List Term},
+    WTele a r ps0 pn fn Tw → Args β (Pol.std β) L q Γ T0 qs Tm πp up →
+    Le β (Ctx.δ Γ 0 (Term.retip r' pn (pn + fn) Tw)) (Ctx.δ Γ 0 T0) → qs.length = pn →
+    ∃ TS, Insts Tw qs TS ∧ FTele a r (ps0 ++ qs) fn TS ∧
+      Le β (Ctx.δ Γ 0 (Term.retip r' 0 fn TS)) (Ctx.δ Γ 0 Tm) := by
+  intro qs
+  induction qs with
+  | nil =>
+    intro pn ps0 Tw T0 Tm πp up hw h hle hlen
+    cases h
+    cases pn with
+    | zero => rw [Nat.zero_add] at hle; exact ⟨Tw, .nil, by rw [List.append_nil]; exact hw, hle⟩
+    | succ pk => simp at hlen
+  | cons x qs ih =>
+    intro pn ps0 Tw T0 Tm πp up hw h hle hlen
+    cases pn with
+    | zero => simp at hlen
+    | succ pk =>
+      obtain ⟨qw, K, Bw, hT, hwB, hw'⟩ := WTele.param (x := x) hw
+      subst hT
+      rw [show pk + 1 + fn = pk + fn + 1 by omega] at hle
+      obtain ⟨πx, ux, πs', us', B1, _, _, _, hB, hr⟩ :=
+        Args.step hβ (qw := .None) (K := K) (Bw := Term.retip r' pk (pk + fn) Bw) hle h
+      rw [WTele.retip_subst hwB r' 0 x] at hB
+      obtain ⟨TS, hI, hF, hle'⟩ := ih hw' hr hB (by simp at hlen; omega)
+      exact ⟨TS, .cons hI, by simpa [List.append_assoc] using hF, hle'⟩
+
+-- the field walk restarts exactly on the shaped field telescope, whatever
+-- re-tipping it was walked through, and lands on the family instance; the
+-- walked re-tipped instance fits the walk's end
+theorem Args.ftele (hβ : Book.Closed β) :
+    ∀ {xs : List Term} {fn : Nat} {ps : List Term} {TS T0 T1 : Term} {πs : Uses} {us : List Term},
+    FTele a r ps fn TS → Args β (Pol.std β) L q Γ T0 xs T1 πs us →
+    Le β (Ctx.δ Γ 0 (Term.retip r' 0 fn TS)) (Ctx.δ Γ 0 T0) → xs.length = fn →
+    Args β (Pol.std β) L q Γ TS xs (Term.apps (.Adt a r) ps) πs us ∧
+      Le β (Ctx.δ Γ 0 (Term.apps (.Adt a r') ps)) (Ctx.δ Γ 0 T1) := by
+  intro xs
+  induction xs with
+  | nil =>
+    intro fn ps TS T0 T1 πs us hF h hle hlen
+    cases h
+    cases fn with
+    | zero =>
+      simp only [FTele] at hF; subst hF
+      rw [Term.retip_adt_apps] at hle
+      exact ⟨.nil, hle⟩
+    | succ fk => simp at hlen
+  | cons x xs ih =>
+    intro fn ps TS T0 T1 πs us hF h hle hlen
+    cases fn with
+    | zero => simp at hlen
+    | succ fk =>
+      obtain ⟨qf, F, Bs, hT, hFB, hF'⟩ := FTele.field (x := x) hF
+      subst hT
+      obtain ⟨πx, ux, πs', us', B1, rfl, rfl, hx, hB, hr⟩ :=
+        Args.step hβ (qw := qf) (K := F) (Bw := Term.retip r' 0 fk Bs) hle h
+      rw [FTele.retip_subst hFB r' 0 x] at hB
+      obtain ⟨hw, hle'⟩ := ih hF' hr hB (by simp at hlen; omega)
+      exact ⟨.cons (Le.refl _) hx hw, hle'⟩
+
+theorem Quant.dem_mul (h : q ≠ .None → q' ≠ .None) :
+    Quant.dem (Quant.mul qf q') q = Quant.dem qf (Quant.dem q' q) := by
+  cases q <;> cases q' <;> cases qf <;> simp_all [Quant.dem, Quant.mul, Quant.add]
+
+-- the fired arm walks its goal against the scrutinee's field checks: the
+-- goal's field telescope fits the walked one, the demands reassociate, and
+-- the tip lands on the motive at the rebuilt constructor
+theorem MatGoal.apply (hβ : Book.Closed β) :
+    ∀ (n : Nat) {B s tel G : Term}, MatGoal q' n B s tel G → (q ≠ .None → q' ≠ .None) →
+    ∀ {TS xs T1 πs us}, Args β (Pol.std β) L (Quant.dem q' q) Γ TS xs T1 πs us →
+    Le β (Ctx.δ Γ 0 tel) (Ctx.δ Γ 0 TS) → xs.length = n →
+    Args β (Pol.std β) L q Γ G xs (Term.subst 0 (Term.apps s xs) B) πs us := by
+  intro n
+  induction n with
+  | zero =>
+    intro B s tel G hg hq TS xs T1 πs us h hle hlen
+    cases hg
+    cases xs with
+    | nil => cases h; exact .nil
+    | cons => simp at hlen
+  | succ n ih =>
+    intro B s tel G hg hq TS xs T1 πs us h hle hlen
+    cases hg with
+    | succ hrest =>
+      rename_i Bf G0 qf F
+      cases xs with
+      | nil => simp at hlen
+      | cons x xs =>
+        obtain ⟨πx, ux, πs', us', B1, rfl, rfl, hx, hB, hr⟩ := Args.step hβ hle h
+        have hsub := hrest.subst 0 x
+        rw [Term.subst_shift B 1 _] at hsub
+        have es : Term.subst 0 x (.App (Term.shift 0 s) (.Var 0)) = .App s x := by
+          show Term.App _ _ = _
+          rw [Term.subst_shift s 0 x]; simp [Term.subst]
+        rw [es] at hsub
+        have hx' : Check β (Pol.std β) L [] (Quant.dem (Quant.mul qf q') q) Γ x F πx ux := by
+          rw [Quant.dem_mul hq]; exact hx
+        exact .cons (Le.refl _) hx' (ih hsub hq hr hB (by simp at hlen; omega))
+
+-- the signature walk: a family head applied to fewer parameters than its
+-- arity has a function type, to exactly its arity a kind
+theorem STele.subst (hβ : Book.Closed β) : ∀ {n : Nat} {T G : Term}, STele β n T G →
+    ∀ (d : Nat) (w : Term),
+    STele β n (Term.subst d w T) (Term.subst (d + n) (Term.shiftN n w) G) := by
+  intro n
+  induction n with
+  | zero => intro T G h d w; exact Red.subst hβ h d w
+  | succ n ih =>
+    intro T G h d w
+    obtain ⟨q, K, B, hT, hr⟩ := h
+    subst hT
+    refine ⟨q, _, _, _root_.rfl, ?_⟩
+    rw [show d + (n + 1) = d + 1 + n by omega, ← Term.shiftN_shift0]
+    exact ih hr (d + 1) (Term.shift 0 w)
+
+theorem Args.stele (hβ : Book.Closed β) :
+    ∀ {as : List Term} {n : Nat} {Tw G T0 T1 : Term} {πs : Uses} {us : List Term},
+    STele β n Tw G → Args β (Pol.std β) L q Γ T0 as T1 πs us →
+    Le β (Ctx.δ Γ 0 Tw) (Ctx.δ Γ 0 T0) →
+    (as.length < n ∧ ∃ qA A B, Le β (Ctx.δ Γ 0 (.All qA A B)) (Ctx.δ Γ 0 T1)) ∨
+    (as.length = n ∧ ∃ G', Le β (Ctx.δ Γ 0 (.Typ G')) (Ctx.δ Γ 0 T1)) := by
+  intro as
+  induction as with
+  | nil =>
+    intro n Tw G T0 T1 πs us hs h hle
+    cases h
+    cases n with
+    | zero => right; exact ⟨_root_.rfl, G, Le.red_l hβ (Ctx.δ_red hβ Γ 0 hs).strong hle⟩
+    | succ n => obtain ⟨q0, K, B, hT, _⟩ := hs; subst hT; left; exact ⟨by simp, _, _, _, hle⟩
+  | cons x as ih =>
+    intro n Tw G T0 T1 πs us hs h hle
+    cases n with
+    | zero =>
+      exfalso
+      cases h with
+      | cons hc _ _ =>
+        have := Le.red_l hβ (Ctx.δ_red hβ Γ 0 hs).strong (Le.trans hβ hle hc)
+        rw [Ctx.δ_typ, Ctx.δ_all] at this
+        exact this.typ_all
+    | succ n =>
+      obtain ⟨q0, K, Bw, hT, hs'⟩ := hs
+      subst hT
+      obtain ⟨πx, ux, πs', us', B1, _, _, _, hB, hr⟩ := Args.step hβ hle h
+      rcases ih (hs'.subst hβ 0 x) hr hB with ⟨hlt, hex⟩ | ⟨hlen, hcv⟩
+      · left; exact ⟨by simp at hlt ⊢; omega, hex⟩
+      · right; exact ⟨by simp at hlen ⊢; omega, hcv⟩
 
 end BendCore
