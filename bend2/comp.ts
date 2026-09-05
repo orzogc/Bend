@@ -1317,21 +1317,12 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
 
   const PASS: Kont = (_c, x) => x;
 
-  function cut(caps: Capture[], l: HLet, v: Open,
-    rest: (caps: Capture[], body: HTerm) => Open): Open {
+  function bind(caps: Capture[], l: HLet, v: Open,
+    rest: (caps: Capture[], body: HTerm) => Open, cut = false): Open {
     const { ps: [p], b } = term_open(l);
     const c2 = [...caps, { p, q: l.q[0], A: ty_ann(v(EMPTY)) }];
-    const kont = mint(cb, d, "k", c2, 1, () => rest(c2, b), 0,
-      [call_kind(cb, v(EMPTY))!.k]);
-    return (env) => Bend.Let(l.k, l.i, [v(env)],
-      (x) => Bend.App(kont(env), x[0]), l.s, l.q);
-  }
-
-  function bind(caps: Capture[], l: HLet, v: Open,
-    rest: (caps: Capture[], body: HTerm) => Open): Open {
-    const { ps: [p], b } = term_open(l);
-    const bd = { p, q: l.q[0], A: ty_ann(v(EMPTY)) };
-    const body = rest([...caps, bd], b);
+    const body = cut ? mint_caps(c2.slice(-1), mint(cb, d, "k", c2, 1,
+      () => rest(c2, b), 0, [call_kind(cb, v(EMPTY))!.k])) : rest(c2, b);
     return (env) => Bend.Let(l.k, l.i, [v(env)],
       (x) => body(new Map(env).set(p, x[0])), l.s, l.q);
   }
@@ -1445,7 +1436,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
       }
       if (call_is(cb, l.v[0]) && !flat_call(cb, l.v[0])) {
         return apps(caps, l.v[0], (c2, c) =>
-          cut(c2, l, c, (c3, b) => leaf(c3, b)));
+          bind(c2, l, c, (c3, b) => leaf(c3, b), true));
       }
       return expr(caps, l.v[0], null, (c2, v) =>
         bind(c2, l, v, (c3, b) => leaf(c3, b)));
@@ -1536,9 +1527,9 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     }
     if (call_is(cb, s) && !flat_call(cb, s)) {
       const l = Bend.Let(["h"], [0], [s], (x: HTerm[]) => x[0]);
-      return apps(caps, s, (c2, c) => cut(c2, l,
+      return apps(caps, s, (c2, c) => bind(c2, l,
         ty === null ? c : (env) => Bend.Ann(c(env), ty),
-        (c3, b) => k(c3, mint_lift(b))));
+        (c3, b) => k(c3, mint_lift(b)), true));
     }
     switch (s.$) {
       case "App": {
