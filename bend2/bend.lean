@@ -17922,8 +17922,14 @@ theorem Leaf.priced2 (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β 
         obtain ⟨Rv, hpr, hRvM, hRvb⟩ : ∃ Rv, (∃ M Y, CG βe (Term.inst 0 (EnvO.ρ env) uv) M ∧
             M.Perm (Y ++ Rv) ∧ ∀ y ∈ Y, Charge.lt y (k, pins)) ∧ (Rv ≠ [] → π0 0 ≠ .Many) ∧
             Sub Rv (EnvO.budget env πv) := by
+          obtain ⟨Yv, Rv0, hpm0, hY0, hR0⟩ := hpv
           by_cases hm : π0 0 = .Many
-          · have hqbM : qb = .Many := Quant.le_many_eq (hm ▸ hle)
+          · by_cases hall : ∀ y ∈ Rv0, Charge.lt y (k, pins)
+            · -- every charge the value lends is below the unfolded one: the
+              -- copies of the substitution are fine, and nothing is lent
+              exact ⟨[], ⟨Mv, Yv ++ Rv0, hMv, by simpa using hpm0,
+                fun y hy => (List.mem_append.mp hy).elim (hY0 y) (hall y)⟩, fun h => absurd rfl h, Sub.nil _⟩
+            have hqbM : qb = .Many := Quant.le_many_eq (hm ▸ hle)
             have hnl := hl (hok3.1 hqbM)
             have hc := st.clos hnl
             have hall := hnl.all_sub st.len
@@ -17938,8 +17944,7 @@ theorem Leaf.priced2 (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β 
             rw [heq] at hcl
             have hdata := Check.data_deep_aux hok hF hP hK _ (Nat.le_refl _) hcl hkΦ (Deep.era' hE hcd.2)
             exact ⟨[], ⟨[], [], hdata.1 βe, .refl _, by simp⟩, fun h => absurd rfl h, Sub.nil _⟩
-          · obtain ⟨Yv, Rv, hpm, hY, hR⟩ := hpv
-            exact ⟨Rv, ⟨Mv, Yv, hMv, hpm, hY⟩, fun _ => hm, hR⟩
+          · exact ⟨Rv0, ⟨Mv, Yv, hMv, hpm0, hY0⟩, fun _ => hm, hR0⟩
         obtain ⟨⟨M1, hM1, hpb⟩, _⟩ := ihb rfl (st.let qb A v ⟨Term.instL 0 (env.map Ent.src) v, _, Rv, true⟩ hvc hcd.1
             (fun _ => ⟨hcd.2, hpr, hdv, fun _ => hqv'⟩) (fun h => by cases h) (fun hnl _ => absurd hnl (hnlF _)))
           (l := true) (fun h => absurd h (by decide)) [] hok3.2.2 trivial rfl
@@ -18815,5 +18820,524 @@ theorem Unfold.meas_full_dead (hok : Book.Ok β) (hF : Book.Filled β) (hE : Boo
     ∃ M', CG βe (Term.apps ub us) M' ∧ MLt M' M :=
   Unfold.meas_full hok hF hE (DataPol.dead hok hS hη) (Book.OkK.dead hok) hk hb hT hbo hkE hbE h
     hlen hus hmany hM
+
+-- ============================================================================
+-- METATHEORY §Z — the claims. Everything above is assembled here: the
+-- engine (§N) runs a closed live term to a deep erasure, the Bad route
+-- (§G, §N3) refutes a deep inhabitant of an emptied family, and the
+-- step lemma (§F) retypes every live step
+-- ============================================================================
+
+-- the spec's live step is F's LStep with no condition on the fired
+-- redex's argument
+theorem LiveStep.lstep (h : LiveStep β t u t') : LStep β (fun _ _ => True) t u t' := by
+  induction h with
+  | beta => exact .beta fun _ _ _ => trivial
+  | let_ => exact .let_ fun _ _ _ => trivial
+  | dref hk hb hs hl => exact .dref hk hb hs hl
+  | aref hk hp => exact .aref hk hp
+  | matc hk hc hp hx => exact .matc hk hc hp hx
+  | matm hne => exact .matm hne
+  | rwt => exact .rwt
+  | minLM => exact .minLM
+  | minLN => exact .minLN
+  | minRM => exact .minRM
+  | minRN => exact .minRN
+  | minLL => exact .minLL
+  | min_a _ ih => exact .min_a ih
+  | min_b _ ih => exact .min_b ih
+  | app_f _ ih => exact .app_f ih
+  | app_a hl hx _ ih => exact .app_a hl hx ih
+  | mat_h _ ih => exact .mat_h ih
+  | mat_m _ ih => exact .mat_m ih
+  | rwt_e _ ih => exact .rwt_e ih
+  | rwt_f _ ih => exact .rwt_f ih
+  | let_v _ hv ih => exact .let_v ih hv
+
+-- Norm β t T: the engine's output — t weak-reduces to a closed live term
+-- of the same type whose erasure is deep
+def Norm (β : Book) (t T : Term) : Prop :=
+  ∃ t' π' u', Red β .weak t t' ∧
+    Check β (Pol.std β) (LHS.void β) [] .Lone [] t' T π' u' ∧ Deep β u'
+
+-- the engine: every closed live term of a filled Ok book with the wall
+-- up normalizes (well-founded induction on §N1's measure of the erasure)
+-- ----------------------------------------------------------------------------
+-- Erasure-directed inversion: a derivation whose erasure has a given root
+-- shape reaches, through appLam betas on the subject and cnv, the rule of
+-- that shape (the erasure is fixed; the subject weak-reduces)
+-- ----------------------------------------------------------------------------
+
+theorem Quant.le_lone (h : Quant.le p q) (hne : q ≠ .Many) : Quant.le p .Lone := by
+  cases q <;> cases p <;> simp_all [Quant.le]
+
+theorem Check.era_app (hβ : Book.Closed β) {sp : List Term}
+    (h : Check β (Pol.std β) L sp q Γ t T π u) (hL : L = LHS.void β) (hΓ : Γ = [])
+    (hq : q = .Lone) (hu : u = .App uf ux) :
+    ∃ f x q' A B πf πx, Red β .weak t (.App f x) ∧
+      Check β (Pol.std β) (LHS.void β) (x :: sp) .Lone [] f (.All q' A B) πf uf ∧
+      Check β (Pol.std β) (LHS.void β) [] (Quant.dem q' .Lone) [] x A πx ux ∧
+      Le β (Term.subst 0 x B) T := by
+  induction h with
+  | app hf hx =>
+    subst hL hΓ hq; rw [Term.era_lone] at hu; cases hu
+    exact ⟨_, _, _, _, _, _, _, .refl, hf, hx, Le.refl _⟩
+  | appLam _ _ ih =>
+    obtain ⟨f, x, q', A, B, πf, πx, hr, hf, hx, hle⟩ := ih hL hΓ hq hu
+    exact ⟨f, x, q', A, B, πf, πx, .step .beta hr, hf, hx, hle⟩
+  | cnv _ hle ih =>
+    subst hΓ
+    obtain ⟨f, x, q', A, B, πf, πx, hr, hf, hx, hle'⟩ := ih hL _root_.rfl hq hu
+    exact ⟨f, x, q', A, B, πf, πx, hr, hf, hx, hle'.trans hβ hle⟩
+  | _ => subst hq; simp at hu
+
+theorem Check.era_lam (hβ : Book.Closed β) {sp : List Term}
+    (h : Check β (Pol.std β) L sp q Γ t T π u) (hL : L = LHS.void β) (hΓ : Γ = [])
+    (hq : q = .Lone) (hu : u = .Lam ug) :
+    ∃ q' A B, (q' ≠ .Many → Term.occ 0 ug ≤ 1) ∧
+      (∃ πA, Check β (Pol.std β) (LHS.void β) [] .None [] A (.Typ (.Qua q')) πA .Qnt) ∧
+      Le β (.All q' A B) T := by
+  induction h with
+  | lam hA hf hle =>
+    subst hL hΓ hq; rw [Term.era_lone] at hu; cases hu
+    exact ⟨_, _, _, fun hne => hf.occ_le (Quant.le_lone hle hne), ⟨_, hA trivial⟩, Le.refl _⟩
+  | appLam _ _ ih => exact ih hL hΓ hq hu
+  | cnv _ hle ih =>
+    subst hΓ
+    obtain ⟨q', A, B, hocc, hA, hle'⟩ := ih hL _root_.rfl hq hu
+    exact ⟨q', A, B, hocc, hA, hle'.trans hβ hle⟩
+  | _ => subst hq; simp at hu
+
+theorem Check.era_let {sp : List Term}
+    (h : Check β (Pol.std β) L sp q Γ t T π u) (hL : L = LHS.void β) (hΓ : Γ = [])
+    (hq : q = .Lone) (hu : u = .Let qb uv ub) :
+    ∃ v A πv, Check β (Pol.std β) (LHS.void β) [] (Quant.dem qb .Lone) [] v A πv uv ∧
+      (qb ≠ .Many → Term.occ 0 ub ≤ 1) ∧
+      ∃ πA, Check β (Pol.std β) (LHS.void β) [] .None [] A (.Typ (.Qua qb)) πA .Qnt := by
+  induction h with
+  | let_ hv hA hb hle =>
+    subst hL hΓ hq; rw [Term.era_lone] at hu; cases hu
+    exact ⟨_, _, _, hv, fun hne => hb.occ_le (Quant.le_lone hle hne), _, hA trivial⟩
+  | appLam _ _ ih => exact ih hL hΓ hq hu
+  | cnv _ _ ih => exact ih hL hΓ hq hu
+  | _ => subst hq; simp at hu
+
+theorem Check.era_rwt {sp : List Term}
+    (h : Check β (Pol.std β) L sp q Γ t T π u) (hL : L = LHS.void β) (hΓ : Γ = [])
+    (hq : q = .Lone) (hu : u = .Rwt ue uP uf) :
+    ∃ e a b T0 πe, Check β (Pol.std β) (LHS.void β) [] .Lone [] e (.Eql a b T0) πe ue := by
+  induction h with
+  | rwt he _ _ =>
+    subst hL hΓ hq; rw [Term.era_lone] at hu; cases hu
+    exact ⟨_, _, _, _, _, he⟩
+  | appLam _ _ ih => exact ih hL hΓ hq hu
+  | cnv _ _ ih => exact ih hL hΓ hq hu
+  | _ => subst hq; simp at hu
+
+theorem Check.era_min {sp : List Term}
+    (h : Check β (Pol.std β) L sp q Γ t T π u) (hL : L = LHS.void β) (hΓ : Γ = [])
+    (hq : q = .Lone) (hu : u = .Min ua ub) :
+    ∃ a b πa πb, Check β (Pol.std β) (LHS.void β) [] .Lone [] a .Qnt πa ua ∧
+      Check β (Pol.std β) (LHS.void β) [] .Lone [] b .Qnt πb ub := by
+  induction h with
+  | min ha hb =>
+    subst hL hΓ hq; rw [Term.era_lone] at hu; cases hu
+    exact ⟨_, _, _, _, ha, hb⟩
+  | appLam _ _ ih => exact ih hL hΓ hq hu
+  | cnv _ _ ih => exact ih hL hΓ hq hu
+  | _ => subst hq; simp at hu
+
+-- a spine's erasure: every argument's derivation (E's Args), read off the
+-- erasure's spine from the right (N4's Args.snoc appends an argument)
+theorem snoc_ind {P : List Term → Prop} (h0 : P []) (hs : ∀ xs x, P xs → P (xs ++ [x])) :
+    ∀ xs, P xs := by
+  intro xs
+  rw [← List.reverse_reverse xs]
+  induction xs.reverse with
+  | nil => exact h0
+  | cons x ys ih => rw [List.reverse_cons]; exact hs _ _ ih
+
+theorem Check.era_spine (hβ : Book.Closed β) :
+    ∀ (us sp : List Term) {t T : Term} {π : Uses},
+    Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π (Term.apps u0 us) →
+    ∃ f as T0 π0 T1 πs, Check β (Pol.std β) (LHS.void β) (as ++ sp) .Lone [] f T0 π0 u0 ∧
+      Args β (Pol.std β) (LHS.void β) .Lone [] T0 as T1 πs us ∧ Le β T1 T := by
+  intro us
+  induction us using snoc_ind with
+  | h0 =>
+    intro sp t T π h
+    exact ⟨t, [], T, π, T, Uses.zero, h, .nil, Le.refl _⟩
+  | hs us x ih =>
+    intro sp t T π h
+    rw [Term.apps_snoc] at h
+    obtain ⟨f, x', q', A, B, πf, πx, _, hf, hx, hle⟩ :=
+      Check.era_app hβ h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+    obtain ⟨f', as, T0, π0, T1, πs, hf', hargs, hle'⟩ := ih _ hf
+    exact ⟨f', as ++ [x'], T0, π0, _, _, by simpa [List.append_assoc] using hf',
+      Args.snoc hargs hle' hx, hle⟩
+
+-- the typed side facts of a fired beta / let (N4's hypotheses): a Lone or
+-- None binder occurs at most once in the body's erasure; a Many binder
+-- holds a Data value, whose deep erasure prices and weighs nothing (N3b)
+theorem Check.beta_side (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataPol β Φ)
+    (hK : Book.OkK β Φ) {sp : List Term}
+    (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π (.App (.Lam uf) ua))
+    (hd : Deep β ua) :
+    Term.occ 0 uf ≤ 1 ∨ ((∀ β', CG β' ua []) ∧ ∀ β', Term.weight β' ua = 0) := by
+  have hβ := hok.closed
+  obtain ⟨f, x, q', A, B, πf, πx, _, hf, hx, _⟩ := Check.era_app hβ h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+  obtain ⟨q1, A1, B1, hocc, ⟨πA, hA⟩, hle⟩ := Check.era_lam hβ hf _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+  obtain ⟨rfl, hAA, _⟩ := Le.all_inv hβ hle .refl .refl
+  by_cases hm : q1 = .Many
+  · subst hm
+    exact .inr (Check.data_deep_aux hok hF hP hK _ (Nat.le_refl _) (hx.cnv hAA)
+      (hA.mono hP.std hP.efq (fun _ => trivial)) hd)
+  · exact .inl (hocc hm)
+
+theorem Check.let_side (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataPol β Φ)
+    (hK : Book.OkK β Φ) {sp : List Term}
+    (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π (.Let qb uv ub))
+    (hd : Deep β uv) :
+    Term.occ 0 ub ≤ 1 ∨ ((∀ β', CG β' uv []) ∧ ∀ β', Term.weight β' uv = 0) := by
+  have hβ := hok.closed
+  obtain ⟨v, A, πv, hv, hocc, πA, hA⟩ := Check.era_let h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+  by_cases hm : qb = .Many
+  · subst hm
+    exact .inr (Check.data_deep_aux hok hF hP hK _ (Nat.le_refl _) hv
+      (hA.mono hP.std hP.efq (fun _ => trivial)) hd)
+  · exact .inl (hocc hm)
+
+-- the columns of a definition spine: the def's type, walked by TeleQs with
+-- its kinding preserved along each weak step (K's dead preservation, the
+-- hypothesis hdead) and instantiated at the arguments, types every
+-- argument at a domain kinded at its column's quantity
+theorem Check.cols (hβ : Book.Closed β) (hΦ : Pol.Pre Φ) (hW : Φ.Weak)
+    (hstd : ∀ x y, Le β x y → Φ.conv x y) (hefq : ∀ Γ, CtxDead β Γ → Φ.efq Γ)
+    (hefqS : ∀ Γ b0 w, Φ.efq (Γ ++ [b0]) → Φ.efq (Ctx.substLast w Γ))
+    (hdead : ∀ {A A' K : Term} {π : Uses} {u : Term},
+      Check β Φ (LHS.void β) [] .None [] A K π u → Red β .weak A A' →
+      ∃ π' u', Check β Φ (LHS.void β) [] .None [] A' K π' u') :
+    ∀ (n : Nat) {qs : List Quant} {Tw : Term} {πT : Uses} {T0 : Term} {as : List Term}
+      {T1 : Term} {πs : Uses} {us : List Term},
+    TeleQs β Tw n qs → Check β Φ (LHS.void β) [] .None [] Tw (.Typ (.Qua .Lone)) πT .Qnt →
+    Args β (Pol.std β) (LHS.void β) .Lone [] T0 as T1 πs us → Le β Tw T0 → as.length ≤ n →
+    ∀ (i : Nat) (x ux : Term), as[i]? = some x → us[i]? = some ux →
+      ∃ A πx πA,
+        Check β (Pol.std β) (LHS.void β) [] (Quant.dem (qs.getD i .Lone) .Lone) [] x A πx ux ∧
+        Check β Φ (LHS.void β) [] .None [] A (.Typ (.Qua (qs.getD i .Lone))) πA .Qnt := by
+  intro n
+  induction n with
+  | zero =>
+    intro qs Tw πT T0 as T1 πs us _ _ _ _ hlen i x ux hx _
+    cases as with
+    | nil => simp at hx
+    | cons => simp at hlen
+  | succ n ih =>
+    intro qs Tw πT T0 as T1 πs us hT hK hargs hle hlen i x ux hx hux
+    cases hT with
+    | cons hred hT' =>
+    cases as with
+    | nil => simp at hx
+    | cons a as' =>
+      obtain ⟨π', u', hAll⟩ := hdead hK hred
+      obtain ⟨πA, πB, hA, hB, -, -, -⟩ := hAll.all_inv hΦ
+      obtain ⟨πx, ux', πs', us', B1, -, rfl, hxA, hleB, hargs'⟩ :=
+        Args.step hβ (Γ := []) (Le.red_l hβ hred.strong hle) hargs
+      cases i with
+      | zero =>
+        simp at hx hux; subst hx hux
+        exact ⟨_, πx, πA, hxA, hA⟩
+      | succ i =>
+        simp at hx hux hlen
+        have h0 := hxA.dead.mono hstd hefq (fun _ => trivial)
+        have hBx : Check β Φ (LHS.void β) [] .None [] (Term.subst 0 a _) (.Typ (.Qua .Lone))
+            (Uses.del 0 πB) .Qnt :=
+          Check.subst hβ hW (b0 := ⟨_, _, none⟩) (uw := .Qnt) hB hxA.closed trivial (.inl _root_.rfl) h0
+            (fun Γ h => hefqS Γ _ _ h) [] _root_.rfl (by decide) (fun h => absurd (hB.none_at 0) h)
+        simpa using ih (TeleQs.subst hβ hT' 0 a) hBx hargs' hleB (by omega) i x ux hx hux
+
+-- a Many column holds a Data value: its deep argument prices and weighs
+-- nothing (N3b)
+theorem Check.cols_many (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataPol β Φ)
+    (hK : Book.OkK β Φ) (hΦ : Pol.Pre Φ)
+    (hdead : ∀ {A A' K : Term} {π : Uses} {u : Term},
+      Check β Φ (LHS.void β) [] .None [] A K π u → Red β .weak A A' →
+      ∃ π' u', Check β Φ (LHS.void β) [] .None [] A' K π' u')
+    {n : Nat} {qs : List Quant} {Tw : Term} {πT : Uses} {T0 : Term} {as : List Term}
+    {T1 : Term} {πs : Uses} {us : List Term}
+    (hT : TeleQs β Tw n qs)
+    (hTy : Check β Φ (LHS.void β) [] .None [] Tw (.Typ (.Qua .Lone)) πT .Qnt)
+    (hargs : Args β (Pol.std β) (LHS.void β) .Lone [] T0 as T1 πs us) (hle : Le β Tw T0)
+    (hlen : as.length ≤ n) (i : Nat) (hq : qs.getD i .Lone = .Many)
+    (hux : us[i]? = some ux) (hd : Deep β ux) :
+    (∀ β', CG β' ux []) ∧ ∀ β', Term.weight β' ux = 0 := by
+  have hi : i < as.length := by
+    have := (List.getElem?_eq_some_iff.mp hux).1
+    rwa [hargs.length] at this
+  obtain ⟨A, πx, πA, hx, hA⟩ := Check.cols hok.closed hΦ hP.weak hP.std hP.efq hP.efqS hdead n
+    hT hTy hargs hle hlen i _ ux (List.getElem?_eq_getElem hi) hux
+  rw [hq] at hx hA
+  exact Check.data_deep_aux hok hF hP hK _ (Nat.le_refl _) hx hA hd
+
+-- a head erased to a definition reference is typed at the definition's type
+theorem Check.era_ref (hβ : Book.Closed β) {sp : List Term}
+    (h : Check β (Pol.std β) L sp q Γ t T π u) (hL : L = LHS.void β) (hΓ : Γ = [])
+    (hq : q = .Lone) (hu : u = .Ref k) (hk : Book.defn β k = some d) : Le β d.ty T := by
+  induction h with
+  | ref hk' _ _ _ =>
+    subst hL hΓ hq; rw [Term.era_lone] at hu; cases hu
+    rw [hk] at hk'; cases hk'; exact Le.refl _
+  | refA hA _ =>
+    subst hq; rw [Term.era_lone] at hu; cases hu
+    exact (Book.defn_adt_clash hk hA).elim
+  | appLam _ _ ih => exact ih hL hΓ hq hu
+  | cnv _ hle ih => subst hΓ; exact (ih hL _root_.rfl hq hu).trans hβ hle
+  | _ => subst hq; simp at hu
+
+-- ----------------------------------------------------------------------------
+-- The fired position (N4's Fired): below the strategy's congruences sits a
+-- closed live typed term whose erasure is the redex — or the token, at a
+-- dead argument, which the strategy never fires
+-- ----------------------------------------------------------------------------
+
+theorem Check.fired (hβ : Book.Closed β) {sp : List Term}
+    (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π u) (hf : Fired u r) :
+    r = .Qnt ∨ ∃ t' T' π' sp', Check β (Pol.std β) (LHS.void β) sp' .Lone [] t' T' π' r := by
+  induction hf generalizing t T π sp with
+  | root => exact .inr ⟨_, _, _, _, h⟩
+  | app_f _ ih =>
+    obtain ⟨_, _, _, _, _, _, _, _, hf, _, _⟩ :=
+      Check.era_app hβ h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+    exact ih hf
+  | app_a hfa ih =>
+    obtain ⟨_, _, q', _, _, _, _, _, _, hx, _⟩ :=
+      Check.era_app hβ h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+    cases q' with
+    | None => obtain rfl := hx.none_era _root_.rfl; cases hfa; exact .inl _root_.rfl
+    | Lone => exact ih hx
+    | Many => exact ih hx
+  | let_v hfv ih =>
+    rename_i v r' qb b
+    obtain ⟨_, _, _, hv, _, _⟩ := Check.era_let h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+    cases qb with
+    | None => obtain rfl := hv.none_era _root_.rfl; cases hfv; exact .inl _root_.rfl
+    | Lone => exact ih hv
+    | Many => exact ih hv
+  | rwt_e _ ih =>
+    obtain ⟨_, _, _, _, _, he⟩ := Check.era_rwt h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+    exact ih he
+  | min_a _ ih =>
+    obtain ⟨_, _, _, _, ha, _⟩ := Check.era_min h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+    exact ih ha
+  | min_b _ ih =>
+    obtain ⟨_, _, _, _, _, hb⟩ := Check.era_min h _root_.rfl _root_.rfl _root_.rfl _root_.rfl
+    exact ih hb
+
+theorem Check.fired_beta (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataPol β Φ)
+    (hK : Book.OkK β Φ) {sp : List Term}
+    (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π u)
+    (hf : Fired u (.App (.Lam uf) ua)) (hd : Deep β ua) :
+    Term.occ 0 uf ≤ 1 ∨ ((∀ β', CG β' ua []) ∧ ∀ β', Term.weight β' ua = 0) :=
+  match Check.fired hok.closed h hf with
+  | .inl e => Term.noConfusion e
+  | .inr ⟨_, _, _, _, h'⟩ => Check.beta_side hok hF hP hK h' hd
+
+theorem Check.fired_let (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataPol β Φ)
+    (hK : Book.OkK β Φ) {sp : List Term}
+    (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π u)
+    (hf : Fired u (.Let qb uv ub)) (hd : Deep β uv) :
+    Term.occ 0 ub ≤ 1 ∨ ((∀ β', CG β' uv []) ∧ ∀ β', Term.weight β' uv = 0) :=
+  match Check.fired hok.closed h hf with
+  | .inl e => Term.noConfusion e
+  | .inr ⟨_, _, _, _, h'⟩ => Check.let_side hok hF hP hK h' hd
+
+-- a fired definition spine: its arguments' derivations, walked from the
+-- definition's type
+theorem Check.fired_ref (hβ : Book.Closed β) {sp : List Term}
+    (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π u)
+    (hf : Fired u (Term.apps (.Ref k) us)) (hk : Book.defn β k = some d) :
+    ∃ T0 as T1 πs, Args β (Pol.std β) (LHS.void β) .Lone [] T0 as T1 πs us ∧ Le β d.ty T0 := by
+  rcases Check.fired hβ h hf with e | ⟨_, _, _, _, h'⟩
+  · exact (Term.apps_ne (by trivial) (by trivial) (fun e => Term.noConfusion e) e).elim
+  · obtain ⟨_, as, T0, _, T1, πs, hh, hargs, _⟩ := Check.era_spine hβ us _ h'
+    exact ⟨T0, as, T1, πs, hargs,
+      Check.era_ref hβ hh _root_.rfl _root_.rfl _root_.rfl _root_.rfl hk⟩
+
+-- a Many column of a fired saturated spine holds a chargeless, weightless
+-- deep argument
+theorem Check.fired_many (hok : Book.Ok β) (hF : Book.Filled β) (hP : DataPol β Φ)
+    (hK : Book.OkK β Φ) (hΦ : Pol.Pre Φ)
+    (hdead : ∀ {A A' K : Term} {π : Uses} {u : Term},
+      Check β Φ (LHS.void β) [] .None [] A K π u → Red β .weak A A' →
+      ∃ π' u', Check β Φ (LHS.void β) [] .None [] A' K π' u')
+    {sp : List Term} (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π u)
+    (hf : Fired u (Term.apps (.Ref k) us)) (hk : Book.defn β k = some d)
+    (hlen : us.length = d.n) (i : Nat) (hq : d.qs.getD i .Lone = .Many)
+    (hux : us[i]? = some ux) (hd : Deep β ux) :
+    (∀ β', CG β' ux []) ∧ ∀ β', Term.weight β' ux = 0 := by
+  obtain ⟨T0, as, T1, πs, hargs, hle⟩ := Check.fired_ref hok.closed h hf hk
+  obtain ⟨⟨πT, hTy⟩, hT, _⟩ := Book.Ok.defn hok hk
+  exact Check.cols_many hok hF hP hK hΦ hdead hT (hTy.void.mono hP.std hP.efq (fun _ => trivial)) hargs hle
+    (by have := hargs.length; omega) i hq hux hd
+
+-- the drive: while the erasure is not deep, N3's strategy step retypes
+-- the subject and N4's measure step lowers the pricing of the erasure
+-- (well-founded induction on N1's measure)
+theorem Norm.drive (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β w 0 β βe)
+    (meas : ∀ {t π u u' M}, Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u →
+      SStep βe u u' → CG βe u M →
+      ∃ M', CG βe u' M' ∧ MeasLt (M', Term.weight βe u') (M, Term.weight βe u))
+    (h : Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u) : Norm β t T := by
+  obtain ⟨M, hM⟩ := CG.exists (β := βe) u
+  refine MeasLt.wf.induction (C := fun m => ∀ t π u M, m = (M, Term.weight βe u) →
+    CG βe u M → Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u → Norm β t T)
+    (M, Term.weight βe u) ?_ t π u M rfl hM h
+  intro m ih t π u M hm hM h
+  subst hm
+  by_cases hd : Deep β u
+  · exact ⟨t, π, u, .refl, h, hd⟩
+  obtain ⟨t', u', π', hr, hs, h'⟩ := Check.sstep hok hF hE h hd
+  obtain ⟨M', hM', hlt⟩ := meas h hs hM
+  obtain ⟨t'', π'', u'', hr', h'', hd''⟩ := ih _ hlt t' π' u' M' rfl hM' h'
+  exact ⟨t'', π'', u'', hr.trans hr', h'', hd''⟩
+
+-- ----------------------------------------------------------------------------
+-- The two facts still being closed elsewhere, threaded as hypotheses:
+--   hη  : EtaSR β   (Kb; Kd's DataPol.dead_eta hok hη gives the dead policy's
+--                    kind facts; Kd2b will deliver DataPol.dead hok alone)
+--   hbo : BodiesOk β (N4's syntactic leaf condition on every body, taken by
+--                    Unfold.meas_full; N4c will drop it)
+-- The swap is marked SWAP below: two lines in Check.side, then the final
+-- block at the end of the file
+-- ----------------------------------------------------------------------------
+
+def BodiesOk (β : Book) : Prop :=
+  ∀ k d b, Book.defn β k = some d → d.body = some b → Term.BodyOk β d.n b
+
+-- N4's side facts at every fired position of a closed live erasure: the
+-- affine bound or the chargeless Data argument at a beta or let, and the
+-- unfold's decrease at a saturated definition spine
+theorem Check.side (hok : Book.Ok β) (hF : Book.Filled β) (hE : Book.Era β true 0 β βe)
+    (hη : EtaSR β) (hbo : BodiesOk β) {sp : List Term}
+    (h : Check β (Pol.std β) (LHS.void β) sp .Lone [] t T π u) : Side βe u := by
+  have hP := DataPol.dead_eta hok hη      -- SWAP: have hP := DataPol.dead hok
+  have hK := Book.OkK.dead hok
+  refine ⟨fun f a hf hd => ?_, fun q v b hf hd => ?_,
+    fun k dE b us M hf hkE hbE hlen hus hM => ?_⟩
+  · exact (Check.fired_beta hok hF hP hK h hf (hd.era' hE)).imp_right
+      fun ⟨h1, h2⟩ => ⟨h1 βe, h2 βe⟩
+  · exact (Check.fired_let hok hF hP hK h hf (hd.era' hE)).imp_right
+      fun ⟨h1, h2⟩ => ⟨h1 βe, h2 βe⟩
+  · obtain ⟨d, hk, hn⟩ := (Book.Era.defn_n hE k dE.n).2 ⟨dE, hkE, _root_.rfl⟩
+    obtain ⟨b0, hb⟩ : ∃ b0, d.body = some b0 := by
+      cases hb : d.body with
+      | none => exact absurd hb (hF k d hk)
+      | some b0 => exact ⟨b0, _root_.rfl⟩
+    rcases Check.fired hok.closed h hf with e | ⟨_, _, _, _, h'⟩
+    · exact (Term.apps_ne (by trivial) (by trivial) (fun e => Term.noConfusion e) e).elim
+    have hlen' : us.length = d.n := hlen.trans hn.symm
+    have hmany : ∀ (i : Nat) ux, us[i]? = some ux → d.qs.getD i .Lone = .Many → CG βe ux [] :=
+      fun i ux hux hq => (Check.fired_many hok hF hP hK (Pol.dead_pre hok.closed)
+        (fun hA hr => ⟨_, _, Check.dead_red hok (SubstSR.holds hok.closed) hη hA hr.strong⟩)
+        h hf hk hlen' i hq hux ((hus.mem ux (List.mem_of_getElem? hux)).era' hE)).1 βe
+    exact Unfold.meas_full hok hF hE hP hK hk hb ((Book.Ok.defn hok hk).2.2.2 b0 hb).1
+      (hbo k d b0 hk hb) hkE hbE h' hlen' hus hmany hM
+    -- SWAP: exact Unfold.meas_full hok hF hE hP hK hk hb ((Book.Ok.defn hok hk).2.2.2 b0 hb).1
+    --   hkE hbE h' hlen' hus hmany hM
+
+-- the engine: every closed live term of a filled Ok book with the wall up
+-- normalizes
+theorem norm_all (hok : Book.Ok β) (hW : Book.Wall β) (hF : Book.Filled β)
+    (hη : EtaSR β) (hbo : BodiesOk β)
+    (h : Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u) : Norm β t T := by
+  obtain ⟨βe, hE⟩ := hW.era
+  exact Norm.drive hok hF hE (fun h hs hM =>
+    SStep.meas hs hM h.closed_era (Check.side hok hF hE hη hbo h)) h
+
+-- ----------------------------------------------------------------------------
+-- The claims (spec §11), with the two hypotheses
+-- ----------------------------------------------------------------------------
+
+-- (5) consistency: a normal form of an emptied family is refuted by
+-- Check.deep_empty
+theorem consistency_holds' :
+    ∀ (β : Book) (a : Nat) (r : List Nat) (ps : List Term) (t : Term) (π : Uses) (u : Term),
+      Book.Ok β → Book.Wall β → Book.Filled β → EtaSR β → BodiesOk β → Book.empty β a r →
+      ¬ Check β (Pol.std β) (LHS.void β) [] .Lone [] t (Term.apps (.Adt a r) ps) π u := by
+  intro β a r ps t π u hok hW hF hη hbo hemp h
+  obtain ⟨_, _, _, _, h', hd⟩ := norm_all hok hW hF hη hbo h
+  exact Check.deep_empty hok hF h' hd (Le.refl _) hemp
+
+-- (4) normalization: the normal form's subject reduces by appLam betas
+-- to a value with the same erasure (Check.deep_value)
+theorem normalization_holds' :
+    ∀ (β : Book) (t T : Term) (π : Uses) (u : Term),
+      Book.Ok β → Book.Wall β → Book.Filled β → EtaSR β → BodiesOk β →
+      Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u →
+      ∃ v π' u', Red β .weak t v ∧ Term.Value β v ∧
+        Check β (Pol.std β) (LHS.void β) [] .Lone [] v T π' u' := by
+  intro β t T π u hok hW hF hη hbo h
+  obtain ⟨t', π', u', hr, h', hd⟩ := norm_all hok hW hF hη hbo h
+  obtain ⟨v, π'', hrv, hv, hcv⟩ := Check.deep_value hok.closed h' (by decide) hd
+  exact ⟨v, π'', u', hr.trans hrv, hv, hcv⟩
+
+-- (2) subject reduction: F's Check.step at the trivial argument
+-- condition, whose ex-falso obligation is consistency
+theorem subject_reduction_holds' :
+    ∀ (β : Book) (t t' T : Term) (π : Uses) (u : Term),
+      Book.Ok β → Book.Wall β → Book.Filled β → EtaSR β → BodiesOk β →
+      Check β (Pol.std β) (LHS.void β) [] .Lone [] t T π u → LiveStep β t u t' →
+      ∃ π' u', Check β (Pol.std β) (LHS.void β) [] .Lone [] t' T π' u' := by
+  intro β t t' T π u hok hW hF hη hbo h hs
+  obtain ⟨βe, hE⟩ := hok.era
+  obtain ⟨π', u', h', _⟩ := Check.step hok hE (V := fun _ _ => True)
+    (fun _ ha e r ps hc hemp =>
+      consistency_holds' β e r ps _ _ _ hok hW hF hη hbo hemp (ha.cnv (Le.conv hc)))
+    hs.lstep h
+  exact ⟨π', u', h'⟩
+
+-- (5') consistency through any filling of the natives: D's fill lemmas
+-- carry Ok, Wall, emptiness and the derivation to the filled book, where
+-- the two hypotheses are needed
+theorem consistency_natives_holds' :
+    ∀ (β : Book) (a : Nat) (r : List Nat) (ps : List Term) (t : Term) (π : Uses) (u : Term),
+      Book.Ok β → Book.Wall β → Book.Native β →
+      (∀ β', Book.fill β β' → Book.fillOk β β' → EtaSR β' ∧ BodiesOk β') →
+      Book.empty β a r →
+      ¬ Check β (Pol.std β) (LHS.void β) [] .Lone [] t (Term.apps (.Adt a r) ps) π u := by
+  intro β a r ps t π u hok hW hN hp hemp h
+  obtain ⟨β', hf, hfo, hF'⟩ := Book.fill_exists hN
+  exact consistency_holds' β' a r ps t π u (Book.Ok.fill hf hfo hok) (Book.Wall.fill hf hfo hW)
+    hF' (hp β' hf hfo).1 (hp β' hf hfo).2 (hemp.fill hf) ((h.fill_std hf).void_sp [])
+
+-- (1) confluence and (3) progress are B's and G's: church_rosser_holds,
+-- progress_holds
+
+#print axioms church_rosser_holds
+#print axioms subject_reduction_holds'
+#print axioms progress_holds
+#print axioms normalization_holds'
+#print axioms consistency_holds'
+#print axioms consistency_natives_holds'
+
+-- ----------------------------------------------------------------------------
+-- SWAP (once Kd2b's `DataPol.dead hok` and N4c's `Unfold.meas_full` without
+-- BodyOk exist): apply the two SWAP lines in Check.side, delete `hη`/`hbo`
+-- from Check.side and norm_all, replace `BodiesOk` by `True` and every
+-- `EtaSR β →`/`BodiesOk β →` premise above by nothing, and uncomment:
+--
+-- theorem subject_reduction_holds : subject_reduction := fun β t t' T π u hok hW hF h hs =>
+--   subject_reduction_holds' β t t' T π u hok hW hF h hs
+-- theorem normalization_holds : normalization := fun β t T π u hok hW hF h =>
+--   normalization_holds' β t T π u hok hW hF h
+-- theorem consistency_holds : consistency := fun β a r ps t π u hok hW hF hemp h =>
+--   consistency_holds' β a r ps t π u hok hW hF hemp h
+-- theorem consistency_natives_holds : consistency_natives := fun β a r ps t π u hok hW hN hemp h =>
+--   consistency_natives_holds' β a r ps t π u hok hW hN hemp h
+-- #print axioms subject_reduction_holds
+-- #print axioms normalization_holds
+-- #print axioms consistency_holds
+-- #print axioms consistency_natives_holds
+-- ----------------------------------------------------------------------------
 
 end BendCore
