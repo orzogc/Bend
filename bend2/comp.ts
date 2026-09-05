@@ -906,13 +906,11 @@ function ty_wnf(book: Bend.Book, ty: HTerm | null): HTerm | null {
 }
 
 function ty_all(book: Bend.Book, ty: HTerm | null): HAll | null {
-  const w = ty_wnf(book, ty);
-  return w?.$ === "All" ? w : null;
+  return ty && Bend.tele_open(book, ty);
 }
 
-function ty_tele(book: Bend.Book, T: HTerm,
-  args: HTerm[]): HTerm {
-  return args.reduce((T2, a) => (ty_all(book, T2) as HAll).B(a), T);
+function ty_tele(book: Bend.Book, T: HTerm, args: HTerm[]): HTerm {
+  return Bend.tele_fill(book, T, args, Bend.ctx_nil());
 }
 
 function ty_peel(tm: HTerm,
