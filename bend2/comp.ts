@@ -4024,7 +4024,7 @@ static void err_trap(int sig) {
 #endif
 
 INLINE bool err_seen(Corpus H) {
-  return a32_load(a32_at(H, H_ERROR_CODE)) != 0;
+  return DEVICE && a32_load(a32_at(H, H_ERROR_CODE)) != 0;
 }
 
 INLINE bool err_spun(Corpus H, THR u32* n, u32 mask) {
@@ -4046,7 +4046,7 @@ INLINE Cls cls_fit(u32 words) {
 
 INLINE Page page_claim(Corpus H, u32 span) {
   Page cap = a32_load(a32_at(H, H_PAGE_CAP));
-  Page p   = DEVICE && err_seen(H) ? cap
+  Page p   = err_seen(H) ? cap
     : a32_add(a32_at(H, H_PAGE_BUMP), span);
   if ((u64)p + span > cap) {
     err_post(H, ERR_HEAP);
@@ -4057,14 +4057,14 @@ INLINE Page page_claim(Corpus H, u32 span) {
 
 #define BLK_ALLOC(n, w) \
   Loc n = heap_alloc(e, w); \
-  if (DEVICE && err_seen(e.mem)) { \
+  if (err_seen(e.mem)) { \
     return term_buf(0, n); \
   }
 
 INLINE Page page_stack_pop(Corpus H, DEV u32* head) {
   for (;;) {
     u32 e = a32_load_acq(head);
-    if (e == PAGE_NIL || (DEVICE && err_seen(H))) {
+    if (e == PAGE_NIL || err_seen(H)) {
       return PAGE_NIL;
     }
     if (e != (u32)-1 && a32_cas(head, &e, (u32)-1)) {
@@ -4081,7 +4081,7 @@ INLINE void page_stack_push(Corpus H, Cls cls, Loc loc) {
   DEV u32* link = a32_at(H, page_loc(p));
   u32 e = a32_load(head);
   for (;;) {
-    if (DEVICE && err_seen(H)) {
+    if (err_seen(H)) {
       return;
     }
     if (e == (u32)-1) {
@@ -4183,7 +4183,7 @@ HOT Loc heap_alloc(Env e, Cls cls) {
 
 HOT void heap_free(Env e, Cls cls, Loc loc) {
   Corpus H = e.mem;
-  if (DEVICE && err_seen(H)) {
+  if (err_seen(H)) {
     return;
   }
   if (cls < NCLS) {
@@ -4831,7 +4831,7 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
 
   WL_CASE(FID_EXIT)
   {
-    if (DEVICE && err_seen(e.mem)) {
+    if (err_seen(e.mem)) {
       return 0;
     }
     sp -= 2 * LANE_STEP;
