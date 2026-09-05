@@ -199,7 +199,7 @@ const WORDS: Record<string, Lay> = { U32: W32, F32: W32, Nat: W64 };
 // Operations
 // ----------
 
-const CMPS = "is_eq:== is_ne:!= is_lt:< is_le:<= is_gt:> is_ge:>=";
+const CMPS = "is_eq:==:=== is_ne:!=:!== is_lt:< is_le:<= is_gt:> is_ge:>=";
 
 export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   ...tpl_ops("u32_", "add:+ sub:- and:& or:| xor:^",
@@ -318,14 +318,7 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     call:  true,
     JS:    "nat_divmod($0, $1)",
   },
-  bool_or: {
-    C:  "(($0) | ($1))",
-    JS: "($0 || $1)",
-  },
-  bool_xor: {
-    C:  "(($0) ^ ($1))",
-    JS: "($0 !== $1)",
-  },
+  ...tpl_ops("bool_", "or:|:|| xor:^:!==", "(($0) $o ($1))", "($0 $o $1)"),
   string_append: {
     JS: "($0 + $1)",
   },
@@ -649,16 +642,12 @@ function tpl_ops(pre: string, names: string, C: string, JS: string):
   Record<string, Intr> {
   const out: Record<string, Intr> = {};
   for (const p of names.split(" ")) {
-    const [k, o] = p.split(":");
+    const [k, o, jo = o] = p.split(":");
     const fill = (t: string, op: string): string =>
       t.replaceAll("$k", k).replaceAll("$o", op);
-    out[pre + k] = { C: fill(C, o), JS: fill(JS, tpl_jso(o)) };
+    out[pre + k] = { C: fill(C, o), JS: fill(JS, jo) };
   }
   return out;
-}
-
-function tpl_jso(o: string): string {
-  return o === "==" || o === "!=" ? o + "=" : o;
 }
 
 function tpl(t: Gen, xs: string[]): string {
