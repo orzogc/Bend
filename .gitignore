@@ -1,4 +1,4 @@
 .devs/node_modules
-tmp
+.tmp
 /*.txt
 .devs/prompts/
