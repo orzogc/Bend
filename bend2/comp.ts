@@ -2118,8 +2118,8 @@ function val_word(v: Val): string {
 }
 
 function val_hold(fl: File, v: Val, k: string): Val {
-  return val_new(v.ws.map((w, j) => fl.local.has(w) ? w
-    : emit_hold(fl, [w], k, [v.lay.ks[j]])[0]), v.lay, v.av);
+  return val_new(v.ws.map((w, j) => emit_alias(fl, w, k, v.lay.ks[j])),
+    v.lay, v.av);
 }
 
 function val_keep(fl: File, cell: Cell): string {
@@ -2409,8 +2409,8 @@ function emit_hold(fl: File, exprs: string[], k: string,
   });
 }
 
-function emit_alias(fl: File, e: string, k: string): string {
-  return fl.local.has(e) ? e : emit_hold(fl, [e], k)[0];
+function emit_alias(fl: File, e: string, k: string, kd?: Kind): string {
+  return fl.local.has(e) ? e : emit_hold(fl, [e], k, kd && [kd])[0];
 }
 
 function emit_task(fl: File, fid: string, rem: number, words: string[],
