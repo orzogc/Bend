@@ -13508,6 +13508,2064 @@ theorem Check.kind_red_eta (hok : Book.Ok β) (hη : EtaSR β)
 theorem DataPol.dead_eta (hok : Book.Ok β) (hη : EtaSR β) : DataPol β (Pol.dead β) :=
   DataPol.dead hok (SubstSR.holds hok.closed) hη
 
+-- ============================================================================
+-- §Kd2a — eta-free parallel reduction and the untyped eta lemmas
+-- ============================================================================
+
+-- ----------------------------------------------------------------------------
+-- ParB: B's Par without the eta rule (same rule names)
+-- ----------------------------------------------------------------------------
+
+inductive ParB (β : Book) : Term → Term → Prop
+  | var  : ParB β (.Var i) (.Var i)
+  | ref  : ParB β (.Ref k) (.Ref k)
+  | typ  : ParB β g g' → ParB β (.Typ g) (.Typ g')
+  | qnt  : ParB β .Qnt .Qnt
+  | qua  : ParB β (.Qua q) (.Qua q)
+  | min  : ParB β a a' → ParB β b b' → ParB β (.Min a b) (.Min a' b')
+  | adt  : ParB β (.Adt a r) (.Adt a r)
+  | ctr  : ParB β (.Ctr a c) (.Ctr a c)
+  | efq  : ParB β .Efq .Efq
+  | rfl  : ParB β .Rfl .Rfl
+  | all  : ParB β A A' → ParB β B B' → ParB β (.All q A B) (.All q A' B')
+  | lam  : ParB β f f' → ParB β (.Lam f) (.Lam f')
+  | app  : ParB β f f' → ParB β a a' → ParB β (.App f a) (.App f' a')
+  | mat  : ParB β h h' → ParB β m m' → ParB β (.Mat a c h m) (.Mat a c h' m')
+  | eql  : ParB β x x' → ParB β y y' → ParB β T T' →
+           ParB β (.Eql x y T) (.Eql x' y' T')
+  | rwt  : ParB β e e' → ParB β P P' → ParB β f f' →
+           ParB β (.Rwt e P f) (.Rwt e' P' f')
+  | let_ : ParB β v v' → ParB β b b' → ParB β (.Let q v b) (.Let q v' b')
+  | beta : ParB β f f' → ParB β a a' →
+           ParB β (.App (.Lam f) a) (Term.subst 0 a' f')
+  | letr : ParB β v v' → ParB β b b' →
+           ParB β (.Let q v b) (Term.subst 0 v' b')
+  | dref : Book.defn β k = some d → d.body = some b →
+           (Term.spine s).1 = .Ref k →
+           (Term.spine s).2.length = args'.length →
+           (∀ i, i < (Term.spine s).2.length →
+             ParB β ((Term.spine s).2.getD i .Qnt) (args'.getD i .Qnt)) →
+           ParB β s (Term.apps b args')
+  | aref : Book.adt β k = some A → A.pn = 0 → ParB β (.Ref k) (.Adt k [])
+  | matc : Book.adt β a = some A → AdtD.ctr A c = some C →
+           (Term.spine s).1 = .Ctr a c →
+           (Term.spine s).2.length = A.pn + C.fn →
+           ParB β s s' → ParB β h h' →
+           ParB β (.App (.Mat a c h m) s)
+                 (Term.apps h' ((Term.spine s').2.drop A.pn))
+  | matm : (Term.spine s).1 = .Ctr a' c' → (a', c') ≠ (a, c) →
+           ParB β s s' → ParB β m m' →
+           ParB β (.App (.Mat a c h m) s) (.App m' s')
+  | rwtr : ParB β f f' → ParB β (.Rwt .Rfl P f) f'
+  | minLM : ParB β b b' → ParB β (.Min (.Qua .Many) b) b'
+  | minLN : ParB β (.Min (.Qua .None) b) (.Qua .None)
+  | minRM : ParB β a a' → ParB β (.Min a (.Qua .Many)) a'
+  | minRN : ParB β (.Min a (.Qua .None)) (.Qua .None)
+  | minLL : ParB β (.Min (.Qua .Lone) (.Qua .Lone)) (.Qua .Lone)
+
+inductive ParsB (β : Book) : List Term → List Term → Prop
+  | nil  : ParsB β [] []
+  | cons : ParB β x y → ParsB β xs ys → ParsB β (x :: xs) (y :: ys)
+
+theorem ParB.refl : ∀ (t : Term), ParB β t t := by
+  intro t
+  induction t with
+  | Var i => exact .var
+  | Ref k => exact .ref
+  | Typ g ih => exact .typ ih
+  | Qnt => exact .qnt
+  | Qua q => exact .qua
+  | Min a b iha ihb => exact .min iha ihb
+  | All q A B ihA ihB => exact .all ihA ihB
+  | Lam f ihf => exact .lam ihf
+  | App f a ihf iha => exact .app ihf iha
+  | Adt a r => exact .adt
+  | Ctr a c => exact .ctr
+  | Mat a c h m ihh ihm => exact .mat ihh ihm
+  | Efq => exact .efq
+  | Eql x y T ihx ihy ihT => exact .eql ihx ihy ihT
+  | Rfl => exact .rfl
+  | Rwt e P f ihe ihP ihf => exact .rwt ihe ihP ihf
+  | Let q v b ihv ihb => exact .let_ ihv ihb
+
+theorem ParsB.length (h : ParsB β xs ys) : xs.length = ys.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => simp [ih]
+
+theorem ParsB.append (h1 : ParsB β xs ys) (h2 : ParsB β as bs) :
+    ParsB β (xs ++ as) (ys ++ bs) := by
+  induction h1 with
+  | nil => exact h2
+  | cons hp _ ih => exact .cons hp ih
+
+theorem ParB.apps (hh : ParB β h h') (has : ParsB β as as') :
+    ParB β (Term.apps h as) (Term.apps h' as') := by
+  induction has generalizing h h' with
+  | nil => exact hh
+  | cons hp _ ih => exact ih (.app hh hp)
+
+theorem ParB.par (h : ParB β a b) : Par β a b := by
+  induction h with
+  | var => exact .var
+  | ref => exact .ref
+  | typ _ ih => exact .typ ih
+  | qnt => exact .qnt
+  | qua => exact .qua
+  | min _ _ iha ihb => exact .min iha ihb
+  | adt => exact .adt
+  | ctr => exact .ctr
+  | efq => exact .efq
+  | rfl => exact .rfl
+  | all _ _ ihA ihB => exact .all ihA ihB
+  | lam _ ih => exact .lam ih
+  | app _ _ ihf iha => exact .app ihf iha
+  | mat _ _ ihh ihm => exact .mat ihh ihm
+  | eql _ _ _ ihx ihy ihT => exact .eql ihx ihy ihT
+  | rwt _ _ _ ihe ihP ihf => exact .rwt ihe ihP ihf
+  | let_ _ _ ihv ihb => exact .let_ ihv ihb
+  | beta _ _ ihf iha => exact .beta ihf iha
+  | letr _ _ ihv ihb => exact .letr ihv ihb
+  | dref hk hb hsp hlen _ ih => exact .dref hk hb hsp hlen ih
+  | aref hk h0 => exact .aref hk h0
+  | matc h1 h2 h3 h4 _ _ ihs ihh => exact .matc h1 h2 h3 h4 ihs ihh
+  | matm h1 hne _ _ ihs ihm => exact .matm h1 hne ihs ihm
+  | rwtr _ ih => exact .rwtr ih
+  | minLM _ ih => exact .minLM ih
+  | minLN => exact .minLN
+  | minRM _ ih => exact .minRM ih
+  | minRN => exact .minRN
+  | minLL => exact .minLL
+
+theorem StepB.par (s : StepB β a b) : ParB β a b := by
+  induction s with
+  | beta => exact .beta (ParB.refl _) (ParB.refl _)
+  | let_ => exact .letr (ParB.refl _) (ParB.refl _)
+  | dref hk hb hsp => exact .dref hk hb hsp _root_.rfl (fun i _ => ParB.refl _)
+  | aref hk h0 => exact .aref hk h0
+  | matc h1 h2 h3 h4 =>
+    rename_i a A c C h m ps xs
+    have hd : ((Term.spine (Term.apps (.Ctr a c) (ps ++ xs))).2.drop A.pn) = xs := by
+      rw [Term.spine_apps (by trivial)]
+      show (ps ++ xs).drop A.pn = xs
+      rw [← h3]
+      exact List.drop_left
+    have hp := ParB.matc (m := m) h1 h2
+      (by rw [Term.spine_apps (by trivial)])
+      (by rw [Term.spine_apps (by trivial)]; simp [h3, h4])
+      (ParB.refl (Term.apps (.Ctr a c) (ps ++ xs))) (ParB.refl h)
+    rwa [hd] at hp
+  | matm hne =>
+    rename_i a' c' a c h m as
+    exact ParB.matm (s := Term.apps (.Ctr a' c') as)
+      (by rw [Term.spine_apps (by trivial)]) hne (ParB.refl _) (ParB.refl _)
+  | rwt => exact .rwtr (ParB.refl _)
+  | minLM => exact .minLM (ParB.refl _)
+  | minLN => exact .minLN
+  | minRM => exact .minRM (ParB.refl _)
+  | minRN => exact .minRN
+  | minLL => exact .minLL
+  | typ_g _ ih => exact .typ ih
+  | min_a _ ih => exact .min ih (ParB.refl _)
+  | min_b _ ih => exact .min (ParB.refl _) ih
+  | all_a _ ih => exact .all ih (ParB.refl _)
+  | all_b _ ih => exact .all (ParB.refl _) ih
+  | lam_f _ ih => exact .lam ih
+  | app_f _ ih => exact .app ih (ParB.refl _)
+  | app_a _ ih => exact .app (ParB.refl _) ih
+  | mat_h _ ih => exact .mat ih (ParB.refl _)
+  | mat_m _ ih => exact .mat (ParB.refl _) ih
+  | eql_a _ ih => exact .eql ih (ParB.refl _) (ParB.refl _)
+  | eql_b _ ih => exact .eql (ParB.refl _) ih (ParB.refl _)
+  | eql_t _ ih => exact .eql (ParB.refl _) (ParB.refl _) ih
+  | rwt_e _ ih => exact .rwt ih (ParB.refl _) (ParB.refl _)
+  | rwt_p _ ih => exact .rwt (ParB.refl _) ih (ParB.refl _)
+  | rwt_f _ ih => exact .rwt (ParB.refl _) (ParB.refl _) ih
+  | let_v _ ih => exact .let_ ih (ParB.refl _)
+  | let_b _ ih => exact .let_ (ParB.refl _) ih
+
+-- stability: an eta-free parallel reduct of a Ctr-headed spine is a
+-- Ctr-headed spine with pointwise-parallel arguments
+theorem ParB.ctr_spine_inv (hp : ParB β s t) :
+    ∀ {a c : Nat} {as : List Term}, s = Term.apps (.Ctr a c) as →
+    ∃ as', t = Term.apps (.Ctr a c) as' ∧ ParsB β as as' := by
+  induction hp <;> intro a c as heq
+  all_goals try exact absurd heq.symm (Term.apps_ne (by trivial) (by trivial) (fun h => Term.noConfusion h))
+  all_goals try (obtain ⟨ys, _, hfy⟩ := Term.app_eq_apps (by trivial) heq
+                 exact absurd hfy.symm (Term.apps_ne (by trivial) (by trivial) (fun h => Term.noConfusion h)))
+  case ctr =>
+    obtain ⟨h1, h2⟩ := Term.apps_head_inv (h := Term.Ctr _ _) (by trivial)
+      (by trivial) (xs := []) heq
+    cases h1
+    cases h2
+    exact ⟨[], _root_.rfl, .nil⟩
+  case app _ _ _ _ hf ha ihf _ =>
+    obtain ⟨ys, hys, hfy⟩ := Term.app_eq_apps (by trivial) heq
+    obtain ⟨ys', hy1, hy2⟩ := ihf hfy
+    subst hys hy1
+    exact ⟨ys' ++ [_], (Term.apps_snoc _ _ _).symm,
+      ParsB.append hy2 (.cons ha .nil)⟩
+  case dref _ _ _ _ _ _ _ hsp _ _ _ =>
+    rw [heq, Term.spine_apps (by trivial)] at hsp
+    exact Term.noConfusion hsp
+
+theorem ParB.spine_stable (hp : ParB β s t) (hh : (Term.spine s).1 = .Ctr a c) :
+    (Term.spine t).1 = .Ctr a c ∧ ParsB β (Term.spine s).2 (Term.spine t).2 := by
+  have hs : s = Term.apps (.Ctr a c) (Term.spine s).2 := by
+    rw [← hh]; exact (Term.apps_spine s).symm
+  obtain ⟨as', ht, hps⟩ := hp.ctr_spine_inv hs
+  rw [ht, Term.spine_apps (by trivial)]
+  exact ⟨_root_.rfl, hps⟩
+
+-- ----------------------------------------------------------------------------
+-- the RedB kit: chains, congruences, spines
+-- ----------------------------------------------------------------------------
+
+theorem RedB.trans (r1 : RedB β a b) (r2 : RedB β b c) : RedB β a c := by
+  induction r1 with
+  | refl => exact r2
+  | step s _ ih => exact .step s (ih r2)
+
+theorem RedB.one (s : StepB β a b) : RedB β a b := .step s .refl
+
+theorem RedB.red (r : RedB β a b) : Red β .strong a b := by
+  induction r with
+  | refl => exact .refl
+  | step s _ ih => exact .step s.step ih
+
+theorem RedB.congr {F : Term → Term}
+    (hF : ∀ {a b}, StepB β a b → StepB β (F a) (F b))
+    (r : RedB β a b) : RedB β (F a) (F b) := by
+  induction r with
+  | refl => exact .refl
+  | step s _ ih => exact .step (hF s) ih
+
+theorem RedB.typ (r : RedB β g g') : RedB β (.Typ g) (.Typ g') :=
+  RedB.congr (F := fun g => .Typ g) (fun s => .typ_g s) r
+theorem RedB.min (ra : RedB β a a') (rb : RedB β b b') :
+    RedB β (.Min a b) (.Min a' b') :=
+  (RedB.congr (F := fun a => .Min a b) (fun s => .min_a s) ra).trans
+    (RedB.congr (F := fun b => .Min a' b) (fun s => .min_b s) rb)
+theorem RedB.all (rA : RedB β A A') (rB : RedB β B B') :
+    RedB β (.All q A B) (.All q A' B') :=
+  (RedB.congr (F := fun A => .All q A B) (fun s => .all_a s) rA).trans
+    (RedB.congr (F := fun B => .All q A' B) (fun s => .all_b s) rB)
+theorem RedB.lam (r : RedB β f f') : RedB β (.Lam f) (.Lam f') :=
+  RedB.congr (F := fun f => .Lam f) (fun s => .lam_f s) r
+theorem RedB.app (rf : RedB β f f') (ra : RedB β a a') :
+    RedB β (.App f a) (.App f' a') :=
+  (RedB.congr (F := fun f => .App f a) (fun s => .app_f s) rf).trans
+    (RedB.congr (F := fun a => .App f' a) (fun s => .app_a s) ra)
+theorem RedB.mat (rh : RedB β h h') (rm : RedB β m m') :
+    RedB β (.Mat a c h m) (.Mat a c h' m') :=
+  (RedB.congr (F := fun h => .Mat a c h m) (fun s => .mat_h s) rh).trans
+    (RedB.congr (F := fun m => .Mat a c h' m) (fun s => .mat_m s) rm)
+theorem RedB.eql (rx : RedB β x x') (ry : RedB β y y') (rT : RedB β T T') :
+    RedB β (.Eql x y T) (.Eql x' y' T') :=
+  ((RedB.congr (F := fun x => .Eql x y T) (fun s => .eql_a s) rx).trans
+    (RedB.congr (F := fun y => .Eql x' y T) (fun s => .eql_b s) ry)).trans
+    (RedB.congr (F := fun T => .Eql x' y' T) (fun s => .eql_t s) rT)
+theorem RedB.rwt (re : RedB β e e') (rP : RedB β P P') (rf : RedB β f f') :
+    RedB β (.Rwt e P f) (.Rwt e' P' f') :=
+  ((RedB.congr (F := fun e => .Rwt e P f) (fun s => .rwt_e s) re).trans
+    (RedB.congr (F := fun P => .Rwt e' P f) (fun s => .rwt_p s) rP)).trans
+    (RedB.congr (F := fun f => .Rwt e' P' f) (fun s => .rwt_f s) rf)
+theorem RedB.let_ (rv : RedB β v v') (rb : RedB β b b') :
+    RedB β (.Let q v b) (.Let q v' b') :=
+  (RedB.congr (F := fun v => .Let q v b) (fun s => .let_v s) rv).trans
+    (RedB.congr (F := fun b => .Let q v' b) (fun s => .let_b s) rb)
+
+theorem RedB.lams (n : Nat) (r : RedB β f f') :
+    RedB β (Term.lams n f) (Term.lams n f') := by
+  induction n with
+  | zero => exact r
+  | succ n ih => exact RedB.lam ih
+
+inductive RedsB (β : Book) : List Term → List Term → Prop
+  | nil  : RedsB β [] []
+  | cons : RedB β x y → RedsB β xs ys → RedsB β (x :: xs) (y :: ys)
+
+theorem RedsB.refl : ∀ (xs : List Term), RedsB β xs xs := by
+  intro xs
+  induction xs with
+  | nil => exact .nil
+  | cons x xs ih => exact .cons .refl ih
+
+theorem RedsB.of_getD : ∀ {xs ys : List Term}, xs.length = ys.length →
+    (∀ i, i < xs.length → RedB β (xs.getD i .Qnt) (ys.getD i .Qnt)) →
+    RedsB β xs ys := by
+  intro xs
+  induction xs with
+  | nil => intro ys hl _; cases ys with | nil => exact .nil | cons => simp at hl
+  | cons x xs ih =>
+    intro ys hl hr
+    cases ys with
+    | nil => simp at hl
+    | cons y ys =>
+      exact .cons (hr 0 (by simp)) (ih (by simp at hl; omega)
+        (fun i hi => hr (i + 1) (by simp; omega)))
+
+theorem RedB.apps (rh : RedB β h h') (has : RedsB β as as') :
+    RedB β (Term.apps h as) (Term.apps h' as') := by
+  induction has generalizing h h' with
+  | nil => exact rh
+  | cons hr _ ih => exact ih (RedB.app rh hr)
+
+theorem ParB.red (hp : ParB β a b) : RedB β a b := by
+  induction hp with
+  | var => exact .refl
+  | ref => exact .refl
+  | typ _ ih => exact RedB.typ ih
+  | qnt => exact .refl
+  | qua => exact .refl
+  | min _ _ iha ihb => exact RedB.min iha ihb
+  | adt => exact .refl
+  | ctr => exact .refl
+  | efq => exact .refl
+  | rfl => exact .refl
+  | all _ _ ihA ihB => exact RedB.all ihA ihB
+  | lam _ ihf => exact RedB.lam ihf
+  | app _ _ ihf iha => exact RedB.app ihf iha
+  | mat _ _ ihh ihm => exact RedB.mat ihh ihm
+  | eql _ _ _ ihx ihy ihT => exact RedB.eql ihx ihy ihT
+  | rwt _ _ _ ihe ihP ihf => exact RedB.rwt ihe ihP ihf
+  | let_ _ _ ihv ihb => exact RedB.let_ ihv ihb
+  | beta _ _ ihf iha => exact (RedB.app (RedB.lam ihf) iha).trans (RedB.one .beta)
+  | letr _ _ ihv ihb => exact (RedB.let_ ihv ihb).trans (RedB.one .let_)
+  | @dref k d b s args' hk hb hsp hlen' hpar ih =>
+    have hs : s = Term.apps (.Ref k) (Term.spine s).2 := by
+      rw [← hsp]
+      exact (Term.apps_spine s).symm
+    have hstep : StepB β (Term.apps (.Ref k) args') (Term.apps b args') := by
+      have h := StepB.dref (s := Term.apps (.Ref k) args') hk hb
+        (by rw [Term.spine_apps (by trivial)])
+      rw [Term.spine_apps (by trivial)] at h
+      exact h
+    rw [hs]
+    exact (RedB.apps .refl (RedsB.of_getD hlen' ih)).trans (RedB.one hstep)
+  | aref hk h0 => exact RedB.one (.aref hk h0)
+  | matc h1 h2 h3 h4 hps hph ihs ihh =>
+    rename_i a A c C s s' h h' m
+    obtain ⟨hh', hargs⟩ := hps.spine_stable h3
+    have hlen : (Term.spine s').2.length = A.pn + C.fn := by
+      rw [← hargs.length]; exact h4
+    obtain ⟨ts, hts⟩ : ∃ ts, (Term.spine s').2 = ts := ⟨_, _root_.rfl⟩
+    rw [hts] at hlen
+    rw [hts]
+    have hs' : s' = Term.apps (.Ctr a c) (ts.take A.pn ++ ts.drop A.pn) := by
+      rw [List.take_append_drop, ← hts, ← hh']
+      exact (Term.apps_spine s').symm
+    have hstep : StepB β (.App (.Mat a c h m) s') (Term.apps h (ts.drop A.pn)) := by
+      rw [hs']
+      exact StepB.matc h1 h2 (by simp [List.length_take]; omega)
+        (by simp [List.length_drop]; omega)
+    exact ((RedB.app .refl ihs).trans (RedB.one hstep)).trans (RedB.apps ihh (RedsB.refl _))
+  | matm h1 hne hps hphm ihs ihm =>
+    rename_i s a' c' a c s' m m' h
+    obtain ⟨hh', _⟩ := hps.spine_stable h1
+    have hs' : s' = Term.apps (.Ctr a' c') (Term.spine s').2 := by
+      rw [← hh']; exact (Term.apps_spine s').symm
+    have hstep : StepB β (.App (.Mat a c h m) s') (.App m s') := by
+      rw [hs']
+      exact StepB.matm hne
+    exact ((RedB.app .refl ihs).trans (RedB.one hstep)).trans (RedB.app ihm .refl)
+  | rwtr _ ihf => exact (RedB.one .rwt).trans ihf
+  | minLM _ ih => exact (RedB.one .minLM).trans ih
+  | minLN => exact RedB.one .minLN
+  | minRM _ ih => exact (RedB.one .minRM).trans ih
+  | minRN => exact RedB.one .minRN
+  | minLL => exact RedB.one .minLL
+
+-- ----------------------------------------------------------------------------
+-- StepB / RedB / ParB under shift and substitution
+-- ----------------------------------------------------------------------------
+
+theorem StepB.shift (hβ : Book.Closed β) (s : StepB β a b) :
+    ∀ d, StepB β (Term.shift d a) (Term.shift d b) := by
+  induction s with
+  | beta => intro d; rw [Term.shift_subst0]; exact .beta
+  | let_ => intro d; rw [Term.shift_subst0]; exact .let_
+  | @dref k dd b s hk hb hsp =>
+    intro d
+    have hc := (hβ.defn hk).2 _ hb
+    have hs := Term.spine_shift hsp (by trivial) (d := d) rfl
+    rw [Term.shift_apps, Term.shift_closed b 0 d hc (Nat.zero_le d)]
+    have h := StepB.dref (s := Term.shift d s) hk hb (by rw [hs])
+    simpa [hs] using h
+  | aref hk h0 => intro d; exact .aref hk h0
+  | matc h1 h2 h3 h4 =>
+    intro d
+    simp only [Term.shift, Term.shift_apps, List.map_append]
+    exact .matc h1 h2 (by simp [h3]) (by simp [h4])
+  | matm hne =>
+    intro d
+    simp only [Term.shift, Term.shift_apps]
+    exact .matm hne
+  | rwt => intro d; exact .rwt
+  | minLM => intro d; exact .minLM
+  | minLN => intro d; exact .minLN
+  | minRM => intro d; exact .minRM
+  | minRN => intro d; exact .minRN
+  | minLL => intro d; exact .minLL
+  | typ_g _ ih => intro d; exact .typ_g (ih d)
+  | min_a _ ih => intro d; exact .min_a (ih d)
+  | min_b _ ih => intro d; exact .min_b (ih d)
+  | all_a _ ih => intro d; exact .all_a (ih d)
+  | all_b _ ih => intro d; exact .all_b (ih (d + 1))
+  | lam_f _ ih => intro d; exact .lam_f (ih (d + 1))
+  | app_f _ ih => intro d; exact .app_f (ih d)
+  | app_a _ ih => intro d; exact .app_a (ih d)
+  | mat_h _ ih => intro d; exact .mat_h (ih d)
+  | mat_m _ ih => intro d; exact .mat_m (ih d)
+  | eql_a _ ih => intro d; exact .eql_a (ih d)
+  | eql_b _ ih => intro d; exact .eql_b (ih d)
+  | eql_t _ ih => intro d; exact .eql_t (ih d)
+  | rwt_e _ ih => intro d; exact .rwt_e (ih d)
+  | rwt_p _ ih => intro d; exact .rwt_p (ih d)
+  | rwt_f _ ih => intro d; exact .rwt_f (ih d)
+  | let_v _ ih => intro d; exact .let_v (ih d)
+  | let_b _ ih => intro d; exact .let_b (ih (d + 1))
+
+theorem StepB.subst (hβ : Book.Closed β) (s : StepB β a b) :
+    ∀ d w, StepB β (Term.subst d w a) (Term.subst d w b) := by
+  induction s with
+  | beta => intro d w; rw [Term.subst_subst0]; exact .beta
+  | let_ => intro d w; rw [Term.subst_subst0]; exact .let_
+  | @dref k dd b s hk hb hsp =>
+    intro d w
+    have hc := (hβ.defn hk).2 _ hb
+    have hs := Term.spine_subst hsp (by trivial) (d := d) (w := w) rfl
+    rw [Term.subst_apps, Term.subst_closed b 0 d w hc (Nat.zero_le d)]
+    have h := StepB.dref (s := Term.subst d w s) hk hb (by rw [hs])
+    simpa [hs] using h
+  | aref hk h0 => intro d w; exact .aref hk h0
+  | matc h1 h2 h3 h4 =>
+    intro d w
+    simp only [Term.subst, Term.subst_apps, List.map_append]
+    exact .matc h1 h2 (by simp [h3]) (by simp [h4])
+  | matm hne =>
+    intro d w
+    simp only [Term.subst, Term.subst_apps]
+    exact .matm hne
+  | rwt => intro d w; exact .rwt
+  | minLM => intro d w; exact .minLM
+  | minLN => intro d w; exact .minLN
+  | minRM => intro d w; exact .minRM
+  | minRN => intro d w; exact .minRN
+  | minLL => intro d w; exact .minLL
+  | typ_g _ ih => intro d w; exact .typ_g (ih d w)
+  | min_a _ ih => intro d w; exact .min_a (ih d w)
+  | min_b _ ih => intro d w; exact .min_b (ih d w)
+  | all_a _ ih => intro d w; exact .all_a (ih d w)
+  | all_b _ ih => intro d w; exact .all_b (ih (d + 1) _)
+  | lam_f _ ih => intro d w; exact .lam_f (ih (d + 1) _)
+  | app_f _ ih => intro d w; exact .app_f (ih d w)
+  | app_a _ ih => intro d w; exact .app_a (ih d w)
+  | mat_h _ ih => intro d w; exact .mat_h (ih d w)
+  | mat_m _ ih => intro d w; exact .mat_m (ih d w)
+  | eql_a _ ih => intro d w; exact .eql_a (ih d w)
+  | eql_b _ ih => intro d w; exact .eql_b (ih d w)
+  | eql_t _ ih => intro d w; exact .eql_t (ih d w)
+  | rwt_e _ ih => intro d w; exact .rwt_e (ih d w)
+  | rwt_p _ ih => intro d w; exact .rwt_p (ih d w)
+  | rwt_f _ ih => intro d w; exact .rwt_f (ih d w)
+  | let_v _ ih => intro d w; exact .let_v (ih d w)
+  | let_b _ ih => intro d w; exact .let_b (ih (d + 1) _)
+
+theorem StepB.substR (hβ : Book.Closed β) : ∀ (t : Term) (d : Nat) {w w' : Term},
+    StepB β w w' → RedB β (Term.subst d w t) (Term.subst d w' t) := by
+  intro t
+  induction t with
+  | Var i =>
+    intro d w w' s
+    simp only [Term.subst]
+    split
+    · exact RedB.one s
+    · split <;> exact .refl
+  | Ref k => intro d w w' _; exact .refl
+  | Typ g ih => intro d w w' s; exact RedB.typ (ih d s)
+  | Qnt => intro d w w' _; exact .refl
+  | Qua q => intro d w w' _; exact .refl
+  | Min a b iha ihb => intro d w w' s; exact RedB.min (iha d s) (ihb d s)
+  | All q A B ihA ihB =>
+    intro d w w' s; exact RedB.all (ihA d s) (ihB (d + 1) (s.shift hβ 0))
+  | Lam f ih => intro d w w' s; exact RedB.lam (ih (d + 1) (s.shift hβ 0))
+  | App f a ihf iha => intro d w w' s; exact RedB.app (ihf d s) (iha d s)
+  | Adt a r => intro d w w' _; exact .refl
+  | Ctr a c => intro d w w' _; exact .refl
+  | Mat a c h m ihh ihm => intro d w w' s; exact RedB.mat (ihh d s) (ihm d s)
+  | Efq => intro d w w' _; exact .refl
+  | Eql x y T ihx ihy ihT =>
+    intro d w w' s; exact RedB.eql (ihx d s) (ihy d s) (ihT d s)
+  | Rfl => intro d w w' _; exact .refl
+  | Rwt e P f ihe ihP ihf =>
+    intro d w w' s; exact RedB.rwt (ihe d s) (ihP d s) (ihf d s)
+  | Let q v b ihv ihb =>
+    intro d w w' s; exact RedB.let_ (ihv d s) (ihb (d + 1) (s.shift hβ 0))
+
+theorem RedB.shift (hβ : Book.Closed β) (r : RedB β a b) (d : Nat) :
+    RedB β (Term.shift d a) (Term.shift d b) := by
+  induction r with
+  | refl => exact .refl
+  | step s _ ih => exact .step (s.shift hβ d) ih
+
+theorem RedB.subst (hβ : Book.Closed β) (r : RedB β a b) (d : Nat) (w : Term) :
+    RedB β (Term.subst d w a) (Term.subst d w b) := by
+  induction r with
+  | refl => exact .refl
+  | step s _ ih => exact .step (s.subst hβ d w) ih
+
+theorem RedB.substR (hβ : Book.Closed β) (r : RedB β w w') (d : Nat) (t : Term) :
+    RedB β (Term.subst d w t) (Term.subst d w' t) := by
+  induction r with
+  | refl => exact .refl
+  | step s _ ih => exact (StepB.substR hβ t d s).trans ih
+
+theorem ParB.shift (hβ : Book.Closed β) (hp : ParB β t t') :
+    ∀ d, ParB β (t.shift d) (t'.shift d) := by
+  induction hp with
+  | var => intro d; simp only [Term.shift]; split <;> exact .var
+  | ref => intro d; exact .ref
+  | typ _ ih => intro d; exact .typ (ih d)
+  | qnt => intro d; exact .qnt
+  | qua => intro d; exact .qua
+  | min _ _ iha ihb => intro d; exact .min (iha d) (ihb d)
+  | adt => intro d; exact .adt
+  | ctr => intro d; exact .ctr
+  | efq => intro d; exact .efq
+  | rfl => intro d; exact .rfl
+  | all _ _ ihA ihB => intro d; exact .all (ihA d) (ihB (d + 1))
+  | lam _ ihf => intro d; exact .lam (ihf (d + 1))
+  | app _ _ ihf iha => intro d; exact .app (ihf d) (iha d)
+  | mat _ _ ihh ihm => intro d; exact .mat (ihh d) (ihm d)
+  | eql _ _ _ ihx ihy ihT => intro d; exact .eql (ihx d) (ihy d) (ihT d)
+  | rwt _ _ _ ihe ihP ihf => intro d; exact .rwt (ihe d) (ihP d) (ihf d)
+  | let_ _ _ ihv ihb => intro d; exact .let_ (ihv d) (ihb (d + 1))
+  | beta _ _ ihf iha =>
+    intro d
+    rw [Term.shift_subst0]
+    exact .beta (ihf (d + 1)) (iha d)
+  | letr _ _ ihv ihb =>
+    intro d
+    rw [Term.shift_subst0]
+    exact .letr (ihv d) (ihb (d + 1))
+  | @dref k dd b s args' hk hb hsp hlen' hpar ih =>
+    intro d
+    have hc := (hβ.defn hk).2 _ hb
+    have hs : s = Term.apps (.Ref k) (Term.spine s).2 := by
+      rw [← hsp]
+      exact (Term.apps_spine s).symm
+    rw [hs, Term.shift_apps, Term.shift_apps]
+    simp only [Term.shift]
+    rw [Term.shift_closed b 0 d hc (Nat.zero_le d)]
+    refine ParB.dref hk hb
+      (by rw [Term.spine_apps (by trivial)])
+      (by
+        rw [Term.spine_apps (by trivial)]
+        simp only [List.length_map]
+        exact hlen') ?_
+    rw [Term.spine_apps (by trivial)]
+    intro i hi
+    simp only [List.length_map] at hi
+    rw [map_getD (Term.shift d) .Qnt .Qnt _ i (by omega),
+      map_getD (Term.shift d) .Qnt .Qnt args' i (by omega)]
+    exact ih i (by omega) d
+  | aref hk h0 => intro d; exact .aref hk h0
+  | matc h1 h2 h3 h4 hps hph ihs ihh =>
+    rename_i a A c C s s' h h' m
+    intro d
+    obtain ⟨hh', hargs⟩ := hps.spine_stable h3
+    have e1 : (Term.spine (Term.shift d s)).1 = Term.Ctr a c := by
+      rw [Term.spine_shift h3 (by trivial) _root_.rfl]
+    have e2 : (Term.spine (Term.shift d s)).2.length = A.pn + C.fn := by
+      rw [Term.spine_shift h3 (by trivial) _root_.rfl]; simpa using h4
+    have e3 : Term.shift d (Term.apps h' ((Term.spine s').2.drop A.pn))
+        = Term.apps (Term.shift d h')
+            ((Term.spine (Term.shift d s')).2.drop A.pn) := by
+      rw [Term.shift_apps, Term.spine_shift hh' (by trivial) _root_.rfl]
+      show _ = Term.apps _ (((Term.spine s').2.map (Term.shift d)).drop A.pn)
+      rw [List.map_drop]
+    rw [show Term.shift d (.App (.Mat a c h m) s)
+        = .App (.Mat a c (Term.shift d h) (Term.shift d m)) (Term.shift d s)
+      from _root_.rfl, e3]
+    exact ParB.matc h1 h2 e1 e2 (ihs d) (ihh d)
+  | matm h1 hne hps hphm ihs ihm =>
+    rename_i s a' c' a c s' m m' h
+    intro d
+    exact ParB.matm (by rw [Term.spine_shift h1 (by trivial) _root_.rfl]) hne
+      (ihs d) (ihm d)
+  | rwtr _ ihf => intro d; exact .rwtr (ihf d)
+  | minLM _ ih => intro d; exact .minLM (ih d)
+  | minLN => intro d; exact .minLN
+  | minRM _ ih => intro d; exact .minRM (ih d)
+  | minRN => intro d; exact .minRN
+  | minLL => intro d; exact .minLL
+
+theorem ParB.subst (hβ : Book.Closed β) (hp : ParB β t t') :
+    ∀ d {w w'}, ParB β w w' → ParB β (Term.subst d w t) (Term.subst d w' t') := by
+  induction hp with
+  | var =>
+    intro d w w' hw
+    simp only [Term.subst]
+    split
+    · exact hw
+    · split <;> exact .var
+  | ref => intro d w w' _; exact .ref
+  | typ _ ih => intro d w w' hw; exact .typ (ih d hw)
+  | qnt => intro d w w' _; exact .qnt
+  | qua => intro d w w' _; exact .qua
+  | min _ _ iha ihb => intro d w w' hw; exact .min (iha d hw) (ihb d hw)
+  | adt => intro d w w' _; exact .adt
+  | ctr => intro d w w' _; exact .ctr
+  | efq => intro d w w' _; exact .efq
+  | rfl => intro d w w' _; exact .rfl
+  | all _ _ ihA ihB =>
+    intro d w w' hw
+    exact .all (ihA d hw) (ihB (d + 1) (hw.shift hβ 0))
+  | lam _ ihf =>
+    intro d w w' hw
+    exact .lam (ihf (d + 1) (hw.shift hβ 0))
+  | app _ _ ihf iha =>
+    intro d w w' hw
+    exact .app (ihf d hw) (iha d hw)
+  | mat _ _ ihh ihm =>
+    intro d w w' hw
+    exact .mat (ihh d hw) (ihm d hw)
+  | eql _ _ _ ihx ihy ihT =>
+    intro d w w' hw
+    exact .eql (ihx d hw) (ihy d hw) (ihT d hw)
+  | rwt _ _ _ ihe ihP ihf =>
+    intro d w w' hw
+    exact .rwt (ihe d hw) (ihP d hw) (ihf d hw)
+  | let_ _ _ ihv ihb =>
+    intro d w w' hw
+    exact .let_ (ihv d hw) (ihb (d + 1) (hw.shift hβ 0))
+  | beta _ _ ihf iha =>
+    intro d w w' hw
+    rw [Term.subst_subst0]
+    exact .beta (ihf (d + 1) (hw.shift hβ 0)) (iha d hw)
+  | letr _ _ ihv ihb =>
+    intro d w w' hw
+    rw [Term.subst_subst0]
+    exact .letr (ihv d hw) (ihb (d + 1) (hw.shift hβ 0))
+  | @dref k dd b s args' hk hb hsp hlen' hpar ih =>
+    intro d w w' hw
+    have hc := (hβ.defn hk).2 _ hb
+    have hs : s = Term.apps (.Ref k) (Term.spine s).2 := by
+      rw [← hsp]
+      exact (Term.apps_spine s).symm
+    rw [hs, Term.subst_apps, Term.subst_apps]
+    simp only [Term.subst]
+    rw [Term.subst_closed b 0 d w' hc (Nat.zero_le d)]
+    refine ParB.dref hk hb
+      (by rw [Term.spine_apps (by trivial)])
+      (by
+        rw [Term.spine_apps (by trivial)]
+        simp only [List.length_map]
+        exact hlen') ?_
+    rw [Term.spine_apps (by trivial)]
+    intro i hi
+    simp only [List.length_map] at hi
+    rw [map_getD (Term.subst d w) .Qnt .Qnt _ i (by omega),
+      map_getD (Term.subst d w') .Qnt .Qnt args' i (by omega)]
+    exact ih i (by omega) d hw
+  | aref hk h0 => intro d w w' _; exact .aref hk h0
+  | matc h1 h2 h3 h4 hps hph ihs ihh =>
+    rename_i a A c C s s' h h' m
+    intro d w w' hw
+    obtain ⟨hh', hargs⟩ := hps.spine_stable h3
+    have e1 : (Term.spine (Term.subst d w s)).1 = Term.Ctr a c := by
+      rw [Term.spine_subst h3 (by trivial) _root_.rfl]
+    have e2 : (Term.spine (Term.subst d w s)).2.length = A.pn + C.fn := by
+      rw [Term.spine_subst h3 (by trivial) _root_.rfl]; simpa using h4
+    have e3 : Term.subst d w' (Term.apps h' ((Term.spine s').2.drop A.pn))
+        = Term.apps (Term.subst d w' h')
+            ((Term.spine (Term.subst d w' s')).2.drop A.pn) := by
+      rw [Term.subst_apps, Term.spine_subst hh' (by trivial) _root_.rfl]
+      show _ = Term.apps _ (((Term.spine s').2.map (Term.subst d w')).drop A.pn)
+      rw [List.map_drop]
+    rw [show Term.subst d w (.App (.Mat a c h m) s)
+        = .App (.Mat a c (Term.subst d w h) (Term.subst d w m))
+            (Term.subst d w s)
+      from _root_.rfl, e3]
+    exact ParB.matc h1 h2 e1 e2 (ihs d hw) (ihh d hw)
+  | matm h1 hne hps hphm ihs ihm =>
+    rename_i s a' c' a c s' m m' h
+    intro d w w' hw
+    exact ParB.matm (by rw [Term.spine_subst h1 (by trivial) _root_.rfl]) hne
+      (ihs d hw) (ihm d hw)
+  | rwtr _ ihf =>
+    intro d w w' hw
+    exact .rwtr (ihf d hw)
+  | minLM _ ih => intro d w w' hw; exact .minLM (ih d hw)
+  | minLN => intro d w w' _; exact .minLN
+  | minRM _ ih => intro d w w' hw; exact .minRM (ih d hw)
+  | minRN => intro d w w' _; exact .minRN
+  | minLL => intro d w w' _; exact .minLL
+
+-- ----------------------------------------------------------------------------
+-- Eta and Etas: shift, substitution, chains, congruences
+-- ----------------------------------------------------------------------------
+
+theorem Eta.shift (h : Eta β a b) : ∀ d, Eta β (Term.shift d a) (Term.shift d b) := by
+  induction h with
+  | eta hocc =>
+    intro d
+    rw [Term.shift_subst_ge _ d 0 .Qnt (Nat.zero_le d)]
+    simp only [Term.shift, Nat.zero_lt_succ, ↓reduceIte]
+    exact .eta (by rw [Term.occ_shift_lt _ 0 (d + 1) (by omega)]; exact hocc)
+  | typ_g _ ih => intro d; exact .typ_g (ih d)
+  | min_a _ ih => intro d; exact .min_a (ih d)
+  | min_b _ ih => intro d; exact .min_b (ih d)
+  | all_a _ ih => intro d; exact .all_a (ih d)
+  | all_b _ ih => intro d; exact .all_b (ih (d + 1))
+  | lam_f _ ih => intro d; exact .lam_f (ih (d + 1))
+  | app_f _ ih => intro d; exact .app_f (ih d)
+  | app_a _ ih => intro d; exact .app_a (ih d)
+  | mat_h _ ih => intro d; exact .mat_h (ih d)
+  | mat_m _ ih => intro d; exact .mat_m (ih d)
+  | eql_a _ ih => intro d; exact .eql_a (ih d)
+  | eql_b _ ih => intro d; exact .eql_b (ih d)
+  | eql_t _ ih => intro d; exact .eql_t (ih d)
+  | rwt_e _ ih => intro d; exact .rwt_e (ih d)
+  | rwt_p _ ih => intro d; exact .rwt_p (ih d)
+  | rwt_f _ ih => intro d; exact .rwt_f (ih d)
+  | let_v _ ih => intro d; exact .let_v (ih d)
+  | let_b _ ih => intro d; exact .let_b (ih (d + 1))
+
+theorem Eta.subst (h : Eta β a b) : ∀ d w, Eta β (Term.subst d w a) (Term.subst d w b) := by
+  induction h with
+  | @eta F hocc =>
+    intro d w
+    rw [Term.subst_subst0]
+    have h0 : Term.subst (d + 1) (Term.shift 0 w) (Term.Var 0) = .Var 0 := by
+      simp only [Term.subst]
+      rw [if_neg (by omega), if_neg (by omega)]
+    show Eta β (.Lam (.App (Term.subst (d + 1) (Term.shift 0 w) F)
+      (Term.subst (d + 1) (Term.shift 0 w) (.Var 0)))) _
+    rw [h0]
+    exact .eta (Term.occ_subst_lt_zero F (d + 1) 0 (Term.shift 0 w)
+      (by omega) hocc (Term.occ_shift_self w 0))
+  | typ_g _ ih => intro d w; exact .typ_g (ih d w)
+  | min_a _ ih => intro d w; exact .min_a (ih d w)
+  | min_b _ ih => intro d w; exact .min_b (ih d w)
+  | all_a _ ih => intro d w; exact .all_a (ih d w)
+  | all_b _ ih => intro d w; exact .all_b (ih (d + 1) _)
+  | lam_f _ ih => intro d w; exact .lam_f (ih (d + 1) _)
+  | app_f _ ih => intro d w; exact .app_f (ih d w)
+  | app_a _ ih => intro d w; exact .app_a (ih d w)
+  | mat_h _ ih => intro d w; exact .mat_h (ih d w)
+  | mat_m _ ih => intro d w; exact .mat_m (ih d w)
+  | eql_a _ ih => intro d w; exact .eql_a (ih d w)
+  | eql_b _ ih => intro d w; exact .eql_b (ih d w)
+  | eql_t _ ih => intro d w; exact .eql_t (ih d w)
+  | rwt_e _ ih => intro d w; exact .rwt_e (ih d w)
+  | rwt_p _ ih => intro d w; exact .rwt_p (ih d w)
+  | rwt_f _ ih => intro d w; exact .rwt_f (ih d w)
+  | let_v _ ih => intro d w; exact .let_v (ih d w)
+  | let_b _ ih => intro d w; exact .let_b (ih (d + 1) _)
+
+theorem Etas.trans (h1 : Etas β a b) (h2 : Etas β b c) : Etas β a c := by
+  induction h1 with
+  | refl => exact h2
+  | step s _ ih => exact .step s (ih h2)
+
+theorem Etas.one (h : Eta β a b) : Etas β a b := .step h .refl
+
+theorem Etas.red (h : Etas β a b) : Red β .strong a b := by
+  induction h with
+  | refl => exact .refl
+  | step s _ ih => exact .step s.step ih
+
+theorem Etas.congr {F : Term → Term}
+    (hF : ∀ {a b}, Eta β a b → Eta β (F a) (F b))
+    (r : Etas β a b) : Etas β (F a) (F b) := by
+  induction r with
+  | refl => exact .refl
+  | step s _ ih => exact .step (hF s) ih
+
+theorem Etas.typ (r : Etas β g g') : Etas β (.Typ g) (.Typ g') :=
+  Etas.congr (F := fun g => .Typ g) (fun s => .typ_g s) r
+theorem Etas.min (ra : Etas β a a') (rb : Etas β b b') :
+    Etas β (.Min a b) (.Min a' b') :=
+  (Etas.congr (F := fun a => .Min a b) (fun s => .min_a s) ra).trans
+    (Etas.congr (F := fun b => .Min a' b) (fun s => .min_b s) rb)
+theorem Etas.all (rA : Etas β A A') (rB : Etas β B B') :
+    Etas β (.All q A B) (.All q A' B') :=
+  (Etas.congr (F := fun A => .All q A B) (fun s => .all_a s) rA).trans
+    (Etas.congr (F := fun B => .All q A' B) (fun s => .all_b s) rB)
+theorem Etas.lam (r : Etas β f f') : Etas β (.Lam f) (.Lam f') :=
+  Etas.congr (F := fun f => .Lam f) (fun s => .lam_f s) r
+theorem Etas.app (rf : Etas β f f') (ra : Etas β a a') :
+    Etas β (.App f a) (.App f' a') :=
+  (Etas.congr (F := fun f => .App f a) (fun s => .app_f s) rf).trans
+    (Etas.congr (F := fun a => .App f' a) (fun s => .app_a s) ra)
+theorem Etas.mat (rh : Etas β h h') (rm : Etas β m m') :
+    Etas β (.Mat a c h m) (.Mat a c h' m') :=
+  (Etas.congr (F := fun h => .Mat a c h m) (fun s => .mat_h s) rh).trans
+    (Etas.congr (F := fun m => .Mat a c h' m) (fun s => .mat_m s) rm)
+theorem Etas.eql (rx : Etas β x x') (ry : Etas β y y') (rT : Etas β T T') :
+    Etas β (.Eql x y T) (.Eql x' y' T') :=
+  ((Etas.congr (F := fun x => .Eql x y T) (fun s => .eql_a s) rx).trans
+    (Etas.congr (F := fun y => .Eql x' y T) (fun s => .eql_b s) ry)).trans
+    (Etas.congr (F := fun T => .Eql x' y' T) (fun s => .eql_t s) rT)
+theorem Etas.rwt (re : Etas β e e') (rP : Etas β P P') (rf : Etas β f f') :
+    Etas β (.Rwt e P f) (.Rwt e' P' f') :=
+  ((Etas.congr (F := fun e => .Rwt e P f) (fun s => .rwt_e s) re).trans
+    (Etas.congr (F := fun P => .Rwt e' P f) (fun s => .rwt_p s) rP)).trans
+    (Etas.congr (F := fun f => .Rwt e' P' f) (fun s => .rwt_f s) rf)
+theorem Etas.let_ (rv : Etas β v v') (rb : Etas β b b') :
+    Etas β (.Let q v b) (.Let q v' b') :=
+  (Etas.congr (F := fun v => .Let q v b) (fun s => .let_v s) rv).trans
+    (Etas.congr (F := fun b => .Let q v' b) (fun s => .let_b s) rb)
+
+theorem Etas.lams (n : Nat) (h : Etas β f f') :
+    Etas β (Term.lams n f) (Term.lams n f') := by
+  induction n with
+  | zero => exact h
+  | succ n ih => exact Etas.lam ih
+
+theorem Etas.shift (h : Etas β a b) (d : Nat) :
+    Etas β (Term.shift d a) (Term.shift d b) := by
+  induction h with
+  | refl => exact .refl
+  | step s _ ih => exact .step (s.shift d) ih
+
+theorem Etas.shiftN (n : Nat) (h : Etas β a b) :
+    Etas β (Term.shiftN n a) (Term.shiftN n b) := by
+  induction n with
+  | zero => exact h
+  | succ n ih => exact ih.shift 0
+
+theorem Etas.subst1 (h : Etas β a b) (d : Nat) (w : Term) :
+    Etas β (Term.subst d w a) (Term.subst d w b) := by
+  induction h with
+  | refl => exact .refl
+  | step s _ ih => exact .step (s.subst d w) ih
+
+-- the argument of a substitution eta-contracts: one eta per copy
+theorem Eta.substR : ∀ (t : Term) (d : Nat) {w w' : Term},
+    Eta β w w' → Etas β (Term.subst d w t) (Term.subst d w' t) := by
+  intro t
+  induction t with
+  | Var i =>
+    intro d w w' s
+    simp only [Term.subst]
+    split
+    · exact Etas.one s
+    · split <;> exact .refl
+  | Ref k => intro d w w' _; exact .refl
+  | Typ g ih => intro d w w' s; exact Etas.typ (ih d s)
+  | Qnt => intro d w w' _; exact .refl
+  | Qua q => intro d w w' _; exact .refl
+  | Min a b iha ihb => intro d w w' s; exact Etas.min (iha d s) (ihb d s)
+  | All q A B ihA ihB =>
+    intro d w w' s; exact Etas.all (ihA d s) (ihB (d + 1) (s.shift 0))
+  | Lam f ih => intro d w w' s; exact Etas.lam (ih (d + 1) (s.shift 0))
+  | App f a ihf iha => intro d w w' s; exact Etas.app (ihf d s) (iha d s)
+  | Adt a r => intro d w w' _; exact .refl
+  | Ctr a c => intro d w w' _; exact .refl
+  | Mat a c h m ihh ihm => intro d w w' s; exact Etas.mat (ihh d s) (ihm d s)
+  | Efq => intro d w w' _; exact .refl
+  | Eql x y T ihx ihy ihT =>
+    intro d w w' s; exact Etas.eql (ihx d s) (ihy d s) (ihT d s)
+  | Rfl => intro d w w' _; exact .refl
+  | Rwt e P f ihe ihP ihf =>
+    intro d w w' s; exact Etas.rwt (ihe d s) (ihP d s) (ihf d s)
+  | Let q v b ihv ihb =>
+    intro d w w' s; exact Etas.let_ (ihv d s) (ihb (d + 1) (s.shift 0))
+
+theorem Etas.substR (h : Etas β w w') (d : Nat) (t : Term) :
+    Etas β (Term.subst d w t) (Term.subst d w' t) := by
+  induction h with
+  | refl => exact .refl
+  | step s _ ih => exact (Eta.substR t d s).trans ih
+
+theorem Etas.subst {d : Nat} (ha : Etas β a a') (hw : Etas β w w') :
+    Etas β (Term.subst d w a) (Term.subst d w' a') :=
+  (ha.subst1 d w).trans (hw.substR d a')
+
+-- the eta-expansion of any term contracts to it
+theorem Eta.expand (t : Term) : Eta β (.Lam (.App (Term.shift 0 t) (.Var 0))) t := by
+  have h := Eta.eta (β := β) (F := Term.shift 0 t) (Term.occ_shift_self t 0)
+  rwa [Term.subst_shift] at h
+
+-- pointwise eta chains on lists
+inductive Etass (β : Book) : List Term → List Term → Prop
+  | nil  : Etass β [] []
+  | cons : Etas β x y → Etass β xs ys → Etass β (x :: xs) (y :: ys)
+
+theorem Etass.refl : ∀ (xs : List Term), Etass β xs xs := by
+  intro xs
+  induction xs with
+  | nil => exact .nil
+  | cons x xs ih => exact .cons .refl ih
+
+theorem Etass.length (h : Etass β xs ys) : xs.length = ys.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => simp [ih]
+
+theorem Etass.trans (h1 : Etass β xs ys) (h2 : Etass β ys zs) : Etass β xs zs := by
+  induction h1 generalizing zs with
+  | nil => cases h2; exact .nil
+  | cons hr hrest ih =>
+    cases h2 with
+    | cons hr2 hrest2 => exact .cons (hr.trans hr2) (ih hrest2)
+
+theorem Etass.append (h1 : Etass β xs ys) (h2 : Etass β as bs) :
+    Etass β (xs ++ as) (ys ++ bs) := by
+  induction h1 with
+  | nil => exact h2
+  | cons hr _ ih => exact .cons hr ih
+
+theorem Etass.drop (h : Etass β xs ys) : ∀ n, Etass β (xs.drop n) (ys.drop n) := by
+  induction h with
+  | nil => intro n; simp; exact Etass.nil
+  | cons hp hrest ih =>
+    intro n
+    cases n with
+    | zero => exact .cons hp hrest
+    | succ n => exact ih n
+
+theorem Etass.map (f : Term → Term) (hf : ∀ {a b}, Etas β a b → Etas β (f a) (f b))
+    (h : Etass β xs ys) : Etass β (xs.map f) (ys.map f) := by
+  induction h with
+  | nil => exact .nil
+  | cons hr _ ih => exact .cons (hf hr) ih
+
+theorem Etass.append_inv (h : Etass β (xs ++ ys) zs) :
+    ∃ xs' ys', zs = xs' ++ ys' ∧ Etass β xs xs' ∧ Etass β ys ys' := by
+  induction xs generalizing zs with
+  | nil => exact ⟨[], zs, _root_.rfl, .nil, h⟩
+  | cons x xs ih =>
+    cases h with
+    | cons hx hrest =>
+      obtain ⟨xs', ys', rfl, h1, h2⟩ := ih hrest
+      exact ⟨_ :: xs', ys', _root_.rfl, .cons hx h1, h2⟩
+
+theorem Etass.of_getD : ∀ {xs ys : List Term}, xs.length = ys.length →
+    (∀ i, i < xs.length → Etas β (xs.getD i .Qnt) (ys.getD i .Qnt)) →
+    Etass β xs ys := by
+  intro xs
+  induction xs with
+  | nil => intro ys hl _; cases ys with | nil => exact .nil | cons => simp at hl
+  | cons x xs ih =>
+    intro ys hl hr
+    cases ys with
+    | nil => simp at hl
+    | cons y ys =>
+      exact .cons (hr 0 (by simp)) (ih (by simp at hl; omega)
+        (fun i hi => hr (i + 1) (by simp; omega)))
+
+theorem Etas.apps (hh : Etas β h h') (has : Etass β as as') :
+    Etas β (Term.apps h as) (Term.apps h' as') := by
+  induction has generalizing h h' with
+  | nil => exact hh
+  | cons hp _ ih => exact ih (Etas.app hh hp)
+
+-- ----------------------------------------------------------------------------
+-- inversion: an eta chain keeps the root constructor (children chain), or
+-- a root eta fires after inner steps
+-- ----------------------------------------------------------------------------
+
+-- one layer of congruence: same root, Etas on every child
+inductive EtasC (β : Book) : Term → Term → Prop
+  | var  : EtasC β (.Var i) (.Var i)
+  | ref  : EtasC β (.Ref k) (.Ref k)
+  | typ  : Etas β g g' → EtasC β (.Typ g) (.Typ g')
+  | qnt  : EtasC β .Qnt .Qnt
+  | qua  : EtasC β (.Qua q) (.Qua q)
+  | min  : Etas β a a' → Etas β b b' → EtasC β (.Min a b) (.Min a' b')
+  | adt  : EtasC β (.Adt a r) (.Adt a r)
+  | ctr  : EtasC β (.Ctr a c) (.Ctr a c)
+  | efq  : EtasC β .Efq .Efq
+  | rfl  : EtasC β .Rfl .Rfl
+  | all  : Etas β A A' → Etas β B B' → EtasC β (.All q A B) (.All q A' B')
+  | lam  : Etas β f f' → EtasC β (.Lam f) (.Lam f')
+  | app  : Etas β f f' → Etas β a a' → EtasC β (.App f a) (.App f' a')
+  | mat  : Etas β h h' → Etas β m m' → EtasC β (.Mat a c h m) (.Mat a c h' m')
+  | eql  : Etas β x x' → Etas β y y' → Etas β T T' →
+           EtasC β (.Eql x y T) (.Eql x' y' T')
+  | rwt  : Etas β e e' → Etas β P P' → Etas β f f' →
+           EtasC β (.Rwt e P f) (.Rwt e' P' f')
+  | let_ : Etas β v v' → Etas β b b' → EtasC β (.Let q v b) (.Let q v' b')
+
+theorem EtasC.refl : ∀ (t : Term), EtasC β t t := by
+  intro t; cases t <;> constructor <;> exact .refl
+
+theorem EtasC.etas (h : EtasC β s u) : Etas β s u := by
+  cases h with
+  | var => exact .refl
+  | ref => exact .refl
+  | typ h => exact Etas.typ h
+  | qnt => exact .refl
+  | qua => exact .refl
+  | min ha hb => exact Etas.min ha hb
+  | adt => exact .refl
+  | ctr => exact .refl
+  | efq => exact .refl
+  | rfl => exact .refl
+  | all hA hB => exact Etas.all hA hB
+  | lam hf => exact Etas.lam hf
+  | app hf ha => exact Etas.app hf ha
+  | mat hh hm => exact Etas.mat hh hm
+  | eql hx hy hT => exact Etas.eql hx hy hT
+  | rwt he hP hf => exact Etas.rwt he hP hf
+  | let_ hv hb => exact Etas.let_ hv hb
+
+theorem EtasC.subst1 (h : EtasC β s u) (d : Nat) (w : Term) :
+    EtasC β (Term.subst d w s) (Term.subst d w u) := by
+  cases h with
+  | var => exact EtasC.refl _
+  | ref => exact .ref
+  | typ h => exact .typ (h.subst1 d w)
+  | qnt => exact .qnt
+  | qua => exact .qua
+  | min ha hb => exact .min (ha.subst1 d w) (hb.subst1 d w)
+  | adt => exact .adt
+  | ctr => exact .ctr
+  | efq => exact .efq
+  | rfl => exact .rfl
+  | all hA hB => exact .all (hA.subst1 d w) (hB.subst1 (d + 1) _)
+  | lam hf => exact .lam (hf.subst1 (d + 1) _)
+  | app hf ha => exact .app (hf.subst1 d w) (ha.subst1 d w)
+  | mat hh hm => exact .mat (hh.subst1 d w) (hm.subst1 d w)
+  | eql hx hy hT => exact .eql (hx.subst1 d w) (hy.subst1 d w) (hT.subst1 d w)
+  | rwt he hP hf => exact .rwt (he.subst1 d w) (hP.subst1 d w) (hf.subst1 d w)
+  | let_ hv hb => exact .let_ (hv.subst1 d w) (hb.subst1 (d + 1) _)
+
+theorem Etas.inv (h : Etas β s u) : EtasC β s u ∨
+    ∃ X F, s = .Lam X ∧ Etas β X (.App F (.Var 0)) ∧ Term.occ 0 F = 0 ∧
+      Etas β (Term.subst 0 .Qnt F) u := by
+  induction h with
+  | refl => exact .inl (EtasC.refl _)
+  | step e rest ih =>
+    cases e
+    case eta hocc => exact .inr ⟨_, _, _root_.rfl, .refl, hocc, rest⟩
+    all_goals
+      rcases ih with hc | ⟨X, F, hX, h1, h2, h3⟩
+      · cases hc; left; constructor <;> first | assumption | exact .step ‹_› ‹_›
+      · cases hX <;> exact .inr ⟨_, _, _root_.rfl, .step ‹_› h1, h2, h3⟩
+
+theorem Etas.head_all (h : Etas β s (.All q X Y)) :
+    (∃ q' X' Y', s = .All q' X' Y') ∨ ∃ Z, s = .Lam Z := by
+  rcases h.inv with hc | ⟨Z, F, rfl, -⟩
+  · cases hc; exact .inl ⟨_, _, _, _root_.rfl⟩
+  · exact .inr ⟨Z, _root_.rfl⟩
+
+theorem Etas.head_typ (h : Etas β s (.Typ g)) :
+    (∃ g', s = .Typ g') ∨ ∃ Z, s = .Lam Z := by
+  rcases h.inv with hc | ⟨Z, F, rfl, -⟩
+  · cases hc; exact .inl ⟨_, _root_.rfl⟩
+  · exact .inr ⟨Z, _root_.rfl⟩
+
+theorem Etas.head_qnt (h : Etas β s .Qnt) : s = .Qnt ∨ ∃ Z, s = .Lam Z := by
+  rcases h.inv with hc | ⟨Z, F, rfl, -⟩
+  · cases hc; exact .inl _root_.rfl
+  · exact .inr ⟨Z, _root_.rfl⟩
+
+-- forward stability: an eta chain from a leaf-headed spine stays on that
+-- head, arguments pointwise
+def Term.IsLeaf : Term → Prop
+  | .Var _ | .Ref _ | .Qnt | .Qua _ | .Adt _ _ | .Ctr _ _ | .Efq | .Rfl => True
+  | _ => False
+
+theorem Term.IsLeaf.isHead {t : Term} (h : Term.IsLeaf t) : Term.IsHead t := by
+  cases t <;> simp_all [Term.IsLeaf, Term.IsHead]
+
+theorem Eta.leaf_spine_inv (hp : Eta β s t) :
+    ∀ {h : Term} {as : List Term}, h.IsLeaf → s = Term.apps h as →
+    ∃ as', t = Term.apps h as' ∧ Etass β as as' := by
+  induction hp <;> intro h as hl heq
+  all_goals try exact absurd heq.symm (Term.apps_ne hl.isHead (by trivial) (fun e => by subst e; exact hl.elim))
+  case app_f _ _ _ hf ihf =>
+    obtain ⟨ys, hys, hfy⟩ := Term.app_eq_apps hl.isHead heq
+    obtain ⟨ys', hy1, hy2⟩ := ihf hl hfy
+    subst hys hy1
+    exact ⟨ys' ++ [_], (Term.apps_snoc _ _ _).symm, Etass.append hy2 (.cons .refl .nil)⟩
+  case app_a _ _ _ ha _ =>
+    obtain ⟨ys, hys, hfy⟩ := Term.app_eq_apps hl.isHead heq
+    subst hys hfy
+    exact ⟨ys ++ [_], (Term.apps_snoc _ _ _).symm, Etass.append (Etass.refl _) (.cons (Etas.one ha) .nil)⟩
+
+theorem Etas.leaf_spine_inv (hp : Etas β s t) :
+    ∀ {h : Term} {as : List Term}, h.IsLeaf → s = Term.apps h as →
+    ∃ as', t = Term.apps h as' ∧ Etass β as as' := by
+  induction hp with
+  | refl => intro h as _ heq; exact ⟨as, heq, Etass.refl _⟩
+  | step e _ ih =>
+    intro h as hl heq
+    obtain ⟨as₁, h1, h2⟩ := e.leaf_spine_inv hl heq
+    obtain ⟨as', h3, h4⟩ := ih hl h1
+    exact ⟨as', h3, h2.trans h4⟩
+
+theorem Etas.spine_stable (hp : Etas β s t) (hh : (Term.spine s).1 = h) (hl : h.IsLeaf) :
+    (Term.spine t).1 = h ∧ Etass β (Term.spine s).2 (Term.spine t).2 := by
+  have hs : s = Term.apps h (Term.spine s).2 := by
+    rw [← hh]; exact (Term.apps_spine s).symm
+  obtain ⟨as', ht, hps⟩ := hp.leaf_spine_inv hl hs
+  rw [ht, Term.spine_apps hl.isHead]
+  exact ⟨_root_.rfl, hps⟩
+
+-- ----------------------------------------------------------------------------
+-- Par.split: a parallel step is an eta-free parallel step then etas
+-- ----------------------------------------------------------------------------
+
+theorem List.choose_getD : ∀ (n : Nat) (P : Nat → Term → Prop),
+    (∀ i, i < n → ∃ y, P i y) →
+    ∃ ys : List Term, ys.length = n ∧ ∀ i, i < n → P i (ys.getD i .Qnt) := by
+  intro n
+  induction n with
+  | zero => intro P _; exact ⟨[], _root_.rfl, fun i hi => absurd hi (Nat.not_lt_zero i)⟩
+  | succ n ih =>
+    intro P h
+    obtain ⟨y, hy⟩ := h 0 (Nat.zero_lt_succ n)
+    obtain ⟨ys, hlen, hys⟩ := ih (fun i => P (i + 1)) (fun i hi => h (i + 1) (by omega))
+    refine ⟨y :: ys, by simp [hlen], fun i hi => ?_⟩
+    cases i with
+    | zero => exact hy
+    | succ i => exact hys i (by omega)
+
+theorem Par.split (hβ : Book.Closed β) (hp : Par β u v) :
+    ∃ u₁, ParB β u u₁ ∧ Etas β u₁ v := by
+  induction hp with
+  | @eta F F' hocc hF ih =>
+    obtain ⟨F₁, h1, h2⟩ := ih
+    refine ⟨.Lam (.App F₁ (.Var 0)), .lam (.app h1 .var), ?_⟩
+    exact (Etas.lam (Etas.app h2 .refl)).trans (Etas.one (.eta (Par.occ_zero hβ hF 0 hocc)))
+  | var => exact ⟨_, .var, .refl⟩
+  | ref => exact ⟨_, .ref, .refl⟩
+  | typ _ ih => obtain ⟨_, h1, h2⟩ := ih; exact ⟨_, .typ h1, Etas.typ h2⟩
+  | qnt => exact ⟨_, .qnt, .refl⟩
+  | qua => exact ⟨_, .qua, .refl⟩
+  | min _ _ iha ihb =>
+    obtain ⟨_, ha1, ha2⟩ := iha; obtain ⟨_, hb1, hb2⟩ := ihb
+    exact ⟨_, .min ha1 hb1, Etas.min ha2 hb2⟩
+  | adt => exact ⟨_, .adt, .refl⟩
+  | ctr => exact ⟨_, .ctr, .refl⟩
+  | efq => exact ⟨_, .efq, .refl⟩
+  | rfl => exact ⟨_, .rfl, .refl⟩
+  | all _ _ ihA ihB =>
+    obtain ⟨_, hA1, hA2⟩ := ihA; obtain ⟨_, hB1, hB2⟩ := ihB
+    exact ⟨_, .all hA1 hB1, Etas.all hA2 hB2⟩
+  | lam _ ih => obtain ⟨_, h1, h2⟩ := ih; exact ⟨_, .lam h1, Etas.lam h2⟩
+  | app _ _ ihf iha =>
+    obtain ⟨_, hf1, hf2⟩ := ihf; obtain ⟨_, ha1, ha2⟩ := iha
+    exact ⟨_, .app hf1 ha1, Etas.app hf2 ha2⟩
+  | mat _ _ ihh ihm =>
+    obtain ⟨_, hh1, hh2⟩ := ihh; obtain ⟨_, hm1, hm2⟩ := ihm
+    exact ⟨_, .mat hh1 hm1, Etas.mat hh2 hm2⟩
+  | eql _ _ _ ihx ihy ihT =>
+    obtain ⟨_, hx1, hx2⟩ := ihx; obtain ⟨_, hy1, hy2⟩ := ihy; obtain ⟨_, hT1, hT2⟩ := ihT
+    exact ⟨_, .eql hx1 hy1 hT1, Etas.eql hx2 hy2 hT2⟩
+  | rwt _ _ _ ihe ihP ihf =>
+    obtain ⟨_, he1, he2⟩ := ihe; obtain ⟨_, hP1, hP2⟩ := ihP; obtain ⟨_, hf1, hf2⟩ := ihf
+    exact ⟨_, .rwt he1 hP1 hf1, Etas.rwt he2 hP2 hf2⟩
+  | let_ _ _ ihv ihb =>
+    obtain ⟨_, hv1, hv2⟩ := ihv; obtain ⟨_, hb1, hb2⟩ := ihb
+    exact ⟨_, .let_ hv1 hb1, Etas.let_ hv2 hb2⟩
+  | beta _ _ ihf iha =>
+    obtain ⟨_, hf1, hf2⟩ := ihf; obtain ⟨_, ha1, ha2⟩ := iha
+    exact ⟨_, .beta hf1 ha1, Etas.subst hf2 ha2⟩
+  | letr _ _ ihv ihb =>
+    obtain ⟨_, hv1, hv2⟩ := ihv; obtain ⟨_, hb1, hb2⟩ := ihb
+    exact ⟨_, .letr hv1 hb1, Etas.subst hb2 hv2⟩
+  | @dref k d b s args' hk hb hsp hlen hpar ih =>
+    obtain ⟨args₁, hlen1, h1⟩ := List.choose_getD _
+      (fun i x => ParB β ((Term.spine s).2.getD i .Qnt) x ∧ Etas β x (args'.getD i .Qnt)) ih
+    refine ⟨Term.apps b args₁, .dref hk hb hsp hlen1.symm (fun i hi => (h1 i hi).1), ?_⟩
+    exact Etas.apps .refl (Etass.of_getD (by rw [hlen1, hlen])
+      (fun i hi => (h1 i (by rwa [hlen1] at hi)).2))
+  | aref hk h0 => exact ⟨_, .aref hk h0, .refl⟩
+  | matc h1 h2 h3 h4 hps hph ihs ihh =>
+    obtain ⟨_, hs1, hs2⟩ := ihs; obtain ⟨_, hh1, hh2⟩ := ihh
+    obtain ⟨hh', _⟩ := hs1.spine_stable h3
+    obtain ⟨_, hargs'⟩ := hs2.spine_stable hh' (by trivial)
+    exact ⟨_, .matc h1 h2 h3 h4 hs1 hh1, Etas.apps hh2 (hargs'.drop _)⟩
+  | matm h1 hne hps hphm ihs ihm =>
+    obtain ⟨_, hs1, hs2⟩ := ihs; obtain ⟨_, hm1, hm2⟩ := ihm
+    exact ⟨_, .matm h1 hne hs1 hm1, Etas.app hm2 hs2⟩
+  | rwtr _ ih => obtain ⟨_, h1, h2⟩ := ih; exact ⟨_, .rwtr h1, h2⟩
+  | minLM _ ih => obtain ⟨_, h1, h2⟩ := ih; exact ⟨_, .minLM h1, h2⟩
+  | minLN => exact ⟨_, .minLN, .refl⟩
+  | minRM _ ih => obtain ⟨_, h1, h2⟩ := ih; exact ⟨_, .minRM h1, h2⟩
+  | minRN => exact ⟨_, .minRN, .refl⟩
+  | minLL => exact ⟨_, .minLL, .refl⟩
+
+-- ----------------------------------------------------------------------------
+-- Par.strip: a parallel step against a strong run (B's diamond, iterated)
+-- ----------------------------------------------------------------------------
+
+theorem Par.strip (hβ : Book.Closed β) (hp : Par β t t₁) (hr : Red β .strong t u) :
+    ∃ w, Red β .strong t₁ w ∧ Par β u w := by
+  obtain ⟨w, h1, h2⟩ := ParRed.strip hβ hp (ParRed.of_red hr)
+  exact ⟨w, h1.red hβ, h2⟩
+
+-- ----------------------------------------------------------------------------
+-- ParE: parallel eta (B's Par restricted to congruences and eta). It is
+-- the tile for commuting eta chains with eta-free steps: a sequential Etas
+-- does not tile (a beta copies its argument's etas), a parallel one does.
+-- ----------------------------------------------------------------------------
+
+inductive ParE (β : Book) : Term → Term → Prop
+  | var  : ParE β (.Var i) (.Var i)
+  | ref  : ParE β (.Ref k) (.Ref k)
+  | typ  : ParE β g g' → ParE β (.Typ g) (.Typ g')
+  | qnt  : ParE β .Qnt .Qnt
+  | qua  : ParE β (.Qua q) (.Qua q)
+  | min  : ParE β a a' → ParE β b b' → ParE β (.Min a b) (.Min a' b')
+  | adt  : ParE β (.Adt a r) (.Adt a r)
+  | ctr  : ParE β (.Ctr a c) (.Ctr a c)
+  | efq  : ParE β .Efq .Efq
+  | rfl  : ParE β .Rfl .Rfl
+  | all  : ParE β A A' → ParE β B B' → ParE β (.All q A B) (.All q A' B')
+  | eta  : Term.occ 0 F = 0 → ParE β F F' →
+           ParE β (.Lam (.App F (.Var 0))) (Term.subst 0 .Qnt F')
+  | lam  : ParE β f f' → ParE β (.Lam f) (.Lam f')
+  | app  : ParE β f f' → ParE β a a' → ParE β (.App f a) (.App f' a')
+  | mat  : ParE β h h' → ParE β m m' → ParE β (.Mat a c h m) (.Mat a c h' m')
+  | eql  : ParE β x x' → ParE β y y' → ParE β T T' →
+           ParE β (.Eql x y T) (.Eql x' y' T')
+  | rwt  : ParE β e e' → ParE β P P' → ParE β f f' →
+           ParE β (.Rwt e P f) (.Rwt e' P' f')
+  | let_ : ParE β v v' → ParE β b b' → ParE β (.Let q v b) (.Let q v' b')
+
+inductive ParsE (β : Book) : List Term → List Term → Prop
+  | nil  : ParsE β [] []
+  | cons : ParE β x y → ParsE β xs ys → ParsE β (x :: xs) (y :: ys)
+
+theorem ParE.refl : ∀ (t : Term), ParE β t t := by
+  intro t
+  induction t with
+  | Var i => exact .var
+  | Ref k => exact .ref
+  | Typ g ih => exact .typ ih
+  | Qnt => exact .qnt
+  | Qua q => exact .qua
+  | Min a b iha ihb => exact .min iha ihb
+  | All q A B ihA ihB => exact .all ihA ihB
+  | Lam f ihf => exact .lam ihf
+  | App f a ihf iha => exact .app ihf iha
+  | Adt a r => exact .adt
+  | Ctr a c => exact .ctr
+  | Mat a c h m ihh ihm => exact .mat ihh ihm
+  | Efq => exact .efq
+  | Eql x y T ihx ihy ihT => exact .eql ihx ihy ihT
+  | Rfl => exact .rfl
+  | Rwt e P f ihe ihP ihf => exact .rwt ihe ihP ihf
+  | Let q v b ihv ihb => exact .let_ ihv ihb
+
+theorem ParsE.length (h : ParsE β xs ys) : xs.length = ys.length := by
+  induction h with
+  | nil => rfl
+  | cons _ _ ih => simp [ih]
+
+theorem ParsE.append (h1 : ParsE β xs ys) (h2 : ParsE β as bs) :
+    ParsE β (xs ++ as) (ys ++ bs) := by
+  induction h1 with
+  | nil => exact h2
+  | cons hp _ ih => exact .cons hp ih
+
+theorem ParsE.append_inv (h : ParsE β (xs ++ ys) zs) :
+    ∃ xs' ys', zs = xs' ++ ys' ∧ ParsE β xs xs' ∧ ParsE β ys ys' := by
+  induction xs generalizing zs with
+  | nil => exact ⟨[], zs, _root_.rfl, .nil, h⟩
+  | cons x xs ih =>
+    cases h with
+    | cons hx hrest =>
+      obtain ⟨xs', ys', rfl, h1, h2⟩ := ih hrest
+      exact ⟨_ :: xs', ys', _root_.rfl, .cons hx h1, h2⟩
+
+theorem ParE.apps (hh : ParE β h h') (has : ParsE β as as') :
+    ParE β (Term.apps h as) (Term.apps h' as') := by
+  induction has generalizing h h' with
+  | nil => exact hh
+  | cons hp _ ih => exact ih (.app hh hp)
+
+theorem ParE.par (h : ParE β a b) : Par β a b := by
+  induction h with
+  | var => exact .var
+  | ref => exact .ref
+  | typ _ ih => exact .typ ih
+  | qnt => exact .qnt
+  | qua => exact .qua
+  | min _ _ iha ihb => exact .min iha ihb
+  | adt => exact .adt
+  | ctr => exact .ctr
+  | efq => exact .efq
+  | rfl => exact .rfl
+  | all _ _ ihA ihB => exact .all ihA ihB
+  | eta hocc _ ih => exact .eta hocc ih
+  | lam _ ih => exact .lam ih
+  | app _ _ ihf iha => exact .app ihf iha
+  | mat _ _ ihh ihm => exact .mat ihh ihm
+  | eql _ _ _ ihx ihy ihT => exact .eql ihx ihy ihT
+  | rwt _ _ _ ihe ihP ihf => exact .rwt ihe ihP ihf
+  | let_ _ _ ihv ihb => exact .let_ ihv ihb
+
+theorem Eta.parE (h : Eta β a b) : ParE β a b := by
+  induction h with
+  | eta hocc => exact .eta hocc (ParE.refl _)
+  | typ_g _ ih => exact .typ ih
+  | min_a _ ih => exact .min ih (ParE.refl _)
+  | min_b _ ih => exact .min (ParE.refl _) ih
+  | all_a _ ih => exact .all ih (ParE.refl _)
+  | all_b _ ih => exact .all (ParE.refl _) ih
+  | lam_f _ ih => exact .lam ih
+  | app_f _ ih => exact .app ih (ParE.refl _)
+  | app_a _ ih => exact .app (ParE.refl _) ih
+  | mat_h _ ih => exact .mat ih (ParE.refl _)
+  | mat_m _ ih => exact .mat (ParE.refl _) ih
+  | eql_a _ ih => exact .eql ih (ParE.refl _) (ParE.refl _)
+  | eql_b _ ih => exact .eql (ParE.refl _) ih (ParE.refl _)
+  | eql_t _ ih => exact .eql (ParE.refl _) (ParE.refl _) ih
+  | rwt_e _ ih => exact .rwt ih (ParE.refl _) (ParE.refl _)
+  | rwt_p _ ih => exact .rwt (ParE.refl _) ih (ParE.refl _)
+  | rwt_f _ ih => exact .rwt (ParE.refl _) (ParE.refl _) ih
+  | let_v _ ih => exact .let_ ih (ParE.refl _)
+  | let_b _ ih => exact .let_ (ParE.refl _) ih
+
+theorem ParE.etas (hβ : Book.Closed β) (h : ParE β a b) : Etas β a b := by
+  induction h with
+  | var => exact .refl
+  | ref => exact .refl
+  | typ _ ih => exact Etas.typ ih
+  | qnt => exact .refl
+  | qua => exact .refl
+  | min _ _ iha ihb => exact Etas.min iha ihb
+  | adt => exact .refl
+  | ctr => exact .refl
+  | efq => exact .refl
+  | rfl => exact .refl
+  | all _ _ ihA ihB => exact Etas.all ihA ihB
+  | eta hocc hF ih =>
+    exact (Etas.lam (Etas.app ih .refl)).trans
+      (Etas.one (.eta (Par.occ_zero hβ hF.par 0 hocc)))
+  | lam _ ih => exact Etas.lam ih
+  | app _ _ ihf iha => exact Etas.app ihf iha
+  | mat _ _ ihh ihm => exact Etas.mat ihh ihm
+  | eql _ _ _ ihx ihy ihT => exact Etas.eql ihx ihy ihT
+  | rwt _ _ _ ihe ihP ihf => exact Etas.rwt ihe ihP ihf
+  | let_ _ _ ihv ihb => exact Etas.let_ ihv ihb
+
+theorem ParE.shift (hp : ParE β t t') : ∀ d, ParE β (t.shift d) (t'.shift d) := by
+  induction hp with
+  | @eta F F' hocc hF ih =>
+    intro d
+    show ParE β (.Lam (.App (Term.shift (d + 1) F) (Term.shift (d + 1) (.Var 0))))
+      (Term.shift d (Term.subst 0 .Qnt F'))
+    have h0 : Term.shift (d + 1) (Term.Var 0) = .Var 0 := by
+      simp only [Term.shift]
+      rw [if_pos (by omega)]
+    have h1 : Term.shift d (Term.subst 0 .Qnt F')
+        = Term.subst 0 .Qnt (Term.shift (d + 1) F') := by
+      rw [Term.shift_subst_ge F' d 0 .Qnt (Nat.zero_le d)]
+      rfl
+    rw [h0, h1]
+    exact .eta (by rw [Term.occ_shift_lt F 0 (d + 1) (by omega)]; exact hocc) (ih (d + 1))
+  | var => intro d; simp only [Term.shift]; split <;> exact .var
+  | ref => intro d; exact .ref
+  | typ _ ih => intro d; exact .typ (ih d)
+  | qnt => intro d; exact .qnt
+  | qua => intro d; exact .qua
+  | min _ _ iha ihb => intro d; exact .min (iha d) (ihb d)
+  | adt => intro d; exact .adt
+  | ctr => intro d; exact .ctr
+  | efq => intro d; exact .efq
+  | rfl => intro d; exact .rfl
+  | all _ _ ihA ihB => intro d; exact .all (ihA d) (ihB (d + 1))
+  | lam _ ihf => intro d; exact .lam (ihf (d + 1))
+  | app _ _ ihf iha => intro d; exact .app (ihf d) (iha d)
+  | mat _ _ ihh ihm => intro d; exact .mat (ihh d) (ihm d)
+  | eql _ _ _ ihx ihy ihT => intro d; exact .eql (ihx d) (ihy d) (ihT d)
+  | rwt _ _ _ ihe ihP ihf => intro d; exact .rwt (ihe d) (ihP d) (ihf d)
+  | let_ _ _ ihv ihb => intro d; exact .let_ (ihv d) (ihb (d + 1))
+
+theorem ParE.subst (hp : ParE β t t') :
+    ∀ d {w w'}, ParE β w w' → ParE β (Term.subst d w t) (Term.subst d w' t') := by
+  induction hp with
+  | @eta F F' hocc hF ih =>
+    intro d w w' hw
+    show ParE β (.Lam (.App (Term.subst (d + 1) (Term.shift 0 w) F)
+      (Term.subst (d + 1) (Term.shift 0 w) (.Var 0))))
+      (Term.subst d w' (Term.subst 0 .Qnt F'))
+    have h0 : Term.subst (d + 1) (Term.shift 0 w) (Term.Var 0) = .Var 0 := by
+      simp only [Term.subst]
+      rw [if_neg (by omega), if_neg (by omega)]
+    have h1 : Term.subst d w' (Term.subst 0 .Qnt F')
+        = Term.subst 0 .Qnt (Term.subst (d + 1) (Term.shift 0 w') F') := by
+      rw [Term.subst_subst0 F' w' .Qnt d]
+      rfl
+    rw [h0, h1]
+    refine .eta ?_ (ih (d + 1) (hw.shift 0))
+    exact Term.occ_subst_lt_zero F (d + 1) 0 (Term.shift 0 w) (by omega)
+      hocc (Term.occ_shift_self w 0)
+  | var =>
+    intro d w w' hw
+    simp only [Term.subst]
+    split
+    · exact hw
+    · split <;> exact .var
+  | ref => intro d w w' _; exact .ref
+  | typ _ ih => intro d w w' hw; exact .typ (ih d hw)
+  | qnt => intro d w w' _; exact .qnt
+  | qua => intro d w w' _; exact .qua
+  | min _ _ iha ihb => intro d w w' hw; exact .min (iha d hw) (ihb d hw)
+  | adt => intro d w w' _; exact .adt
+  | ctr => intro d w w' _; exact .ctr
+  | efq => intro d w w' _; exact .efq
+  | rfl => intro d w w' _; exact .rfl
+  | all _ _ ihA ihB => intro d w w' hw; exact .all (ihA d hw) (ihB (d + 1) (hw.shift 0))
+  | lam _ ihf => intro d w w' hw; exact .lam (ihf (d + 1) (hw.shift 0))
+  | app _ _ ihf iha => intro d w w' hw; exact .app (ihf d hw) (iha d hw)
+  | mat _ _ ihh ihm => intro d w w' hw; exact .mat (ihh d hw) (ihm d hw)
+  | eql _ _ _ ihx ihy ihT => intro d w w' hw; exact .eql (ihx d hw) (ihy d hw) (ihT d hw)
+  | rwt _ _ _ ihe ihP ihf => intro d w w' hw; exact .rwt (ihe d hw) (ihP d hw) (ihf d hw)
+  | let_ _ _ ihv ihb => intro d w w' hw; exact .let_ (ihv d hw) (ihb (d + 1) (hw.shift 0))
+
+theorem ParE.leaf_spine_inv (hp : ParE β s t) :
+    ∀ {h : Term} {as : List Term}, h.IsLeaf → s = Term.apps h as →
+    ∃ as', t = Term.apps h as' ∧ ParsE β as as' := by
+  induction hp <;> intro h as hl heq
+  all_goals try exact absurd heq.symm (Term.apps_ne hl.isHead (by trivial) (fun e => by subst e; exact hl.elim))
+  all_goals try (obtain ⟨h1, h2⟩ := Term.apps_head_inv (by trivial) hl.isHead (xs := []) heq
+                 cases h1; cases h2; exact ⟨[], _root_.rfl, .nil⟩)
+  case app _ _ _ _ hf ha ihf _ =>
+    obtain ⟨ys, hys, hfy⟩ := Term.app_eq_apps hl.isHead heq
+    obtain ⟨ys', hy1, hy2⟩ := ihf hl hfy
+    subst hys hy1
+    exact ⟨ys' ++ [_], (Term.apps_snoc _ _ _).symm, ParsE.append hy2 (.cons ha .nil)⟩
+
+theorem ParE.spine_stable (hp : ParE β s t) (hh : (Term.spine s).1 = h) (hl : h.IsLeaf) :
+    (Term.spine t).1 = h ∧ ParsE β (Term.spine s).2 (Term.spine t).2 := by
+  have hs : s = Term.apps h (Term.spine s).2 := by
+    rw [← hh]; exact (Term.apps_spine s).symm
+  obtain ⟨as', ht, hps⟩ := hp.leaf_spine_inv hl hs
+  rw [ht, Term.spine_apps hl.isHead]
+  exact ⟨_root_.rfl, hps⟩
+
+-- ----------------------------------------------------------------------------
+-- the tile: a parallel eta against one eta-free step. Induction on the size
+-- of the source (the lam/eta/app_f case needs the step two levels down).
+-- ----------------------------------------------------------------------------
+
+theorem ParE.commute_aux (hβ : Book.Closed β) : ∀ (n : Nat) (u u' v : Term),
+    Term.size u ≤ n → StepB β u u' → ParE β u v →
+    ∃ v', RedB β v v' ∧ ParE β u' v' := by
+  intro n
+  induction n with
+  | zero => intro u u' v hn _ _; exact absurd hn (by have := Term.size_pos u; omega)
+  | succ n ih =>
+    intro u u' v hn s hv
+    cases s with
+    | @beta f a =>
+      cases hv with
+      | app hL ha =>
+        cases hL with
+        | lam hf => exact ⟨_, RedB.one .beta, hf.subst 0 ha⟩
+        | @eta F F' hocc hF =>
+          refine ⟨_, .refl, ?_⟩
+          have h0 : Term.subst 0 a (.Var 0) = a := by simp [Term.subst]
+          show ParE β (.App (Term.subst 0 a F) (Term.subst 0 a (.Var 0))) _
+          rw [h0, Term.occ_zero_subst_irrel F 0 a .Qnt hocc]
+          exact .app (hF.subst 0 .qnt) ha
+    | let_ =>
+      cases hv with
+      | let_ hv' hb => exact ⟨_, RedB.one .let_, hb.subst 0 hv'⟩
+    | @dref k d b s hk hb hsp =>
+      obtain ⟨hh, hargs⟩ := hv.spine_stable hsp (by trivial)
+      exact ⟨_, RedB.one (.dref hk hb hh), ParE.apps (ParE.refl b) hargs⟩
+    | aref hk h0 =>
+      cases hv
+      exact ⟨_, RedB.one (.aref hk h0), ParE.refl _⟩
+    | @matc a A c C h m ps xs h1 h2 h3 h4 =>
+      cases hv with
+      | app hM hS =>
+        cases hM with
+        | mat hh hm =>
+          obtain ⟨ys, rfl, hys⟩ := hS.leaf_spine_inv (by trivial) _root_.rfl
+          obtain ⟨ps', xs', rfl, hps, hxs⟩ := hys.append_inv
+          exact ⟨_, RedB.one (.matc h1 h2 (by rw [← hps.length]; exact h3)
+            (by rw [← hxs.length]; exact h4)), ParE.apps hh hxs⟩
+    | @matm a' c' a c h m as hne =>
+      cases hv with
+      | app hM hS =>
+        cases hM with
+        | mat hh hm =>
+          obtain ⟨ys, rfl, hys⟩ := hS.leaf_spine_inv (by trivial) _root_.rfl
+          exact ⟨_, RedB.one (.matm hne), .app hm (ParE.apps .ctr hys)⟩
+    | rwt =>
+      cases hv with
+      | rwt he hP hf => cases he; exact ⟨_, RedB.one .rwt, hf⟩
+    | minLM =>
+      cases hv with
+      | min ha hb => cases ha; exact ⟨_, RedB.one .minLM, hb⟩
+    | minLN =>
+      cases hv with
+      | min ha hb => cases ha; exact ⟨_, RedB.one .minLN, .qua⟩
+    | minRM =>
+      cases hv with
+      | min ha hb => cases hb; exact ⟨_, RedB.one .minRM, ha⟩
+    | minRN =>
+      cases hv with
+      | min ha hb => cases hb; exact ⟨_, RedB.one .minRN, .qua⟩
+    | minLL =>
+      cases hv with
+      | min ha hb => cases ha; cases hb; exact ⟨_, RedB.one .minLL, .qua⟩
+    | typ_g s' =>
+      cases hv with
+      | typ hg =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hg
+        exact ⟨_, RedB.typ h1, .typ h2⟩
+    | min_a s' =>
+      cases hv with
+      | min ha hb =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' ha
+        exact ⟨_, RedB.min h1 .refl, .min h2 hb⟩
+    | min_b s' =>
+      cases hv with
+      | min ha hb =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hb
+        exact ⟨_, RedB.min .refl h1, .min ha h2⟩
+    | all_a s' =>
+      cases hv with
+      | all hA hB =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hA
+        exact ⟨_, RedB.all h1 .refl, .all h2 hB⟩
+    | all_b s' =>
+      cases hv with
+      | all hA hB =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hB
+        exact ⟨_, RedB.all .refl h1, .all hA h2⟩
+    | lam_f s' =>
+      cases hv with
+      | lam hf =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hf
+        exact ⟨_, RedB.lam h1, .lam h2⟩
+      | @eta F F' hocc hF =>
+        generalize hx : Term.Var 0 = x at s'
+        cases s' with
+        | app_f hF2 =>
+          subst hx
+          obtain ⟨F₃, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) hF2 hF
+          exact ⟨_, RedB.subst hβ h1 0 .Qnt, .eta (Par.occ_zero hβ hF2.par.par 0 hocc) h2⟩
+        | app_a hx' =>
+          subst hx
+          cases hx' with
+          | dref _ _ hsp => simp [Term.spine] at hsp
+        | @beta F₀ _ =>
+          subst hx
+          cases hF with
+          | lam hF₀ =>
+            refine ⟨_, .refl, ?_⟩
+            show ParE β (.Lam (Term.subst 0 (.Var 0) F₀)) (.Lam (Term.subst 1 .Qnt _))
+            rw [Term.subst_var_eq_subst_above F₀ 0 .Qnt hocc]
+            exact .lam (hF₀.subst 1 .qnt)
+          | @eta F₀₀ F₀₀' hocc₀ hF₀₀ =>
+            refine ⟨_, .refl, ?_⟩
+            have h0 : Term.subst 0 (.Var 0) (.Var 0) = .Var 0 := by simp [Term.subst]
+            show ParE β (.Lam (.App (Term.subst 0 (.Var 0) F₀₀) (Term.subst 0 (.Var 0) (.Var 0)))) _
+            rw [h0, Term.occ_zero_subst_irrel F₀₀ 0 (.Var 0) .Qnt hocc₀]
+            have hocc1 : Term.occ 1 F₀₀ = 0 := by simp [Term.occ] at hocc; exact hocc
+            exact .eta (Term.occ_subst_zero F₀₀ 0 0 .Qnt (Nat.le_refl 0) hocc1 _root_.rfl)
+              (hF₀₀.subst 0 .qnt)
+        | @dref k d b _ hk hb hsp =>
+          subst hx
+          simp only [Term.spine] at hsp
+          have hcl := (hβ.defn hk).2 _ hb
+          obtain ⟨hh', hargs⟩ := hF.spine_stable hsp (by trivial)
+          have hFeq : F = Term.apps (.Ref k) (Term.spine F).2 := by
+            rw [← hsp]; exact (Term.apps_spine F).symm
+          have hocc' : Term.occ 0 (Term.apps b (Term.spine F).2) = 0 := by
+            rw [Term.occ_apps, Term.occ_closed b 0 0 hcl (Nat.le_refl 0)]
+            rw [hFeq, Term.occ_apps] at hocc; simp only [Term.occ] at hocc; omega
+          obtain ⟨as', has'⟩ : ∃ as', (Term.spine F').2 = as' := ⟨_, _root_.rfl⟩
+          have hF'eq : F' = Term.apps (.Ref k) as' := by
+            rw [← has', ← hh']; exact (Term.apps_spine F').symm
+          rw [has'] at hargs
+          subst hF'eq
+          have hstep : StepB β (Term.subst 0 .Qnt (Term.apps (.Ref k) as'))
+              (Term.subst 0 .Qnt (Term.apps b as')) := by
+            rw [Term.subst_apps_closed 0 .Qnt hcl, Term.subst_apps]
+            simp only [Term.subst]
+            have := StepB.dref (s := Term.apps (.Ref k) (as'.map (Term.subst 0 .Qnt))) hk hb
+              (by rw [Term.spine_apps (by trivial)])
+            rwa [Term.spine_apps (by trivial)] at this
+          refine ⟨_, RedB.one hstep, ?_⟩
+          simp only [Term.spine]
+          rw [Term.apps_snoc]
+          exact .eta hocc' (ParE.apps (ParE.refl b) hargs)
+        | matc h1 h2 h3 h4 =>
+          exact absurd hx (Term.apps_ne (by trivial) (by trivial) (fun h => Term.noConfusion h)).symm
+        | matm hne =>
+          exact absurd hx (Term.apps_ne (by trivial) (by trivial) (fun h => Term.noConfusion h)).symm
+    | app_f s' =>
+      cases hv with
+      | app hf ha =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hf
+        exact ⟨_, RedB.app h1 .refl, .app h2 ha⟩
+    | app_a s' =>
+      cases hv with
+      | app hf ha =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' ha
+        exact ⟨_, RedB.app .refl h1, .app hf h2⟩
+    | mat_h s' =>
+      cases hv with
+      | mat hh hm =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hh
+        exact ⟨_, RedB.mat h1 .refl, .mat h2 hm⟩
+    | mat_m s' =>
+      cases hv with
+      | mat hh hm =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hm
+        exact ⟨_, RedB.mat .refl h1, .mat hh h2⟩
+    | eql_a s' =>
+      cases hv with
+      | eql hx hy hT =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hx
+        exact ⟨_, RedB.eql h1 .refl .refl, .eql h2 hy hT⟩
+    | eql_b s' =>
+      cases hv with
+      | eql hx hy hT =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hy
+        exact ⟨_, RedB.eql .refl h1 .refl, .eql hx h2 hT⟩
+    | eql_t s' =>
+      cases hv with
+      | eql hx hy hT =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hT
+        exact ⟨_, RedB.eql .refl .refl h1, .eql hx hy h2⟩
+    | rwt_e s' =>
+      cases hv with
+      | rwt he hP hf =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' he
+        exact ⟨_, RedB.rwt h1 .refl .refl, .rwt h2 hP hf⟩
+    | rwt_p s' =>
+      cases hv with
+      | rwt he hP hf =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hP
+        exact ⟨_, RedB.rwt .refl h1 .refl, .rwt he h2 hf⟩
+    | rwt_f s' =>
+      cases hv with
+      | rwt he hP hf =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hf
+        exact ⟨_, RedB.rwt .refl .refl h1, .rwt he hP h2⟩
+    | let_v s' =>
+      cases hv with
+      | let_ hv' hb =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hv'
+        exact ⟨_, RedB.let_ h1 .refl, .let_ h2 hb⟩
+    | let_b s' =>
+      cases hv with
+      | let_ hv' hb =>
+        obtain ⟨_, h1, h2⟩ := ih _ _ _ (by simp [Term.size] at hn; omega) s' hb
+        exact ⟨_, RedB.let_ .refl h1, .let_ hv' h2⟩
+
+theorem ParE.commute (hβ : Book.Closed β) (hv : ParE β u v) (s : StepB β u u') :
+    ∃ v', RedB β v v' ∧ ParE β u' v' :=
+  ParE.commute_aux hβ _ u u' v (Nat.le_refl _) s hv
+
+theorem ParE.commute_red (hβ : Book.Closed β) (hv : ParE β u v) (r : RedB β u u') :
+    ∃ v', RedB β v v' ∧ ParE β u' v' := by
+  induction r generalizing v with
+  | refl => exact ⟨v, .refl, hv⟩
+  | step s _ ih =>
+    obtain ⟨w, h1, h2⟩ := ParE.commute hβ hv s
+    obtain ⟨v', h3, h4⟩ := ih h2
+    exact ⟨v', h1.trans h3, h4⟩
+
+-- eta contractions never block an eta-free run: the reduct of the source
+-- is matched, modulo etas, by a reduct of the eta-contracted term
+theorem EtaB.commute_red (hβ : Book.Closed β) (he : Etas β u v) (r : RedB β u u') :
+    ∃ v', RedB β v v' ∧ Etas β u' v' := by
+  induction he generalizing u' with
+  | refl => exact ⟨u', r, .refl⟩
+  | step e _ ih =>
+    obtain ⟨w, h1, h2⟩ := ParE.commute_red hβ e.parE r
+    obtain ⟨v', h3, h4⟩ := ih h1
+    exact ⟨v', h3, (h2.etas hβ).trans h4⟩
+
+theorem EtaB.commute (hβ : Book.Closed β) (he : Etas β u v) (s : StepB β u u') :
+    ∃ v', RedB β v v' ∧ Etas β u' v' :=
+  EtaB.commute_red hβ he (RedB.one s)
+
+-- ----------------------------------------------------------------------------
+-- towers: the shape a source takes once its inner eta-expansions are peeled
+-- by betas. Spine.peel as briefed is false (f = λx.λy.(k x) y etas to Ref k,
+-- but App f a only B-reduces to the Lam λy.(k a) y), so the peeled form is
+--   lams n (apps h' qs)   with the last n arguments eta-chains to Var n-1..0
+-- and the head one congruence layer away from the shifted target head.
+-- ----------------------------------------------------------------------------
+
+theorem List.eq_nil_or_snoc (l : List Term) : l = [] ∨ ∃ L b, l = L ++ [b] := by
+  rcases List.eq_nil_or_concat l with h | ⟨L, b, h⟩
+  · exact .inl h
+  · exact .inr ⟨L, b, by rw [h, List.concat_eq_append]⟩
+
+theorem Term.map_shiftN_zero (ps : List Term) : ps.map (Term.shiftN 0) = ps := by
+  induction ps with
+  | nil => rfl
+  | cons p ps ih => simp [Term.shiftN]
+
+theorem Term.shiftN_var0 : ∀ n, Term.shiftN n (.Var 0) = .Var n := by
+  intro n
+  induction n with
+  | zero => rfl
+  | succ n ih => show Term.shift 0 (Term.shiftN n (.Var 0)) = _; rw [ih]; simp [Term.shift]
+
+theorem Term.shiftN_succ' : ∀ (n : Nat) (t : Term),
+    Term.shiftN (n + 1) t = Term.shift n (Term.shiftN n t) := by
+  intro n
+  induction n with
+  | zero => intro t; rfl
+  | succ n ih =>
+    intro t
+    have h := Term.shift_shift (Term.shiftN n t) 0 n (Nat.zero_le n)
+    rw [← ih t] at h
+    exact h
+
+theorem Term.subst_shiftN_succ (n : Nat) (w p : Term) :
+    Term.subst n w (Term.shiftN (n + 1) p) = Term.shiftN n p := by
+  rw [Term.shiftN_succ', Term.subst_shift]
+
+theorem Term.map_subst_rvars : ∀ (n m : Nat) (w : Term), n ≤ m →
+    (Term.rvars n).map (Term.subst m w) = Term.rvars n := by
+  intro n
+  induction n with
+  | zero => intro m w _; rfl
+  | succ n ih =>
+    intro m w h
+    show Term.subst m w (.Var n) :: (Term.rvars n).map (Term.subst m w) = .Var n :: Term.rvars n
+    rw [ih m w (by omega)]
+    simp only [Term.subst]
+    rw [if_neg (by omega), if_neg (by omega)]
+
+theorem Term.subst_lams : ∀ (n d : Nat) (w t : Term),
+    Term.subst d w (Term.lams n t) = Term.lams n (Term.subst (d + n) (Term.shiftN n w) t) := by
+  intro n
+  induction n with
+  | zero => intro d w t; rfl
+  | succ n ih =>
+    intro d w t
+    show Term.Lam (Term.subst (d + 1) (Term.shift 0 w) (Term.lams n t))
+      = Term.Lam (Term.lams n (Term.subst (d + (n + 1)) (Term.shiftN (n + 1) w) t))
+    have e : d + 1 + n = d + (n + 1) := by omega
+    rw [ih, Term.shiftN_shift0, e]
+
+theorem Term.lams_succ' : ∀ (n : Nat) (t : Term), Term.lams (n + 1) t = Term.lams n (.Lam t) := by
+  intro n
+  induction n with
+  | zero => intro t; rfl
+  | succ n ih =>
+    intro t
+    show Term.Lam (Term.lams (n + 1) t) = Term.Lam (Term.lams n (.Lam t))
+    rw [ih]
+
+theorem Term.map_shift_rvars : ∀ n, (Term.rvars n).map (Term.shift 0) ++ [.Var 0] = Term.rvars (n + 1) := by
+  intro n
+  induction n with
+  | zero => rfl
+  | succ n ih =>
+    show Term.shift 0 (.Var n) :: ((Term.rvars n).map (Term.shift 0) ++ [.Var 0])
+      = .Var (n + 1) :: Term.rvars (n + 1)
+    rw [ih]; simp [Term.shift]
+
+theorem Term.shiftN_apps : ∀ (n : Nat) (h : Term) (ps : List Term),
+    Term.shiftN n (Term.apps h ps) = Term.apps (Term.shiftN n h) (ps.map (Term.shiftN n)) := by
+  intro n
+  induction n with
+  | zero => intro h ps; rw [Term.map_shiftN_zero]; rfl
+  | succ n ih =>
+    intro h ps
+    show Term.shift 0 (Term.shiftN n (Term.apps h ps)) = _
+    rw [ih, Term.shift_apps, List.map_map]
+    rfl
+
+theorem Term.IsHead.shift {t : Term} (h : t.IsHead) (d : Nat) : (Term.shift d t).IsHead := by
+  cases t with
+  | Var i => simp only [Term.shift]; split <;> trivial
+  | App f a => exact h.elim
+  | _ => trivial
+
+-- n nested eta-expansions of a term contract to it (innermost first)
+theorem Etas.lams_rvars : ∀ (n : Nat) (t : Term),
+    Etas β (Term.lams n (Term.apps (Term.shiftN n t) (Term.rvars n))) t := by
+  intro n
+  induction n with
+  | zero => intro t; exact .refl
+  | succ n ih =>
+    intro t
+    rw [Term.lams_succ', ← Term.map_shift_rvars, Term.apps_snoc, ← Term.shiftN_succ,
+      ← Term.shift_apps]
+    exact (Etas.lams n (Etas.one (Eta.expand _))).trans (ih t)
+
+def Tow (β : Book) (h : Term) (ps : List Term) (w : Term) : Prop :=
+  ∃ n qs h', w = Term.lams n (Term.apps h' qs) ∧ EtasC β h' (Term.shiftN n h) ∧
+    Etass β qs (ps.map (Term.shiftN n) ++ Term.rvars n)
+
+theorem Tow.cases (ht : Tow β h ps w) :
+    (∃ Z, w = .Lam Z) ∨ ∃ h' qs, w = Term.apps h' qs ∧ EtasC β h' h ∧ Etass β qs ps := by
+  obtain ⟨n, qs, h', rfl, hh, hqs⟩ := ht
+  cases n with
+  | zero =>
+    simp only [Term.map_shiftN_zero, Term.rvars, List.append_nil] at hqs
+    exact .inr ⟨h', qs, _root_.rfl, hh, hqs⟩
+  | succ n => exact .inl ⟨_, _root_.rfl⟩
+
+theorem Tow.mono (ht : Tow β h ps w) (hp : Etass β ps ps') : Tow β h ps' w := by
+  obtain ⟨n, qs, h', rfl, hh, hqs⟩ := ht
+  exact ⟨n, qs, h', _root_.rfl, hh,
+    hqs.trans (Etass.append (Etass.map (Term.shiftN n) (fun e => e.shiftN n) hp) (Etass.refl _))⟩
+
+-- applying a tower to an argument peels one layer by a beta
+theorem Tow.peel (ht : Tow β h ps w) (a : Term) :
+    ∃ w', RedB β (.App w a) w' ∧ Tow β h (ps ++ [a]) w' := by
+  obtain ⟨n, qs, h', rfl, hh, hqs⟩ := ht
+  cases n with
+  | zero =>
+    refine ⟨_, .refl, 0, qs ++ [a], h', (Term.apps_snoc _ _ _).symm, hh, ?_⟩
+    simp only [Term.map_shiftN_zero, Term.rvars, List.append_nil] at hqs ⊢
+    exact Etass.append hqs (.cons .refl .nil)
+  | succ n =>
+    refine ⟨_, RedB.one .beta, n, qs.map (Term.subst n (Term.shiftN n a)),
+      Term.subst n (Term.shiftN n a) h', ?_, ?_, ?_⟩
+    · show Term.subst 0 a (Term.lams n (Term.apps h' qs)) = _
+      rw [Term.subst_lams, Term.subst_apps]
+      simp only [Nat.zero_add]
+    · have := hh.subst1 n (Term.shiftN n a)
+      rwa [Term.subst_shiftN_succ] at this
+    · have := Etass.map (Term.subst n (Term.shiftN n a)) (fun e => e.subst1 _ _) hqs
+      simp only [List.map_append, List.map_map, Term.rvars, List.map_cons] at this
+      rw [Term.map_subst_rvars n n _ (Nat.le_refl n)] at this
+      have e1 : (Term.subst n (Term.shiftN n a) ∘ Term.shiftN (n + 1)) = Term.shiftN n :=
+        funext fun p => Term.subst_shiftN_succ n _ p
+      have e2 : Term.subst n (Term.shiftN n a) (.Var n) = Term.shiftN n a := by simp [Term.subst]
+      rw [e1, e2] at this
+      simpa [List.map_append] using this
+
+-- the peeling theorem: an eta source of a spine B-reduces to a tower over it
+theorem Etas.peel : ∀ (u h : Term) (ps : List Term), h.IsHead → Etas β u (Term.apps h ps) →
+    ∃ w, RedB β u w ∧ Tow β h ps w := by
+  intro u
+  induction u with
+  | Lam X ih =>
+    intro h ps hh he
+    rcases he.inv with hc | ⟨Z, F, hZ, h1, h2, h3⟩
+    · rcases List.eq_nil_or_snoc ps with rfl | ⟨ps₀, p, rfl⟩
+      · exact ⟨_, .refl, 0, [], _, _root_.rfl, hc, .nil⟩
+      · rw [Term.apps_snoc] at hc; cases hc
+    · cases hZ
+      have hF : Etas β F (Term.apps (Term.shift 0 h) (ps.map (Term.shift 0))) := by
+        have := h3.shift 0
+        rwa [Term.shift_subst_occ F 0 .Qnt h2, Term.shift_apps] at this
+      have hX : Etas β X (Term.apps (Term.shift 0 h) (ps.map (Term.shift 0) ++ [.Var 0])) := by
+        rw [Term.apps_snoc]; exact h1.trans (Etas.app hF .refl)
+      obtain ⟨w₀, h4, h5⟩ := ih _ _ (hh.shift 0) hX
+      obtain ⟨n, qs, h', rfl, hh', hqs⟩ := h5
+      refine ⟨_, RedB.lam h4, n + 1, qs, h', _root_.rfl, ?_, ?_⟩
+      · rwa [Term.shiftN_shift0] at hh'
+      · simp only [List.map_append, List.map_map, List.map_cons, List.map_nil,
+          Term.shiftN_var0] at hqs
+        have e1 : (Term.shiftN n ∘ Term.shift 0) = Term.shiftN (n + 1) :=
+          funext fun p => Term.shiftN_shift0 n p
+        rw [e1] at hqs
+        simpa [Term.rvars] using hqs
+  | App u₁ u₂ ih₁ _ =>
+    intro h ps hh he
+    rcases he.inv with hc | ⟨Z, F, hZ, -⟩
+    · rcases List.eq_nil_or_snoc ps with rfl | ⟨ps₀, p, rfl⟩
+      · exact ⟨_, .refl, 0, [], _, _root_.rfl, hc, .nil⟩
+      · rw [Term.apps_snoc] at hc
+        cases hc with
+        | app hf hx =>
+          obtain ⟨w₁, h4, h5⟩ := ih₁ h ps₀ hh hf
+          obtain ⟨w', h6, h7⟩ := h5.peel u₂
+          exact ⟨w', (RedB.app h4 .refl).trans h6,
+            h7.mono (Etass.append (Etass.refl _) (.cons hx .nil))⟩
+    · cases hZ
+  | _ =>
+    intro h ps hh he
+    rcases he.inv with hc | ⟨Z, F, hZ, -⟩
+    · rcases List.eq_nil_or_snoc ps with rfl | ⟨ps₀, p, rfl⟩
+      · exact ⟨_, .refl, 0, [], _, _root_.rfl, hc, .nil⟩
+      · rw [Term.apps_snoc] at hc; cases hc
+    · cases hZ
+
+theorem Spine.peel (hh : h.IsHead) (he : Etas β f (Term.apps h us)) (a : Term) :
+    ∃ w, RedB β (.App f a) w ∧ Tow β h (us ++ [a]) w :=
+  Etas.peel _ _ _ hh (by rw [Term.apps_snoc]; exact Etas.app he .refl)
+
+theorem Etas.head_adt (he : Etas β s (Term.apps (.Adt a r) ps)) :
+    ∃ w, RedB β s w ∧
+      ((∃ Z, w = .Lam Z) ∨ ∃ ps', w = Term.apps (.Adt a r) ps' ∧ Etass β ps' ps) := by
+  obtain ⟨w, h1, h2⟩ := Etas.peel _ _ _ (by trivial) he
+  refine ⟨w, h1, ?_⟩
+  rcases h2.cases with h | ⟨h', qs, rfl, hh, hqs⟩
+  · exact .inl h
+  · cases hh; exact .inr ⟨qs, _root_.rfl, hqs⟩
+
+-- a tower over a Ref spine unfolds under its binders and then collapses
+theorem Tow.dref (hβ : Book.Closed β) (hk : Book.defn β k = some d) (hb : d.body = some b)
+    (ht : Tow β (.Ref k) ps w) : ∃ w', RedB β w w' ∧ Etas β w' (Term.apps b ps) := by
+  obtain ⟨n, qs, h', rfl, hh, hqs⟩ := ht
+  have hc := (hβ.defn hk).2 _ hb
+  rw [Term.shiftN_closed (w := Term.Ref k) (by trivial) n] at hh
+  cases hh
+  have hstep : StepB β (Term.apps (.Ref k) qs) (Term.apps b qs) := by
+    have := StepB.dref (s := Term.apps (.Ref k) qs) hk hb (by rw [Term.spine_apps (by trivial)])
+    rwa [Term.spine_apps (by trivial)] at this
+  refine ⟨_, RedB.lams n (RedB.one hstep), (Etas.lams n (Etas.apps .refl hqs)).trans ?_⟩
+  have e : Term.apps b (ps.map (Term.shiftN n)) = Term.shiftN n (Term.apps b ps) := by
+    rw [Term.shiftN_apps, Term.shiftN_closed hc]
+  rw [Term.apps_append, e]
+  exact Etas.lams_rvars n _
+
+-- ----------------------------------------------------------------------------
+-- beta at the head of a spine commutes with an eta chain into it: the source
+-- B-reduces to an eta source of the contractum. Its second half is Tower.peel.
+-- ----------------------------------------------------------------------------
+
+theorem Etas.beta_commute_aux (hβ : Book.Closed β) : ∀ (u : Term),
+    (∀ g a us, Etas β u (Term.apps (.App (.Lam g) a) us) →
+      ∃ u', RedB β u u' ∧ Etas β u' (Term.apps (Term.subst 0 a g) us)) ∧
+    (∀ g, Etas β u (.Lam g) → ∀ a,
+      ∃ g₀, RedB β (.App u a) (Term.subst 0 a g₀) ∧ Etas β g₀ g) := by
+  intro u
+  induction u with
+  | Lam X ih =>
+    refine ⟨fun g a us h => ?_, fun g h a => ?_⟩
+    · rcases h.inv with hc | ⟨Z, F, hZ, h1, h2, h3⟩
+      · exfalso
+        rcases List.eq_nil_or_snoc us with rfl | ⟨us₀, x, rfl⟩
+        · simp only [Term.apps] at hc; cases hc
+        · rw [Term.apps_snoc] at hc; cases hc
+      · cases hZ
+        have hF : Etas β F (Term.apps (.App (.Lam (Term.shift 1 g)) (Term.shift 0 a))
+            (us.map (Term.shift 0))) := by
+          have := h3.shift 0
+          rwa [Term.shift_subst_occ F 0 .Qnt h2, Term.shift_apps] at this
+        have hX : Etas β X (Term.apps (.App (.Lam (Term.shift 1 g)) (Term.shift 0 a))
+            (us.map (Term.shift 0) ++ [.Var 0])) := by
+          rw [Term.apps_snoc]; exact h1.trans (Etas.app hF .refl)
+        obtain ⟨X', h4, h5⟩ := ih.1 _ _ _ hX
+        refine ⟨.Lam X', RedB.lam h4, ?_⟩
+        have h6 : Etas β (.Lam X')
+            (.Lam (.App (Term.shift 0 (Term.apps (Term.subst 0 a g) us)) (.Var 0))) := by
+          apply Etas.lam
+          rw [Term.shift_apps, Term.shift_subst0, ← Term.apps_snoc]
+          exact h5
+        exact h6.trans (Etas.one (Eta.expand _))
+    · rcases h.inv with hc | ⟨Z, F, hZ, h1, h2, h3⟩
+      · cases hc with
+        | lam hX => exact ⟨X, RedB.one .beta, hX⟩
+      · cases hZ
+        have hF : Etas β F (.Lam (Term.shift 1 g)) := by
+          have := h3.shift 0; rwa [Term.shift_subst_occ F 0 .Qnt h2] at this
+        have hX : Etas β X (Term.apps (.App (.Lam (Term.shift 1 g)) (.Var 0)) []) :=
+          h1.trans (Etas.app hF .refl)
+        obtain ⟨X', h4, h5⟩ := ih.1 _ _ _ hX
+        refine ⟨X', (RedB.one .beta).trans (RedB.subst hβ h4 0 a), ?_⟩
+        rw [Term.subst_var_eq_subst_above _ 0 .Qnt (Term.occ_shift_self g 1),
+          Term.subst_shift] at h5
+        exact h5
+  | App u₁ u₂ ih₁ _ =>
+    refine ⟨fun g a us h => ?_, fun g h a => ?_⟩
+    · rcases h.inv with hc | ⟨Z, F, hZ, -⟩
+      · rcases List.eq_nil_or_snoc us with rfl | ⟨us₀, x, rfl⟩
+        · simp only [Term.apps] at hc
+          cases hc with
+          | app hf ha =>
+            obtain ⟨g₀, h4, h5⟩ := ih₁.2 g hf u₂
+            exact ⟨_, h4, Etas.subst h5 ha⟩
+        · rw [Term.apps_snoc] at hc
+          cases hc with
+          | app hf hx =>
+            obtain ⟨u₁', h4, h5⟩ := ih₁.1 g a us₀ hf
+            rw [Term.apps_snoc]
+            exact ⟨_, RedB.app h4 .refl, Etas.app h5 hx⟩
+      · cases hZ
+    · rcases h.inv with hc | ⟨Z, F, hZ, -⟩
+      · cases hc
+      · cases hZ
+  | _ =>
+    refine ⟨fun g a us h => ?_, fun g h a => ?_⟩ <;> rcases h.inv with hc | ⟨Z, F, hZ, -⟩
+    · rcases List.eq_nil_or_snoc us with rfl | ⟨us₀, x, rfl⟩
+      · simp only [Term.apps] at hc; cases hc
+      · rw [Term.apps_snoc] at hc; cases hc
+    · cases hZ
+    · cases hc
+    · cases hZ
+
+theorem Etas.beta_commute (hβ : Book.Closed β)
+    (h : Etas β u (Term.apps (.App (.Lam g) a) us)) :
+    ∃ u', RedB β u u' ∧ Etas β u' (Term.apps (Term.subst 0 a g) us) :=
+  (Etas.beta_commute_aux hβ u).1 g a us h
+
+theorem Tower.peel (hβ : Book.Closed β) (h : Etas β F (.Lam g)) (a : Term) :
+    ∃ g₀, RedB β (.App F a) (Term.subst 0 a g₀) ∧ Etas β g₀ g :=
+  (Etas.beta_commute_aux hβ F).2 g h a
+
+-- ----------------------------------------------------------------------------
+-- a run from an applied variable: steps inside the function are steps of the
+-- unshifted term; a root beta makes a Lam; a root dref stays an applied
+-- variable
+-- ----------------------------------------------------------------------------
+
+theorem AppVar.reduct_aux (hβ : Book.Closed β) (r : RedB β u w) :
+    ∀ F, u = .App F (.Var 0) → Term.occ 0 F = 0 →
+    ∃ v', RedB β (Term.subst 0 .Qnt F) v' ∧ Etas β (.Lam w) v' := by
+  induction r with
+  | refl => intro F hu hocc; subst hu; exact ⟨_, .refl, Etas.one (.eta hocc)⟩
+  | step s r ih =>
+    intro F hu hocc
+    subst hu
+    generalize hx : Term.Var 0 = x at s
+    cases s with
+    | app_f hF =>
+      subst hx
+      obtain ⟨v', h1, h2⟩ := ih _ _root_.rfl (Par.occ_zero hβ hF.par.par 0 hocc)
+      exact ⟨v', (RedB.one (hF.subst hβ 0 .Qnt)).trans h1, h2⟩
+    | app_a hx' =>
+      subst hx
+      cases hx' with
+      | dref _ _ hsp => simp [Term.spine] at hsp
+    | @beta f _ =>
+      subst hx
+      refine ⟨.Lam _, ?_, .refl⟩
+      show RedB β (.Lam (Term.subst (0 + 1) .Qnt f)) (.Lam _)
+      rw [← Term.subst_var_eq_subst_above f 0 .Qnt hocc]
+      exact RedB.lam r
+    | @dref k d b _ hk hb hsp =>
+      subst hx
+      simp only [Term.spine] at hsp
+      have hcl := (hβ.defn hk).2 _ hb
+      have hFeq : F = Term.apps (.Ref k) (Term.spine F).2 := by
+        rw [← hsp]; exact (Term.apps_spine F).symm
+      have hocc' : Term.occ 0 (Term.apps b (Term.spine F).2) = 0 := by
+        rw [Term.occ_apps, Term.occ_closed b 0 0 hcl (Nat.le_refl 0)]
+        rw [hFeq, Term.occ_apps] at hocc; simp only [Term.occ] at hocc; omega
+      obtain ⟨v', h1, h2⟩ := ih (Term.apps b (Term.spine F).2)
+        (by simp only [Term.spine]; rw [Term.apps_snoc]) hocc'
+      refine ⟨v', (RedB.one ?_).trans h1, h2⟩
+      obtain ⟨as', has'⟩ : ∃ as', (Term.spine F).2 = as' := ⟨_, _root_.rfl⟩
+      rw [has'] at hFeq ⊢
+      subst hFeq
+      rw [Term.subst_apps_closed 0 .Qnt hcl, Term.subst_apps]
+      simp only [Term.subst]
+      have := StepB.dref (s := Term.apps (.Ref k) (as'.map (Term.subst 0 .Qnt))) hk hb
+        (by rw [Term.spine_apps (by trivial)])
+      rwa [Term.spine_apps (by trivial)] at this
+    | matc h1 h2 h3 h4 =>
+      exact absurd hx (Term.apps_ne (by trivial) (by trivial) (fun h => Term.noConfusion h)).symm
+    | matm hne =>
+      exact absurd hx (Term.apps_ne (by trivial) (by trivial) (fun h => Term.noConfusion h)).symm
+
+theorem AppVar.reduct (hβ : Book.Closed β) (r : RedB β (.App (Term.shift 0 v) (.Var 0)) w) :
+    ∃ v', RedB β v v' ∧ Etas β (.Lam w) v' := by
+  obtain ⟨v', h1, h2⟩ := AppVar.reduct_aux hβ r _ _root_.rfl (Term.occ_shift_self v 0)
+  rw [Term.subst_shift] at h1
+  exact ⟨v', h1, h2⟩
+
 
 -- ============================================================================
 -- METATHEORY §N4 — the measure decreases: each strategy step (N4a), and the
@@ -15436,12 +17494,7 @@ theorem Term.subst_var_shift : ∀ (t : Term) (d : Nat),
 theorem Term.applyB_shift_lam (t : Term) : Term.applyB (Term.shift 0 (.Lam t)) (.Var 0) = t := by
   simp only [Term.shift, Term.applyB]; exact Term.subst_var_shift t 0
 
-theorem Term.shiftN_apps (n : Nat) (f : Term) (xs : List Term) :
-    Term.shiftN n (Term.apps f xs) = Term.apps (Term.shiftN n f) (xs.map (Term.shiftN n)) := by
-  induction n with
-  | zero => simp [Term.shiftN]
-  | succ n ih => simp only [Term.shiftN]; rw [ih, Term.shift_apps, List.map_map]; rfl
-
+-- (Term.shiftN_apps is Kd2a's)
 theorem Term.applyB_ref_spine (k : Nat) (cs : List Term) (P : Term) :
     Term.applyB (Term.apps (.Ref k) cs) P = Term.apps (.Ref k) (cs ++ [P]) := by
   rw [Term.apps_snoc]
@@ -15955,16 +18008,7 @@ theorem Term.shiftN_shift0' : ∀ (j : Nat) (w : Term), Term.shiftN j (Term.shif
   | zero => intro w; rfl
   | succ j ih => intro w; simp only [Term.shiftN]; rw [ih]; rfl
 
-theorem Term.subst_lams : ∀ (j d : Nat) (w X : Term),
-    Term.subst d w (Term.lams j X) = Term.lams j (Term.subst (d + j) (Term.shiftN j w) X) := by
-  intro j
-  induction j with
-  | zero => intro d w X; rfl
-  | succ j ih =>
-    intro d w X
-    simp only [Term.lams, Term.subst]
-    rw [ih, Term.shiftN_shift0', show d + 1 + j = d + (j + 1) by omega]
-
+-- (Term.subst_lams is Kd2a's)
 theorem Term.shiftNAt_lams : ∀ (n j d : Nat) (X : Term),
     Term.shiftNAt n d (Term.lams j X) = Term.lams j (Term.shiftNAt n (d + j) X) := by
   intro n
