@@ -1020,10 +1020,6 @@ function lay_arm(lay: Lay, k: Bend.Name): Arm {
     ?? die(`a constructor outside its layout: ${k}`);
 }
 
-function lay_idx(lay: Lay, k: Bend.Name): number {
-  return lay.arms!.findIndex((a) => a.k === k);
-}
-
 function lay_arr(lay: Lay): { arr: boolean; lgs: number } {
   return { arr: lay.ks.some((k) => k !== "w32"),
     lgs: cls_fit(Math.max(1, lay.ks.length)) };
@@ -2677,7 +2673,7 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null): Val {
   }
   const arm = lay_arm(lay, x.k);
   const ws = lay.ks.map((_, j) => j === 0 && lay.arms!.length > 1
-    ? String(lay_idx(lay, x.k)) : "0");
+    ? String(lay.arms!.indexOf(arm)) : "0");
   const av: (Cell | null)[] = lay.ks.map(() => null);
   flds.forEach((f, j) => {
     const v = val_to(fl, emit_expr(fl, f, null), arm.fs[j].lay);
@@ -2983,7 +2979,7 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
         return [`term_aux(${sw}) == ${cid_reg(fl, k)}`, h,
           () => node_fields(fl, sw, lay_node(fl.book, k), s, true)];
       }
-      return [`${sw} == ${lay_idx(lay, k)}`, h,
+      return [`${sw} == ${lay.arms!.indexOf(lay_arm(lay, k))}`, h,
         () => lay_arm(lay, k).fs.map((f) => val_field(s, f))];
     });
   if (ls === null && (arms.length < total
