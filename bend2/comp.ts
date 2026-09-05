@@ -4008,7 +4008,7 @@ INLINE void page_stack_push(Corpus H, Cls cls, Loc loc) {
 
 INLINE DEV u64* alc_slot(Env e, bool move) {
   u32  rot = a32_load(a32_at(e.mem, H_ROT));
-  Monk m   = move ? (e.mnk + ROT_STEP) & (u32)(CUBE - 1) : e.mnk;
+  Monk m   = move ? (e.mnk + (rot >> 2)) & (u32)(CUBE - 1) : e.mnk;
   return monk_word(e.mem, m, M_HEAD + ((rot & 1) ^ move) * ALC_WORDS);
 }
 INLINE void alc_open(Env e, bool move) {
@@ -5301,8 +5301,10 @@ static void gpu_round(Corpus H, u32 f) {
 // ====
 
 static void cube_run(Corpus H, bool gpu) {
+  u32 r = (u32)rand() % pool_size;
   memcpy(ALC[pool_size], ALC[0], sizeof ALC[0]);
-  memmove(ALC[0], ALC[1], pool_size * sizeof ALC[0]);
+  memcpy(ALC[0], ALC[r], sizeof ALC[0]);
+  memcpy(ALC[r], ALC[pool_size], sizeof ALC[0]);
   for (;;) {
     u32 f = a32_load(a32_at(H, H_CURSOR));
     a32_store(a32_at(H, H_CURSOR), 0);
@@ -5392,7 +5394,10 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
         H[tl]     = TERM_HOLE;
         H[tl + 1] = 0;
         a32_store(a32_at(H, H_CURSOR), 1);
-        a32_store(a32_at(H, H_ROT), (a32_load(a32_at(H, H_ROT)) ^ 1) | 2);
+        static u32 bangs = 0;
+        u32 shift = bangs++ % CUBE_SIDE ? ROT_STEP : (u32)rand();
+        a32_store(a32_at(H, H_ROT),
+          ((a32_load(a32_at(H, H_ROT)) ^ 1) & 1) | 2 | shift << 2);
         ring_push(H, 0, t);
         cube_run(H, true);
         Term rv[WL_RESW];
