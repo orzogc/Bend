@@ -2248,15 +2248,6 @@ function arr_cells(fl: File, a: string, at: string, el: Lay,
   return val_new(ws, el, av);
 }
 
-function arr_write(fl: File, a: string, at: string, el: Lay, v: Val): void {
-  const { arr } = lay_arr(el);
-  const ws = val_own(fl, val_to(fl, v, el));
-  ws.forEach((w, j) => {
-    file_push(fl,
-      `blk_write(e.mem, ${Number(arr)}, term_loc(${a}), ${at} + ${j}, ${w});`);
-  });
-}
-
 function arr_at(fl: File, a: string, i: Val, el: Lay): string {
   return emit_hold(fl,
     [`blk_at(e, ${a}, ${val_word(i)}, ${lay_arr(el).lgs})`], "at")[0];
@@ -2272,7 +2263,7 @@ function arr_new(fl: File, d: string, v: Val, el: Lay): string {
 }
 
 function arr_op(fl: File, k: string, el: Lay, args: Val[]): Val {
-  const { lgs } = lay_arr(el);
+  const { arr, lgs } = lay_arr(el);
   switch (k) {
     case "array_new": {
       return val_new([arr_new(fl, val_word(args[0]), args[1], el)], BOX);
@@ -2290,7 +2281,10 @@ function arr_op(fl: File, k: string, el: Lay, args: Val[]): Val {
         return val_new([a, ...got.ws], arr_lay(el), [null, ...got.av ?? []]);
       }
       const old = arr_cells(fl, a, at, el, true);
-      arr_write(fl, a, at, el, args[2]);
+      val_own(fl, val_to(fl, args[2], el)).forEach((w, j) => {
+        file_push(fl, `blk_write(e.mem, ${Number(arr)}, term_loc(${a}), `
+          + `${at} + ${j}, ${w});`);
+      });
       if (k === "array_swap") {
         return val_new([a, ...old.ws], arr_lay(el));
       }
@@ -3210,11 +3204,6 @@ function js_sat(k: Bend.Name): string {
   return "$" + k.replace(/[./]/g, "$") + "$";
 }
 
-function js_f32(bits: number): string {
-  const v = Bend.f32_from_bits(bits);
-  return Object.is(v, -0) ? "-0" : String(v);
-}
-
 function js_call(fl: File, k: Bend.Name, args: HTerm[],
   tail: boolean): string {
   let exprs = args.map((x) => js_expr(fl, x, null));
@@ -3294,7 +3283,8 @@ function js_expr(fl: File, tm: HTerm,
     case "Ctr": {
       const [adt, u] = ctr_adt(fl, x, ty);
       if (u !== null) {
-        return adt.k === "F32" ? js_f32(u) : String(u);
+        const v = adt.k === "F32" ? Bend.f32_from_bits(u) : u;
+        return Object.is(v, -0) ? "-0" : String(v);
       }
       const { keys } = js_ctr(fl, adt, x.k);
       const exprs = ctr_flds(fl.book, x.k, x.x)
@@ -3593,8 +3583,9 @@ using namespace metal;
 #define WL_KID(J, A, F, C) e.mem[J + A] = term_tsk(F, C)
 #define WL_FRAME(T) \
   Loc wtl = task_tail(T); \
+  u64 wtw = e.mem[wtl + 1]; \
   STK(0) = e.mem[wtl]; \
-  STK(1) = e.mem[wtl + 1] >> 32; \
+  STK(1) = (wtw >> 32) & 0xFFFF; \
   STK(2) = FID_EXIT; \
   sp += 3 * LANE_STEP;
 #define WL_ARGS(A, N) \
@@ -3670,11 +3661,11 @@ typedef u32 Page;
 #define PAGE_NIL 0xFFFFFFFEu
 
 typedef u32 Monk;
-#define M_RING_PUT         0
-#define M_RING_GET         1
+#define M_RING_GET         0
+#define M_RING_PUT         1
 #define M_HEAD             2
-#define M_HUGE             (2 + 4 * NCLS)
-#define M_SNAP             (3 + 4 * NCLS)
+#define M_HUGE             (2 + ALC_WORDS)
+#define M_SNAP             (3 + ALC_WORDS)
 #define monk_word(H, m, w) ((H) + MONK_OFF + (u64)(w) * CUBE + (m))
 
 typedef u32 Ring;
@@ -3735,10 +3726,9 @@ typedef u32* Cursor;
 #define QUANTUM_BITS (DEVICE ? PAGE_BITS : 12)
 #define CUBE_SIDE    128
 #define CUBE         (1ull << 14)
-#define ROT_STEP     10125u
 #define RING_LEN     (1ull << 10)
 #define STAK_LEN     (1ull << 11)
-#define MONK_WORDS   40ull
+#define MONK_WORDS   (4 + ALC_WORDS)
 #define NCLS         9
 #define HUGE_CLS     (32 - NCLS)
 #define ALC_WORDS    (2 * NCLS)
@@ -3781,7 +3771,7 @@ static CUfunction gpu_work_pso;
 static u64 gpu_cap;
 #endif
 
-static u64 ALC[CUBE_SIDE + 1][ALC_WORDS];
+static u64 ALC[CUBE_SIDE][ALC_WORDS];
 
 static bool io_gpu;
 static Stk  io_stk;
@@ -4005,24 +3995,6 @@ INLINE void page_stack_push(Corpus H, Cls cls, Loc loc) {
 
 #if DEVICE
 #define ALC_AT(e, i) (e).alc[(i) * CUBE_SIDE]
-
-INLINE DEV u64* alc_slot(Env e, bool move) {
-  u32  rot = a32_load(a32_at(e.mem, H_ROT));
-  Monk m   = move ? (e.mnk + (rot >> 2)) & (u32)(CUBE - 1) : e.mnk;
-  return monk_word(e.mem, m, M_HEAD + ((rot & 1) ^ move) * ALC_WORDS);
-}
-INLINE void alc_open(Env e, bool move) {
-  DEV u64* w = alc_slot(e, move);
-  for (u32 i = 0; i < ALC_WORDS; i += 1) {
-    ALC_AT(e, i) = w[i * CUBE];
-  }
-}
-INLINE void alc_close(Env e, bool move) {
-  DEV u64* w = alc_slot(e, move);
-  for (u32 i = 0; i < ALC_WORDS; i += 1) {
-    w[i * CUBE] = ALC_AT(e, i);
-  }
-}
 #else
 #define ALC_AT(e, i) ALC[(e).mnk][i]
 #endif
@@ -4032,29 +4004,14 @@ INLINE void alc_close(Env e, bool move) {
 // Heap
 // ====
 
-HOT void heap_free_huge(Env e, Cls cls, Loc loc) {
-  if (!DEVICE) {
-    page_stack_push(e.mem, cls, loc);
-    return;
-  }
-  DEV u64* held = monk_word(e.mem, e.mnk, M_HUGE);
-  u64 prev = *held;
-  *held = ((u64)cls << 40) | loc;
-  if (prev != 0) {
-    page_stack_push(e.mem, (u32)(prev >> 40), prev & LOC_MASK);
-  }
-}
-
 OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   Corpus H = e.mem;
   if (cls >= NCLS) {
-    if (DEVICE) {
-      DEV u64* held = monk_word(H, e.mnk, M_HUGE);
-      u64 prev = *held;
-      if ((prev >> 40) == cls) {
-        *held = 0;
-        return prev & LOC_MASK;
-      }
+    DEV u64* held = monk_word(H, e.mnk, M_HUGE);
+    u64 prev = *held;
+    if ((prev >> 40) == cls) {
+      *held = 0;
+      return prev & LOC_MASK;
     }
     DEV u32* head = a32_at(H, H_HUGE_FREE + (cls - NCLS));
     Page got = page_stack_pop(H, head);
@@ -4094,8 +4051,13 @@ HOT void heap_free(Env e, Cls cls, Loc loc) {
   if (cls < NCLS) {
     H[loc] = ALC_AT(e, cls);
     ALC_AT(e, cls) = loc;
-  } else {
-    heap_free_huge(e, cls, loc);
+    return;
+  }
+  DEV u64* held = monk_word(H, e.mnk, M_HUGE);
+  u64 prev = *held;
+  *held = ((u64)cls << 40) | loc;
+  if (prev != 0) {
+    page_stack_push(H, (u32)(prev >> 40), prev & LOC_MASK);
   }
 }
 
@@ -4553,6 +4515,13 @@ INLINE Ring ring_flip(u32 i) {
 // Task
 // ====
 
+#define OWN_SELF(e) (DEVICE ? (e).mnk + 1 : CUBE + 1)
+
+INLINE DEV u32* task_inbox(Corpus H, u32 own) {
+  return (DEV u32*)monk_word(H, (own - 1) & (CUBE - 1), (own - 1) >> 14)
+    + 1;
+}
+
 INLINE Loc task_node(Env e, Fid fid, Term cont, u32 idx, u32 rem) {
   u32 ar  = fid_arity(fid);
   Loc loc = heap_alloc(e, cls_fit(ar + 2));
@@ -4560,8 +4529,34 @@ INLINE Loc task_node(Env e, Fid fid, Term cont, u32 idx, u32 rem) {
     e.mem[loc + i] = TERM_HOLE;
   }
   e.mem[loc + ar]     = cont;
-  e.mem[loc + ar + 1] = ((u64)idx << 32) | rem;
+  e.mem[loc + ar + 1] = ((u64)(rem || !DEVICE ? OWN_SELF(e) : 0) << 48)
+    | ((u64)idx << 32) | rem;
   return loc;
+}
+
+INLINE void task_free(Env e, u32 ar, Loc loc, u32 own) {
+  Cls cls = cls_fit(ar + 2);
+  if (!DEVICE || own == 0 || own == OWN_SELF(e)
+    || ((loc & 1) | (loc >> 33)) != 0) {
+    heap_free(e, cls, loc);
+  } else {
+    DEV u32* in  = task_inbox(e.mem, own);
+    u32      old = a32_load(in);
+    do {
+      e.mem[loc] = ((u64)cls << 32) | old;
+    } while (!a32_cas(in, &old, (u32)(loc >> 1)));
+  }
+}
+
+INLINE void task_take(Env e) {
+  DEV u32* in = task_inbox(e.mem, OWN_SELF(e));
+  u32      n  = a32_load(in);
+  while (n != 0 && !a32_cas(in, &n, 0)) {
+  }
+  for (u64 w; n != 0; n = (u32)w) {
+    w = e.mem[(Loc)n << 1];
+    heap_free(e, w >> 32, (Loc)n << 1);
+  }
 }
 
 INLINE Loc task_tail(Term t) {
@@ -4636,7 +4631,7 @@ static u32 root_take(Corpus H, THR Term* v) {
 
 #if DEVICE
 #define WL_ROOM(N) \
-  if (sp + (N) * CUBE > e.mem + STAK_OFF + e.mnk + CUBE * STAK_LEN) { \
+  if (sp + (N) * CUBE >= e.mem + HEAP_OFF + CUBE) { \
     err_post(e.mem, ERR_DEEP); \
     return 0; \
   }
@@ -4671,7 +4666,7 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
   } else {
     WL_LOAD
   }
-  heap_free(e, cls_fit(war + 2), a);
+  task_free(e, war, a, (u32)(wtw >> 48));
   }
 #if DEVICE
   u32 wpoll = 0;
@@ -4743,7 +4738,7 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
       u32 wn = fid_arity(wf);
       WL_FRAME(cont)
       WL_ARGS(wa, wn - resn + 1)
-      heap_free(e, cls_fit(wn + 2), wa);
+      task_free(e, wn, wa, (u32)(wtw >> 48));
       WL_DYN(wf);
     }
     Term rv[WL_RESW];
@@ -4810,11 +4805,8 @@ INLINE u32 monk_grow(Env e, Stk stk, Ring rg, u32 put0, u32 base, u32 stride,
 
 static void monk_work(Env e, Stk stk, Monk m) {
   Corpus H = e.mem;
-#if DEVICE
-  u32 put0 = a32_load(ring_put(H, m));
-#else
-  u32 put0 = (u32)*monk_word(H, m, M_SNAP);
-#endif
+  u32 put0 = DEVICE ? a32_load(ring_put(H, m))
+    : (u32)*monk_word(H, m, M_SNAP);
   while (*ring_get(H, m) != put0) {
     if (err_seen(H)) {
       return;
@@ -4833,6 +4825,17 @@ static void monk_work(Env e, Stk stk, Monk m) {
 
 #if DEVICE
 
+INLINE void dev_alc(Env e, bool save) {
+  DEV u64* w = monk_word(e.mem, e.mnk, M_HEAD);
+  for (u32 i = 0; i < ALC_WORDS; i += 1) {
+    if (save) {
+      w[i * CUBE] = ALC_AT(e, i);
+    } else {
+      ALC_AT(e, i) = w[i * CUBE];
+    }
+  }
+}
+
 #ifdef __METAL_VERSION__
 kernel void grow_dev(Corpus H [[buffer(0)]],
   u32 grids [[threadgroups_per_grid]],
@@ -4847,9 +4850,10 @@ extern "C" __global__ void grow_dev(Corpus H) {
   u32  stride = grids == 1 ? CUBE_SIDE : 1;
   Ring rg  = (row << 7) + stride * lane;
   GRPV u64 tg_alc[CUBE_SIDE * ALC_WORDS];
-  Env  e   = { H, rg, tg_alc + lane };
-  u32  move = a32_load(a32_at(H, H_ROT)) & 2;
-  alc_open(e, move);
+  Env  e   = { H, (rg + a32_load(a32_at(H, H_ROT))) & (u32)(CUBE - 1),
+    tg_alc + lane };
+  dev_alc(e, false);
+  task_take(e);
   GA32 tg_cur;
   GA32 tg_grew;
   GA32 tg_has;
@@ -4883,7 +4887,7 @@ extern "C" __global__ void grow_dev(Corpus H) {
     }
     seen_grew = grew;
   }
-  alc_close(e, move && stride != 1);
+  dev_alc(e, true);
 }
 
 #ifdef __METAL_VERSION__
@@ -4896,10 +4900,11 @@ extern "C" __global__ void work_dev(Corpus H) {
   u32 tid  = blockIdx.x * CUBE_SIDE + lane;
 #endif
   GRPV u64 tg_alc[CUBE_SIDE * ALC_WORDS];
-  Env e = { H, tid, tg_alc + lane };
-  alc_open(e, false);
+  Env e = { H, (tid + a32_load(a32_at(H, H_ROT))) & (u32)(CUBE - 1),
+    tg_alc + lane };
+  dev_alc(e, false);
   monk_work(e, (Stk)(H + STAK_OFF + tid), ring_flip(tid));
-  alc_close(e, false);
+  dev_alc(e, true);
 }
 
 #endif
@@ -5276,7 +5281,6 @@ static void gpu_pass(u32 f) {
 
 static void gpu_round(Corpus H, u32 f) {
   gpu_pass(f);
-  a32_store(a32_at(H, H_ROT), a32_load(a32_at(H, H_ROT)) & 1);
   u32 ec = a32_load(a32_at(H, H_ERROR_CODE));
   if (ec > ERR_DEEP || (u64)a32_load(a32_at(H, H_PAGE_BUMP)) > gpu_cap) {
     ec = ERR_HEAP;
@@ -5301,10 +5305,6 @@ static void gpu_round(Corpus H, u32 f) {
 // ====
 
 static void cube_run(Corpus H, bool gpu) {
-  u32 r = (u32)rand() % pool_size;
-  memcpy(ALC[pool_size], ALC[0], sizeof ALC[0]);
-  memcpy(ALC[0], ALC[r], sizeof ALC[0]);
-  memcpy(ALC[r], ALC[pool_size], sizeof ALC[0]);
   for (;;) {
     u32 f = a32_load(a32_at(H, H_CURSOR));
     a32_store(a32_at(H, H_CURSOR), 0);
@@ -5350,16 +5350,12 @@ static void corpus_seed(Corpus H) {
 
 static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
   u64 dflt = gpu ? gpu_span() : 1ull << 43;
-  u64 want = gpu ? bytes : 0;
-  CORPUS_SIZE = (want != 0 ? want : dflt) & ~16383ull;
+  CORPUS_SIZE = (gpu && bytes != 0 ? bytes : dflt) & ~16383ull;
   u64 span = CORPUS_SIZE / 8;
   u64 room = span > HEAP_OFF ? (span - HEAP_OFF) >> PAGE_BITS : 0;
   u64 cap  = room < PAGE_NIL ? room : PAGE_NIL;
   if (cap == 0) {
-    char text[80];
-    snprintf(text, sizeof text, "--gpu-memory is under the %lluMB of lane"
-      " stacks and rings", (unsigned long long)(HEAP_OFF >> 17) + 1);
-    err_fail(ERR_HEAP, text);
+    err_fail(ERR_HEAP, "--gpu-memory is under the lane stacks and rings");
   }
   CORPUS = gpu ? gpu_map(CORPUS_SIZE) : corpus_mmap(CORPUS_SIZE);
   Corpus H = CORPUS;
@@ -5376,8 +5372,11 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
 }
 
 OUTLINE Term corpus_eval(Corpus H, Term t) {
-  Env e = { H, 0 };
+  Env  e = { H, 0 };
+  Term rv[WL_RESW];
   for (;;) {
+    e.mnk = (u32)rand() % pool_size;
+    task_take(e);
     Reply r = work_loop(e, io_stk, t, !BANGS);
     if (r == 0) {
       if (root_done(H)) {
@@ -5390,17 +5389,14 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
       if (io_gpu && fid_bangs((u32)term_aux(t))) {
         Loc  tl   = task_tail(t);
         Term cont = H[tl];
-        u32  idx  = (u32)(H[tl + 1] >> 32);
+        u32  idx  = (u32)(H[tl + 1] >> 32) & 0xFFFF;
         H[tl]     = TERM_HOLE;
-        H[tl + 1] = 0;
         a32_store(a32_at(H, H_CURSOR), 1);
-        static u32 bangs = 0;
-        u32 shift = bangs++ % CUBE_SIDE ? ROT_STEP : (u32)rand();
-        a32_store(a32_at(H, H_ROT),
-          ((a32_load(a32_at(H, H_ROT)) ^ 1) & 1) | 2 | shift << 2);
+        static u32 bangs;
+        u32 shift = bangs++ % CUBE_SIDE ? 10125 : (u32)rand();
+        a32_add(a32_at(H, H_ROT), shift);
         ring_push(H, 0, t);
         cube_run(H, true);
-        Term rv[WL_RESW];
         Term p = task_deliver(H, cont, idx, rv, root_take(H, rv));
         if (root_done(H)) {
           break;
@@ -5417,7 +5413,6 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
     cube_run(H, false);
     break;
   }
-  Term rv[WL_RESW];
   root_take(H, rv);
   return rv[0];
 }
