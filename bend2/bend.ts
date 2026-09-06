@@ -23,6 +23,7 @@
 //
 // Bind ::=
 //   | Quant Name ":" Term
+//   | "~" Name ":" Term
 //   | Name
 //
 // Term ::=
@@ -126,6 +127,10 @@
 // values, each checked in the outer scope; the compiler forks its
 // calls. the parser never rewinds: one token after a parsed term
 // decides.
+//
+// "~k: T" first in a def's telescope makes it a template: a closed call
+// "T(~a, ..)" re-parses its text with k bound to a into a plain def T~n (a ~
+// lambda applied at k is a Sub); an open one stays plain.
 //
 // Do-Notation
 // -----------
@@ -299,7 +304,8 @@ export type Ctrs = Array<Ctr>;
 export type ADT  = { $: "ADT"; n: number; g: number; T: HTerm; c: Ctrs; };
 export type Def  = { $: "Def"; n: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; };
 export type TLD  = ADT | Def;
-export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; };
+export type Tmpl = { p: Parse; u: Bool; is: Record<string, Name>; };
+export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; tmps: Record<Name, Tmpl>; };
 
 // Context
 export type Ann = { q: Quant; k: Name; T: HTerm };
@@ -318,8 +324,9 @@ export type Body  = Match | Local | Reply
 
 // Parser
 export type Loc   = number;
-export type Scope = { stk: Array<[Name, number]>; frs: number; };
-export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; os: Array<{ k: Name }>; };
+export type Entry = [Name, number, LTerm?];
+export type Scope = { stk: Entry[]; frs: number; };
+export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; os: Array<{ k: Name }>; inst: { k: Name; xs: LTerm[] } | null; };
 export type Span  = { src: string; beg: Loc; end: Loc; };
 
 // Machine
@@ -1020,7 +1027,7 @@ export function ctrs_find(cs: Ctrs, k: Name): Ctr | null {
 // ====
 
 export function book_nil(): Book {
-  return { tlds: Object.create(null), ctrs: Object.create(null), order: [], hols: 0 };
+  return { tlds: Object.create(null), ctrs: Object.create(null), order: [], hols: 0, tmps: Object.create(null) };
 }
 
 export function book_ctr(book: Book, k: Name): Ctr | null {
@@ -1538,7 +1545,7 @@ const KEYWORDS = new Set([
 const QUAS: Record<string, Quant> = { "0": None(), "1": Lone(), "2": Many() };
 
 export function parse_new(book: Book, dir: string, str: string, ns: string = "", al: Record<Name, Name> = Object.create(null)): Parse {
-  return { book, dir, str, pos: 0, sc: { stk: [], frs: 0 }, ns, al, os: [] };
+  return { book, dir, str, pos: 0, sc: { stk: [], frs: 0 }, ns, al, os: [], inst: null };
 }
 
 export function parse_col(src: string, pos: Loc): number {
@@ -1666,10 +1673,10 @@ export function parse_char(p: Parse): U32 {
 // Binders
 // -------
 
-export function parse_open(p: Parse, k: Name): number {
+export function parse_open(p: Parse, k: Name, v?: LTerm): number {
   const i = p.sc.frs++;
   if (k !== "_") {
-    p.sc.stk.push([k, i]);
+    p.sc.stk.push([k, i, v]);
   }
   return i;
 }
@@ -1678,23 +1685,23 @@ export function parse_close(p: Parse, n: number): void {
   p.sc.stk.length = n;
 }
 
-export function parse_lookup(p: Parse, k: Name): number | null {
+export function parse_lookup(p: Parse, k: Name): Entry | null {
   const stk = p.sc.stk;
   for (let j = stk.length - 1; j >= 0; j--) {
     if (stk[j][0] === k) {
-      return stk[j][1];
+      return stk[j];
     }
   }
   return null;
 }
 
 export function parse_var(p: Parse, k: Name, s?: Span): LTerm {
-  const i = parse_lookup(p, k);
-  if (i !== null) {
-    return Var(k, i, s);
+  const e = parse_lookup(p, k);
+  if (e !== null) {
+    return e[2] === undefined ? Var(k, e[1], s) : e[2].$ === "Var" ? Ref(e[2].k, s) : e[2];
   }
   const q = parse_reso(p, k);
-  if (q !== k || k.includes(".")) {
+  if (q !== k || k.includes(".") || q in p.book.tmps) {
     return Ref(q, s);
   }
   return Var(k, p.sc.frs++, s);
@@ -1710,7 +1717,7 @@ export function parse_reso(p: Parse, k: Name): Name {
   if (dot !== -1 && k.slice(0, dot) in p.al) {
     q = p.al[k.slice(0, dot)] + k.slice(dot);
   }
-  if (q in p.book.tlds || q in p.book.ctrs) {
+  if (q in p.book.tlds || q in p.book.ctrs || q in p.book.tmps) {
     return q;
   }
   return k;
@@ -1978,10 +1985,28 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     }
     if (parse_at(p, "(")) {
       parse_bump(p);
-      const xs = parse_term_args(p, ")");
+      const tm = out.$ === "Ref" ? p.book.tmps[out.k] : undefined;
+      const ts: LTerm[] = [];
+      for (parse_skip(p); tm !== undefined && parse_take(p, "~"); parse_skip(p)) {
+        ts.push(parse_term(p));
+        parse_skip(p);
+        parse_take(p, ",");
+      }
+      const xs = ts.concat(parse_term_args(p, ")"));
       const s  = parse_grow(p, out);
+      if (out.$ === "Ref" && tm !== undefined) {
+        const env = p.sc.stk.reduce((env: Env, e) => list_set(env, e[1], Ref("\0")), null);
+        const key = ts.map((x) => term_show(term_lower(term_higher(x, env)))).join("\n");
+        if (!key.includes("\0") && key.length <= 2048) {
+          if (tm.is[key] === undefined) {
+            tm.is[key] = out.k + "~" + Object.keys(tm.is).length;
+            parse_def({ ...tm.p, sc: { stk: [], frs: p.sc.frs }, os: [], inst: { k: tm.is[key], xs: ts } }, p.book, tm.u);
+          }
+          out = { ...out, k: tm.is[key] };
+        }
+      }
       for (const x of xs) {
-        out = App(out, x, s);
+        out = out.$ === "Lam" && p.sc.stk.some((e) => e[2] === out) ? Sub(out.i, x, out.f, s) : App(out, x, s);
       }
       continue;
     }
@@ -2474,7 +2499,8 @@ export function parse_tele(p: Parse, close: string): Array<[Quant, Name, number,
     if (parse_take(p, close)) {
       return tele;
     }
-    const q   = parse_quant(p);
+    const ct  = close === ")" && parse_take(p, "~");
+    const q   = ct ? None() : parse_quant(p);
     const beg = p.pos;
     const k   = parse_name(p);
     const s   = parse_span(p, beg);
@@ -2484,7 +2510,7 @@ export function parse_tele(p: Parse, close: string): Array<[Quant, Name, number,
     } else {
       parse_eat(p, ":");
       const T = parse_term(p);
-      tele.push([q, k, parse_open(p, k), T, s]);
+      tele.push([q, k, parse_open(p, k, ct ? p.inst?.xs.shift() : undefined), T, s]);
     }
     parse_skip(p);
     parse_take(p, ",");
@@ -2495,12 +2521,13 @@ export function parse_tele(p: Parse, close: string): Array<[Quant, Name, number,
 // ----
 
 export function parse_fresh(p: Parse, k: Name): void {
-  if (p.book.tlds[k] !== undefined) {
+  if (p.book.tlds[k] !== undefined || (p.inst === null && k in p.book.tmps)) {
     parse_fail(p, "a fresh name (duplicate declaration: " + k + ")");
   }
 }
 
 export function parse_def(p: Parse, book: Book, u: Bool = false): void {
+  const at = p.pos;
   parse_word(p, "def");
   const nm  = parse_name(p);
   const q   = parse_reso(p, nm);
@@ -2512,10 +2539,20 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
     parse_def_fill(p, book, q, tld);
     return;
   }
-  const k = parse_qual(p, nm);
+  const k = p.inst?.k ?? parse_qual(p, nm);
   parse_fresh(p, k);
   const n0   = p.sc.stk.length;
   parse_eat(p, "(");
+  parse_skip(p);
+  if (p.inst === null && parse_at(p, "~")) {
+    // a template: its text parses once dry, then per instance
+    book.tmps[k] = { p: { ...p, pos: at }, u, is: Object.create(null) };
+    p.pos  = at;
+    p.inst = { k, xs: [] };
+    parse_def(p, book_nil(), u);
+    p.inst = null;
+    return;
+  }
   const tele = parse_tele(p, ")");
   parse_eat(p, "->");
   const ret  = parse_term(p);
