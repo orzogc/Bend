@@ -92,7 +92,10 @@ async function cli(): Promise<void> {
 }
 
 function cli_build(bin: string): void {
-  const cpu = ["-std=c11", "-O3", bin + ".c", "-lpthread", "-lm", "-o", bin];
+  const link = [...fs.readFileSync(bin + ".c", "utf8")
+    .matchAll(/^\/\/\$ (.+)$/gm)].flatMap((m) => m[1].split(" "));
+  const cpu = ["-std=c11", "-O3", bin + ".c", "-lpthread", "-lm", ...link,
+    "-o", bin];
   const gpu = process.platform === "darwin"
     ? ["-DBEND_METAL=1", "-x", "objective-c", "-fobjc-arc", ...cpu,
       "-framework", "Metal", "-framework", "Foundation"]

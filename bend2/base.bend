@@ -68,6 +68,16 @@ type String is Data:
   SNil{}
   SCon{head: Char, tail: String}
 
+type Image is Data:
+  Pix{color: U32}
+  Qua{tl: Image, tr: Image, bl: Image, br: Image}
+
+type Event is Data:
+  Key{code: U32, down: Bool}
+  Mouse{x: U32, y: U32, button: U32, down: Bool}
+  Move{x: U32, y: U32}
+  Close{}
+
 # Effects
 # -------
 
@@ -79,6 +89,9 @@ type Socket is Type:
 
 type Listener is Type:
   Listener{slot: U32, gen: U32}
+
+type Window is Type:
+  Window{slot: U32, gen: U32}
 
 type IO.OP<-R: Type> is Type:
   Emit{value: R}
@@ -227,6 +240,19 @@ def Socket.close(socket: Socket) -> IO(Unit):
 def Listener.close(listener: Listener) -> IO(Unit):
   import "./effs/listener_close.c"
   import "./effs/listener_close.js"
+
+def Window.open(title: String, width: U32, height: U32) ->
+  IO(Result<&1, &1, U32 & String, Window>):
+  import "./effs/window_open.c"
+  import "./effs/window_open.js"
+
+def Window.frame(window: Window, image: Image) -> IO(Window & List<U32>):
+  import "./effs/window_frame.c"
+  import "./effs/window_frame.js"
+
+def Window.close(window: Window) -> IO(Unit):
+  import "./effs/window_close.c"
+  import "./effs/window_close.js"
 
 # Equal
 # -----
@@ -1875,3 +1901,82 @@ def Set.del(s: Set(), key: String) -> Set():
 
 def Set.union(a: Set(), b: Set()) -> Set():
   Map.union(&2, Unit, a, b)
+
+# Event
+# -----
+
+def Event.decode.at(kind: Nat, +word: U32) -> Event:
+  match kind:
+    case 0n:
+      Key{U32.and(word, 65535), U32.is_ne(U32.and(word, 65536), 0)}
+    case 1n:
+      Mouse{U32.and(word, 4095), U32.and(U32.shrn(word, 12n), 4095),
+        U32.and(U32.shrn(word, 24n), 15),
+        U32.is_ne(U32.and(word, 268435456), 0)}
+    case 2n:
+      Move{U32.and(word, 4095), U32.and(U32.shrn(word, 12n), 4095)}
+    case _:
+      Close{}
+
+def Event.decode(word: U32) -> Event:
+  +w = word
+  Event.decode.at(U32.to_nat(U32.shrn(w, 30n)), w)
+
+# App
+# ---
+
+def App(-S: Data) -> Type:
+  (S -> Image) & (List<Event> -> S -> Maybe<S>)
+
+def App.view(-S: Data, app: App(S), state: S) -> Image:
+  (view, tick) = app
+  view(state)
+
+def App.tick(-S: Data, app: App(S), state: S, events: List<Event>) ->
+  Maybe<S>:
+  (view, tick) = app
+  tick(events, state)
+
+def App.next(
+  -S: Data, window: Window, next: Maybe<S>, rest: Window -> S -> IO(Unit)
+) -> IO(Unit):
+  match next:
+    case None{}:
+      Window.close(window)
+    case Some{state}:
+      rest(window, state)
+
+def App.turn(
+  -S: Data, shown: Window & List<U32>, tick: List<Event> -> Maybe<S>,
+  rest: Window -> S -> IO(Unit)
+) -> IO(Unit):
+  (window, words) = shown
+  App.next(S, window, tick(List.map(~U32, ~Event, ~Event.decode, words)), rest)
+
+def App.loop(~S: Data, ~app: App(S), fuel: Nat, window: Window, +state: S) ->
+  IO(Unit):
+  match fuel:
+    case 0n:
+      Window.close(window)
+    case 1n+f:
+      do IO<Unit>:
+        shown : Window & List<U32> <-
+          Window.frame(window, App.view(S, app, state))
+        App.turn(S, shown, App.tick(S, app, state),
+          w => s => App.loop(~S, ~app, f, w, s))
+
+def App.run(
+  ~S: Data, ~app: App(S), title: String, width: U32, height: U32, state: S
+) -> IO(Unit):
+  do IO<Unit>:
+    window : Window <- IO.try(Window, Window.open(title, width, height))
+    App.loop(~S, ~app, U32.to_nat(4294967295), window, state)
+
+def App.play(~S: Data, ~app: App(S), frames: List<List<Event>>, state: S) ->
+  Maybe<S>:
+  match frames:
+    case Nil{}:
+      Some{state}
+    case Con{events, rest}:
+      Maybe.bind(&1, S, S, App.tick(S, app, state, events),
+        s => App.play(~S, ~app, rest, s))

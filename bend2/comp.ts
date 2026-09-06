@@ -3119,7 +3119,7 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   const rs = ns.map((i) => "r" + i).join(", ");
   const load = [...ns].reverse().map((r) =>
     `    case ${r + 1}: r${r} = e.mem[a + ${r}]; \\\n`).join("");
-  defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail".split(" ")
+  defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail Con".split(" ")
     .reduce((m, k, i) => m | (fl.hot.has(k) ? 1 << i : 0), 0)}`, "");
   const pass = ns.map((i) =>
     `    case ${i}: r${i} = res[0]; \\\n      break; \\\n`).join("");
@@ -3164,7 +3164,8 @@ export function compile_book(book: Bend.Book): string {
   facts_build(cb);
   const fl = file_new(cb, "Term");
   for (const k of ("Tuple SNil SCon Chr Unit WCon Emit Halt Fail Done File"
-    + " Socket Listener None Some").split(" ")) {
+    + " Socket Listener None Some" + ([...cb.done].some((d) =>
+      d.startsWith("Window.")) ? " Window Nil Con" : "")).split(" ")) {
     cid_reg(fl, k);
   }
   for (const [k, tld] of done_defs(cb)) {
