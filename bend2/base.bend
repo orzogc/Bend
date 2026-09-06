@@ -484,6 +484,16 @@ def Result.bind(
     case Done{x}:
       f(x)
 
+# List
+# ----
+
+def List.map(~A: Type, ~B: Type, ~f: A -> B, xs: List<A>) -> List<B>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case Con{h, t}:
+      Con{f(h), List.map(~A, ~B, ~f, t)}
+
 # Word
 # ----
 
