@@ -1,269 +1,393 @@
 // Window
 // ======
 //! use ./sys.c
-//$ -framework AppKit -framework QuartzCore
-
-#ifndef __APPLE__
-#error "Window: darwin only"
-#endif
-
-#include <objc/message.h>
-#include <objc/objc.h>
-#include <objc/runtime.h>
-#include <ApplicationServices/ApplicationServices.h>
-#include <time.h>
 
 #define IO_WIND  5
 #define WIN_ROWS 64
-#define WIN_EVQ  256
-#define WIN_TICK 16666667ULL
 
-extern void* objc_autoreleasePoolPush(void);
-extern void objc_autoreleasePoolPop(void* pool);
+// WinEvent ::=
+//   | WinEvent(kind, args)
+typedef struct {
+  u32 kind;
+  u32 args[4];
+} WinEvent;
 
-typedef id WinId;
-typedef WinId (*WinMsg)(WinId, SEL);
-typedef WinId (*WinMsgStr)(WinId, SEL, const char*);
-typedef void (*WinMsgVoid)(WinId, SEL);
-typedef void (*WinMsgId)(WinId, SEL, WinId);
-typedef void (*WinMsgImg)(WinId, SEL, CGImageRef);
-typedef void (*WinMsgLong)(WinId, SEL, long);
-typedef void (*WinMsgBool)(WinId, SEL, BOOL);
-typedef WinId (*WinMsgInit)(WinId, SEL, CGRect, unsigned long, unsigned long,
-  BOOL);
-typedef WinId (*WinMsgPoll)(WinId, SEL, unsigned long long, WinId, WinId,
-  BOOL);
-typedef long (*WinMsgGetLong)(WinId, SEL);
-typedef unsigned long (*WinMsgGetULong)(WinId, SEL);
-typedef unsigned short (*WinMsgGetUShort)(WinId, SEL);
-typedef CGPoint (*WinMsgGetPoint)(WinId, SEL);
+#if BEND_METAL
+
+#import <AppKit/AppKit.h>
+#import <QuartzCore/QuartzCore.h>
+
+#define WIN_STR_(x) #x
+#define WIN_STR(x)  WIN_STR_(x)
+#define WIN_DEF(m)  "#define " #m " " WIN_STR(m) "\n"
 
 typedef struct {
-  WinId     win;
-  WinId     layer;
-  uint32_t* fb[2];
-  int       back;
-  int       w;
-  int       h;
-  int       used;
-  uint64_t  due;
-  uint32_t  evq[WIN_EVQ];
-  uint32_t  evq_h;
-  uint32_t  evq_t;
-} WinRow;
+  u64 root;
+  u32 w;
+  u32 h;
+  u32 k;
+} WinArgs;
 
-static WinRow window_rows[WIN_ROWS];
-static WinId  window_delegate;
+@interface BendView : NSView <NSWindowDelegate> {
+  @public
+  WinEvent* evs;
+  u32       len;
+  u32       cap;
+  u32       w;
+  u32       h;
+  u64       flags;
+}
+@end
 
-static const unsigned short window_keys[128] = {
-  [0x00] = 'a',  [0x01] = 's',  [0x02] = 'd',  [0x03] = 'f',  [0x04] = 'h',
-  [0x05] = 'g',  [0x06] = 'z',  [0x07] = 'x',  [0x08] = 'c',  [0x09] = 'v',
-  [0x0B] = 'b',  [0x0C] = 'q',  [0x0D] = 'w',  [0x0E] = 'e',  [0x0F] = 'r',
-  [0x10] = 'y',  [0x11] = 't',  [0x12] = '1',  [0x13] = '2',  [0x14] = '3',
-  [0x15] = '4',  [0x16] = '6',  [0x17] = '5',  [0x18] = '=',  [0x19] = '9',
-  [0x1A] = '7',  [0x1B] = '-',  [0x1C] = '8',  [0x1D] = '0',  [0x1E] = ']',
-  [0x1F] = 'o',  [0x20] = 'u',  [0x21] = '[',  [0x22] = 'i',  [0x23] = 'p',
-  [0x25] = 'l',  [0x26] = 'j',  [0x27] = '\'', [0x28] = 'k',  [0x29] = ';',
-  [0x2A] = '\\', [0x2B] = ',',  [0x2C] = '/',  [0x2D] = 'n',  [0x2E] = 'm',
-  [0x2F] = '.',  [0x32] = '`',
-  [0x24] = 13,   [0x30] = 9,    [0x31] = ' ',  [0x33] = 8,    [0x35] = 27,
-  [0x41] = '.',  [0x43] = '*',  [0x45] = '+',  [0x4B] = '/',  [0x4C] = 13,
-  [0x4E] = '-',  [0x51] = '=',  [0x52] = '0',  [0x53] = '1',  [0x54] = '2',
-  [0x55] = '3',  [0x56] = '4',  [0x57] = '5',  [0x58] = '6',  [0x59] = '7',
-  [0x5B] = '8',  [0x5C] = '9',
-  [0x75] = 127,  [0x7B] = 128,  [0x7C] = 129,  [0x7D] = 131,  [0x7E] = 130,
-  [0x38] = 132,  [0x3C] = 132,  [0x3B] = 133,  [0x3E] = 133,  [0x3A] = 134,
-  [0x3D] = 134,  [0x37] = 135,  [0x36] = 135,
-};
+@implementation BendView
 
-static WinId window_str(const char* s) {
-  return ((WinMsgStr)objc_msgSend)((WinId)objc_getClass("NSString"),
-    sel_registerName("stringWithUTF8String:"), s);
+- (void)dealloc {
+  free(evs);
 }
 
-static uint64_t window_now(void) {
-  struct timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (uint64_t)ts.tv_sec * 1000000000ULL + (uint64_t)ts.tv_nsec;
+- (CALayer*)makeBackingLayer {
+  return [CAMetalLayer layer];
 }
 
-static WinRow* window_at(WinId win) {
-  for (int i = 0; i < WIN_ROWS; i += 1) {
-    if (window_rows[i].used && window_rows[i].win == win) {
-      return &window_rows[i];
-    }
+- (BOOL)acceptsFirstResponder {
+  return YES;
+}
+
+- (BOOL)isFlipped {
+  return YES;
+}
+
+- (void)push:(WinEvent)ev {
+  if (len == cap) {
+    cap = cap > 0 ? cap * 2 : 64;
+    evs = io_mem(realloc(evs, cap * sizeof(WinEvent)));
   }
-  return NULL;
+  evs[len] = ev;
+  len += 1;
 }
 
-static void window_push(WinRow* row, uint32_t ev) {
-  if (row->evq_t - row->evq_h < WIN_EVQ) {
-    row->evq[row->evq_t & (WIN_EVQ - 1)] = ev;
-    row->evq_t += 1;
-  }
+- (void)key:(NSEvent*)ev down:(BOOL)down {
+  NSString* s = [ev.charactersIgnoringModifiers lowercaseString];
+  u32 code = s.length > 0 ? [s characterAtIndex:0] : 65536 + ev.keyCode;
+  WinEvent e = { 0, { code, down } };
+  [self push:e];
 }
 
-static BOOL window_should_close(WinId self, SEL cmd, WinId sender) {
-  (void)self;
-  (void)cmd;
-  WinRow* row = window_at(sender);
-  if (row != NULL) {
-    window_push(row, 3u << 30);
-  }
+- (void)keyDown:(NSEvent*)ev {
+  [self key:ev down:YES];
+}
+
+- (void)keyUp:(NSEvent*)ev {
+  [self key:ev down:NO];
+}
+
+- (void)flagsChanged:(NSEvent*)ev {
+  u64 now = ev.modifierFlags;
+  WinEvent e = { 0, { 65536 + ev.keyCode, (now & ~flags) != 0 } };
+  [self push:e];
+  flags = now;
+}
+
+- (NSPoint)at:(NSEvent*)ev {
+  NSPoint p = [self convertPointToBacking:
+    [self convertPoint:ev.locationInWindow fromView:nil]];
+  return NSMakePoint(fmax(0, fmin(floor(p.x), w - 1)),
+    fmax(0, fmin(floor(p.y), h - 1)));
+}
+
+- (void)mouse:(NSEvent*)ev down:(BOOL)down {
+  NSPoint p = [self at:ev];
+  WinEvent e = { 1, { p.x, p.y, (u32)ev.buttonNumber, down } };
+  [self push:e];
+}
+
+- (void)move:(NSEvent*)ev {
+  NSPoint p = [self at:ev];
+  WinEvent e = { 2, { p.x, p.y } };
+  [self push:e];
+}
+
+- (void)mouseDown:(NSEvent*)ev {
+  [self mouse:ev down:YES];
+}
+
+- (void)mouseUp:(NSEvent*)ev {
+  [self mouse:ev down:NO];
+}
+
+- (void)rightMouseDown:(NSEvent*)ev {
+  [self mouse:ev down:YES];
+}
+
+- (void)rightMouseUp:(NSEvent*)ev {
+  [self mouse:ev down:NO];
+}
+
+- (void)otherMouseDown:(NSEvent*)ev {
+  [self mouse:ev down:YES];
+}
+
+- (void)otherMouseUp:(NSEvent*)ev {
+  [self mouse:ev down:NO];
+}
+
+- (void)mouseMoved:(NSEvent*)ev {
+  [self move:ev];
+}
+
+- (void)mouseDragged:(NSEvent*)ev {
+  [self move:ev];
+}
+
+- (void)rightMouseDragged:(NSEvent*)ev {
+  [self move:ev];
+}
+
+- (void)otherMouseDragged:(NSEvent*)ev {
+  [self move:ev];
+}
+
+- (BOOL)windowShouldClose:(NSWindow*)sender {
+  WinEvent e = { 3 };
+  [self push:e];
   return NO;
 }
 
-static long window_clamp(long v, int max) {
-  if (v < 0) {
-    return 0;
-  }
-  return v >= max ? max - 1 : v;
-}
+@end
 
-static uint32_t window_xy(WinRow* row, WinId ev, int* in) {
-  CGPoint p = ((WinMsgGetPoint)objc_msgSend)(ev,
-    sel_registerName("locationInWindow"));
-  *in = p.x >= 0 && p.x < row->w && p.y >= 0 && p.y < row->h;
-  long x = window_clamp((long)p.x, row->w);
-  long y = window_clamp((long)(row->h - 1) - (long)p.y, row->h);
-  return (uint32_t)x | ((uint32_t)y << 12);
-}
+static NSWindow*                   window_rows[WIN_ROWS];
+static id<MTLDevice>               window_dev;
+static id<MTLCommandQueue>         window_que;
+static id<MTLBuffer>               window_buf;
+static id<MTLComputePipelineState> window_pso;
+static u64                         window_len;
 
-static int window_event(WinId ev) {
-  long ty = ((WinMsgGetLong)objc_msgSend)(ev, sel_registerName("type"));
-  WinRow* row = window_at(((WinMsg)objc_msgSend)(ev,
-    sel_registerName("window")));
-  if (row == NULL) {
-    return 0;
+static const char* window_msl =
+  "#include <metal_stdlib>\n"
+  "using namespace metal;\n"
+  WIN_DEF(TAG_CTR)
+  WIN_DEF(RFC_BIT)
+  WIN_DEF(LOC_MASK)
+  "struct Args { ulong root; uint w; uint h; uint k; };\n"
+  "ulong node(device const ulong* mem, ulong t) {\n"
+  "  return t & RFC_BIT ? mem[t & LOC_MASK] >> 24 : t & LOC_MASK;\n"
+  "}\n"
+  "kernel void window_dev(device const ulong* mem [[buffer(0)]],\n"
+  "  constant Args& a [[buffer(1)]],\n"
+  "  texture2d<float, access::write> out [[texture(0)]],\n"
+  "  uint2 p [[thread_position_in_grid]]) {\n"
+  "  ulong t = a.root;\n"
+  "  for (uint i = a.k; ((t >> 56) & 0x7f) == TAG_CTR;) {\n"
+  "    uint j = 0;\n"
+  "    if (i > 0) {\n"
+  "      i -= 1;\n"
+  "      j = ((p.y >> i) & 1) * 2 + ((p.x >> i) & 1);\n"
+  "    }\n"
+  "    t = mem[node(mem, t) + j];\n"
+  "  }\n"
+  "  float4 c = unpack_unorm4x8_to_float(uint(t & LOC_MASK));\n"
+  "  out.write(float4(c.zyx, 1.0), p);\n"
+  "}\n";
+
+static bool window_boot(void) {
+  if (window_pso != nil) {
+    return true;
   }
-  if (ty == 10 || ty == 11 || ty == 12) {
-    uint32_t raw  = ((WinMsgGetUShort)objc_msgSend)(ev,
-      sel_registerName("keyCode"));
-    uint32_t code = raw < 128 && window_keys[raw] != 0
-      ? window_keys[raw] : 0x1000 | raw;
-    uint32_t down = ty == 10;
-    if (ty == 12) {
-      unsigned long flags = ((WinMsgGetULong)objc_msgSend)(ev,
-        sel_registerName("modifierFlags"));
-      down = code >= 132 && code <= 135 ? (flags >> (code - 115)) & 1 : 1;
-    }
-    window_push(row, down << 16 | code);
-    return ty != 12;
+  if (NSScreen.screens.count == 0) {
+    return false;
   }
-  int in;
-  uint32_t xy = window_xy(row, ev, &in);
-  if (ty == 1 || ty == 2 || ty == 3 || ty == 4 || ty == 25 || ty == 26) {
-    uint32_t btn  = (uint32_t)((WinMsgGetLong)objc_msgSend)(ev,
-      sel_registerName("buttonNumber"));
-    uint32_t down = ty == 1 || ty == 3 || ty == 25;
-    if (in) {
-      window_push(row, 1u << 30 | down << 28 | (btn & 15) << 24 | xy);
-    }
-  } else if (ty == 5 || ty == 6 || ty == 7 || ty == 27) {
-    if (in || ty != 5) {
-      window_push(row, 2u << 30 | xy);
-    }
+  window_dev = gpu_buf != nil ? gpu_dev : MTLCreateSystemDefaultDevice();
+  if (window_dev == nil) {
+    return false;
   }
-  return 0;
+  window_que = gpu_buf != nil ? gpu_que : [window_dev newCommandQueue];
+  NSError* err = nil;
+  id<MTLLibrary> lib = [window_dev
+    newLibraryWithSource:[NSString stringWithUTF8String:window_msl]
+    options:nil error:&err];
+  if (lib == nil) {
+    err_fail(ERR_FAIL, err.localizedDescription.UTF8String);
+  }
+  window_pso = [window_dev newComputePipelineStateWithFunction:
+    [lib newFunctionWithName:@"window_dev"] error:&err];
+  if (window_pso == nil) {
+    err_fail(ERR_FAIL, err.localizedDescription.UTF8String);
+  }
+  [NSApplication sharedApplication];
+  NSApp.activationPolicy = NSApplicationActivationPolicyRegular;
+  [NSApp finishLaunching];
+  return true;
 }
 
 static void window_pump(void) {
-  void* pool = objc_autoreleasePoolPush();
-  WinId app  = ((WinMsg)objc_msgSend)((WinId)objc_getClass("NSApplication"),
-    sel_registerName("sharedApplication"));
-  WinId past = ((WinMsg)objc_msgSend)((WinId)objc_getClass("NSDate"),
-    sel_registerName("distantPast"));
-  WinId mode = window_str("kCFRunLoopDefaultMode");
-  for (;;) {
-    WinId ev = ((WinMsgPoll)objc_msgSend)(app,
-      sel_registerName("nextEventMatchingMask:untilDate:inMode:dequeue:"),
-      ~0ULL, past, mode, YES);
-    if (ev == NULL) {
-      break;
-    }
-    if (window_event(ev) == 0) {
-      ((WinMsgId)objc_msgSend)(app, sel_registerName("sendEvent:"), ev);
-    }
-  }
-  objc_autoreleasePoolPop(pool);
-}
-
-static void window_fill(WinRow* row, int x0, int y0, int sz, uint32_t c) {
-  uint32_t* fb = row->fb[row->back];
-  int x1 = x0 + sz < row->w ? x0 + sz : row->w;
-  int y1 = y0 + sz < row->h ? y0 + sz : row->h;
-  for (int y = y0; y < y1; y += 1) {
-    uint32_t* line = fb + (size_t)y * (size_t)row->w;
-    for (int x = x0; x < x1; x += 1) {
-      line[x] = c;
+  @autoreleasepool {
+    for (;;) {
+      NSEvent* ev = [NSApp nextEventMatchingMask:NSEventMaskAny
+        untilDate:NSDate.distantPast inMode:NSDefaultRunLoopMode dequeue:YES];
+      if (ev == nil) {
+        break;
+      }
+      [NSApp sendEvent:ev];
     }
   }
 }
 
-static uint32_t window_pix(Env e, Term t) {
-  while (term_tag(t) == TAG_CTR) {
-    Term fb[4];
-    spare_free(e, cls_fit(4), ctr_take(e, t, 4, fb));
-    term_drop(e, fb[1]);
-    term_drop(e, fb[2]);
-    term_drop(e, fb[3]);
-    t = fb[0];
+static IoFall window_make(const char* title, u32 w, u32 h, int* row) {
+  if (w < 1 || h < 1 || w > 16384 || h > 16384) {
+    return io_sys_fall(EINVAL);
   }
-  return (uint32_t)term_loc(t);
+  int i = 0;
+  while (i < WIN_ROWS && window_rows[i] != nil) {
+    i += 1;
+  }
+  if (i == WIN_ROWS) {
+    return io_sys_fall(EMFILE);
+  }
+  if (!window_boot()) {
+    IoFall q = { ENXIO, "Window.open: no display session" };
+    return q;
+  }
+  @autoreleasepool {
+    NSWindow* win = [[NSWindow alloc]
+      initWithContentRect:NSMakeRect(0, 0, 1, 1)
+      styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
+        | NSWindowStyleMaskMiniaturizable
+      backing:NSBackingStoreBuffered defer:NO];
+    CGFloat scale = win.backingScaleFactor;
+    win.releasedWhenClosed = NO;
+    win.acceptsMouseMovedEvents = YES;
+    win.title = [NSString stringWithCString:title
+      encoding:NSISOLatin1StringEncoding];
+    [win setContentSize:NSMakeSize(w / scale, h / scale)];
+    BendView* view = [[BendView alloc] initWithFrame:win.contentLayoutRect];
+    view->w = w;
+    view->h = h;
+    view->flags = NSEvent.modifierFlags;
+    view.wantsLayer = YES;
+    CAMetalLayer* layer = (CAMetalLayer*)view.layer;
+    layer.device = window_dev;
+    layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
+    layer.framebufferOnly = NO;
+    layer.contentsScale = scale;
+    layer.drawableSize = CGSizeMake(w, h);
+    layer.displaySyncEnabled = YES;
+    layer.maximumDrawableCount = 2;
+    win.contentView = view;
+    win.delegate = view;
+    [win makeFirstResponder:view];
+    [win center];
+    [win makeKeyAndOrderFront:nil];
+    [NSApp activateIgnoringOtherApps:YES];
+    window_rows[i] = win;
+  }
+  *row = i;
+  return io_sys_done();
 }
 
-static void window_walk(Env e, WinRow* row, Term t, int x0, int y0, int sz) {
-  if (x0 >= row->w || y0 >= row->h) {
-    term_drop(e, t);
-    return;
+static id<MTLBuffer> window_corpus(Env e) {
+  if (gpu_buf != nil) {
+    return gpu_buf;
   }
-  if (term_tag(t) == TAG_CTR && sz > 1) {
-    Term fb[4];
-    spare_free(e, cls_fit(4), ctr_take(e, t, 4, fb));
-    int hf = sz >> 1;
-    window_walk(e, row, fb[0], x0, y0, hf);
-    window_walk(e, row, fb[1], x0 + hf, y0, hf);
-    window_walk(e, row, fb[2], x0, y0 + hf, hf);
-    window_walk(e, row, fb[3], x0 + hf, y0 + hf, hf);
-    return;
+  u64 bump = a32_load(a32_at(e.mem, H_PAGE_BUMP));
+  u64 need = ((HEAP_OFF + (bump << PAGE_BITS)) * 8 + 16383) & ~16383ull;
+  if (need > window_len) {
+    u64 most = [window_dev maxBufferLength] & ~16383ull;
+    if (need > most) {
+      err_fail(ERR_HEAP, "the frame's memory is past the Metal buffer limit");
+    }
+    u64 len = window_len * 2 > need ? window_len * 2 : need;
+    len = len < most ? len : most;
+    window_buf = [window_dev newBufferWithBytesNoCopy:e.mem length:len
+      options:MTLResourceStorageModeShared
+        | MTLResourceHazardTrackingModeUntracked deallocator:nil];
+    if (window_buf == nil) {
+      err_fail(ERR_HEAP, "the corpus prefix does not map as a Metal buffer");
+    }
+    window_len = len;
   }
-  window_fill(row, x0, y0, sz, window_pix(e, t));
+  return window_buf;
 }
 
-static void window_present(WinRow* row) {
-  static CGColorSpaceRef cs;
-  if (cs == NULL) {
-    cs = CGColorSpaceCreateDeviceRGB();
+static void window_show(Env e, int row, Term image) {
+  BendView* view = (BendView*)window_rows[row].contentView;
+  id<MTLBuffer> buf = window_corpus(e);
+  WinArgs args = { image, view->w, view->h, 0 };
+  while ((1u << args.k) < args.w || (1u << args.k) < args.h) {
+    args.k += 1;
   }
-  CGContextRef cg = CGBitmapContextCreate(row->fb[row->back], (size_t)row->w,
-    (size_t)row->h, 8, (size_t)row->w * 4, cs,
-    kCGImageAlphaNoneSkipFirst | kCGBitmapByteOrder32Little);
-  CGImageRef img = CGBitmapContextCreateImage(cg);
-  ((WinMsgImg)objc_msgSend)(row->layer, sel_registerName("setContents:"), img);
-  CGImageRelease(img);
-  CGContextRelease(cg);
-  row->back ^= 1;
+  window_pump();
+  @autoreleasepool {
+    id<CAMetalDrawable> d = [(CAMetalLayer*)view.layer nextDrawable];
+    if (d == nil) {
+      return;
+    }
+    id<MTLCommandBuffer> cb = [window_que commandBuffer];
+    id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
+    NSUInteger tw = window_pso.threadExecutionWidth;
+    [enc setComputePipelineState:window_pso];
+    [enc setBuffer:buf offset:0 atIndex:0];
+    [enc setBytes:&args length:sizeof(args) atIndex:1];
+    [enc setTexture:d.texture atIndex:0];
+    [enc dispatchThreads:MTLSizeMake(args.w, args.h, 1)
+      threadsPerThreadgroup:MTLSizeMake(tw,
+        window_pso.maxTotalThreadsPerThreadgroup / tw, 1)];
+    [enc endEncoding];
+    [cb presentDrawable:d];
+    [cb commit];
+    [cb waitUntilCompleted];
+    if (cb.error != nil) {
+      err_fail(ERR_FAIL, cb.error.localizedDescription.UTF8String);
+    }
+  }
 }
 
-static void window_pace(WinRow* row) {
-  uint64_t now = window_now();
-  uint64_t due = row->due + WIN_TICK;
-  if (due + WIN_TICK < now) {
-    due = now;
+static Term window_node(Env e, WinEvent ev) {
+  static const u32 cids[3] = { CID_KEY, CID_MOUSE, CID_MOVE };
+  if (ev.kind == 3) {
+    return term_pak(CID_CLOSE, 0);
   }
-  if (due > now) {
-    struct timespec ts = { (time_t)((due - now) / 1000000000ULL),
-      (long)((due - now) % 1000000000ULL) };
-    nanosleep(&ts, NULL);
+  u32 n = ev.kind == 1 ? 4 : 2;
+  Loc l = heap_alloc(e, cls_fit(n));
+  for (u32 j = 0; j < n; j += 1) {
+    e.mem[l + j] = ev.args[j];
   }
-  row->due = due;
+  return term_ctr(cids[ev.kind], l);
 }
 
-static void window_drop(WinRow* row) {
-  ((WinMsgVoid)objc_msgSend)(row->win, sel_registerName("close"));
-  row->win   = NULL;
-  row->layer = NULL;
-  free(row->fb[0]);
-  free(row->fb[1]);
-  row->used = 0;
+static Term window_events(Env e, int row) {
+  BendView* view = (BendView*)window_rows[row].contentView;
+  Term list = term_pak(CID_NIL, 0);
+  for (u32 i = view->len; i > 0;) {
+    i -= 1;
+    Loc l = heap_alloc(e, 1);
+    e.mem[l]     = io_seal(e, window_node(e, view->evs[i]), IO_HOTS & 16);
+    e.mem[l + 1] = io_seal(e, list, IO_HOTS & 16);
+    list = term_ctr(CID_CON, l);
+  }
+  view->len = 0;
+  return list;
 }
+
+static void window_drop(int row) {
+  [window_rows[row] close];
+  window_rows[row] = nil;
+}
+
+#else
+
+static IoFall window_make(const char* title, u32 w, u32 h, int* row) {
+  IoFall q = { ENOTSUP, "Window.open: this binary has no display kit" };
+  return q;
+}
+
+static void window_show(Env e, int row, Term image) {
+}
+
+static Term window_events(Env e, int row) {
+  return term_pak(CID_NIL, 0);
+}
+
+static void window_drop(int row) {
+}
+
+#endif

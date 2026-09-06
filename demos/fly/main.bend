@@ -60,8 +60,8 @@ def Fly.bitf(+held: U32, m: U32) -> F32:
 def Fly.mask(+code: U32) -> U32:
   (Fly.bit(U32.is_eq(code, 119), 1) .|. Fly.bit(U32.is_eq(code, 97), 2)
     .|. Fly.bit(U32.is_eq(code, 115), 4) .|. Fly.bit(U32.is_eq(code, 100), 8)
-    .|. Fly.bit(U32.is_eq(code, 113) || U32.is_eq(code, 130), 16)
-    .|. Fly.bit(U32.is_eq(code, 101) || U32.is_eq(code, 131), 32) : U32)
+    .|. Fly.bit(U32.is_eq(code, 113) || U32.is_eq(code, 63232), 16)
+    .|. Fly.bit(U32.is_eq(code, 101) || U32.is_eq(code, 63233), 32) : U32)
 
 def Fly.press(down: Bool, held: U32, mask: U32) -> U32:
   match down:
@@ -124,8 +124,8 @@ def Fly.after(m: Maybe<Fly>) -> Maybe<Fly>:
     case Some{s}:
       Some{Fly.step(s)}
 
-def Fly.tick(events: List<Event>, s: Fly) -> Maybe<Fly>:
-  Fly.after(Fly.events(events, s))
+def Fly.tick(events: List<Event>, s: Fly) -> IO(Maybe<Fly>):
+  IO.pure(Maybe<Fly>, Fly.after(Fly.events(events, s)))
 
 def Fly.sdf(+px: F32, +py: F32, +pz: F32) -> F32:
   +qx = (px - 4.0 * F32.floor(((px + 2.0) / 4.0 : F32)) - 2.0 : F32)
@@ -247,8 +247,9 @@ def Fly.camera(s: Fly) -> Fly.Cam:
   Cam{x, y, z, (sy * cp : F32), sp, (cy * cp : F32), cy, (0.0 - sy : F32),
     (0.0 - sp * sy : F32), cp, (0.0 - sp * cy : F32)}
 
-def Fly.view(s: Fly) -> Image:
-  Fly.scene!(9n, 0, 0, Fly.camera(s))
+def Fly.view(s: Fly) -> Fly & Image:
+  +s2 = s
+  (s2, Fly.scene!(9n, 0, 0, Fly.camera(s2)))
 
 def main() -> IO(Unit):
-  App.run(~Fly, ~(Fly.view, Fly.tick), "Fly", 512, 512, Fly.init())
+  App.run(~Fly, ~App{Fly.view, Fly.tick}, "Fly", 512, 512, Fly.init())

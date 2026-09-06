@@ -1,13 +1,13 @@
 # Pong: two paddles, a ball and walls, over base's App and Window kit.
-# W/S move the left paddle, Up/Down the right; Esc or the close button
-# quits. The state is a flat Data record of words: the held keys are
-# bits of one word (1 W, 2 S, 4 Up, 8 Down), speeds wrap (a "negative"
-# speed is 2^32 - k), so a coordinate past 2^31 reads as an off-field
-# wrap. A frame is an Image quadtree: draw classifies each quadrant
-# against the three sprites and emits one Pix the moment the quadrant
-# is uniform, so a 512 x 512 frame costs a few hundred nodes, not
-# 262144; the caller classifies the child (Pong.code) so the recursion
-# is one def descending on the depth.
+# W/S move the left paddle, Up/Down (63232, 63233) the right; Esc or
+# the close button quits. The state is a flat Data record of words: the
+# held keys are bits of one word (1 W, 2 S, 4 Up, 8 Down), speeds wrap
+# (a "negative" speed is 2^32 - k), so a coordinate past 2^31 reads as
+# an off-field wrap. A frame is an Image quadtree: draw classifies each
+# quadrant against the three sprites and emits one Pix the moment the
+# quadrant is uniform, so a 512 x 512 frame costs a few hundred nodes;
+# the caller classifies the child (Pong.code) so the recursion is one
+# def descending on the depth.
 #
 #   bend demos/pong/main.bend -o pong && ./pong
 import Base
@@ -34,7 +34,8 @@ def Pong.pick(c: Bool, a: U32, b: U32) -> U32:
 
 def Pong.mask(+code: U32) -> U32:
   (Pong.bit(U32.is_eq(code, 119), 1) .|. Pong.bit(U32.is_eq(code, 115), 2)
-    .|. Pong.bit(U32.is_eq(code, 130), 4) .|. Pong.bit(U32.is_eq(code, 131), 8)
+    .|. Pong.bit(U32.is_eq(code, 63232), 4)
+    .|. Pong.bit(U32.is_eq(code, 63233), 8)
     : U32)
 
 def Pong.press(down: Bool, held: U32, mask: U32) -> U32:
@@ -125,8 +126,8 @@ def Pong.after(m: Maybe<Pong>) -> Maybe<Pong>:
     case Some{g}:
       Some{Pong.step(g)}
 
-def Pong.tick(events: List<Event>, g: Pong) -> Maybe<Pong>:
-  Pong.after(Pong.events(events, g))
+def Pong.tick(events: List<Event>, g: Pong) -> IO(Maybe<Pong>):
+  IO.pure(Maybe<Pong>, Pong.after(Pong.events(events, g)))
 
 def Pong.hit_in(out: Bool, in: Bool) -> U32:
   match out in:
@@ -197,9 +198,9 @@ def Pong.draw(+d: Nat, code: Nat, +x0: U32, +y0: U32, +g: Pong) -> Image:
             Pong.draw(e, Pong.code(e, x1, y1, g), x1, y1, g)
           Qua{tl, tr, bl, br}
 
-def Pong.view(g: Pong) -> Image:
+def Pong.view(g: Pong) -> Pong & Image:
   +g2 = g
-  Pong.draw(9n, Pong.code(9n, 0, 0, g2), 0, 0, g2)
+  (g2, Pong.draw(9n, Pong.code(9n, 0, 0, g2), 0, 0, g2))
 
 def main() -> IO(Unit):
-  App.run(~Pong, ~(Pong.view, Pong.tick), "Pong", 512, 512, Pong.init())
+  App.run(~Pong, ~App{Pong.view, Pong.tick}, "Pong", 512, 512, Pong.init())

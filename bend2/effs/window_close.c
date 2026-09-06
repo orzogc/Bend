@@ -3,12 +3,9 @@
 //! use ./window.c
 
 void window_close(IoHand hand) {
-  int i = io_sys_read(hand, IO_WIND);
-  if (i < 0) {
-    return;
+  if (io_sys_read(hand, IO_WIND) >= 0) {
+    window_drop(io_sys_kill(hand));
   }
-  io_sys_kill(hand);
-  window_drop(&window_rows[i]);
 }
 
 Term window_close_run(Env e, Term* f) {

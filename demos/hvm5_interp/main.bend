@@ -109,7 +109,7 @@ type Term is Data:
   Sup{+l: U32, a: Term, b: Term}
   Lam{+i: U32, f: Term}
   Drp{f: Term}
-  App{f: Term, x: Term}
+  Cal{f: Term, x: Term}
   One{}
   Use{f: Term}
   Pak{+p: U32, t: Term}
@@ -1106,7 +1106,7 @@ def free_run(s: FS) -> Fr:
       free_run(FS{subst(env, i, Sub{Era{}}), f, k, fh})
     case Sup{l, a, b}:
       free_run(FS{env, a, FNxt{b, k}, fh})
-    case App{a, b}:
+    case Cal{a, b}:
       free_run(FS{env, a, FNxt{b, k}, fh})
     case Tup{a, b}:
       free_run(FS{env, a, FNxt{b, k}, fh})
@@ -1153,7 +1153,7 @@ def node2(sh: Sh2, a: Term, b: Term) -> Term:
     case SMat{}:
       Mat{a, b}
     case SApp{}:
-      App{a, b}
+      Cal{a, b}
     case SSup{l}:
       Sup{l, a, b}
 
@@ -1468,7 +1468,7 @@ def go_cov(book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32, +l: U32, +i: 
 
 def app_sup(book: Array<Tpl>, k: Kont, +c: U32, +l: U32, a: Term, b: Term, al: Al) -> S:
   Al{env, n, fh, nx} = al
-  S{env, book, Kn{Sup{l, App{a, Co0{l, n}}, App{b, Co1{l, n}}}}, k, (c + 1 : U32), fh, nx}
+  S{env, book, Kn{Sup{l, Cal{a, Co0{l, n}}, Cal{b, Co1{l, n}}}}, k, (c + 1 : U32), fh, nx}
 
 def app(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32, w: Term, x: Term) -> S:
   match w:
@@ -1487,13 +1487,13 @@ def app(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32
     case Get{f}:
       S{env, book, Go{x}, Gtk{f, k}, c, fh, nx}
     case u:
-      S{env, book, Sk{App{u, x}}, k, c, fh, nx}
+      S{env, book, Sk{Cal{u, x}}, k, c, fh, nx}
 
 # a one-child eliminator (shape sh) meets a sup: each side gets it,
 # with its child shared through a fresh cell
 def eli_sup(book: Array<Tpl>, k: Kont, +c: U32, +m: U32, x: Term, y: Term, +sh: Sh1, al: Al) -> S:
   Al{env, n, fh, nx} = al
-  S{env, book, Kn{Sup{m, App{node1(sh, Co0{m, n}), x}, App{node1(sh, Co1{m, n}), y}}}, k, (c + 1 : U32), fh, nx}
+  S{env, book, Kn{Sup{m, Cal{node1(sh, Co0{m, n}), x}, Cal{node1(sh, Co1{m, n}), y}}}, k, (c + 1 : U32), fh, nx}
 
 def use(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32, w: Term, f: Term) -> S:
   match w:
@@ -1504,7 +1504,7 @@ def use(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32
     case Sup{m, x, y}:
       eli_sup(book, k, c, m, x, y, SUse{}, alloc(env, fh, nx, Sha{f}))
     case u:
-      S{env, book, Sk{App{Use{f}, u}}, k, c, fh, nx}
+      S{env, book, Sk{Cal{Use{f}, u}}, k, c, fh, nx}
 
 # the branch the bit selects runs on the rest; the other is freed
 def mat_bit(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32, f: Term, g: Term, y: Term, z: Bool) -> S:
@@ -1516,7 +1516,7 @@ def mat_bit(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx:
 
 def mat_sup(book: Array<Tpl>, k: Kont, +c: U32, +m: U32, x: Term, y: Term, al: Al2) -> S:
   Al2{env, n, p, fh, nx} = al
-  S{env, book, Kn{Sup{m, App{Mat{Co0{m, n}, Co0{m, p}}, x}, App{Mat{Co1{m, n}, Co1{m, p}}, y}}}, k, (c + 1 : U32), fh, nx}
+  S{env, book, Kn{Sup{m, Cal{Mat{Co0{m, n}, Co0{m, p}}, x}, Cal{Mat{Co1{m, n}, Co1{m, p}}, y}}}, k, (c + 1 : U32), fh, nx}
 
 def mat(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32, w: Term, f: Term, g: Term) -> S:
   match w:
@@ -1529,7 +1529,7 @@ def mat(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32
     case Sup{m, x, y}:
       mat_sup(book, k, c, m, x, y, alloc2(env, fh, nx, Sha{f}, Sha{g}))
     case u:
-      S{env, book, Sk{App{Mat{f, g}, u}}, k, c, fh, nx}
+      S{env, book, Sk{Cal{Mat{f, g}, u}}, k, c, fh, nx}
 
 def get(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32, w: Term, f: Term) -> S:
   match w:
@@ -1540,7 +1540,7 @@ def get(env: Array<Cell>, book: Array<Tpl>, k: Kont, +c: U32, +fh: U32, +nx: U32
     case Sup{m, x, y}:
       eli_sup(book, k, c, m, x, y, SGet{}, alloc(env, fh, nx, Sha{f}))
     case u:
-      S{env, book, Sk{App{Get{f}, u}}, k, c, fh, nx}
+      S{env, book, Sk{Cal{Get{f}, u}}, k, c, fh, nx}
 
 # Duplication
 # -----------
@@ -1682,7 +1682,7 @@ def run(s: S) -> Out:
   match m:
     case Go{t}:
       match t:
-        case App{f, x}:
+        case Cal{f, x}:
           run(S{env, book, Go{f}, Arg{x, k}, c, fh, nx})
         case Var{i}:
           +j = i
@@ -1700,17 +1700,17 @@ def run(s: S) -> Out:
     case Sk{w}:
       match k:
         case Arg{x, q}:
-          run(S{env, book, Sk{App{w, x}}, q, c, fh, nx})
+          run(S{env, book, Sk{Cal{w, x}}, q, c, fh, nx})
         case Usk{f, q}:
-          run(S{env, book, Sk{App{Use{f}, w}}, q, c, fh, nx})
+          run(S{env, book, Sk{Cal{Use{f}, w}}, q, c, fh, nx})
         case Mtk{f, g, q}:
-          run(S{env, book, Sk{App{Mat{f, g}, w}}, q, c, fh, nx})
+          run(S{env, book, Sk{Cal{Mat{f, g}, w}}, q, c, fh, nx})
         case Gtk{f, q}:
-          run(S{env, book, Sk{App{Get{f}, w}}, q, c, fh, nx})
+          run(S{env, book, Sk{Cal{Get{f}, w}}, q, c, fh, nx})
         case Dpk{l, i, sd, fl, q}:
           run(S{subst(env, i, park(fl, w)), book, Sk{cov(sd, l, i)}, q, c, fh, nx})
         case Rfk{r, q}:
-          run(S{env, book, Sk{App{Ref{r}, w}}, q, c, fh, nx})
+          run(S{env, book, Sk{Cal{Ref{r}, w}}, q, c, fh, nx})
         case q:
           run(S{env, book, Kn{w}, q, c, fh, nx})
     case Kn{w}:
@@ -1841,7 +1841,7 @@ def term_show(t: Term) -> String:
       bits_open(run_len(p), p) ++ term_show(x) ++ bits_close(run_len(p))
     case Won{p}:
       bits_open(run_len(p), p) ++ "()" ++ bits_close(run_len(p))
-    case App{f, x}:
+    case Cal{f, x}:
       "(" ++ term_show(f) ++ " " ++ term_show(x) ++ ")"
     case u:
       "<var>"

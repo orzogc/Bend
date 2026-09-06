@@ -3164,8 +3164,8 @@ export function compile_book(book: Bend.Book): string {
   facts_build(cb);
   const fl = file_new(cb, "Term");
   for (const k of ("Tuple SNil SCon Chr Unit WCon Emit Halt Fail Done File"
-    + " Socket Listener None Some" + ([...cb.done].some((d) =>
-      d.startsWith("Window.")) ? " Window Nil Con" : "")).split(" ")) {
+    + " Socket Listener None Some Window Nil Con Key Mouse Move Close")
+    .split(" ")) {
     cid_reg(fl, k);
   }
   for (const [k, tld] of done_defs(cb)) {

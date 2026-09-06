@@ -97,6 +97,18 @@ type IO.OP<-R: Type> is Type:
   Emit{value: R}
   Halt{code: U32, message: String}
 
+law Pair:
+  for -A: Type
+  for -B: Type
+  Type
+
+law IO:
+  for -A: Type
+  Type
+
+type App<-S: Type> is Type:
+  App{view: S -> Pair(S, Image), tick: List<Event> -> S -> IO(Maybe<S>)}
+
 # Map
 # ---
 
@@ -104,9 +116,6 @@ type Map<a, -V: Kind(a)> is Kind(a):
   MTip{}
   MLeaf{key: String, val: V}
   MNode{pos: Nat, lo: Map<a, V>, hi: Map<a, V>}
-
-# Sugars
-# ------
 
 # Defs
 # ====
@@ -124,7 +133,7 @@ def Word(n):
 # Pair
 # ----
 
-def Pair(-A: Type, -B: Type) -> Type:
+def Pair(A, B):
   Sigma<&1, &1, A, _ => B>
 
 def Exists(-A: Type, -B: @-x: A -> Type) -> Type:
@@ -136,7 +145,7 @@ def Or(-A: Type, -B: Type) -> Type:
 # Effects
 # -------
 
-def IO(-A: Type) -> Type:
+def IO(A):
   @-R: Type ->
   @k: (A -> IO.OP<R>) ->
   IO.OP<R>
@@ -246,7 +255,8 @@ def Window.open(title: String, width: U32, height: U32) ->
   import "./effs/window_open.c"
   import "./effs/window_open.js"
 
-def Window.frame(window: Window, image: Image) -> IO(Window & List<U32>):
+def Window.frame(window: Window, image: Image) ->
+  IO(Window & Image & List<Event>):
   import "./effs/window_frame.c"
   import "./effs/window_frame.js"
 
@@ -1902,43 +1912,11 @@ def Set.del(s: Set(), key: String) -> Set():
 def Set.union(a: Set(), b: Set()) -> Set():
   Map.union(&2, Unit, a, b)
 
-# Event
-# -----
-
-def Event.decode.at(kind: Nat, +word: U32) -> Event:
-  match kind:
-    case 0n:
-      Key{U32.and(word, 65535), U32.is_ne(U32.and(word, 65536), 0)}
-    case 1n:
-      Mouse{U32.and(word, 4095), U32.and(U32.shrn(word, 12n), 4095),
-        U32.and(U32.shrn(word, 24n), 15),
-        U32.is_ne(U32.and(word, 268435456), 0)}
-    case 2n:
-      Move{U32.and(word, 4095), U32.and(U32.shrn(word, 12n), 4095)}
-    case _:
-      Close{}
-
-def Event.decode(word: U32) -> Event:
-  +w = word
-  Event.decode.at(U32.to_nat(U32.shrn(w, 30n)), w)
-
 # App
 # ---
 
-def App(-S: Data) -> Type:
-  (S -> Image) & (List<Event> -> S -> Maybe<S>)
-
-def App.view(-S: Data, app: App(S), state: S) -> Image:
-  (view, tick) = app
-  view(state)
-
-def App.tick(-S: Data, app: App(S), state: S, events: List<Event>) ->
-  Maybe<S>:
-  (view, tick) = app
-  tick(events, state)
-
 def App.next(
-  -S: Data, window: Window, next: Maybe<S>, rest: Window -> S -> IO(Unit)
+  -S: Type, window: Window, rest: Window -> S -> IO(Unit), next: Maybe<S>
 ) -> IO(Unit):
   match next:
     case None{}:
@@ -1947,36 +1925,63 @@ def App.next(
       rest(window, state)
 
 def App.turn(
-  -S: Data, shown: Window & List<U32>, tick: List<Event> -> Maybe<S>,
+  -S: Type, shown: Window & Image & List<Event>,
+  tick: List<Event> -> S -> IO(Maybe<S>), state: S,
   rest: Window -> S -> IO(Unit)
 ) -> IO(Unit):
-  (window, words) = shown
-  App.next(S, window, tick(List.map(~U32, ~Event, ~Event.decode, words)), rest)
+  (window, image, events) = shown
+  IO.bind(Maybe<S>, Unit, tick(events, state), App.next(S, window, rest))
 
-def App.loop(~S: Data, ~app: App(S), fuel: Nat, window: Window, +state: S) ->
+def App.draw(
+  -S: Type, window: Window, drawn: S & Image,
+  tick: List<Event> -> S -> IO(Maybe<S>), rest: Window -> S -> IO(Unit)
+) -> IO(Unit):
+  (state, image) = drawn
+  do IO<Unit>:
+    shown : Window & Image & List<Event> <- Window.frame(window, image)
+    App.turn(S, shown, tick, state, rest)
+
+def App.step(
+  -S: Type, app: App<S>, window: Window, state: S,
+  rest: Window -> S -> IO(Unit)
+) -> IO(Unit):
+  App{view, tick} = app
+  App.draw(S, window, view(state), tick, rest)
+
+def App.loop(~S: Type, ~app: App<S>, fuel: Nat, window: Window, state: S) ->
   IO(Unit):
   match fuel:
     case 0n:
       Window.close(window)
     case 1n+f:
-      do IO<Unit>:
-        shown : Window & List<U32> <-
-          Window.frame(window, App.view(S, app, state))
-        App.turn(S, shown, App.tick(S, app, state),
-          w => s => App.loop(~S, ~app, f, w, s))
+      App.step(S, app, window, state, w => s => App.loop(~S, ~app, f, w, s))
 
 def App.run(
-  ~S: Data, ~app: App(S), title: String, width: U32, height: U32, state: S
+  ~S: Type, ~app: App<S>, title: String, width: U32, height: U32, state: S
 ) -> IO(Unit):
   do IO<Unit>:
     window : Window <- IO.try(Window, Window.open(title, width, height))
     App.loop(~S, ~app, U32.to_nat(4294967295), window, state)
 
-def App.play(~S: Data, ~app: App(S), frames: List<List<Event>>, state: S) ->
-  Maybe<S>:
+def App.more(-S: Type, rest: S -> IO(Maybe<S>), next: Maybe<S>) ->
+  IO(Maybe<S>):
+  match next:
+    case None{}:
+      IO.pure(Maybe<S>, None{})
+    case Some{state}:
+      rest(state)
+
+def App.fold(
+  -S: Type, app: App<S>, events: List<Event>, state: S,
+  rest: S -> IO(Maybe<S>)
+) -> IO(Maybe<S>):
+  App{view, tick} = app
+  IO.bind(Maybe<S>, Maybe<S>, tick(events, state), App.more(S, rest))
+
+def App.play(~S: Type, ~app: App<S>, frames: List<List<Event>>, state: S) ->
+  IO(Maybe<S>):
   match frames:
     case Nil{}:
-      Some{state}
+      IO.pure(Maybe<S>, Some{state})
     case Con{events, rest}:
-      Maybe.bind(&1, S, S, App.tick(S, app, state, events),
-        s => App.play(~S, ~app, rest, s))
+      App.fold(S, app, events, state, s => App.play(~S, ~app, rest, s))

@@ -30,6 +30,9 @@ import * as Comp from "./comp.ts";
 const USAGE = "usage: bend <file.bend> [--check | -o <bin> | --to <out.c|.js>]"
   + "\n       bend <page.html> -o <dir>";
 
+export const METAL = ["-DBEND_METAL=1", "-x", "objective-c", "-fobjc-arc",
+  "-fmodules"];
+
 const PLUGIN: BunPlugin = {
   name: "bend",
   setup(build) {
@@ -92,18 +95,18 @@ async function cli(): Promise<void> {
 }
 
 function cli_build(bin: string): void {
-  const link = [...fs.readFileSync(bin + ".c", "utf8")
-    .matchAll(/^\/\/\$ (.+)$/gm)].flatMap((m) => m[1].split(" "));
-  const cpu = ["-std=c11", "-O3", bin + ".c", "-lpthread", "-lm", ...link,
-    "-o", bin];
-  const gpu = process.platform === "darwin"
-    ? ["-DBEND_METAL=1", "-x", "objective-c", "-fobjc-arc", ...cpu,
-      "-framework", "Metal", "-framework", "Foundation"]
+  const cpu = ["-std=c11", "-O3", bin + ".c", "-lpthread", "-lm", "-o", bin];
+  const gpu = process.platform === "darwin" ? [...METAL, ...cpu]
     : ["-DBEND_CUDA=1", "-I/usr/local/cuda/include",
       "-L/usr/local/cuda/lib64", ...cpu, "-lcuda", "-lnvrtc"];
-  if (child.spawnSync("clang", gpu, { stdio: "ignore" }).status !== 0
-    && child.spawnSync("clang", cpu, { stdio: "inherit" }).status !== 0) {
-    cli_fail("clang failed to build " + bin);
+  const got = child.spawnSync("clang", gpu, { stdio: ["ignore", "ignore",
+    "pipe"] });
+  if (got.status !== 0) {
+    console.error("bend: GPU build failed: " + String(got.stderr).split("\n")[0]
+      + "; building CPU-only");
+    if (child.spawnSync("clang", cpu, { stdio: "inherit" }).status !== 0) {
+      cli_fail("clang failed to build " + bin);
+    }
   }
 }
 
