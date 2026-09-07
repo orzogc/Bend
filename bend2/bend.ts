@@ -2506,7 +2506,7 @@ export function parse_tele(p: Parse, close: string): Array<[Quant, Name, number,
     const s   = parse_span(p, beg);
     parse_skip(p);
     if (q.$ === "Lone" && !parse_at(p, ":")) {
-      tele.push([None(), k, parse_open(p, k), Qnt(), s]);
+      tele.push([None(), k, parse_open(p, k), Qnt(s), s]);
     } else {
       parse_eat(p, ":");
       const T = parse_term(p);
