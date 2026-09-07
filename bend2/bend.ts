@@ -3774,7 +3774,7 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
   term_check(book, { t: Ref(k), n: 0, def: k, qs: [] }, adt.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
   const { doms, ret: kind } = tele_unbind(book, adt.T);
   if (kind.$ !== "Typ" || doms.length !== adt.n) {
-    throw Err(book, ctx_nil(), "a kind (type " + k + "<..> is Kind(g))", kind, kind.s, k);
+    throw Err(book, ctx_nil(), "a kind (type " + k + "<..> is Kind(g))", kind, kind.s ?? adt.T.s, k);
   }
   for (const ctr of adt.c) {
     let tel: HTerm = ctr.T;
