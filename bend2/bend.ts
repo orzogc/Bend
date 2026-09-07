@@ -785,7 +785,7 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
       if (v === null) {
         return Ref(tm.k, tm.s);
       } else {
-        return v;
+        return tm.s === undefined || (v.$ === "Var" && v.i < 0) ? v : { ...v, s: tm.s };
       }
     }
     case "Ref": {
@@ -2748,7 +2748,7 @@ export function parse_book(book: Book, dir: string, src: string, ns: string = ""
 export function body_sub(b: Body, i: number, v: LTerm): Body {
   function scrut(e: LTerm): LTerm {
     if (e.$ === "Var") {
-      return e.i !== i ? e : v.$ === "Var" ? Var(v.k, v.i, e.s) : v;
+      return e.i !== i ? e : e.s === undefined ? v : { ...v, s: e.s };
     } else {
       return Sub(i, v, e);
     }
