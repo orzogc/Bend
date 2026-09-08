@@ -103,7 +103,9 @@ GC. `bend sum.bend` runs that JS in memory, so it is also the interpreter.
 `-o` repeats: `bend sum.bend -o sum -o sum.js` builds both. A `main` that
 is not `IO` prints its value on every backend; a file of imports checked
 with `--checkup` reports each module alone (as `bend module.bend` would)
-and the binary it builds runs one of them: `./main module`.
+and the binary it builds runs one of them: `./main module`. A module the
+combined book refuses (a name its file binds and Base's sugar also names)
+is reported as `Left out of the binary:` and stays out.
 
 **GPU.** Mark a call with `!` and the task tree under it runs on the GPU:
 `sum!(24n, 0)`. The mark means nothing to the checker, and a binary with no

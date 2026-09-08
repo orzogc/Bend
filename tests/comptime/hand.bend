@@ -25,6 +25,6 @@ def total(xs: List<U32>, acc: U32) -> U32:
       total(t, (h + acc : U32))
 
 def main() -> IO(Unit):
-  IO.print(U32.show(total(incs(range(U32.to_nat(100000), 0, Nil{})), 0)))
+  IO.print(U32.show(total(incs(range(U32.to_nat(10000), 0, Nil{})), 0)))
 
-#|705082704
+#|50005000

@@ -286,16 +286,16 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     "($0 $o $1)"),
   ...tpl_ops("f32_", "sqrt exp log log2 log10 sin cos tan asin acos atan"
     + " sinh cosh tanh floor ceil trunc",
-    "f32_rewrap($kf(f32_unbox($0)))", "Math.fround(Math.$k($0))"),
+    "f32_rewrap((f32)$k(f32_unbox($0)))", "Math.fround(Math.$k($0))"),
   ...tpl_ops("f32_", "pow atan2",
-    "f32_rewrap($kf(f32_unbox($0), f32_unbox($1)))",
+    "f32_rewrap((f32)$k(f32_unbox($0), f32_unbox($1)))",
     "Math.fround(Math.$k($0, $1))"),
   f32_abs: {
-    C:  "f32_rewrap(fabsf(f32_unbox($0)))",
+    C:  "f32_rewrap((f32)fabs(f32_unbox($0)))",
     JS: "Math.abs($0)",
   },
   f32_mod: {
-    C:  "f32_rewrap(fmodf(f32_unbox($0), f32_unbox($1)))",
+    C:  "f32_rewrap((f32)fmod(f32_unbox($0), f32_unbox($1)))",
     JS: "Math.fround($0 % $1)",
   },
   f32_to_u32: {
@@ -470,12 +470,8 @@ const OPTIMIZED: Record<Bend.Name, Optim> = Object.setPrototypeOf({
 // Native
 // ------
 
-const SHIMS = Object.values(OPERATIONS)
-  .flatMap((it) => typeof it.C === "string"
-    ? [...it.C.matchAll(/(\w+)f\(/g)].map((m) => m[1]) : [])
-  .filter((n, i, ns) => ns.indexOf(n) === i)
-  .map((n) => "#define " + (n + "f").padEnd(7) + " "
-    + (EXACT.includes(` ${n} `) ? "precise::" : "") + n).join("\n");
+const SHIMS = EXACT.trim().split(" ")
+  .map((n) => "#define " + n.padEnd(5) + " precise::" + n).join("\n");
 
 const NATIVE = {
   C: String.raw`
@@ -1354,6 +1350,8 @@ export function io_entry(book: Bend.Book, k: Bend.Name): Bend.Name {
     const ns = k.slice(0, -4);
     const st: Show = { book, pre: k + ".show", ns, defs: new Map(), src: [] };
     const show = main.n > 0 ? null : show_of(st, main.T);
+    const bytes = (): string => JSON.stringify(Buffer.from(show_name(st,
+      show_text(Bend.term_snf(book, main.v as HTerm)))).toString("latin1"));
     const mint = (text: string, src: string[]): void => {
       const n0 = book.order.length;
       try {
@@ -1367,13 +1365,11 @@ export function io_entry(book: Bend.Book, k: Bend.Name): Bend.Name {
         if (src.length === 0) {
           throw e;
         }
-        mint(JSON.stringify(show_name(st,
-          show_text(Bend.term_snf(book, main.v as HTerm)))), []);
+        mint(bytes(), []);
       }
     };
-    mint(show === null ? JSON.stringify(show_name(st,
-      show_text(Bend.term_snf(book, main.v as HTerm))))
-      : show + "(" + k + "())", show === null ? [] : st.src);
+    mint(show === null ? bytes() : show + "(" + k + "())",
+      show === null ? [] : st.src);
   }
   return io;
 }
@@ -1437,12 +1433,25 @@ function show_chr(st: Show): string {
         "  || U32.is_eq(c, 13) || (U32.is_ge(c, 32) && U32.is_ne(c, 127)",
         "  && (U32.is_lt(c, 55296) || U32.is_gt(c, 57343))",
         "  && U32.is_le(c, 1114111))"]);
+    show_def(st, p + ".utf8.go", "(+c: U32, n: Nat, lead: U32, t: String)"
+      + " -> String", ["match n:", "  case 0n:", "    SCon{Chr{U32.or(lead, c)}"
+      + ", t}", "  case 1n+k:", `    ${p}.utf8.go(U32.shrn(c, 6n), k, lead,`
+      + " SCon{Chr{U32.or(128, U32.and(c, 63))}, t})"]);
+    show_def(st, p + ".utf8", "(+c: U32) -> String",
+      ["match U32.is_lt(c, 128):", "  case True{}:",
+        `    ${p}.utf8.go(c, 0n, 0, SNil{})`, "  case False{}:",
+        "    match U32.is_lt(c, 2048):", "      case True{}:",
+        `        ${p}.utf8.go(c, 1n, 192, SNil{})`, "      case False{}:",
+        "        match U32.is_lt(c, 65536):", "          case True{}:",
+        `            ${p}.utf8.go(c, 2n, 224, SNil{})`,
+        "          case False{}:",
+        `            ${p}.utf8.go(c, 3n, 240, SNil{})`]);
     show_def(st, p + ".esc.go", "(+c: U32, n: Nat, q: Bool) -> String",
       ["match n:", `  case 10n:`, `    "\\\\n"`, `  case 9n:`, `    "\\\\t"`,
         `  case 13n:`, `    "\\\\r"`, `  case 0n:`, `    "\\\\0"`,
         `  case 92n:`, `    "\\\\\\\\"`, "  case k:", "    match q:",
-        "      case True{}:", `        "\\\\" ++ SCon{Chr{c}, SNil{}}`,
-        "      case False{}:", "        SCon{Chr{c}, SNil{}}"]);
+        "      case True{}:", `        "\\\\" ++ ${p}.utf8(c)`,
+        "      case False{}:", `        ${p}.utf8(c)`]);
     show_def(st, p + ".esc", "(+c: U32, q: U32) -> String",
       [`${p}.esc.go(c, U32.to_nat(c), U32.is_eq(c, q))`]);
     show_u32(st);
@@ -1510,24 +1519,41 @@ function show_of(st: Show, T: HTerm): string | null {
   }
   const adt = t.$ === "ADT" && t.r.length === 0 ? t : null;
   const tld = adt === null ? null : st.book.tlds[adt.k];
+  const ctrs = tld?.$ === "ADT" ? tld.c : [];
+  const nat = ctrs.some((c) => /^(Succ|Zero)$/.test(show_name(st, c.k)));
   const body = ["match x:"];
-  for (const c of tld?.$ === "ADT" ? tld.c : []) {
+  for (const c of ctrs) {
     const doms = tele_unbind(st.book, ty_tele(st.book, c.T, adt!.x)).doms;
     const fs = doms.map((d) => live_dom(d) ? show_of(st, d[2]) : null);
     const vs = doms.map((_, j) => "f" + j);
-    const parts = vs.map((v, j) => `${fs[j]}(${v})`).join(' ++ ", " ++ ');
+    const parts = vs.map((v, j) => nat && fs[j] === name
+      ? `${name}.go(${v}, 0n)` : `${fs[j]}(${v})`).join(' ++ ", " ++ ');
     if (fs.some((f) => f === null)) {
       break;
     }
     const nm = show_name(st, c.k);
-    body.push(`  case ${c.k}{${vs.join(", ")}}:`, parts === ""
-      ? `    "${nm}{}"` : `    "${nm}{" ++ ${parts} ++ "}"`);
+    const at = nm === "Succ" && fs.length === 1 ? fs[0] === name
+      ? `${name}.go(f0, Succ{n})` : `Nat.show(Succ{n}) ++ "n+" ++ ${parts}`
+      : nm === "Zero" && fs.length === 0 ? `Nat.show(n) ++ "n"` : null;
+    const pre = nat ? `${p}.chain(n) ++ ` : "";
+    body.push(`  case ${c.k}{${vs.join(", ")}}:`, at !== null ? `    ${at}`
+      : parts === "" ? `    ${pre}"${nm}{}"`
+      : `    ${pre}"${nm}{" ++ ${parts} ++ "}"`);
   }
   if (tld?.$ !== "ADT" || body.length !== 1 + 2 * tld.c.length) {
     st.defs.delete(key);
     return null;
   }
-  return show_def(st, name, sig, body);
+  if (!nat) {
+    return show_def(st, name, sig, body);
+  }
+  show_once(st, p + ".chain", () => {
+    show_def(st, p + ".chain", "(n: Nat) -> String", ["match n:",
+      "  case Zero{}:", `    ""`, "  case Succ{k}:",
+      `    Nat.show(Succ{k}) ++ "n+"`]);
+  });
+  show_def(st, name + ".go", `(x: ${key}, n: Nat) -> String`, body);
+  return show_def(st, name, sig, [`${name}.go(x, 0n)`]);
 }
 
 // Mint
@@ -2526,8 +2552,8 @@ function val_box(fl: File, v: Val): string {
   const arms = v.lay.arms!;
   const build = (arm: Arm): string =>
     node_build(fl, arm.k, (j) => val_field(v, arm.fs[j]));
-  if (arms.length === 1) {
-    return build(arms[0]);
+  if (arms.length <= 1) {
+    return arms.map(build)[0] ?? "0";
   }
   const out = emit_hold(fl, ["0"], "b")[0];
   const tag = emit_alias(fl, v.ws[0], "t");
@@ -2991,7 +3017,7 @@ function emit_fold(fl: File, t: HTerm): HTerm | null {
     if (it === undefined) {
       const b = fl.fuel > 0 ? emit_unfold(fl, s) : null;
       fl.fuel -= Number(b !== null);
-      return b;
+      return b === null ? null : emit_fold(fl, b);
     }
     const as = m.all.map((a) =>
       m.args.includes(a) ? emit_fold(fl, a) ?? a : a);
@@ -3020,8 +3046,7 @@ function emit_unfold(fl: File, s: HTerm): HTerm | null {
         xs = xs.slice(1);
         continue;
       }
-      const c = w.$ === "Mat" ? Bend.term_strip(emit_fold(fl, xs[0]) ?? xs[0])
-        : null;
+      const c = w.$ === "Mat" ? Bend.term_strip(xs[0]) : null;
       if (c === null || c.$ !== "Ctr" || !term_const(c)) {
         return null;
       }
@@ -3488,7 +3513,8 @@ export function compile_book(book: Bend.Book,
     dead: !clo }, ...clo ? [seg_new("clo_apply", false, ["", ""])] : []];
   const defs = compile_tables(fl, entries);
   defs.push("#if !DEVICE", `static const char* MAIN_NAMES[] = { ${mains.map(
-    ([n]) => JSON.stringify(n)).join(", ")} };`, `static const Fid MAIN_FIDS[] = {
+    ([n]) => JSON.stringify(n)).join(", ")} };`,
+  `static const Fid MAIN_FIDS[] = {
     ${mains.map(([, k]) => seg_fid(k)).join(", ")} };`, "#endif");
   const fills: [string, string[]][] = [
     ["Tables", [defs.join("\n"), ...[...fl.tabs].map(([r, i]) =>

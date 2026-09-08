@@ -1,12 +1,13 @@
-# a pure word main: a bare F32 main is no IO, so the compiled lanes
-# refuse it and the interpreter shows the division's operands as the
-# binary32 words they are
+# float printing: an IO main prints 1/3 through F32.show as the shortest
+# digits that read back to the same binary32, the same on every lane
+# (the interpreter runs an IO main through the JS runtime, so F32.div
+# computes there too; a pure F32 main is stuck on the bodiless law)
 import Base
 
 law main:
-  F32
+  IO(Unit)
 
 def main():
-  (1.0 / 3.0 : F32)
+  IO.print(F32.show((1.0 / 3.0 : F32)))
 
-#|F32.div(F32{WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, F32{WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}})
+#|0.33333334

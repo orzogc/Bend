@@ -64,7 +64,8 @@ async function cli(): Promise<void> {
       i += 1;
       outs.push(args[i] ?? cli_fail("-o needs an output file"));
     } else if (a.startsWith("-") || file !== undefined) {
-      cli_fail(a.startsWith("-") ? "unknown option " + a : "too many arguments");
+      cli_fail(a.startsWith("-") ? "unknown option " + a
+        : "too many arguments");
     } else {
       file = a;
     }
@@ -109,10 +110,27 @@ async function cli_checkup(file: string): Promise<Bend.Book> {
     try {
       const own = /^import Base$/m.test(fs.readFileSync(at, "utf8"));
       const one = await book_read(at, own ? base : undefined);
-      if (own) {
+      const n0 = book.order.length;
+      const c0 = Object.keys(book.ctrs).length;
+      const t0 = Object.keys(book.tmps).length;
+      let left = "";
+      try {
         await Bend.book_load(book, at, m[2], seen);
+        Bend.book_valid(book, n0);
+      } catch (e) {
+        for (const d of book.order.splice(n0)) {
+          delete book.tlds[d];
+        }
+        for (const k of Object.keys(book.ctrs).slice(c0)) {
+          delete book.ctrs[k];
+        }
+        for (const k of Object.keys(book.tmps).slice(t0)) {
+          delete book.tmps[k];
+        }
+        left = "Left out of the binary:\n" + book_err(e) + "\n";
       }
       code = book_run(one);
+      cli_say(2, left);
     } catch (e) {
       cli_say(2, book_err(e) + "\n");
     }
@@ -120,7 +138,6 @@ async function cli_checkup(file: string): Promise<Bend.Book> {
       cli_say(1, "exit " + String(code) + "\n");
     }
   }
-  Bend.book_valid(book, base.order.length);
   return book;
 }
 
