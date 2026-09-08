@@ -1,22 +1,21 @@
 // TCP
 // ===
-//! use ./sys.js
 
 function tcp_send(socket, data) {
-  const sys = sys_get();
-  const fd = sys.read(socket, "tcp");
+  const sys = io_sys();
+  const fd = io_read(socket, "tcp");
   if (fd === null) {
-    return sys.tup(socket, sys.fail(9));
+    return io_tup(socket, io_fail(9));
   }
-  const b = sys.bytes(data);
+  const b = io_bytes(data);
   let at = 0;
   while (at < b.length) {
     const part = b.subarray(at);
-    const n = Number(sys.s.send(fd, sys.ptr(part), part.length, 0));
+    const n = Number(sys.send(fd, sys.ptr(part), part.length, 0));
     if (n < 0) {
-      return sys.tup(socket, sys.fail(sys.errno()));
+      return io_tup(socket, io_fail(sys.errno()));
     }
     at += n;
   }
-  return sys.tup(socket, sys.done({ $: "Unit" }));
+  return io_tup(socket, io_done({ $: "Unit" }));
 }

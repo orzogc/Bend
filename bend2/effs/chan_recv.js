@@ -1,16 +1,15 @@
 // Chan
 // ====
-//! use ./chan.js
 
 function chan_recv(handle, k) {
-  const row = chan_at(handle);
+  const row = io_read(handle, "chan");
   if (row === null) {
     return { $: "None" };
   }
   if (row.ring.length > 0) {
     const v = chan_take(row);
     if (row.shut && row.ring.length === 0) {
-      sys_get().kill(handle);
+      io_kill(handle);
     }
     return { $: "Some", value: v };
   }
@@ -18,7 +17,7 @@ function chan_recv(handle, k) {
     return { $: "Some", value: chan_wake(row, true) };
   }
   if (row.shut) {
-    sys_get().kill(handle);
+    io_kill(handle);
     return { $: "None" };
   }
   row.wait.push({ cont: k, item: null });

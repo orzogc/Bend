@@ -1,6 +1,5 @@
 // File
 // ====
-//! use ./sys.c
 
 void file_close(IoHand file) {
   if (io_sys_read(file, IO_FILE) >= 0) {

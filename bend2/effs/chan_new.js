@@ -1,8 +1,11 @@
 // Chan
 // ====
-//! use ./chan.js
 
 function chan_new(room) {
   const row = { room: Number(room), ring: [], wait: [], shut: false };
-  return sys_get().mint("Chan", "chan", row);
+  const h = io_mint("Chan", "chan", row);
+  if (h === null) {
+    throw "bend: error 1: the handle table is full";
+  }
+  return h;
 }

@@ -1,13 +1,12 @@
 // TCP
 // ===
-//! use ./sys.c
 
 static void tcp_connect_call(IoWork* w) {
   struct sockaddr_in at;
   int fd = -1;
   errno = EINVAL;
   if (io_sys_addr(w->data, w->word, &at) == 0) {
-    fd = io_sys_sock(SOCK_STREAM);
+    fd = socket(AF_INET, SOCK_STREAM, 0);
   }
   if (fd >= 0 && connect(fd, (struct sockaddr*)&at, sizeof(at)) < 0) {
     int code = errno;

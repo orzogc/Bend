@@ -1,21 +1,25 @@
 // TCP
 // ===
-//! use ./sys.js
 
 function tcp_connect(host, port) {
-  const sys = sys_get();
-  const at = sys.addr(host, Number(port));
+  const sys = io_sys();
+  const at = io_addr(host, Number(port));
   if (at === null) {
-    return sys.fail(22);
+    return io_fail(22);
   }
-  const fd = sys.sock(sys.SOCK_STREAM);
+  const fd = sys.socket(2, 1, 0);
   if (fd < 0) {
-    return sys.fail(sys.errno());
+    return io_fail(sys.errno());
   }
-  if (sys.s.connect(fd, sys.ptr(at), 16) < 0) {
+  if (sys.connect(fd, sys.ptr(at), 16) < 0) {
     const code = sys.errno();
-    sys.s.close(fd);
-    return sys.fail(code);
+    sys.close(fd);
+    return io_fail(code);
   }
-  return sys.done(sys.mint("Socket", "tcp", fd));
+  const h = io_mint("Socket", "tcp", fd);
+  if (h === null) {
+    sys.close(fd);
+    return io_fail(24);
+  }
+  return io_done(h);
 }

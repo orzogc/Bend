@@ -1,6 +1,5 @@
 // File
 // ====
-//! use ./sys.c
 
 static void file_read_call(IoWork* w) {
   int fd = io_sys_read(w->hand, IO_FILE);

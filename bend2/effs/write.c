@@ -1,6 +1,5 @@
 // IO
 // ==
-//! use ./sys.c
 
 void io_write(const char* data, uint64_t len) {
   io_out(stdout, data, len);

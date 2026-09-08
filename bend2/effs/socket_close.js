@@ -1,13 +1,12 @@
 // Socket
 // ======
-//! use ./sys.js
 
 function socket_close(socket) {
-  const sys = sys_get();
-  const tcp = sys.read(socket, "tcp");
-  const udp = sys.read(socket, "udp");
+  const sys = io_sys();
+  const tcp = io_read(socket, "tcp");
+  const udp = io_read(socket, "udp");
   if (tcp !== null || udp !== null) {
-    sys.s.close(sys.kill(socket));
+    sys.close(io_kill(socket));
   }
   return { $: "Unit" };
 }

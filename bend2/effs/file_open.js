@@ -1,21 +1,24 @@
 // File
 // ====
-//! use ./sys.js
 
 function file_open(path, mode) {
-  const sys = sys_get();
-  const name = sys.bytes(path);
+  const name = io_bytes(path);
   if (name.includes(0)) {
-    return sys.fail(sys.EILSEQ);
+    return io_fail(process.platform === "darwin" ? 92 : 84);
   }
   if (!["r", "w", "a"].includes(mode)) {
-    return sys.fail(22);
+    return io_fail(22);
   }
   try {
     const fd = require("fs")
       .openSync(name.length > 0 ? Buffer.from(name) : "", mode, 0o644);
-    return sys.done(sys.mint("File", "file", fd));
+    const h = io_mint("File", "file", fd);
+  if (h === null) {
+    require("fs").closeSync(fd);
+    return io_fail(24);
+  }
+  return io_done(h);
   } catch (e) {
-    return sys.fail(-e.errno);
+    return io_fail(-e.errno);
   }
 }

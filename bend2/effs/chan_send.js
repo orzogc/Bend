@@ -1,9 +1,8 @@
 // Chan
 // ====
-//! use ./chan.js
 
 function chan_send(handle, value, k) {
-  const row = chan_at(handle);
+  const row = io_read(handle, "chan");
   if (row === null || row.shut) {
     return false;
   }

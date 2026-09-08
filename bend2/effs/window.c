@@ -1,6 +1,5 @@
 // Window
 // ======
-//! use ./sys.c
 
 #define IO_WIND  5
 #define WIN_ROWS 64

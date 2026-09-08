@@ -1,18 +1,22 @@
 // TCP
 // ===
-//! use ./sys.js
 
 function tcp_accept(listener) {
-  const sys = sys_get();
-  const lfd = sys.read(listener, "lsn");
+  const sys = io_sys();
+  const lfd = io_read(listener, "lsn");
   if (lfd === null) {
-    return sys.tup(listener, sys.fail(9));
+    return io_tup(listener, io_fail(9));
   }
-  const fd = sys.s.accept(lfd, null, null);
+  const fd = sys.accept(lfd, null, null);
   if (fd < 0) {
-    return sys.tup(listener, sys.fail(sys.errno()));
+    return io_tup(listener, io_fail(sys.errno()));
   }
-  return sys.tup(listener, sys.done(sys.mint("Socket", "tcp", fd)));
+  const h = io_mint("Socket", "tcp", fd);
+  if (h === null) {
+    sys.close(fd);
+    return io_tup(listener, io_fail(24));
+  }
+  return io_tup(listener, io_done(h));
 }
 
 function tcp_accept_need() {

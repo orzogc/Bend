@@ -1,6 +1,5 @@
 // IO
 // ==
-//! use ./sys.c
 
 Term io_sleep_run(Env e, Term* f, IoWork* w) {
   return term_pak(CID_UNIT, 0);

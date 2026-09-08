@@ -1,6 +1,5 @@
 // IO
 // ==
-//! use ./sys.c
 
 Term io_spawn_run(Env e, Term* f, IoWork* w) {
   io_push(f[0], term_clo(FID_IO_EMIT, 0), true);

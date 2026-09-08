@@ -1,6 +1,5 @@
 // IO
 // ==
-//! use ./sys.js
 
 function io_write(text) {
   const data = [];

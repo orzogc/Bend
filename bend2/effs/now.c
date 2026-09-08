@@ -1,6 +1,5 @@
 // IO
 // ==
-//! use ./sys.c
 
 Term io_now_run(Env e, Term* f, IoWork* w) {
   return (Term)(io_tick() / 1000000);

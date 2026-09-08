@@ -1,6 +1,5 @@
 // UDP
 // ===
-//! use ./sys.c
 
 static void udp_recv_from_call(IoWork* w) {
   struct sockaddr_in at = { 0 };

@@ -1,6 +1,5 @@
 // Chan
 // ====
-//! use ./chan.c
 
 Term chan_new_run(Env e, Term* f, IoWork* w) {
   ChanRow* row = io_mem(calloc(1, sizeof(ChanRow)));

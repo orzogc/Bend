@@ -1,6 +1,5 @@
 // Listener
 // ========
-//! use ./sys.c
 
 void listener_close(IoHand listener) {
   if (io_sys_read(listener, IO_LSNR) >= 0) {

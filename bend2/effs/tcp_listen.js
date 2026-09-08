@@ -1,23 +1,29 @@
 // TCP
 // ===
-//! use ./sys.js
 
 function tcp_listen(port) {
-  const sys = sys_get();
-  const fd = sys.sock(sys.SOCK_STREAM);
+  const sys = io_sys();
+  const fd = sys.socket(2, 1, 0);
   if (fd < 0) {
-    return sys.fail(sys.errno());
+    return io_fail(sys.errno());
   }
-  sys.reuse(fd);
-  const at = sys.addr("0.0.0.0", Number(port));
+  const one = new Int32Array([1]);
+  const level = sys.mac ? 0xffff : 1;
+  sys.setsockopt(fd, level, sys.mac ? 4 : 2, sys.ptr(one), 4);
+  const at = io_addr("0.0.0.0", Number(port));
   if (at === null) {
-    sys.s.close(fd);
-    return sys.fail(22);
+    sys.close(fd);
+    return io_fail(22);
   }
-  if (sys.s.bind(fd, sys.ptr(at), 16) < 0 || sys.s.listen(fd, 16) < 0) {
+  if (sys.bind(fd, sys.ptr(at), 16) < 0 || sys.listen(fd, 16) < 0) {
     const code = sys.errno();
-    sys.s.close(fd);
-    return sys.fail(code);
+    sys.close(fd);
+    return io_fail(code);
   }
-  return sys.done(sys.mint("Listener", "lsn", fd));
+  const h = io_mint("Listener", "lsn", fd);
+  if (h === null) {
+    sys.close(fd);
+    return io_fail(24);
+  }
+  return io_done(h);
 }

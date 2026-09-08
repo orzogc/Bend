@@ -1,6 +1,5 @@
 // Chan
 // ====
-//! use ./chan.c
 
 Term chan_send_run(Env e, Term* f, IoWork* w) {
   ChanRow* row = chan_at(io_hand_c(e, f[0]));

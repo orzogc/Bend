@@ -1,6 +1,5 @@
 // IO
 // ==
-//! use ./sys.js
 
 function io_print_err(text) {
   const data = [];

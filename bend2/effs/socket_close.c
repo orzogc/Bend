@@ -1,6 +1,5 @@
 // Socket
 // ======
-//! use ./sys.c
 
 void socket_close(IoHand socket) {
   int tcp = io_sys_read(socket, IO_TCPS);

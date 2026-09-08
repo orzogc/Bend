@@ -1,9 +1,8 @@
 // TCP
 // ===
-//! use ./sys.c
 
 IoFall tcp_listen(uint32_t port, IoHand* out) {
-  int fd = io_sys_sock(SOCK_STREAM);
+  int fd = socket(AF_INET, SOCK_STREAM, 0);
   if (fd < 0) {
     return io_sys_fall((uint32_t)errno);
   }

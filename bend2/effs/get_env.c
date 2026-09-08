@@ -1,6 +1,5 @@
 // IO
 // ==
-//! use ./sys.c
 
 IoFall io_get_env(const char* name, const char** out) {
   const char* value = getenv(name);

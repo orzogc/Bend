@@ -1,6 +1,5 @@
 // File
 // ====
-//! use ./sys.c
 
 static int file_open_mode(const char* mode) {
   if (strcmp(mode, "r") == 0) {

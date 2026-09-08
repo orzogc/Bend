@@ -1,6 +1,5 @@
 // Chan
 // ====
-//! use ./chan.c
 
 Term chan_close_run(Env e, Term* f, IoWork* w) {
   IoHand   h   = io_hand_c(e, f[0]);

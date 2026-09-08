@@ -1,6 +1,5 @@
 // IO
 // ==
-//! use ./sys.c
 
 Term io_print_err_run(Env e, Term* f, IoWork* w) {
   io_errs(e, f[0]);

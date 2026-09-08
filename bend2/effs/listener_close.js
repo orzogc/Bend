@@ -1,11 +1,10 @@
 // Listener
 // ========
-//! use ./sys.js
 
 function listener_close(listener) {
-  const sys = sys_get();
-  if (sys.read(listener, "lsn") !== null) {
-    sys.s.close(sys.kill(listener));
+  const sys = io_sys();
+  if (io_read(listener, "lsn") !== null) {
+    sys.close(io_kill(listener));
   }
   return { $: "Unit" };
 }

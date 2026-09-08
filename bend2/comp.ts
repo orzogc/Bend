@@ -505,7 +505,7 @@ static Term f32_read(Env e, Term s) {
   free(text);
   return out;
 }
-`,
+`.slice(1),
   JS: String.raw`
 function word_to_u32(w) {
   let x = 0;
@@ -3045,8 +3045,6 @@ function compile_def(fl: File, k: Bend.Name, tld: Def): void {
 
 function compile_reqs(fl: File): void {
   const seen = new Set<string>();
-  fl.reqs += eff_src(new URL("./effs/sys.c", import.meta.url).pathname, seen);
-  fl.reqs += NATIVE.IO;
   fl.spares = [];
   for (const [k, tld] of done_defs(fl, def_foreign)) {
     fl.reqs += eff_src(tld.i!.find((x) => x.endsWith(".c"))
@@ -3408,11 +3406,9 @@ export function js_lib(book: Bend.Book, outs: Bend.Name[] | null): string {
       }
     }
   }
-  const sys = "  sys_get: typeof sys_get === \"function\" ? sys_get"
-    + " : undefined,";
   const effs = rows.length === 0 ? "" : "const $0eff = (() => {\n"
     + srcs.join("\n") + "\nreturn {\n"
-    + width_fold([...rows, sys].join("\n"), false) + "\n};\n})();\n\n";
+    + width_fold(rows.join("\n"), false) + "\n};\n})();\n\n";
   const tabs = [...fl.tabs].map(([r, i]) => `const TAB_${i} = [${r}];`);
   const lib = outs === null ? "" : "export default {\n" + outs.map((k) =>
     `  "${k}": run_lib(${js_sat(k)}, ${
@@ -5306,11 +5302,308 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
   return rv[0];
 }
 
-// Requests
-// ========
-
 // Io
 // ==
+
+#include <arpa/inet.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+
+#define IO_ROWS 4096
+#define IO_EFFS 64
+#define IO_FILE 1
+#define IO_TCPS 2
+#define IO_UDPS 3
+#define IO_LSNR 4
+#define IO_CHAN 6
+#define IO_READ 1
+#define IO_TIME 2
+#define IO_PARK TERM_HOLE
+#define IO_WORK (TERM_HOLE - 1)
+
+// IoHand ::=
+//   | IoHand(slot, mint)
+typedef struct {
+  u32 slot;
+  u32 mint;
+} IoHand;
+
+// IoFall ::=
+//   | IoFall(code, text)
+typedef struct {
+  u32         code;
+  const char* text;
+} IoFall;
+
+// IoRow ::=
+//   | IoRow(mint, file, kind)
+typedef struct {
+  u32      mint;
+  intptr_t file;
+  int      kind;
+} IoRow;
+
+struct IoWork;
+typedef void (*IoCall)(struct IoWork* w);
+typedef Term (*IoPack)(Env e, struct IoWork* w);
+
+// IoWork ::=
+//   | IoWork(hand, made, word, size, data, text, fall, call, pack)
+typedef struct IoWork {
+  IoHand   hand;
+  IoHand   made;
+  u32      word;
+  u64      size;
+  char*    data;
+  char*    text;
+  IoFall   fall;
+  IoCall   call;
+  IoPack   pack;
+} IoWork;
+
+typedef Term (*Effect)(Env e, Term* f, IoWork* w);
+
+// IoEff ::=
+//   | IoEff(fid, cid, run, ask)
+typedef struct {
+  u32    fid;
+  u32    cid;
+  Effect run;
+  u32    ask;
+} IoEff;
+
+static IoRow io_sys_rows[IO_ROWS];
+static u32   io_sys_next;
+static u32   io_sys_free = IO_ROWS;
+static lock  io_sys_lock = PTHREAD_MUTEX_INITIALIZER;
+static IoEff io_eff_rows[IO_EFFS];
+static u32   io_eff_len;
+static Term* io_run_at;
+static u32   io_run_cap;
+static u32   io_run_beg;
+static u32   io_run_len;
+static u32   io_live;
+
+static u64 io_tick(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (u64)ts.tv_sec * 1000000000ull + (u64)ts.tv_nsec;
+}
+
+OUTLINE void* io_mem(void* mem) {
+  if (mem == NULL) {
+    err_fail(ERR_HEAP, "host allocation failed");
+  }
+  return mem;
+}
+
+#define io_sys_done() io_sys_fall(0)
+
+static IoFall io_sys_fall(u32 code) {
+  IoFall out = { code, NULL };
+  return out;
+}
+
+static int io_sys_mint(int kind, intptr_t fd, IoHand* out) {
+  pthread_mutex_lock(&io_sys_lock);
+  u32 slot = io_sys_free < IO_ROWS ? io_sys_free : io_sys_next;
+  if (slot < IO_ROWS) {
+    IoRow* row  = &io_sys_rows[slot];
+    io_sys_free = slot == io_sys_free ? (u32)row->file : io_sys_free;
+    io_sys_next += slot == io_sys_next;
+    row->mint  += 1;
+    row->file   = fd;
+    row->kind   = kind;
+    out->slot   = slot;
+    out->mint   = row->mint;
+  }
+  pthread_mutex_unlock(&io_sys_lock);
+  return slot < IO_ROWS ? 0 : -1;
+}
+
+#define io_sys_read(h, k) io_sys_take(h, k, false)
+#define io_sys_kill(h)    io_sys_take(h, 0, true)
+
+static intptr_t io_sys_take(IoHand hand, int kind, bool kill) {
+  pthread_mutex_lock(&io_sys_lock);
+  IoRow*   row = hand.slot < IO_ROWS ? &io_sys_rows[hand.slot] : NULL;
+  bool     hit = row != NULL && row->mint == hand.mint && row->kind != 0
+    && (kind == 0 || row->kind == kind);
+  intptr_t fd  = hit ? row->file : -1;
+  if (hit && kill) {
+    row->file   = io_sys_free;
+    row->kind   = 0;
+    io_sys_free = hand.slot;
+  }
+  pthread_mutex_unlock(&io_sys_lock);
+  return fd;
+}
+
+static int io_sys_addr(const char* host, u32 port, struct sockaddr_in* at) {
+  memset(at, 0, sizeof(*at));
+  at->sin_family = AF_INET;
+  at->sin_port   = htons((uint16_t)port);
+  for (const char* p = host; *p != 0; p += 1) {
+    bool zero = *p == '0' && p[1] >= '0' && p[1] <= '9';
+    if ((p == host || p[-1] == '.') && zero) {
+      return -1;
+    }
+  }
+  return port > 65535 || inet_pton(AF_INET, host, &at->sin_addr) != 1
+    ? -1 : 0;
+}
+
+static void io_eff(u32 fid, u32 cid, Effect run, u32 need) {
+  if (io_eff_len >= IO_EFFS) {
+    err_fail(ERR_FIDS, "the effect registry is full");
+  }
+  IoEff row = { fid, cid, run, need };
+  io_eff_rows[io_eff_len] = row;
+  io_eff_len += 1;
+}
+
+static IoEff* io_eff_at(bool clo, u32 key) {
+  for (u32 i = 0; i < io_eff_len; i += 1) {
+    IoEff* row = &io_eff_rows[i];
+    if ((clo ? row->fid : row->cid) == key) {
+      return row;
+    }
+  }
+  return NULL;
+}
+
+static Term io_work(IoWork* w, IoCall call, IoPack pack) {
+  w->call = call;
+  w->pack = pack;
+  return IO_WORK;
+}
+
+static u64 io_sys_end(IoWork* w, ssize_t n) {
+  w->fall = io_sys_fall(n < 0 ? (u32)errno : 0);
+  return n < 0 ? 0 : (u64)n;
+}
+
+static void io_sys_keep(IoWork* w, int kind, int fd) {
+  io_sys_end(w, fd);
+  if (fd >= 0 && io_sys_mint(kind, fd, &w->made) < 0) {
+    close(fd);
+    w->fall = io_sys_fall(EMFILE);
+  }
+}
+
+static void io_push(Term op, Term x, bool fresh) {
+  if (io_run_len == io_run_cap) {
+    u32   cap = io_run_cap == 0 ? 64 : io_run_cap * 2;
+    Term* at  = io_mem(malloc((u64)cap * 2 * sizeof(Term)));
+    for (u32 i = 0; i < 2 * io_run_len; i += 1) {
+      at[i] = io_run_at[(2 * io_run_beg + i) & (2 * io_run_cap - 1)];
+    }
+    free(io_run_at);
+    io_run_at  = at;
+    io_run_cap = cap;
+    io_run_beg = 0;
+  }
+  Term* s = &io_run_at[2 * ((io_run_beg + io_run_len) & (io_run_cap - 1))];
+  s[0] = op;
+  s[1] = x;
+  io_run_len += 1;
+  io_live    += fresh;
+}
+
+OUTLINE __attribute__((cold)) void io_out(FILE* h, const char* data,
+  u64 len) {
+  if (fwrite(data, 1, len, h) != len) {
+    err_fail(ERR_FAIL, "a short write on a standard stream");
+  }
+}
+
+OUTLINE __attribute__((cold)) void io_sync(void) {
+  if (fflush(stdout) != 0) {
+    err_fail(ERR_FAIL, "a short write on a standard stream");
+  }
+}
+
+OUTLINE char* io_cstr(Env e, Term s, u64* len) {
+  u64   cap = 64;
+  u64   n   = 0;
+  char* buf = io_mem(malloc(cap));
+  while (term_aux(s) == CID_SCON) {
+    Term fb[2];
+    spare_free(e, cls_fit(2), ctr_take(e, s, 2, fb));
+    if (n + 2 > cap) {
+      cap *= 2;
+      buf = io_mem(realloc(buf, cap));
+    }
+    buf[n] = (char)fb[0];
+    n += 1;
+    s = fb[1];
+  }
+  buf[n] = 0;
+  *len = n;
+  return buf;
+}
+
+OUTLINE __attribute__((cold)) void io_errs(Env e, Term s) {
+  u64   n    = 0;
+  char* text = io_cstr(e, s, &n);
+  io_sync();
+  io_out(stderr, text, n);
+  io_out(stderr, "\n", 1);
+  free(text);
+}
+
+#define io_nul(s, n) (strlen(s) != (n))
+
+#define io_seal(e, t, hot) ((hot) != 0 ? rfc_seal(e, t) : (t))
+
+static Term io_str(Env e, const char* p, u64 n) {
+  Term s = term_pak(CID_SNIL, 0);
+  while (n > 0) {
+    n -= 1;
+    Loc loc = heap_alloc(e, 1);
+    e.mem[loc]     = (uint8_t)p[n];
+    e.mem[loc + 1] = io_seal(e, s, IO_HOTS & 1);
+    s = term_ctr(CID_SCON, loc);
+  }
+  return s;
+}
+
+static Term io_node(Env e, u64 cid, Term a, Term b, int hot) {
+  Loc l = heap_alloc(e, 1);
+  e.mem[l]     = io_seal(e, a, hot);
+  e.mem[l + 1] = io_seal(e, b, hot);
+  return term_ctr(cid, l);
+}
+
+#define io_tup(e, a, b)     io_node(e, CID_TUPLE, a, b, IO_HOTS & 2)
+#define io_hand(e, cid, h)  io_node(e, cid, (h).slot, (h).mint, 0)
+#define io_done(e, v)       io_box(e, CID_DONE, v, IO_HOTS & 4)
+
+static Term io_box(Env e, u64 cid, Term v, int hot) {
+  Loc l = heap_alloc(e, 0);
+  e.mem[l] = io_seal(e, v, hot);
+  return term_ctr(cid, l);
+}
+
+static Term io_fail(Env e, IoFall q) {
+  const char* s = q.text != NULL ? q.text : strerror((int)q.code);
+  Term t = io_tup(e, (u64)q.code, io_str(e, s, strlen(s)));
+  return io_box(e, CID_FAIL, t, IO_HOTS & 8);
+}
+
+static IoHand io_hand_p(Env e, Term t) {
+  Loc at = term_rfc(t) ? (Loc)(e.mem[term_loc(t)] >> 24) : term_loc(t);
+  IoHand h = { (u32)e.mem[at], (u32)e.mem[at + 1] };
+  return h;
+}
+
+static IoHand io_hand_c(Env e, Term t) {
+  IoHand h = io_hand_p(e, t);
+  term_drop(e, t);
+  return h;
+}
 
 // IoJob ::=
 //   | IoJob(what, word, cont, time, next, work, args)
@@ -5387,21 +5680,17 @@ static void io_send(IoJob* job) {
   io_feed();
 }
 
-static bool io_fire(Env e, IoJob* job) {
+static void io_fire(Env e, IoJob* job) {
   Term x = job->what->run(e, job->args, &job->work);
-  if (x == IO_WAIT) {
-    return false;
-  }
   if (x == IO_WORK) {
     io_send(job);
-    return true;
+    return;
   }
   io_pend -= 1;
   if (x != IO_PARK) {
     io_push(job->cont, x, false);
   }
   free(job);
-  return true;
 }
 
 static void io_wait(Env e) {
@@ -5445,8 +5734,9 @@ static void io_wait(Env e) {
     IoJob* nx  = j->next;
     bool   due = j->time == 0 ? fds[i].revents != 0 : j->time <= now;
     i += j->time == 0;
-    if (due && io_fire(e, j)) {
+    if (due) {
       *at = nx;
+      io_fire(e, j);
     } else {
       at = &j->next;
     }
@@ -5526,6 +5816,7 @@ OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
   Env e = { H, monk_word(H, 0, 0) };
   io_gpu = gpu;
   io_stk = pool_stack();
+  signal(SIGPIPE, SIG_IGN);
   if (pipe(io_job_fd) | pipe(io_wake_fd) | fcntl(io_job_fd[1], F_SETFL,
     O_NONBLOCK) | fcntl(io_wake_fd[0], F_SETFL, O_NONBLOCK)) {
     err_fail(ERR_FAIL, "the event loop failed to open");
@@ -5550,13 +5841,102 @@ OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
       io_take(e);
       io_feed();
     }
-    Term* s    = io_pop();
+    Term* s    = &io_run_at[2 * io_run_beg];
+    io_run_beg = (io_run_beg + 1) & (io_run_cap - 1);
+    io_run_len -= 1;
     int   code = io_step(e, s[0], s[1]);
     if (code >= 0) {
       return code;
     }
   }
 }
+
+${NATIVE.IO}
+// Chan
+// ====
+
+// ChanWait ::=
+//   | ChanWait(cont, item, next)
+typedef struct ChanWait {
+  Term             cont;
+  Term             item;
+  struct ChanWait* next;
+} ChanWait;
+
+// ChanRow ::=
+//   | ChanRow(room, size, head, shut, ring, wait, last)
+typedef struct {
+  u32       room;
+  u32       size;
+  u32       head;
+  u32       shut;
+  Term*     ring;
+  ChanWait* wait;
+  ChanWait* last;
+} ChanRow;
+
+#define chan_some(e, v) io_box(e, CID_SOME, v, IO_HOTS & 32)
+#define chan_bool(b)    term_pak((b) ? CID_TRUE : CID_FALSE, 0)
+
+static ChanRow* chan_at(IoHand h) {
+  intptr_t row = io_sys_read(h, IO_CHAN);
+  return row < 0 ? NULL : (ChanRow*)row;
+}
+
+static void chan_park(ChanRow* row, Term cont, Term item) {
+  ChanWait* w = io_mem(malloc(sizeof(ChanWait)));
+  w->cont = cont;
+  w->item = item;
+  w->next = NULL;
+  if (row->wait == NULL) {
+    row->wait = w;
+  } else {
+    row->last->next = w;
+  }
+  row->last = w;
+}
+
+static Term chan_wake(ChanRow* row, Term x) {
+  ChanWait* w = row->wait;
+  Term item = w->item;
+  row->wait = w->next;
+  io_push(w->cont, x, false);
+  free(w);
+  return item;
+}
+
+static Term chan_take(ChanRow* row) {
+  Term v = row->ring[row->head];
+  row->head = (row->head + 1) % row->room;
+  row->size -= 1;
+  if (row->wait != NULL) {
+    Term item = chan_wake(row, chan_bool(true));
+    row->ring[(row->head + row->size) % row->room] = item;
+    row->size += 1;
+  }
+  return v;
+}
+
+static void chan_free(IoHand h, ChanRow* row) {
+  free(row->ring);
+  free(row);
+  io_sys_kill(h);
+}
+
+static void chan_shut(Env e, IoHand h, ChanRow* row) {
+  row->shut = 1;
+  while (row->wait != NULL) {
+    bool rcv = row->wait->item == TERM_HOLE;
+    Term x = rcv ? term_pak(CID_NONE, 0) : chan_bool(false);
+    term_sink(e, chan_wake(row, x));
+  }
+  if (row->size == 0) {
+    chan_free(h, row);
+  }
+}
+
+// Requests
+// ========
 
 // Cli
 // ===
@@ -5737,7 +6117,7 @@ function io_exit(m) {
   try {
     process.exit(io_run(m));
   } catch (e) {
-    require("fs").writeSync(2, String(e) + "\n");
+    io_errs(String(e));
     process.exit(1);
   }
 }
@@ -5752,9 +6132,8 @@ function io_out(fd, data) {
       if (e.code === "EAGAIN" || e.code === "EINTR") {
         continue;
       }
-      const line = "bend: error 1: a short write on a standard stream\n";
       try {
-        fs.writeSync(2, line);
+        fs.writeSync(2, "bend: error 1: a short write on a standard stream\n");
       } catch (o) {
       }
       process.exit(1);
@@ -5763,8 +6142,101 @@ function io_out(fd, data) {
 }
 
 function io_errs(message) {
-  io_out(2, Uint8Array.from([...message + "\n"],
-    (c) => c.codePointAt(0) & 255));
+  io_out(2, io_bytes(message + "\n"));
+}
+
+function io_sys() {
+  if (globalThis.BEND_SYS === undefined) {
+    const ffi = require("bun:ffi");
+    const mac = process.platform === "darwin";
+    const err = mac ? "__error" : "__errno_location";
+    const T = { i: "i32", u: "u32", U: "u64", I: "i64", p: "ptr",
+      c: "cstring" };
+    const lib = ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6",
+      Object.fromEntries(("socket:iii>i bind:ipu>i listen:ii>i connect:ipu>i"
+        + " accept:ipp>i send:ipUi>I recv:ipUi>I read:ipU>I sendto:ipUipu>I"
+        + " recvfrom:ipUipp>I close:i>i poll:pui>i setsockopt:iiipu>i"
+        + " strerror:i>c getenv:p>p " + err + ":>p").split(" ").map((s) => {
+        const [name, args, ret] = s.split(/[:>]/);
+        return [name, { args: [...args].map((a) => T[a]), returns: T[ret] }];
+      })));
+    globalThis.BEND_SYS = { ...lib.symbols, ptr: ffi.ptr, mac,
+      errno: () => ffi.read.i32(lib.symbols[err](), 0) };
+  }
+  return globalThis.BEND_SYS;
+}
+
+function io_fail(code) {
+  const text = String(io_sys().strerror(code));
+  return { $: "Fail", error: io_tup(code >>> 0, text) };
+}
+
+function io_done(value) {
+  return { $: "Done", value };
+}
+
+function io_tup(...xs) {
+  return xs.reduceRight((snd, fst) => ({ $: "Tuple", fst: fst, snd: snd }));
+}
+
+function io_bytes(text) {
+  return Uint8Array.from([...text], (c) => c.codePointAt(0) & 255);
+}
+
+function io_text(b, n) {
+  return Array.from(b.subarray(0, n), (c) => String.fromCharCode(c)).join("");
+}
+
+function io_row(handle, kind) {
+  const row = globalThis.BEND_IO.rows[Number(handle.slot)];
+  const hit = row !== undefined && row.gen === Number(handle.gen)
+    && row.fd !== null && (kind === undefined || kind.includes(row.kind));
+  return hit ? row : null;
+}
+
+function io_mint(ctr, kind, fd) {
+  const io = globalThis.BEND_IO;
+  const slot = io.free.length > 0 ? io.free.pop() : io.rows.length;
+  if (slot === 4096) {
+    return null;
+  }
+  const gen = ((io.rows[slot]?.gen ?? 0) + 1) >>> 0;
+  io.rows[slot] = { gen, kind, fd };
+  return { $: ctr, slot, gen };
+}
+
+function io_read(handle, kind) {
+  return io_row(handle, kind)?.fd ?? null;
+}
+
+function io_kill(handle) {
+  const row = io_row(handle);
+  if (row === null) {
+    return null;
+  }
+  const fd = row.fd;
+  row.fd = null;
+  globalThis.BEND_IO.free.push(Number(handle.slot));
+  return fd;
+}
+
+function io_poll(polls, ms) {
+  const sys = io_sys();
+  const buf = Int32Array.from(polls.flatMap((w) => [w.fd, 1]));
+  const n = sys.poll(sys.ptr(buf), polls.length, ms);
+  return polls.filter((w, i) => n > 0 && (buf[2 * i + 1] >>> 16) !== 0);
+}
+
+function io_addr(host, port) {
+  const part = host.split(".");
+  const deci = (p) => /^(0|[1-9]\d{0,2})$/.test(p) && Number(p) < 256;
+  if (port > 65535 || part.length !== 4 || !part.every(deci)) {
+    return null;
+  }
+  const b = new Uint8Array(16);
+  const head = io_sys().mac ? [16, 2] : [2, 0];
+  b.set([...head, port >> 8, port & 255, ...part.map(Number)]);
+  return b;
 }
 
 function io_push(fun, arg, fresh) {
@@ -5781,7 +6253,7 @@ function io_wait(io) {
     ms = Math.min(Math.max(0, ms), 2147483647);
   }
   const fds = io.waits.filter((w) => w.fd !== undefined);
-  const ready = fds.length === 0 ? [] : $0eff.sys_get().poll(fds, ms);
+  const ready = fds.length === 0 ? [] : io_poll(fds, ms);
   if (fds.length === 0) {
     Bun.sleepSync(ms);
   }
@@ -5794,7 +6266,7 @@ function io_wait(io) {
 }
 
 function io_run(m) {
-  const io = { runs: [], live: 0, waits: [] };
+  const io = { runs: [], live: 0, waits: [], rows: [], free: [] };
   globalThis.BEND_IO = io;
   try {
     io_push(run_loop(m()), (x) => ({ $: "Emit", value: x }), true);
@@ -5823,7 +6295,7 @@ function io_run(m) {
         }
         const need = op.need?.() ?? {};
         const fd = need.read === undefined ? null
-          : $0eff.sys_get().read(op.args[0], need.read);
+          : io_read(op.args[0], need.read);
         if (need.time || fd !== null) {
           io.waits.push(fd === null
             ? { at: performance.now() + Number(op.args[0]), op: op }
@@ -5846,6 +6318,33 @@ function io_run(m) {
     }
     io_errs("bend: a request decoded outside the event loop");
     return 1;
+  }
+}
+
+// Chan
+// ====
+
+function chan_wake(row, x) {
+  const w = row.wait.shift();
+  io_push(w.cont, x, false);
+  return w.item;
+}
+
+function chan_take(row) {
+  const v = row.ring.shift();
+  if (row.wait.length > 0) {
+    row.ring.push(chan_wake(row, true));
+  }
+  return v;
+}
+
+function chan_shut(handle, row) {
+  row.shut = true;
+  while (row.wait.length > 0) {
+    chan_wake(row, row.wait[0].item === null ? { $: "None" } : false);
+  }
+  if (row.ring.length === 0) {
+    io_kill(handle);
   }
 }
 `.slice(1);

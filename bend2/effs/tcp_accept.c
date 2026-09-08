@@ -1,6 +1,5 @@
 // TCP
 // ===
-//! use ./sys.c
 
 static void tcp_accept_call(IoWork* w) {
   int fd = (int)io_sys_read(w->hand, IO_LSNR);

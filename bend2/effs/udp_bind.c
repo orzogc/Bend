@@ -1,9 +1,8 @@
 // UDP
 // ===
-//! use ./sys.c
 
 IoFall udp_bind(uint32_t port, IoHand* out) {
-  int fd = io_sys_sock(SOCK_DGRAM);
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd < 0) {
     return io_sys_fall((uint32_t)errno);
   }
