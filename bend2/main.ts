@@ -99,13 +99,12 @@ function cli_build(bin: string): void {
   const gpu = process.platform === "darwin" ? [...METAL, ...cpu]
     : ["-DBEND_CUDA=1", "-I/usr/local/cuda/include",
       "-L/usr/local/cuda/lib64", ...cpu, "-lcuda", "-lnvrtc"];
-  const got = child.spawnSync("clang", gpu, { stdio: ["ignore", "ignore",
-    "pipe"] });
+  const got = child.spawnSync("clang", gpu, { stdio: "pipe" });
   if (got.status !== 0) {
-    console.error("bend: GPU build failed: " + String(got.stderr).split("\n")[0]
-      + "; building CPU-only");
+    console.error("bend: GPU build failed: " + String(got.stderr ?? got.error)
+      .split("\n")[0] + "; building CPU-only");
     if (child.spawnSync("clang", cpu, { stdio: "inherit" }).status !== 0) {
-      cli_fail("clang failed to build " + bin);
+      throw "Error: clang failed to build " + bin;
     }
   }
 }
