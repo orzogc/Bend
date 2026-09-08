@@ -1236,35 +1236,38 @@ def Nat.show(+n: Nat) -> String:
 law Nat.read.go:
   for s   : String
   for acc : Nat
-  for f   : Nat
   Maybe<&2, Nat>
 
-def Nat.read.if(t: String, acc: Nat, f: Nat, d: U32, ok: Bool) ->
-  Maybe<&2, Nat>:
+def Nat.read.max() -> Nat:
+  Nat.mul(U32.to_nat(16777215), U32.to_nat(16777217))
+
+def Nat.read.fit(acc: Nat, qr: Nat & Nat) -> Bool:
+  (q, r) = qr
+  Bool.not(Nat.is_lt(q, acc))
+
+def Nat.read.if(t: String, acc: Nat, d: U32, ok: Bool) -> Maybe<&2, Nat>:
   match ok:
     case True{}:
-      Nat.read.go(t, Nat.add(Nat.mul(acc, 10n), U32.to_nat(d)), f)
+      Nat.read.go(t, Nat.add(Nat.mul(acc, 10n), U32.to_nat(d)))
     case False{}:
       None{}
 
-def Nat.read.go(s, acc, f):
+def Nat.read.go(s, acc):
   match s:
     case SNil{}:
       Some{acc}
     case SCon{Chr{x}, t}:
-      match f:
-        case 0n:
-          None{}
-        case 1n+g:
-          +d = U32.sub(x, 48)
-          Nat.read.if(t, acc, g, d, U32.is_lt(d, 10))
+      +a = acc
+      +d = U32.sub(x, 48)
+      Nat.read.if(t, a, d, Bool.and(U32.is_lt(d, 10), Nat.read.fit(a,
+        Nat.divmod(Nat.sub(Nat.read.max(), U32.to_nat(d)), 10n))))
 
 def Nat.read(s: String) -> Maybe<&2, Nat>:
   match s:
     case SNil{}:
       None{}
     case SCon{h, t}:
-      Nat.read.go(SCon{h, t}, 0n, 14n)
+      Nat.read.go(SCon{h, t}, 0n)
 
 law U32.show.go:
   for f   : Nat

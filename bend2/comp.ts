@@ -126,7 +126,11 @@ type Native = {
   cond?: Record<Bend.Name, string>;
 };
 
+type Optim = { C?: Native; JS?: Native };
+
 type Of<K> = Extract<HTerm, { $: K }>;
+
+type HAll = Of<"All">;
 
 type Probe = Of<"Var">;
 
@@ -184,8 +188,9 @@ const W32: Lay = { ks: ["w32"], arms: null };
 
 const BOX: Lay = { ks: ["box"], arms: null };
 
-const WORDS: Record<string, Lay> = { U32: W32, F32: W32,
-  Nat: { ks: ["w64"], arms: null } };
+const W64: Lay = { ks: ["w64"], arms: null };
+
+const WORDS: Record<string, Lay> = { U32: W32, F32: W32, Nat: W64 };
 
 // Operations
 // ----------
@@ -344,8 +349,7 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
 // Optimized
 // ---------
 
-const OPTIMIZED: Record<Bend.Name, { C?: Native; JS?: Native }> =
-  Object.setPrototypeOf({
+const OPTIMIZED: Record<Bend.Name, Optim> = Object.setPrototypeOf({
   Nat: {
     C: {
       intr: {
@@ -536,7 +540,7 @@ function nat_divmod(a, b) {
 
 function nat_chk(n) {
   if (n > 281474976710655n) {
-    throw "bend: error 7: runtime fail-stop";
+    throw "Error: nat: " + String(n) + " is past the largest immediate 2^48-1";
   }
   return n;
 }
@@ -888,7 +892,7 @@ function ty_wnf(book: Bend.Book, ty: HTerm | null): HTerm | null {
   return ty && Bend.term_wnf(book, ty);
 }
 
-function ty_all(book: Bend.Book, ty: HTerm | null): Of<"All"> | null {
+function ty_all(book: Bend.Book, ty: HTerm | null): HAll | null {
   return ty && Bend.tele_open(book, ty);
 }
 
@@ -3639,6 +3643,7 @@ typedef u32 Err;
 #define ERR_NATS 7
 #define ERR_RFCS 8
 #define ERR_DEEP 9
+#define ERR_ARRS 10
 
 typedef u32 Monk;
 typedef u32 Ring;
@@ -3879,6 +3884,8 @@ static void err_post(Corpus H, Err code) {
   err_fail(code, code == ERR_HEAP ? "out of memory: run again with a bigger"
     " span, as in --gpu-memory 8GB"
     : code == ERR_FIDS ? "a host call on the device"
+    : code == ERR_NATS ? "a Nat past the largest immediate 2^48-1"
+    : code == ERR_ARRS ? "an array past the deepest block class 31"
     : code == ERR_DEEP ? "device stack exceeded" : "runtime fail-stop");
 }
 
@@ -3892,14 +3899,19 @@ static void err_trap(int sig) {
 #define err_spun(H, n) ((++*(n) & 4095) == 0 && err_seen(H))
 
 ${NATIVE.C}
+// Cls
+// ===
+
+#define cls_chunk(c) ((256ull + (1ull << (c))) >> (c) << 40)
+
+INLINE Cls cls_fit(u32 words) {
+  return words > 1 ? 32 - CLZ(words - 1) : 0;
+}
+
 // Heap
 // ====
 
-#define cls_fit(w)      ((w) > 1 ? 32 - CLZ((w) - 1) : 0)
-#define cls_chunk(c)    ((256ull + (1ull << (c))) >> (c) << 40)
 #define slot_bits(H, c) ((DEV u32*)((H) + H_BITS + (c) * BITS_WORDS))
-#define spare_free(e, c, l) \
-  { Loc hl = (l); if (hl != 0) heap_free(e, c, hl); }
 
 INLINE u32 heap_pick(u32 w, u32 r) {
   u32 m = w & (~0u << (r & 31));
@@ -4055,10 +4067,21 @@ HOT void heap_free(Env e, Cls cls, Loc loc) {
   }
 }
 
+// Spare
+// =====
+
+HOT void spare_free(Env e, Cls cls, Loc loc) {
+  if (loc != 0) {
+    heap_free(e, cls, loc);
+  }
+}
+
 // Term
 // ====
 
-#define term_make(g, a, l) (((g) << 56) | ((u64)(a) << 40) | (l))
+INLINE Term term_make(u64 tag, u64 aux, Loc loc) {
+  return (tag << 56) | (aux << 40) | loc;
+}
 
 #define term_ctr(cid, loc) term_make(TAG_CTR, cid, loc)
 #define term_pak(cid, loc) term_make(TAG_PAK, cid, loc)
@@ -4066,19 +4089,25 @@ HOT void heap_free(Env e, Cls cls, Loc loc) {
 #define term_buf(cls, loc) term_make(TAG_BUF, cls, loc)
 #define term_tsk(fid, loc) term_make(TAG_TSK, fid, loc)
 
-#define term_blk(a, c, l) (term_buf(c, l) | ((u64)(a) << 57))
+INLINE Term term_blk(bool arr, Cls cls, Loc loc) {
+  return term_buf(cls, loc) | ((u64)arr << 57);
+}
 
 INLINE u64 term_tag(Term t) {
   return (t >> 56) & 0x7f;
 }
 
-#define term_rfc(t) (((t) & RFC_BIT) != 0)
+INLINE bool term_rfc(Term t) {
+  return (t & RFC_BIT) != 0;
+}
 
 INLINE u64 term_aux(Term t) {
   return (t >> 40) & 0xFFFF;
 }
 
-#define term_loc(t) ((t) & LOC_MASK)
+INLINE Loc term_loc(Term t) {
+  return t & LOC_MASK;
+}
 
 INLINE bool term_triv(Term t) {
   return term_tag(t) <= TAG_PAK || t == TERM_HOLE;
@@ -4256,7 +4285,11 @@ static void term_drop(Env e, Term t) {
   }
 }
 
-#define term_sink(e, t) (term_triv(t) ? (void)0 : term_drop(e, t))
+HOT void term_sink(Env e, Term t) {
+  if (!term_triv(t)) {
+    term_drop(e, t);
+  }
+}
 
 OUTLINE void span_fade(Env e, Term t, Loc src, u32 n) {
   for (u32 j = 0; j < n; j += 1) {
@@ -4414,7 +4447,7 @@ INLINE Term blk_half(Env e, Term a, u32 hi) {
 INLINE Term blk_new(Env e, bool arr, Nat d, u32 lgs, u32 n, THR Term* v) {
   Corpus H = e.mem;
   if (d + lgs > 31) {
-    err_post(H, ERR_NATS);
+    err_post(H, ERR_ARRS);
     d = 0;
   }
   Cls c = (u32)d + lgs;
@@ -4449,8 +4482,15 @@ INLINE Term blk_new(Env e, bool arr, Nat d, u32 lgs, u32 n, THR Term* v) {
 #define ring_slot(H, r, p) ring_word(H, r, (p) & (RING_LEN - 1))
 #define ring_get(H, r)     ((DEV u32*)ring_word(H, r, RING_LEN))
 #define ring_put(H, r)     ((DEV u32*)ring_word(H, r, RING_LEN + 1))
-#define ring_lap(p)        (~(p) / RING_LEN & 1)
-#define ring_skip(H, r)    a32_store(ring_get(H, r), *ring_get(H, r) + 1)
+
+INLINE u32 ring_lap(u32 pos) {
+  return ~(u32)(pos / RING_LEN) & 1;
+}
+
+INLINE void ring_skip(Corpus H, Ring r) {
+  DEV u32* get = ring_get(H, r);
+  a32_store(get, *get + 1);
+}
 
 INLINE void ring_push(Corpus H, Ring r, Term tsk) {
   u32 pos = a32_add(ring_put(H, r), 1);
@@ -4473,7 +4513,10 @@ INLINE Term ring_head(Corpus H, Ring r) {
   return (((u64)hi << 32) | a32_load(lo)) & ~RFC_BIT;
 }
 
-#define ring_flip(i)       ((i) / CUBE_SIDE + CUBE_SIDE * ((i) % CUBE_SIDE))
+INLINE Ring ring_flip(u32 i) {
+  return i / CUBE_SIDE + CUBE_SIDE * (i % CUBE_SIDE);
+}
+
 #define ring_pick(b, s, c) ((b) + (s) * (CUR_STEP(c) & (CUBE_SIDE - 1)))
 
 // Task
@@ -4490,7 +4533,9 @@ INLINE Loc task_node(Env e, Fid fid, Term cont, u32 idx, u32 rem) {
   return loc;
 }
 
-#define task_tail(t) (term_loc(t) + fid_arity((u32)term_aux(t)))
+INLINE Loc task_tail(Term t) {
+  return term_loc(t) + fid_arity((u32)term_aux(t));
+}
 
 INLINE Term task_deliver(Corpus H, Term cont, u32 idx, THR Term* v, u32 n) {
   Loc at = cont == TERM_HOLE ? H_ROOT_WORD : term_loc(cont) + idx;
@@ -4538,7 +4583,9 @@ INLINE void task_deal(Corpus H, Term join, u32 base, u32 stride, Cursor cur) {
 // Root
 // ====
 
-#define root_done(H) (a32_load_acq(a32_at(H, H_ROOT_DONE)) != 0)
+INLINE bool root_done(Corpus H) {
+  return a32_load_acq(a32_at(H, H_ROOT_DONE)) != 0;
+}
 
 static u32 root_take(Corpus H, THR Term* v) {
   u32 n = a32_load_acq(a32_at(H, H_ROOT_DONE)) - 1;
