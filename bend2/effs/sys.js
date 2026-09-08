@@ -16,6 +16,7 @@ function sys_get() {
     accept: { args: ["i32", "ptr", "ptr"], returns: "i32" },
     send: { args: ["i32", "ptr", "u64", "i32"], returns: "i64" },
     recv: { args: ["i32", "ptr", "u64", "i32"], returns: "i64" },
+    read: { args: ["i32", "ptr", "u64"], returns: "i64" },
     sendto: {
       args: ["i32", "ptr", "u64", "i32", "ptr", "u32"],
       returns: "i64",
@@ -38,6 +39,7 @@ function sys_get() {
     free: [],
     SOCK_STREAM: 1,
     SOCK_DGRAM: 2,
+    EILSEQ: mac ? 92 : 84,
     errno() {
       return ffi.read.i32(lib.symbols[err](), 0);
     },
@@ -114,12 +116,8 @@ function sys_get() {
     },
     addr(host, port) {
       const part = host.split(".");
-      const deci = (p) => /^(0|[1-9][0-9]{0,2})$/.test(p);
+      const deci = (p) => /^(0|[1-9][0-9]{0,2})$/.test(p) && Number(p) < 256;
       if (port > 65535 || part.length !== 4 || !part.every(deci)) {
-        return null;
-      }
-      const quad = part.map(Number);
-      if (quad.some((b) => b > 255)) {
         return null;
       }
       const b = new Uint8Array(16);
@@ -127,7 +125,7 @@ function sys_get() {
       b[1] = mac ? 2 : 0;
       b[2] = (port >> 8) & 255;
       b[3] = port & 255;
-      b.set(quad, 4);
+      b.set(part.map(Number), 4);
       return b;
     },
     addr_show(b) {
@@ -149,19 +147,12 @@ function sys_get() {
       return out;
     },
     name(text) {
-      const b = this.bytes(text);
-      const z = new Uint8Array(b.length + 1);
-      z.set(b);
-      return z;
+      return Uint8Array.from([...this.bytes(text), 0]);
     },
     cstr(at) {
       let out = "";
-      let i = 0;
-      let c = ffi.read.u8(at, i);
-      while (c !== 0) {
-        out += String.fromCharCode(c);
-        i = i + 1;
-        c = ffi.read.u8(at, i);
+      for (let i = 0; ffi.read.u8(at, i) !== 0; i++) {
+        out += String.fromCharCode(ffi.read.u8(at, i));
       }
       return out;
     },

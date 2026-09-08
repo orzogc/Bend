@@ -536,7 +536,7 @@ function nat_divmod(a, b) {
 
 function nat_chk(n) {
   if (n > 281474976710655n) {
-    throw new Error("nat: " + n + " is past the largest immediate 2^48-1");
+    throw "bend: error 7: runtime fail-stop";
   }
   return n;
 }

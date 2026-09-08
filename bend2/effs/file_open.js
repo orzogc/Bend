@@ -4,18 +4,18 @@
 
 function file_open(path, mode) {
   const sys = sys_get();
-  const fs = require("fs");
   const name = sys.bytes(path);
   if (name.includes(0)) {
-    return sys.fail(92);
+    return sys.fail(sys.EILSEQ);
   }
-  if (mode !== "r" && mode !== "w" && mode !== "a") {
+  if (!["r", "w", "a"].includes(mode)) {
     return sys.fail(22);
   }
   try {
-    const fd = fs.openSync(Buffer.from(name), mode, 0o644);
+    const fd = require("fs")
+      .openSync(name.length > 0 ? Buffer.from(name) : "", mode, 0o644);
     return sys.done(sys.mint("File", "file", fd));
   } catch (e) {
-    return sys.fail(Math.abs(e.errno ?? 5));
+    return sys.fail(-e.errno);
   }
 }
