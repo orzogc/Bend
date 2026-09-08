@@ -12,12 +12,12 @@ Term window_frame(Env e, IoHand hand, Term image) {
   return window_events(e, row);
 }
 
-Term window_frame_run(Env e, Term* f) {
+Term window_frame_run(Env e, Term* f, IoWork* w) {
   IoHand hand = io_hand_c(e, f[0]);
   Term events = window_frame(e, hand, f[1]);
   return io_tup(e, io_hand(e, CID_WINDOW, hand), io_tup(e, f[1], events));
 }
 
 static void __attribute__((constructor)) window_frame_use(void) {
-  io_eff(FID_WINDOW_FRAME, CID_WINDOW_FRAME, window_frame_run);
+  io_eff(FID_WINDOW_FRAME, CID_WINDOW_FRAME, window_frame_run, 0);
 }

@@ -3109,7 +3109,7 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   const rs = ns.map((i) => "r" + i).join(", ");
   const load = [...ns].reverse().map((r) =>
     `    case ${r + 1}: r${r} = e.mem[a + ${r}]; \\\n`).join("");
-  defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail Con".split(" ")
+  defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail Con Some".split(" ")
     .reduce((m, k, i) => m | (fl.hot.has(k) ? 1 << i : 0), 0)}`, "");
   const pass = ns.map((i) =>
     `    case ${i}: r${i} = res[0]; \\\n      break; \\\n`).join("");
@@ -3154,7 +3154,8 @@ export function compile_book(book: Bend.Book): string {
   facts_build(cb);
   const fl = file_new(cb, "Term");
   for (const k of ("Tuple SNil SCon Chr Unit WCon Emit Halt Fail Done File"
-    + " Socket Listener None Some Window Nil Con Key Mouse Move Close")
+    + " Socket Listener None Some Window Nil Con Key Mouse Move Close Chan"
+    + " True False")
     .split(" ")) {
     cid_reg(fl, k);
   }
@@ -3372,8 +3373,9 @@ function js_def(fl: File, k: Bend.Name, def: Def): void {
       } else if (!def.i.some((p) => p.endsWith(".js"))) {
         die("a foreign def without a .js import: " + k);
       } else {
-        file_push(fl, `return { $: "$FFI", run: () => $0eff.${eff_name(k)}(${
-          params.join(", ")}), kont: ${kont[0]} };`);
+        const n = eff_name(k);
+        file_push(fl, `return { $: "$FFI", run: $0eff.${n}, need: $0eff.${n
+          }_need, args: [${params.join(", ")}], kont: ${kont[0]} };`);
       }
     });
   file_push(fl, "");
@@ -3405,12 +3407,16 @@ export function js_lib(book: Bend.Book, outs: Bend.Name[] | null): string {
     if (path) {
       srcs.push(eff_src(path, seen));
       const n = eff_name(k);
-      rows.push(`  ${n}: typeof ${n} === "function" ? ${n} : undefined,`);
+      for (const m of [n, n + "_need"]) {
+        rows.push(`  ${m}: typeof ${m} === "function" ? ${m} : undefined,`);
+      }
     }
   }
+  const sys = "  sys_get: typeof sys_get === \"function\" ? sys_get"
+    + " : undefined,";
   const effs = rows.length === 0 ? "" : "const $0eff = (() => {\n"
     + srcs.join("\n") + "\nreturn {\n"
-    + width_fold(rows.join("\n"), false) + "\n};\n})();\n\n";
+    + width_fold([...rows, sys].join("\n"), false) + "\n};\n})();\n\n";
   const tabs = [...fl.tabs].map(([r, i]) => `const TAB_${i} = [${r}];`);
   const lib = outs === null ? "" : "export default {\n" + outs.map((k) =>
     `  "${k}": run_lib(${js_sat(k)}, ${
@@ -3433,7 +3439,7 @@ export function js_book(book: Bend.Book): string {
   }
   return js_lib(book, null) + "\n" + RUNTIME_MAIN
     + (main === undefined ? ""
-    : "\ncli(process.argv.slice(2));\nio_exit(" + js_sat("main") + ");");
+    : "\nio_exit(" + js_sat("main") + ");");
 }
 
 // RuntimeC
@@ -3465,6 +3471,8 @@ using namespace metal;
 #include <signal.h>
 #include <sys/mman.h>
 #include <sys/resource.h>
+#include <time.h>
+#include <poll.h>
 #if BEND_METAL
 #import <Metal/Metal.h>
 #import <Foundation/Foundation.h>
@@ -3688,6 +3696,7 @@ typedef u32* Cursor;
 #define STAK_LEN  (1ull << 11)
 #define NCLS      8
 #define NCLS_ALL  32
+#define IO_HELP   64
 
 #define M_CAP(c)   (NCLS + (c))
 #define M_PAGE     (2 * NCLS)
@@ -5336,41 +5345,236 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
 // Io
 // ==
 
+// IoJob ::=
+//   | IoJob(what, need, word, cont, time, next, work, args)
+typedef struct IoJob {
+  IoEff*        what;
+  u32           need;
+  u32           word;
+  Term          cont;
+  u64           time;
+  struct IoJob* next;
+  IoWork        work;
+  Term          args[];
+} IoJob;
+
+static IoJob* io_park;
+static lock   io_gate = PTHREAD_MUTEX_INITIALIZER;
+static u32    io_pend;
+static u32    io_busy;
+static u32    io_size;
+static int    io_job_fd[2];
+static int    io_wake_fd[2];
+
+static u64 io_tick(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (u64)ts.tv_sec * 1000000000ull + (u64)ts.tv_nsec;
+}
+
+static void io_take(Env e) {
+  IoJob*  jobs[64];
+  ssize_t n;
+  while ((n = read(io_wake_fd[0], jobs, sizeof jobs)) > 0) {
+    for (u32 i = 0; i < (u32)n / sizeof(IoJob*); i += 1) {
+      io_push(jobs[i]->cont, jobs[i]->work.pack(e, &jobs[i]->work), false);
+      io_pend -= 1;
+      io_busy -= 1;
+      free(jobs[i]);
+    }
+  }
+}
+
+static void* io_help(void* arg) {
+  for (;;) {
+    IoJob* job;
+    pthread_mutex_lock(&io_gate);
+    ssize_t n = read(io_job_fd[0], &job, sizeof job);
+    pthread_mutex_unlock(&io_gate);
+    if (n != sizeof job) {
+      continue;
+    }
+    job->work.call(&job->work);
+    while (write(io_wake_fd[1], &job, sizeof job) != sizeof job) {
+    }
+  }
+}
+
+static void io_send(Env e, IoJob* job) {
+  io_busy += 1;
+  if (io_busy > io_size && io_size < IO_HELP) {
+    pthread_t tid;
+    if (pthread_create(&tid, NULL, io_help, NULL)) {
+      err_fail(ERR_FAIL, "pthread_create");
+    }
+    pthread_detach(tid);
+    io_size += 1;
+  }
+  while (write(io_job_fd[1], &job, sizeof job) != sizeof job) {
+    struct pollfd room = { io_job_fd[1], POLLOUT, 0 };
+    io_take(e);
+    poll(&room, 1, -1);
+  }
+}
+
+static void io_fire(Env e, IoJob* job) {
+  Term x = job->what->run(e, job->args, &job->work);
+  if (x == IO_WORK) {
+    io_send(e, job);
+    return;
+  }
+  io_pend -= 1;
+  if (x != IO_PARK) {
+    io_push(job->cont, x, false);
+  }
+  free(job);
+}
+
+static void io_wait(Env e, bool block) {
+  struct pollfd fds[IO_ROWS + 1];
+  u32 n  = 1;
+  int ms = block ? -1 : 0;
+  IoJob* soon = io_park;
+  fds[0].fd     = io_wake_fd[0];
+  fds[0].events = POLLIN;
+  for (; soon != NULL && soon->time == 0; soon = soon->next) {
+    fds[n].fd     = (int)soon->word;
+    fds[n].events = soon->need & IO_WRITE ? POLLOUT : POLLIN;
+    n += 1;
+  }
+  if (block && soon != NULL) {
+    u64 now = io_tick();
+    u64 gap = soon->time > now ? (soon->time - now) / 1000000 + 1 : 0;
+    ms = gap > 0x7fffffff ? 0x7fffffff : (int)gap;
+  }
+  if (block) {
+    io_sync();
+  }
+  if (poll(fds, n, ms) < 0 && errno != EINTR) {
+    err_fail(ERR_FAIL, "the poller failed");
+  }
+  if (fds[0].revents != 0) {
+    io_take(e);
+  }
+  u64 now = io_tick();
+  u32 i   = 1;
+  for (IoJob** at = &io_park; *at != NULL;) {
+    IoJob* j   = *at;
+    bool   due = j->time == 0 ? fds[i].revents != 0 : j->time <= now;
+    i += j->time == 0;
+    if (!due) {
+      at = &j->next;
+      continue;
+    }
+    *at = j->next;
+    io_fire(e, j);
+  }
+}
+
+static int io_step(Env e, Term op, Term x) {
+  for (;;) {
+    Term fs[257];
+    u32  c   = (u32)term_aux(op);
+    bool clo = term_tag(op) == TAG_CLO;
+    u32  n   = clo ? fid_arity(c) - 1 : cid_arity(c);
+    if (term_tag(op) == TAG_TSK) {
+      op = corpus_eval(e.mem, op);
+      continue;
+    }
+    IoEff* eff = io_eff_at(clo, c);
+    spare_free(e, cls_fit(n), ctr_take(e, op, n, fs));
+    if (c == (clo ? FID_IO_EMIT : CID_EMIT)) {
+      term_drop(e, clo ? x : fs[0]);
+      io_live -= 1;
+      return -1;
+    }
+    if (!clo && c == CID_HALT) {
+      io_errs(e, fs[1]);
+      return (int)(u32)fs[0];
+    }
+    if (eff == NULL) {
+      if (!clo) {
+        err_fail(ERR_FIDS, "an alien request");
+      }
+      Loc a = task_node(e, c, TERM_HOLE, 0, 0);
+      memcpy(e.mem + a, fs, n * sizeof(Term));
+      e.mem[a + n] = x;
+      op = corpus_eval(e.mem, term_tsk(c, a));
+      continue;
+    }
+    n -= !clo;
+    if (clo) {
+      fs[n] = x;
+    }
+    u32 need = eff->ask;
+    u32 word = (u32)fs[0];
+    if (need & (IO_READ | IO_WRITE)) {
+      word = (u32)io_sys_read(io_hand_p(e, fs[0]), 0);
+      need = (int)word < 0 ? 0 : need;
+    }
+    IoWork w = { 0 };
+    if (need == 0 && (x = eff->run(e, fs, &w)) != IO_WORK) {
+      op = fs[n];
+      if (x == IO_PARK) {
+        return -1;
+      }
+      continue;
+    }
+    IoJob* job = io_mem(malloc(sizeof(IoJob) + (n + 1) * sizeof(Term)));
+    job->what = eff;
+    job->need = need;
+    job->word = word;
+    job->cont = fs[n];
+    job->work = w;
+    io_pend += 1;
+    if (need == 0) {
+      io_send(e, job);
+      return -1;
+    }
+    memcpy(job->args, fs, (n + 1) * sizeof(Term));
+    job->time = need & IO_TIME ? io_tick() + (u64)word * 1000000ull : 0;
+    IoJob** at = &io_park;
+    while (*at != NULL && (*at)->time <= job->time) {
+      at = &(*at)->next;
+    }
+    job->next = *at;
+    *at = job;
+    return -1;
+  }
+}
+
 OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
   Env e = { H, monk_word(H, 0, 0) };
   io_gpu = gpu;
   io_stk = pool_stack();
-  Term op = corpus_eval(H, term_tsk(fid, task_node(e, fid, TERM_HOLE, 0, 0)));
-  Term x = term_clo(FID_IO_EMIT, 0);
-  for (;;) {
-    Term fs[256];
-    u32  c   = (u32)term_aux(op);
-    bool clo = term_tag(op) == TAG_CLO;
-    u32  n   = clo ? fid_arity(c) - 1 : cid_arity(c);
-    if (c == (clo ? FID_IO_EMIT : CID_EMIT)) {
-      return 0;
-    }
-    spare_free(e, cls_fit(n), ctr_take(e, op, n, fs));
-    if (!clo && c == CID_HALT) {
-      int code = (int)(u32)fs[0];
-      io_errs(e, fs[1]);
-      return code;
-    }
-    Effect run = io_eff_at(clo ? io_eff_fids : io_eff_cids, c);
-    if (run == NULL && !clo) {
-      err_fail(ERR_FIDS, "an alien request");
-    }
-    if (run == NULL) {
-      Loc a = task_node(e, c, TERM_HOLE, 0, 0);
-      for (u32 i = 0; i < n; i += 1) {
-        e.mem[a + i] = fs[i];
+  if (pipe(io_job_fd) | pipe(io_wake_fd) | fcntl(io_job_fd[1], F_SETFL,
+    O_NONBLOCK) | fcntl(io_wake_fd[0], F_SETFL, O_NONBLOCK)) {
+    err_fail(ERR_FAIL, "the event loop failed to open");
+  }
+  io_push(term_tsk(fid, task_node(e, fid, TERM_HOLE, 0, 0)),
+    term_clo(FID_IO_EMIT, 0), true);
+  for (u32 n = 0;; n += 1) {
+    if (io_run_len == 0) {
+      if (io_live == 0) {
+        return 0;
       }
-      e.mem[a + n] = x;
-      op = corpus_eval(H, term_tsk(c, a));
+      if (io_pend == 0) {
+        io_sync();
+        fprintf(stderr, "bend: deadlock: every computation waits on a"
+          " channel\n");
+        return 1;
+      }
+      io_wait(e, true);
       continue;
     }
-    op = clo ? x : fs[n - 1];
-    x  = run(e, fs);
+    if ((n & 63) == 0 && io_pend != 0) {
+      io_wait(e, false);
+    }
+    Term* s    = io_pop();
+    int   code = io_step(e, s[0], s[1]);
+    if (code >= 0) {
+      return code;
+    }
   }
 }
 
@@ -5410,7 +5614,7 @@ int main(int argc, char** argv) {
   int  par = -1;
   int  gpu = -1;
   u64  mem = 0;
-  for (int i = 1; i < argc; i += 1) {
+  for (int i = 1; i < argc; i += 2) {
     const char* a = argv[i];
     const char* v = i + 1 < argc ? argv[i + 1] : NULL;
     if (strcmp(a, "--help") == 0) {
@@ -5422,16 +5626,12 @@ int main(int argc, char** argv) {
       if (thr < 1 || end == NULL || *end != '\0') {
         cli_fail("expected a thread count of 1 or more after --threads", NULL);
       }
-      i += 1;
     } else if (strcmp(a, "--parallel") == 0) {
       par = cli_flag("--parallel", v);
-      i += 1;
     } else if (strcmp(a, "--gpu") == 0) {
       gpu = cli_flag("--gpu", v);
-      i += 1;
     } else if (strcmp(a, "--gpu-memory") == 0) {
       mem = cli_size(v);
-      i += 1;
     } else {
       cli_fail("unknown option ", a);
     }
@@ -5551,76 +5751,6 @@ function run_lib(f, n) {
 `.slice(1);
 
 const RUNTIME_MAIN: string = String.raw`
-// Cli
-// ===
-
-function cli_fail(msg) {
-  require("fs").writeSync(2, "bend: " + msg + "\n");
-  process.exit(1);
-}
-
-function cli_flag(name, val) {
-  if (val !== "on" && val !== "off") {
-    cli_fail("expected 'on' or 'off' after " + name);
-  }
-  return val === "on";
-}
-
-function cli_help() {
-  require("fs").writeSync(1, [
-    "usage: " + process.argv[1] + " [options]",
-    "  --threads N        worker threads: a JS program runs one",
-    "  --parallel on|off  off means one thread and no GPU (default: on)",
-    "  --gpu on|off       send ! calls to the GPU (default: on if present)",
-    "  --gpu-memory 4GB   device span: a JS program uses the JS heap",
-    "  --help             show this text",
-    "",
-  ].join("\n"));
-  process.exit(0);
-}
-
-function cli(argv) {
-  let thr = 0;
-  let par = -1;
-  let gpu = -1;
-  for (let i = 0; i < argv.length; i += 1) {
-    const a = argv[i];
-    const v = argv[i + 1] ?? null;
-    if (a === "--help") {
-      cli_help();
-    } else if (a === "--threads") {
-      thr = /^[ \t\n\v\f\r]*\+?\d+$/.test(v) ? Number(v) : 0;
-      if (thr < 1) {
-        cli_fail("expected a thread count of 1 or more after --threads");
-      }
-      i += 1;
-    } else if (a === "--parallel") {
-      par = cli_flag("--parallel", v) ? 1 : 0;
-      i += 1;
-    } else if (a === "--gpu") {
-      gpu = cli_flag("--gpu", v) ? 1 : 0;
-      i += 1;
-    } else if (a === "--gpu-memory") {
-      if (!/^[ \t\n\v\f\r]*\+?(\d+\.?\d*|\.\d+)(GB|MB)$/.test(v)
-        || Number.parseFloat(v) <= 0) {
-        cli_fail("expected a size like 4GB or 512MB after --gpu-memory");
-      }
-      i += 1;
-    } else {
-      cli_fail("unknown option " + a);
-    }
-  }
-  if (par === 0 && (gpu === 1 || thr > 1)) {
-    cli_fail("--parallel off means --threads 1 with --gpu off");
-  }
-  if (gpu === 1) {
-    cli_fail("--gpu on, but this binary found no GPU device");
-  }
-  if (thr > 1) {
-    cli_fail("--threads over 1, but a JS program runs one thread");
-  }
-}
-
 // Io
 // ==
 
@@ -5633,33 +5763,12 @@ function io_exit(m) {
   }
 }
 
-function io_run(m) {
-  let op;
-  try {
-    op = run_loop(m())((x) => ({ $: "Emit", value: x }));
-    while (op.$ === "$FFI") {
-      op = op.kont(op.run());
-    }
-  } catch (req) {
-    if (req instanceof RangeError) {
-      throw "bend: error 9: memory fault (machine stack overflow?)";
-    }
-    if (req?.$ !== "$FFI") {
-      throw req;
-    }
-    op = { $: "Halt", code: 1,
-      message: "bend: a request decoded outside the event loop" };
-  }
-  if (op.$ !== "Halt") {
-    return 0;
-  }
+function io_out(fd, data) {
   const fs = require("fs");
-  const buf = Uint8Array.from([...op.message + "\n"],
-    (c) => c.codePointAt(0) & 255);
   let at = 0;
-  while (at < buf.length) {
+  while (at < data.length) {
     try {
-      at += fs.writeSync(2, buf, at, buf.length - at);
+      at += fs.writeSync(fd, data, at, data.length - at);
     } catch (e) {
       if (e.code === "EAGAIN" || e.code === "EINTR") {
         continue;
@@ -5672,7 +5781,97 @@ function io_run(m) {
       process.exit(1);
     }
   }
-  return op.code;
+}
+
+function io_errs(message) {
+  io_out(2, Uint8Array.from([...message + "\n"],
+    (c) => c.codePointAt(0) & 255));
+}
+
+function io_push(fun, arg, fresh) {
+  const io = globalThis.BEND_IO;
+  io.runs.push({ fun: fun, arg: arg });
+  io.live += fresh ? 1 : 0;
+}
+
+function io_wait(io, block) {
+  const soon = io.waits.reduce((m, w) => Math.min(m, w.at ?? m), Infinity);
+  let ms = block && soon === Infinity ? -1 : 0;
+  if (block && soon !== Infinity) {
+    ms = Math.ceil(soon - performance.now());
+    ms = Math.min(Math.max(0, ms), 2147483647);
+  }
+  const fds = io.waits.filter((w) => w.fd !== undefined);
+  const ready = fds.length === 0 ? [] : $0eff.sys_get().poll(fds, ms);
+  if (fds.length === 0 && ms !== 0) {
+    Bun.sleepSync(ms);
+  }
+  const now = performance.now();
+  const fire = io.waits.filter((w) => ready.includes(w) || w.at <= now);
+  io.waits = io.waits.filter((w) => !fire.includes(w));
+  for (const w of fire) {
+    io_push((o) => o.kont(o.run(...o.args, o.kont)), w.op, false);
+  }
+}
+
+function io_run(m) {
+  const io = { runs: [], live: 0, waits: [] };
+  globalThis.BEND_IO = io;
+  try {
+    io_push(run_loop(m()), (x) => ({ $: "Emit", value: x }), true);
+    for (let n = 0;; n += 1) {
+      if (io.runs.length === 0) {
+        if (io.live === 0) {
+          return 0;
+        }
+        if (io.waits.length === 0) {
+          io_errs("bend: deadlock: every computation waits on a channel");
+          return 1;
+        }
+        io_wait(io, true);
+        continue;
+      }
+      if ((n & 63) === 0 && io.waits.length > 0) {
+        io_wait(io, false);
+      }
+      const s = io.runs.shift();
+      let op = s.fun(s.arg);
+      for (;;) {
+        if (op.$ === "Emit") {
+          io.live -= 1;
+          break;
+        }
+        if (op.$ === "Halt") {
+          io_errs(op.message);
+          return op.code;
+        }
+        const need = op.need === undefined ? {} : op.need();
+        const kind = need.read ?? need.write;
+        const fd = kind === undefined ? null
+          : $0eff.sys_get().read(op.args[0], kind);
+        if (need.time || fd !== null) {
+          io.waits.push(fd === null
+            ? { at: performance.now() + Number(op.args[0]), op: op }
+            : { fd: fd, dir: need.read ? 1 : 4, op: op });
+          break;
+        }
+        const x = op.run(...op.args, op.kont);
+        if (x === undefined) {
+          break;
+        }
+        op = op.kont(x);
+      }
+    }
+  } catch (req) {
+    if (req instanceof RangeError) {
+      throw "bend: error 9: memory fault (machine stack overflow?)";
+    }
+    if (req?.$ !== "$FFI") {
+      throw req;
+    }
+    io_errs("bend: a request decoded outside the event loop");
+    return 1;
+  }
 }
 `.slice(1);
 

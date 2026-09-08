@@ -20,3 +20,7 @@ function tcp_send(socket, data) {
   }
   return sys.tup(socket, sys.done({ $: "Unit" }));
 }
+
+function tcp_send_need() {
+  return { write: "tcp" };
+}

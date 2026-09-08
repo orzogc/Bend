@@ -14,3 +14,7 @@ function tcp_accept(listener) {
   }
   return sys.tup(listener, sys.done(sys.mint("Socket", "tcp", fd)));
 }
+
+function tcp_accept_need() {
+  return { read: "lsn" };
+}

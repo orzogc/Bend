@@ -22,3 +22,7 @@ function udp_recv_from(socket, max) {
   const data = sys.text(b, n);
   return sys.tup(socket, sys.done(sys.tup(from.host, from.port, data)));
 }
+
+function udp_recv_from_need() {
+  return { read: "udp" };
+}

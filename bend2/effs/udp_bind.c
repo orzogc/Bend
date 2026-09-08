@@ -24,7 +24,7 @@ IoFall udp_bind(uint32_t port, IoHand* out) {
   return io_sys_done();
 }
 
-Term udp_bind_run(Env e, Term* f) {
+Term udp_bind_run(Env e, Term* f, IoWork* w) {
   IoHand out;
   IoFall q = udp_bind((uint32_t)f[0], &out);
   if (q.code != 0) {
@@ -34,5 +34,5 @@ Term udp_bind_run(Env e, Term* f) {
 }
 
 static void __attribute__((constructor)) udp_bind_use(void) {
-  io_eff(FID_UDP_BIND, CID_UDP_BIND, udp_bind_run);
+  io_eff(FID_UDP_BIND, CID_UDP_BIND, udp_bind_run, 0);
 }

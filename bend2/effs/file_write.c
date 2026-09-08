@@ -2,32 +2,28 @@
 // ====
 //! use ./sys.c
 
-IoFall file_write(IoHand file, const char* data, uint32_t len) {
-  int fd = io_sys_read(file, IO_FILE);
-  if (fd < 0) {
-    return io_sys_fall(EBADF);
+static void file_write_call(IoWork* w) {
+  int fd = (int)io_sys_read(w->hand, IO_FILE);
+  ssize_t n = 0;
+  for (uint64_t at = 0; n >= 0 && at < w->size; at += (uint64_t)n) {
+    n = write(fd, w->data + at, w->size - at);
   }
-  uint32_t at = 0;
-  while (at < len) {
-    ssize_t n = write(fd, data + at, len - at);
-    if (n < 0) {
-      return io_sys_fall((uint32_t)errno);
-    }
-    at += (uint32_t)n;
-  }
-  return io_sys_done();
+  io_sys_end(w, n);
 }
 
-Term file_write_run(Env e, Term* f) {
-  IoHand file = io_hand_c(e, f[0]);
-  uint64_t n = 0;
-  char* data = io_cstr(e, f[1], &n);
-  IoFall q = file_write(file, data, (uint32_t)n);
-  free(data);
-  Term r = q.code != 0 ? io_fail(e, q) : io_done(e, term_pak(CID_UNIT, 0));
-  return io_tup(e, io_hand(e, CID_FILE, file), r);
+static Term file_write_pack(Env e, IoWork* w) {
+  Term r = w->fall.code != 0 ? io_fail(e, w->fall)
+    : io_done(e, term_pak(CID_UNIT, 0));
+  free(w->data);
+  return io_tup(e, io_hand(e, CID_FILE, w->hand), r);
+}
+
+Term file_write_run(Env e, Term* f, IoWork* w) {
+  w->hand = io_hand_c(e, f[0]);
+  w->data = io_cstr(e, f[1], &w->size);
+  return io_work(w, file_write_call, file_write_pack);
 }
 
 static void __attribute__((constructor)) file_write_use(void) {
-  io_eff(FID_FILE_WRITE, CID_FILE_WRITE, file_write_run);
+  io_eff(FID_FILE_WRITE, CID_FILE_WRITE, file_write_run, 0);
 }

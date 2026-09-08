@@ -15,7 +15,7 @@ IoFall window_open(const char* title, uint32_t w, uint32_t h, IoHand* out) {
   return io_sys_done();
 }
 
-Term window_open_run(Env e, Term* f) {
+Term window_open_run(Env e, Term* f, IoWork* w) {
   uint64_t n = 0;
   char* title = io_cstr(e, f[0], &n);
   IoHand out;
@@ -29,5 +29,5 @@ Term window_open_run(Env e, Term* f) {
 }
 
 static void __attribute__((constructor)) window_open_use(void) {
-  io_eff(FID_WINDOW_OPEN, CID_WINDOW_OPEN, window_open_run);
+  io_eff(FID_WINDOW_OPEN, CID_WINDOW_OPEN, window_open_run, 0);
 }

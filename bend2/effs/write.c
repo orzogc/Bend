@@ -6,7 +6,7 @@ void io_write(const char* data, uint64_t len) {
   io_out(stdout, data, len);
 }
 
-Term io_write_run(Env e, Term* f) {
+Term io_write_run(Env e, Term* f, IoWork* w) {
   uint64_t n = 0;
   char* text = io_cstr(e, f[0], &n);
   io_write(text, n);
@@ -15,5 +15,5 @@ Term io_write_run(Env e, Term* f) {
 }
 
 static void __attribute__((constructor)) io_write_use(void) {
-  io_eff(FID_IO_WRITE, CID_IO_WRITE, io_write_run);
+  io_eff(FID_IO_WRITE, CID_IO_WRITE, io_write_run, 0);
 }

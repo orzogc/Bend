@@ -1,10 +1,12 @@
 # HTTP server: a minimal HTTP/1.1 server in Bend over the TCP effect
 # kit. It binds port 8080 and answers every connection with a hello
-# world page: accept, read the request, send the response, close.
-# The accept loop recurses on itself forever, so its def is @unsafe:
-# the termination checker skips it, and the server runs until killed.
-# Handles are affine: every op threads its handle back OUTSIDE the
-# Result, and each tuple destructures in its own helper. Try it:
+# world page: accept, then a spawned computation reads the request,
+# sends the response and closes, so a slow client never holds the
+# next one. The accept loop recurses on itself forever, so its def is
+# @unsafe: the termination checker skips it, and the server runs
+# until killed. Handles are affine: every op threads its handle back
+# OUTSIDE the Result, and each tuple destructures in its own helper.
+# Try it:
 #
 #   curl http://127.0.0.1:8080
 import Base
@@ -34,6 +36,15 @@ def http_reply(read):
       TCP.send(s, ha ++ hb ++ hc)
     http_sent(sent)
 
+law http_talk:
+  for s: Socket
+  IO(Unit)
+
+def http_talk(s):
+  do IO<Unit>:
+    read : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(s, 8192)
+    http_reply(read)
+
 law http_conn:
   for conn: Listener & Result<&1, &1, U32 & String, Socket>
   IO(Listener)
@@ -41,9 +52,8 @@ law http_conn:
 def http_conn(conn):
   (l, r) = conn
   do IO<Listener>:
-    s    : Socket <- IO.pass(Socket, r)
-    read : Socket & Result<&1, &1, U32 & String, String> <- TCP.recv(s, 8192)
-    ok   : Unit <- http_reply(read)
+    s  : Socket <- IO.pass(Socket, r)
+    ok : Unit <- IO.spawn(Unit, http_talk(s))
     return l
 
 law http_serve:

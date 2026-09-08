@@ -27,7 +27,7 @@ IoFall tcp_listen(uint32_t port, IoHand* out) {
   return io_sys_done();
 }
 
-Term tcp_listen_run(Env e, Term* f) {
+Term tcp_listen_run(Env e, Term* f, IoWork* w) {
   IoHand out;
   IoFall q = tcp_listen((uint32_t)f[0], &out);
   if (q.code != 0) {
@@ -37,5 +37,5 @@ Term tcp_listen_run(Env e, Term* f) {
 }
 
 static void __attribute__((constructor)) tcp_listen_use(void) {
-  io_eff(FID_TCP_LISTEN, CID_TCP_LISTEN, tcp_listen_run);
+  io_eff(FID_TCP_LISTEN, CID_TCP_LISTEN, tcp_listen_run, 0);
 }

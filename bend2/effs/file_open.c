@@ -15,44 +15,30 @@ static int file_open_mode(const char* mode) {
   return -1;
 }
 
-IoFall file_open(const char* path, const char* mode, IoHand* out) {
-  int flags = file_open_mode(mode);
-  if (flags < 0) {
-    return io_sys_fall(EINVAL);
-  }
-  int fd = open(path, flags, 0644);
-  if (fd < 0) {
-    return io_sys_fall((uint32_t)errno);
-  }
-  if (io_sys_mint(IO_FILE, fd, out) < 0) {
-    close(fd);
-    return io_sys_fall(EMFILE);
-  }
-  return io_sys_done();
+static void file_open_call(IoWork* w) {
+  io_sys_keep(w, IO_FILE, open(w->data, (int)w->word, 0644));
 }
 
-Term file_open_run(Env e, Term* f) {
-  uint64_t pn = 0;
+static Term file_open_pack(Env e, IoWork* w) {
+  free(w->data);
+  return w->fall.code != 0 ? io_fail(e, w->fall)
+    : io_done(e, io_hand(e, CID_FILE, w->made));
+}
+
+Term file_open_run(Env e, Term* f, IoWork* w) {
   uint64_t mn = 0;
-  char* path = io_cstr(e, f[0], &pn);
+  w->data = io_cstr(e, f[0], &w->size);
   char* mode = io_cstr(e, f[1], &mn);
-  IoHand out;
-  IoFall q;
-  if (io_nul(path, pn)) {
-    q = io_sys_fall(EILSEQ);
-  } else if (io_nul(mode, mn)) {
-    q = io_sys_fall(EINVAL);
-  } else {
-    q = file_open(path, mode, &out);
-  }
-  free(path);
+  int flags = io_nul(mode, mn) ? -1 : file_open_mode(mode);
   free(mode);
-  if (q.code != 0) {
-    return io_fail(e, q);
+  w->word = (uint32_t)flags;
+  if (io_nul(w->data, w->size) || flags < 0) {
+    w->fall = io_sys_fall(io_nul(w->data, w->size) ? EILSEQ : EINVAL);
+    return file_open_pack(e, w);
   }
-  return io_done(e, io_hand(e, CID_FILE, out));
+  return io_work(w, file_open_call, file_open_pack);
 }
 
 static void __attribute__((constructor)) file_open_use(void) {
-  io_eff(FID_FILE_OPEN, CID_FILE_OPEN, file_open_run);
+  io_eff(FID_FILE_OPEN, CID_FILE_OPEN, file_open_run, 0);
 }

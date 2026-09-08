@@ -2,31 +2,26 @@
 // ===
 //! use ./sys.c
 
-IoFall tcp_recv(IoHand socket, uint32_t max, char* buf, uint32_t* len) {
-  int fd = io_sys_read(socket, IO_TCPS);
-  if (fd < 0) {
-    return io_sys_fall(EBADF);
-  }
-  io_sync();
-  ssize_t n = recv(fd, buf, max, 0);
-  if (n < 0) {
-    return io_sys_fall((uint32_t)errno);
-  }
-  *len = (uint32_t)n;
-  return io_sys_done();
+static void tcp_recv_call(IoWork* w) {
+  int fd = (int)io_sys_read(w->hand, IO_TCPS);
+  w->size = io_sys_end(w, recv(fd, w->data, w->word, 0));
 }
 
-Term tcp_recv_run(Env e, Term* f) {
-  IoHand socket = io_hand_c(e, f[0]);
-  uint32_t max = (uint32_t)f[1];
-  char* buf = io_mem(malloc((uint64_t)max + 1));
-  uint32_t len = 0;
-  IoFall q = tcp_recv(socket, max, buf, &len);
-  Term r = q.code != 0 ? io_fail(e, q) : io_done(e, io_str(e, buf, len));
-  free(buf);
-  return io_tup(e, io_hand(e, CID_SOCKET, socket), r);
+static Term tcp_recv_pack(Env e, IoWork* w) {
+  Term r = w->fall.code != 0 ? io_fail(e, w->fall)
+    : io_done(e, io_str(e, w->data, w->size));
+  free(w->data);
+  return io_tup(e, io_hand(e, CID_SOCKET, w->hand), r);
+}
+
+Term tcp_recv_run(Env e, Term* f, IoWork* w) {
+  w->hand = io_hand_c(e, f[0]);
+  w->word = (uint32_t)f[1];
+  w->data = io_mem(malloc((uint64_t)w->word + 1));
+  tcp_recv_call(w);
+  return tcp_recv_pack(e, w);
 }
 
 static void __attribute__((constructor)) tcp_recv_use(void) {
-  io_eff(FID_TCP_RECV, CID_TCP_RECV, tcp_recv_run);
+  io_eff(FID_TCP_RECV, CID_TCP_RECV, tcp_recv_run, IO_READ);
 }

@@ -7,7 +7,7 @@ void io_print(const char* data, uint64_t len) {
   io_out(stdout, "\n", 1);
 }
 
-Term io_print_run(Env e, Term* f) {
+Term io_print_run(Env e, Term* f, IoWork* w) {
   uint64_t n = 0;
   char* text = io_cstr(e, f[0], &n);
   io_print(text, n);
@@ -16,5 +16,5 @@ Term io_print_run(Env e, Term* f) {
 }
 
 static void __attribute__((constructor)) io_print_use(void) {
-  io_eff(FID_IO_PRINT, CID_IO_PRINT, io_print_run);
+  io_eff(FID_IO_PRINT, CID_IO_PRINT, io_print_run, 0);
 }

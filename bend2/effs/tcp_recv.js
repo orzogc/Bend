@@ -15,3 +15,7 @@ function tcp_recv(socket, max) {
   }
   return sys.tup(socket, sys.done(sys.text(b, n)));
 }
+
+function tcp_recv_need() {
+  return { read: "tcp" };
+}

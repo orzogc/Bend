@@ -25,6 +25,7 @@ function sys_get() {
       returns: "i64",
     },
     close: { args: ["i32"], returns: "i32" },
+    poll: { args: ["ptr", "u32", "i32"], returns: "i32" },
     setsockopt: { args: ["i32", "i32", "i32", "ptr", "u32"], returns: "i32" },
     strerror: { args: ["i32"], returns: "cstring" },
     getenv: { args: ["ptr"], returns: "ptr" },
@@ -102,6 +103,15 @@ function sys_get() {
     flags() {
       return mac ? 0 : 0x4000;
     },
+    poll(polls, ms) {
+      const buf = new Int32Array(polls.length * 2);
+      polls.forEach((w, i) => {
+        buf[2 * i] = w.fd;
+        buf[2 * i + 1] = w.dir;
+      });
+      const n = this.s.poll(this.ptr(buf), polls.length, ms);
+      return polls.filter((w, i) => n > 0 && (buf[2 * i + 1] >>> 16) !== 0);
+    },
     addr(host, port) {
       const part = host.split(".");
       const deci = (p) => /^(0|[1-9][0-9]{0,2})$/.test(p);
@@ -158,27 +168,4 @@ function sys_get() {
   };
   globalThis.BEND_SYS = sys;
   return sys;
-}
-
-// IO
-// ==
-
-function io_out(fd, data) {
-  const fs = require("fs");
-  let at = 0;
-  while (at < data.length) {
-    try {
-      at += fs.writeSync(fd, data, at, data.length - at);
-    } catch (e) {
-      if (e.code === "EAGAIN" || e.code === "EINTR") {
-        continue;
-      }
-      const line = "bend: error 1: a short write on a standard stream\n";
-      try {
-        fs.writeSync(2, line);
-      } catch (o) {
-      }
-      process.exit(1);
-    }
-  }
 }
