@@ -3691,6 +3691,7 @@ typedef u32* Cursor;
 #define NCLS      8
 #define NCLS_ALL  32
 #define IO_HELP   64
+#define DECAY     16
 
 #define M_CAP(c)   (NCLS + (c))
 #define M_PAGE     (2 * NCLS)
@@ -3705,7 +3706,7 @@ typedef u32* Cursor;
 #define H_CURSOR     LINE
 #define H_ROOT_DONE  (2 * LINE)
 #define H_ERROR_CODE (3 * LINE)
-#define H_BANG       (H_ERROR_CODE + 1)
+#define H_ROUND      (H_ERROR_CODE + 1)
 #define H_BITS       (4 * LINE)
 #define H_ROOT_WORD  (H_BITS + NCLS_ALL * BITS_WORDS)
 
@@ -4721,7 +4722,7 @@ INLINE u32 monk_grow(Env e, Stk stk, Ring rg, u32 put0, u32 base, u32 stride,
 
 static void monk_work(Env e, Stk stk, Ring r) {
   Corpus H = e.mem;
-  if ((ALC_AT(e, M_PUSH) >> 31 ^ a32_load(a32_at(H, H_BANG))) & 1) {
+  if ((ALC_AT(e, M_PUSH) >> 31 ^ a32_load(a32_at(H, H_ROUND)) / DECAY) & 1) {
     ALC_AT(e, M_PUSH) ^= 1u << 31;
     for (Cls c = 0; c < NCLS; c += 1) {
       ALC_AT(e, M_CAP(c)) = ALC_AT(e, M_CAP(c)) >> 41 << 40;
@@ -4861,14 +4862,22 @@ static void row_grow(Env e, Stk stk, u32 base) {
 // Pool
 // ====
 
+static void* pool_mmap(u64 bytes) {
+  void* p = mmap(NULL, bytes, PROT_READ | PROT_WRITE,
+    MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0);
+  if (p == MAP_FAILED) {
+    err_fail(ERR_HEAP, "reservation failed");
+  }
+  return p;
+}
+
 static Term* pool_stack(void) {
   u64   len = 1ull << 31;
-  void* p   = mmap(NULL, len + 16384 + SIGSTKSZ, PROT_READ | PROT_WRITE,
-    MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0);
-  if (p == MAP_FAILED || mprotect((char*)p + len, 16384, PROT_NONE) != 0) {
-    err_fail(ERR_HEAP, "machine stack reservation failed");
+  char* p   = pool_mmap(len + 16384 + SIGSTKSZ);
+  if (mprotect(p + len, 16384, PROT_NONE) != 0) {
+    err_fail(ERR_HEAP, "stack guard failed");
   }
-  stack_t ss = { .ss_sp = (char*)p + len + 16384, .ss_size = SIGSTKSZ };
+  stack_t ss = { .ss_sp = p + len + 16384, .ss_size = SIGSTKSZ };
   sigaltstack(&ss, NULL);
   struct sigaction sa = { .sa_handler = err_trap, .sa_flags = SA_ONSTACK };
   sigaction(SIGSEGV, &sa, NULL);
@@ -4951,7 +4960,7 @@ OUTLINE void pool_turn(bool grow) {
 // ===
 
 #if !BEND_CUDA
-#define gpu_map corpus_mmap
+#define gpu_map pool_mmap
 #endif
 
 #if BEND_METAL
@@ -4971,6 +4980,9 @@ static id<MTLComputePipelineState> gpu_pipe(const char* name) {
     [gpu_dev newComputePipelineStateWithFunction:fn error:&err];
   if (!pso) {
     err_fail(ERR_FAIL, [[err localizedDescription] UTF8String]);
+  }
+  if ([pso maxTotalThreadsPerThreadgroup] < CUBE_SIDE) {
+    err_fail(ERR_FAIL, "threadgroup too small");
   }
   return pso;
 }
@@ -5201,7 +5213,6 @@ static void gpu_pass(u32 f) {
 // ====
 
 static void cube_run(Corpus H, bool gpu) {
-  a32_add(a32_at(H, H_BANG), 1);
   for (;;) {
     u32 f = a32_load(a32_at(H, H_CURSOR));
     a32_store(a32_at(H, H_CURSOR), 0);
@@ -5211,6 +5222,7 @@ static void cube_run(Corpus H, bool gpu) {
     if (f == 0) {
       err_fail(ERR_LEAK, "frontier drained without a result");
     }
+    a32_add(a32_at(H, H_ROUND), 1);
     if (gpu) {
       gpu_pass(f);
     } else {
@@ -5229,25 +5241,17 @@ static void cube_run(Corpus H, bool gpu) {
 // Corpus
 // ======
 
-static Corpus corpus_mmap(u64 bytes) {
-  Corpus H = mmap(NULL, bytes, PROT_READ | PROT_WRITE,
-    MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0);
-  if (H == MAP_FAILED) {
-    err_fail(ERR_HEAP, "corpus reservation failed");
-  }
-  return H;
-}
-
 static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
   u64 dflt = gpu ? gpu_span() : 1ull << 43;
   CORPUS_SIZE = (gpu && bytes != 0 ? bytes : dflt) & ~16383ull;
   u64 span = CORPUS_SIZE / 8;
-  u64 room = span > HEAP_OFF ? (span - HEAP_OFF) >> PAGE_BITS : 0;
-  u64 cap  = room >> 32 ? ~0u : room;
-  if (cap == 0) {
-    err_fail(ERR_HEAP, "--gpu-memory is under the lane stacks and rings");
+  if (span < HEAP_OFF + CUBE * PAGE_LEN) {
+    err_fail(ERR_HEAP,
+      "--gpu-memory is under the rings, stacks and a page per monk");
   }
-  CORPUS = gpu ? gpu_map(CORPUS_SIZE) : corpus_mmap(CORPUS_SIZE);
+  u64 room = (span - HEAP_OFF) >> PAGE_BITS;
+  u64 cap  = room >> 32 ? ~0u : room;
+  CORPUS = gpu ? gpu_map(CORPUS_SIZE) : pool_mmap(CORPUS_SIZE);
   Corpus H = CORPUS;
   a32_store(a32_at(H, H_CAP), (u32)cap);
   for (Monk m = 0; m < CUBE; m += 1) {
@@ -5256,7 +5260,8 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
   if (gpu) {
     gpu_load(CORPUS_SIZE);
   }
-  pool_size = (u32)(threads < CUBE_SIDE ? threads : CUBE_SIDE);
+  pool_size = threads < 1 ? 1
+    : threads < CUBE_SIDE ? threads : CUBE_SIDE;
   return H;
 }
 
@@ -5610,8 +5615,7 @@ int main(int argc, char** argv) {
     cli_fail("--gpu on, but this binary found no GPU device", NULL);
   }
   long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
-  long dflt = ncpu > 0 ? ncpu : 1;
-  Corpus H  = corpus_setup(dev, thr > 0 ? thr : dflt, mem);
+  Corpus H  = corpus_setup(dev, thr > 0 ? thr : ncpu, mem);
   int code  = io_loop(H, dev, FID_MAIN);
   io_sync();
   return code;
