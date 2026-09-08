@@ -280,7 +280,7 @@ static IoFall window_make(const char* title, u32 w, u32 h, int* row) {
     window_rows[i] = win;
   }
   *row = i;
-  return io_sys_done();
+  return io_sys_fall(0);
 }
 
 static id<MTLBuffer> window_corpus(Env e) {

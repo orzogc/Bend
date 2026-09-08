@@ -213,11 +213,8 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     C:  "((u32)($1) == 0 ? $0 : U32_BIN($0, %, $1))",
     JS: "($1 === 0 ? $0 : $0 % $1)",
   },
-  ...tpl_ops("u32_", "inc:+ shl:<<", "U32_BIN($0, $o, 1)", "(($0 $o 1) >>> 0)"),
-  u32_shr: {
-    C:  "U32_BIN($0, >>, 1)",
-    JS: "($0 >>> 1)",
-  },
+  ...tpl_ops("u32_", "inc:+ shl:<< shr:>>:>>>", "U32_BIN($0, $o, 1)",
+    "(($0 $o 1) >>> 0)"),
   u32_shln: {
     C:  "($1 >= 32 ? 0 : U32_BIN($0, <<, $1))",
     JS: "($1 >= 32n ? 0 : ($0 << Number($1)) >>> 0)",
@@ -500,12 +497,8 @@ static Term f32_read(Env e, Term s) {
   char* text = io_cstr(e, s, &n);
   char* end;
   f32 v = strtof(text, &end);
-  Term out = term_pak(CID_NONE, 0);
-  if (n > 0 && *end == 0) {
-    Loc l = heap_alloc(e, 0);
-    e.mem[l] = f32_rewrap(v);
-    out = term_ctr(CID_SOME, l);
-  }
+  Term out = n > 0 && *end == 0 ? io_box(e, CID_SOME, f32_rewrap(v), 0)
+    : term_pak(CID_NONE, 0);
   free(text);
   return out;
 }
@@ -2458,7 +2451,8 @@ function emit_call(fl: File, ck: Call, km: Call | null): void {
     const kf = seg_fid(km.k);
     emit_chain(fl, () => "seq", [() => emit_frame(fl, cexps, kf), () => {
       file_push(fl,
-        `WL_KONT(${kf}, ${emit_task(fl, kf, 1, cexps)}, ${cexps.length});`);
+        `WL_CONT = term_tsk(${kf}, ${emit_task(fl, kf, 1, cexps)});`);
+      file_push(fl, `WL_IDX = ${cexps.length};`);
       if (ck.bang) {
         emit_bang(fl, ck, cargs);
       }
@@ -2563,7 +2557,6 @@ function emit_native(fl: File, ck: Call, ers: HTerm[]): string {
   ...dst.ws.map((v, j) => `  o[${j}] = ${v};`),
   "  return 1;", "}"].join("\n"), seg.refs]);
   Object.assign(fl, outer);
-  seg.refs.forEach((r) => fl.seg.refs.add(r));
   return name;
 }
 
@@ -2834,7 +2827,7 @@ function emit_fork(fl: File, x: HLet): void {
     let idx = caps.length;
     calls.forEach((c, j) => {
       const fj = seg_fid(c.k);
-      file_push(fl, `WL_KID(${jn}, ${idx}, ${fj}, ${
+      file_push(fl, `e.mem[${jn} + ${idx}] = term_tsk(${fj}, ${
         emit_task(fl, fj, 0, margs[j], jt, idx)});`);
       idx += def_ret(fl, c.k).ks.length;
     });
@@ -2971,43 +2964,6 @@ function emit_chain(fl: File, cond: (i: number) => string,
     fl.tab -= 1;
   });
   file_push(fl, "}");
-}
-
-// Width
-// =====
-
-function width_fold(text: string, cee: boolean): string {
-  const seam_at = (line: string, cap: number): number => {
-    let seam = 0;
-    for (let i = 0, q = false; i < cap && i < line.length; i += 1) {
-      const c = line[i];
-      if (q) {
-        i += Number(c === "\\");
-        q = c !== "\"";
-      } else if (c === "\"") {
-        q = true;
-      } else if ("({,".includes(c) || ("?:".includes(c) && line[i + 1] === " ")
-        || (c === ">" && line[i - 1] === "=") || (cee && c === " ")) {
-        seam = i + 1;
-      }
-    }
-    return seam;
-  };
-  const out: string[] = [];
-  for (let line of text.split("\n")) {
-    const mac = cee && (line.startsWith("#") || line.endsWith("\\"));
-    const bent = line.match(/^ */)![0] + "  ";
-    while (line.length > 80) {
-      const seam = seam_at(line, mac ? 78 : 80);
-      if (seam <= bent.length) {
-        break;
-      }
-      out.push(line.slice(0, seam).trimEnd() + (mac ? " \\" : ""));
-      line = bent + line.slice(seam).trimStart();
-    }
-    out.push(line);
-  }
-  return out.join("\n");
 }
 
 // Compile
@@ -3168,7 +3124,7 @@ export function compile_book(book: Bend.Book): string {
   grab(seg_fid("main"));
   fl.segs = fl.segs.filter((s) =>
     live.has(s.fid) || def_foreign(cb.book.tlds[s.def]));
-  const clo = fl.segs.some((s) => s.refs.has("FID_CLO_APPLY"));
+  const clo = live.has("FID_CLO_APPLY");
   for (const s of fl.segs) {
     s.dead = !live.has(s.fid) || (!clo && def_foreign(cb.book.tlds[s.def]));
   }
@@ -3183,9 +3139,9 @@ export function compile_book(book: Bend.Book): string {
     ["Segments", [compile_segs(fl)]],
     ["Requests", [fl.reqs]],
   ];
-  return width_fold(fills.reduce((src, [mark, parts]) => src.replace(
+  return fills.reduce((src, [mark, parts]) => src.replace(
     new RegExp("^// " + mark + "\\n// " + "=".repeat(mark.length) + "$", "m"),
-    (m) => [m, ...parts].join("\n\n")), TEMPLATE), true);
+    (m) => [m, ...parts].join("\n\n")), TEMPLATE);
 }
 
 // Js
@@ -3393,12 +3349,12 @@ export function js_lib(book: Bend.Book, outs: Bend.Name[] | null): string {
     memo_gc();
     js_def(fl, k, def);
   }
-  for (const [k, tld] of done_defs(cb, def_foreign)) {
-    js_def(fl, k, tld);
-  }
   const seen = new Set<string>();
   const srcs: string[] = [];
   const rows: string[] = [];
+  for (const [k, tld] of done_defs(cb, def_foreign)) {
+    js_def(fl, k, tld);
+  }
   for (const k of outs === null ? new Set(book.order) : cb.done) {
     const tld = book.tlds[k];
     const path = tld?.$ === "Def" && tld.i?.find((x) => x.endsWith(".js"));
@@ -3411,15 +3367,14 @@ export function js_lib(book: Bend.Book, outs: Bend.Name[] | null): string {
     }
   }
   const effs = rows.length === 0 ? "" : "const $0eff = (() => {\n"
-    + srcs.join("\n") + "\nreturn {\n"
-    + width_fold(rows.join("\n"), false) + "\n};\n})();\n\n";
+    + srcs.join("\n") + "\nreturn {\n" + rows.join("\n") + "\n};\n})();\n\n";
   const tabs = [...fl.tabs].map(([r, i]) => `const TAB_${i} = [${r}];`);
   const lib = outs === null ? "" : "export default {\n" + outs.map((k) =>
     `  "${k}": run_lib(${js_sat(k)}, ${
       def_live(cb, cb.book.tlds[k] as Bend.Def)}),`)
     .join("\n") + "\n};\n";
   return RUNTIME + effs + "// Program\n// =======\n\n"
-    + width_fold([...fl.seg.lines, ...tabs].join("\n"), false) + lib;
+    + [...fl.seg.lines, ...tabs].join("\n") + lib;
 }
 
 export function js_book(book: Bend.Book): string {
@@ -3564,14 +3519,11 @@ using namespace metal;
 #define LANE_STEP (DEVICE ? (int64_t)CUBE : 1)
 #define STK(I)    sp[(int64_t)(I) * LANE_STEP]
 
-#define WL_RETN(N)         { resn = (N); WL_POP(); }
-#define WL_RET(V)          { res[0] = (V); WL_RETN(1); }
-#define WL_CONT            STK(-3)
-#define WL_IDX             STK(-2)
-#define WL_POPN(N)         sp -= N * LANE_STEP
-#define WL_PUSHN(N)        sp += N * LANE_STEP
-#define WL_KONT(F, T, I)   WL_CONT = term_tsk(F, T); WL_IDX = I
-#define WL_KID(J, A, F, C) e.mem[J + A] = term_tsk(F, C)
+#define WL_RETN(N)  { resn = (N); WL_POP(); }
+#define WL_CONT     STK(-3)
+#define WL_IDX      STK(-2)
+#define WL_POPN(N)  sp -= N * LANE_STEP
+#define WL_PUSHN(N) sp += N * LANE_STEP
 #define WL_FRAME(T) \
   Loc wtl = task_tail(T); \
   u64 wtw = e.mem[wtl + 1]; \
@@ -3616,7 +3568,6 @@ typedef u64 Loc;
 
 typedef u32 Cls;
 typedef u32 Fid;
-typedef u32 Cid;
 
 typedef u64 Term;
 #define TAG_PAK 1ull
@@ -4647,7 +4598,8 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
   {
     Loc l = heap_alloc(e, 0);
     e.mem[l] = r0;
-    WL_RET(term_ctr(CID_EMIT, l));
+    res[0] = term_ctr(CID_EMIT, l);
+    WL_RETN(1);
   }
 #endif
 
@@ -5427,10 +5379,6 @@ static u32   io_sys_free = IO_ROWS;
 static lock  io_sys_lock = PTHREAD_MUTEX_INITIALIZER;
 static IoEff io_eff_rows[IO_EFFS];
 static u32   io_eff_len;
-static Term* io_run_at;
-static u32   io_run_cap;
-static u32   io_run_beg;
-static u32   io_run_len;
 static u32   io_live;
 
 static u64 io_tick(void) {
@@ -5445,8 +5393,6 @@ OUTLINE void* io_mem(void* mem) {
   }
   return mem;
 }
-
-#define io_sys_done() io_sys_fall(0)
 
 static IoFall io_sys_fall(u32 code) {
   IoFall out = { code, NULL };
@@ -5540,33 +5486,39 @@ static void io_sys_keep(IoWork* w, int kind, int fd) {
   }
 }
 
+// IoRun ::=
+//   | IoRun(cont, item, next)
+typedef struct IoRun {
+  Term          cont;
+  Term          item;
+  struct IoRun* next;
+} IoRun;
+
+static IoRun*  io_runs;
+static IoRun** io_runs_at = &io_runs;
+
+static IoRun* io_cell(Term cont, Term item) {
+  IoRun* r = io_mem(malloc(sizeof(IoRun)));
+  r->cont = cont;
+  r->item = item;
+  r->next = NULL;
+  return r;
+}
+
 static void io_push(Term op, Term x, bool fresh) {
-  if (io_run_len == io_run_cap) {
-    u32   cap = io_run_cap == 0 ? 64 : io_run_cap * 2;
-    Term* at  = io_mem(malloc((u64)cap * 2 * sizeof(Term)));
-    for (u32 i = 0; i < 2 * io_run_len; i += 1) {
-      at[i] = io_run_at[(2 * io_run_beg + i) & (2 * io_run_cap - 1)];
-    }
-    free(io_run_at);
-    io_run_at  = at;
-    io_run_cap = cap;
-    io_run_beg = 0;
-  }
-  Term* s = &io_run_at[2 * ((io_run_beg + io_run_len) & (io_run_cap - 1))];
-  s[0] = op;
-  s[1] = x;
-  io_run_len += 1;
+  IoRun* r = io_cell(op, x);
+  *io_runs_at = r;
+  io_runs_at  = &r->next;
   io_live    += fresh;
 }
 
-OUTLINE __attribute__((cold)) void io_out(FILE* h, const char* data,
-  u64 len) {
+OUTLINE void io_out(FILE* h, const char* data, u64 len) {
   if (fwrite(data, 1, len, h) != len) {
     err_fail(ERR_FAIL, "a short write on a standard stream");
   }
 }
 
-OUTLINE __attribute__((cold)) void io_sync(void) {
+OUTLINE void io_sync(void) {
   if (fflush(stdout) != 0) {
     err_fail(ERR_FAIL, "a short write on a standard stream");
   }
@@ -5592,7 +5544,7 @@ OUTLINE char* io_cstr(Env e, Term s, u64* len) {
   return buf;
 }
 
-OUTLINE __attribute__((cold)) void io_errs(Env e, Term s) {
+OUTLINE void io_errs(Env e, Term s) {
   u64   n    = 0;
   char* text = io_cstr(e, s, &n);
   io_sync();
@@ -5605,23 +5557,20 @@ OUTLINE __attribute__((cold)) void io_errs(Env e, Term s) {
 
 #define io_seal(e, t, hot) ((hot) != 0 ? rfc_seal(e, t) : (t))
 
-static Term io_str(Env e, const char* p, u64 n) {
-  Term s = term_pak(CID_SNIL, 0);
-  while (n > 0) {
-    n -= 1;
-    Loc loc = heap_alloc(e, 1);
-    e.mem[loc]     = (uint8_t)p[n];
-    e.mem[loc + 1] = io_seal(e, s, IO_HOTS & 1);
-    s = term_ctr(CID_SCON, loc);
-  }
-  return s;
-}
-
 static Term io_node(Env e, u64 cid, Term a, Term b, int hot) {
   Loc l = heap_alloc(e, 1);
   e.mem[l]     = io_seal(e, a, hot);
   e.mem[l + 1] = io_seal(e, b, hot);
   return term_ctr(cid, l);
+}
+
+static Term io_str(Env e, const char* p, u64 n) {
+  Term s = term_pak(CID_SNIL, 0);
+  while (n > 0) {
+    n -= 1;
+    s = io_node(e, CID_SCON, (uint8_t)p[n], s, IO_HOTS & 1);
+  }
+  return s;
 }
 
 #define io_tup(e, a, b)     io_node(e, CID_TUPLE, a, b, IO_HOTS & 2)
@@ -5641,7 +5590,7 @@ static Term io_fail(Env e, IoFall q) {
 }
 
 static IoHand io_hand_p(Env e, Term t) {
-  Loc at = term_rfc(t) ? (Loc)(e.mem[term_loc(t)] >> 24) : term_loc(t);
+  Loc at = term_peek(e, t);
   IoHand h = { (u32)e.mem[at], (u32)e.mem[at + 1] };
   return h;
 }
@@ -5670,7 +5619,6 @@ static IoJob*         io_jobs;
 static IoJob**        io_jobs_at = &io_jobs;
 static lock           io_gate = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t io_bell = PTHREAD_COND_INITIALIZER;
-static u32            io_pend;
 static u32            io_busy;
 static u32            io_size;
 static int            io_wake_fd[2];
@@ -5681,7 +5629,6 @@ static void io_take(Env e) {
   while ((n = read(io_wake_fd[0], jobs, sizeof jobs)) > 0) {
     for (u32 i = 0; i < (u32)n / sizeof(IoJob*); i += 1) {
       io_push(jobs[i]->cont, jobs[i]->work.pack(e, &jobs[i]->work), false);
-      io_pend -= 1;
       io_busy -= 1;
       free(jobs[i]);
     }
@@ -5728,7 +5675,6 @@ static void io_fire(Env e, IoJob* job) {
     io_send(job);
     return;
   }
-  io_pend -= 1;
   if (x != IO_PARK) {
     io_push(job->cont, x, false);
   }
@@ -5839,7 +5785,6 @@ static int io_step(Env e, Term op, Term x) {
     job->word = word;
     job->cont = fs[n];
     job->work = w;
-    io_pend += 1;
     if (need == 0) {
       io_send(job);
       return -1;
@@ -5864,11 +5809,11 @@ OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
   io_push(term_tsk(fid, task_node(e, fid, TERM_HOLE, 0, 0)),
     term_clo(FID_IO_EMIT, 0), true);
   for (u32 n = 0;; n += 1) {
-    if (io_run_len == 0) {
+    if (io_runs == NULL) {
       if (io_live == 0) {
         return 0;
       }
-      if (io_pend == 0) {
+      if (io_park == NULL && io_busy == 0) {
         io_sync();
         fprintf(stderr, "bend: deadlock: every computation waits on a"
           " channel\n");
@@ -5880,10 +5825,11 @@ OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
     if ((n & 63) == 0 && io_busy != 0) {
       io_take(e);
     }
-    Term* s    = &io_run_at[2 * io_run_beg];
-    io_run_beg = (io_run_beg + 1) & (io_run_cap - 1);
-    io_run_len -= 1;
-    int   code = io_step(e, s[0], s[1]);
+    IoRun* r   = io_runs;
+    io_runs    = r->next;
+    io_runs_at = io_runs == NULL ? &io_runs : io_runs_at;
+    int code   = io_step(e, r->cont, r->item);
+    free(r);
     if (code >= 0) {
       return code;
     }
@@ -5894,24 +5840,16 @@ ${NATIVE.IO}
 // Chan
 // ====
 
-// ChanWait ::=
-//   | ChanWait(cont, item, next)
-typedef struct ChanWait {
-  Term             cont;
-  Term             item;
-  struct ChanWait* next;
-} ChanWait;
-
 // ChanRow ::=
 //   | ChanRow(room, size, head, shut, ring, wait, last)
 typedef struct {
-  u32       room;
-  u32       size;
-  u32       head;
-  u32       shut;
-  Term*     ring;
-  ChanWait* wait;
-  ChanWait* last;
+  u32    room;
+  u32    size;
+  u32    head;
+  u32    shut;
+  Term*  ring;
+  IoRun* wait;
+  IoRun* last;
 } ChanRow;
 
 #define chan_some(e, v) io_box(e, CID_SOME, v, IO_HOTS & 32)
@@ -5923,10 +5861,7 @@ static ChanRow* chan_at(IoHand h) {
 }
 
 static void chan_park(ChanRow* row, Term cont, Term item) {
-  ChanWait* w = io_mem(malloc(sizeof(ChanWait)));
-  w->cont = cont;
-  w->item = item;
-  w->next = NULL;
+  IoRun* w = io_cell(cont, item);
   if (row->wait == NULL) {
     row->wait = w;
   } else {
@@ -5936,7 +5871,7 @@ static void chan_park(ChanRow* row, Term cont, Term item) {
 }
 
 static Term chan_wake(ChanRow* row, Term x) {
-  ChanWait* w = row->wait;
+  IoRun* w = row->wait;
   Term item = w->item;
   row->wait = w->next;
   io_push(w->cont, x, false);
@@ -6172,7 +6107,7 @@ function cli(argv) {
     const a = argv[i];
     const v = argv[i + 1] ?? "";
     if (a === "--help") {
-      io_out(1, Uint8Array.from([
+      io_out(1, io_bytes([
         "usage: " + process.argv[1] + " [options]",
         "  --threads N        worker threads: a JS program runs one",
         "  --parallel on|off  off means one thread and no GPU (default: on)",
@@ -6180,7 +6115,7 @@ function cli(argv) {
         "  --gpu-memory 4GB   device span: a JS program uses the JS heap",
         "  --help             show this text",
         "",
-      ].join("\n"), (c) => c.codePointAt(0)));
+      ].join("\n")));
       process.exit(0);
     } else if (a === "--threads") {
       thr = /^[ \t\n\v\f\r]*\+?\d+$/.test(v) ? Number(v) : 0;

@@ -23,7 +23,7 @@ IoFall tcp_listen(uint32_t port, IoHand* out) {
     close(fd);
     return io_sys_fall(EMFILE);
   }
-  return io_sys_done();
+  return io_sys_fall(0);
 }
 
 Term tcp_listen_run(Env e, Term* f, IoWork* w) {

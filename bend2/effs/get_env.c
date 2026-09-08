@@ -7,7 +7,7 @@ IoFall io_get_env(const char* name, const char** out) {
     return io_sys_fall(ENOENT);
   }
   *out = value;
-  return io_sys_done();
+  return io_sys_fall(0);
 }
 
 Term io_get_env_run(Env e, Term* f, IoWork* w) {

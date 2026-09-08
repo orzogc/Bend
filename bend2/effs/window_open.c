@@ -12,7 +12,7 @@ IoFall window_open(const char* title, uint32_t w, uint32_t h, IoHand* out) {
     window_drop(row);
     return io_sys_fall(EMFILE);
   }
-  return io_sys_done();
+  return io_sys_fall(0);
 }
 
 Term window_open_run(Env e, Term* f, IoWork* w) {
