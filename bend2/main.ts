@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 // HUMAN NOTE: this particular file is AI written and nobody really cares.
 //
 // Run, this file is the CLI. Imported, it is the loader that makes `import
@@ -13,6 +14,7 @@
 import * as child from "node:child_process";
 import * as fs from "node:fs";
 import * as mod from "node:module";
+import * as path from "node:path";
 import * as url from "node:url";
 import * as thr from "node:worker_threads";
 
@@ -27,8 +29,10 @@ import * as Comp from "./comp.ts";
 // Constants
 // =========
 
-const USAGE = "usage: bend <file.bend> [--check | -o <bin> | --to <out.c|.js>]"
+const USAGE = "usage: bend <file.bend> [--checkup] [-o <out>]..."
   + "\n       bend <page.html> -o <dir>";
+
+const BASE = fs.realpathSync(path.join(import.meta.dirname, "base.bend"));
 
 export const METAL = ["-DBEND_METAL=1", "-x", "objective-c", "-fobjc-arc",
   "-fmodules"];
@@ -45,52 +49,89 @@ const PLUGIN: BunPlugin = {
 // ===
 
 async function cli(): Promise<void> {
-  const [path, flag, out, more] = process.argv.slice(2);
-  if (path === undefined || path === "--help") {
-    console.log(USAGE);
-    process.exit(path === undefined ? 1 : 0);
+  const args = process.argv.slice(2);
+  const outs: string[] = [];
+  let file: string | undefined;
+  let checkup = false;
+  for (let i = 0; i < args.length; i += 1) {
+    const a = args[i];
+    if (a === "--help") {
+      cli_say(1, USAGE + "\n");
+      process.exit(0);
+    } else if (a === "--checkup") {
+      checkup = true;
+    } else if (a === "-o") {
+      i += 1;
+      outs.push(args[i] ?? cli_fail("-o needs an output file"));
+    } else if (a.startsWith("-") || file !== undefined) {
+      cli_fail(a.startsWith("-") ? "unknown option " + a : "too many arguments");
+    } else {
+      file = a;
+    }
   }
-  const emit = flag === "--to" || flag === "-o";
-  if (path[0] === "-" || (flag !== undefined && flag !== "--check" && !emit)) {
-    cli_fail("unknown option " + (path[0] === "-" ? path : flag));
+  if (file === undefined) {
+    cli_say(1, USAGE + "\n");
+    process.exit(1);
   }
-  if (more !== undefined || (emit ? out === undefined : out !== undefined)) {
-    cli_fail(emit && out === undefined
-      ? flag + " needs an output file" : "too many arguments");
-  }
-  if (flag === "--to" && !/\.(c|js)$/.test(out)) {
-    cli_fail("--to expects a .c or a .js file, not " + out);
-  }
-  if (path.endsWith(".html")) {
-    if (flag !== "-o") {
+  if (file.endsWith(".html")) {
+    if (outs.length !== 1 || checkup) {
       cli_fail("a page bundles with -o <dir>");
     }
-    return cli_bundle(path, out);
+    return cli_bundle(file, outs[0]);
   }
-
   try {
-    const book = await book_read(path);
-    if (emit) {
-      if (book.hols > 0) {
-        throw "Error: the book has TODOs and cannot compile";
-      }
-      const c = flag === "-o" || out.endsWith(".c");
-      fs.writeFileSync(flag === "-o" ? out + ".c" : out,
-        c ? Comp.compile_book(book) : Comp.js_book(book));
-      if (flag === "-o") {
-        cli_build(out);
-      }
-    } else if (flag === "--check" || book.tlds["main"] === undefined) {
-      cli_report(book);
-    } else if (Comp.io_type(book) !== null) {
-      process.exit(Comp.io_run(book));
-    } else {
-      const snf = Bend.term_snf(book, Bend.Ref("main"));
-      console.log(Bend.term_show(Bend.term_lower(snf)));
+    const book = checkup ? await cli_checkup(file) : await book_read(file);
+    if (outs.length === 0 && !checkup) {
+      process.exit(book_run(book));
+    }
+    for (const out of outs) {
+      cli_emit(book, out);
     }
   } catch (e) {
-    console.error(book_err(e));
+    cli_say(2, book_err(e) + "\n");
     process.exit(1);
+  }
+}
+
+async function cli_checkup(file: string): Promise<Bend.Book> {
+  const base = await book_read(BASE);
+  const book = book_seed(base);
+  const seen = new Map<string, string | null>([[BASE, ""]]);
+  for (const raw of fs.readFileSync(file, "utf8").split("\n")) {
+    const m = /^import\s+(\S+)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/
+      .exec(raw.trim());
+    if (m === null) {
+      continue;
+    }
+    const at = path.join(path.dirname(file), m[1]);
+    cli_say(1, "--- " + m[1] + " ---\n");
+    let code = 1;
+    try {
+      const own = /^import Base$/m.test(fs.readFileSync(at, "utf8"));
+      const one = await book_read(at, own ? base : undefined);
+      if (own) {
+        await Bend.book_load(book, at, m[2], seen);
+      }
+      code = book_run(one);
+    } catch (e) {
+      cli_say(2, book_err(e) + "\n");
+    }
+    if (code !== 0) {
+      cli_say(1, "exit " + String(code) + "\n");
+    }
+  }
+  Bend.book_valid(book, base.order.length);
+  return book;
+}
+
+function cli_emit(book: Bend.Book, out: string): void {
+  if (out.endsWith(".js")) {
+    fs.writeFileSync(out, Comp.js_book(book));
+  } else if (out.endsWith(".c")) {
+    fs.writeFileSync(out, Comp.compile_book(book));
+  } else {
+    fs.writeFileSync(out + ".c", Comp.compile_book(book));
+    cli_build(out);
   }
 }
 
@@ -101,8 +142,8 @@ function cli_build(bin: string): void {
       "-L/usr/local/cuda/lib64", ...cpu, "-lcuda", "-lnvrtc"];
   const got = child.spawnSync("clang", gpu, { stdio: "pipe" });
   if (got.status !== 0) {
-    console.error("bend: GPU build failed: " + String(got.stderr ?? got.error)
-      .split("\n")[0] + "; building CPU-only");
+    cli_say(2, "bend: GPU build failed: " + String(got.stderr ?? got.error)
+      .split("\n")[0] + "; building CPU-only\n");
     if (child.spawnSync("clang", cpu, { stdio: "inherit" }).status !== 0) {
       throw "Error: clang failed to build " + bin;
     }
@@ -118,39 +159,74 @@ async function cli_bundle(page: string, dir: string): Promise<void> {
     plugins: [PLUGIN],
   });
   for (const a of out.outputs) {
-    console.log(a.path + " (" + (a.size / 1024).toFixed(1) + "kb)");
+    cli_say(1, a.path + " (" + (a.size / 1024).toFixed(1) + "kb)\n");
   }
 }
 
 function cli_report(book: Bend.Book): void {
   const tlds = Object.values(book.tlds);
   const uns  = tlds.filter((t) => t.$ === "Def" && t.u === true).length;
-  const all  = "All " + tlds.length + " definitions check";
   if (book.hols > 0) {
-    const s = book.hols === 1 ? " TODO" : " TODOs";
-    console.log(all + ", with " + book.hols + s + " found.");
-    console.log("The code is incomplete, and not a valid proof yet.");
+    cli_say(1, String(book.hols) + (book.hols === 1 ? " TODO" : " TODOs")
+      + " found.\nThe code is incomplete, and not a valid proof yet.\n");
   } else if (uns > 0) {
-    console.log(all + ", with " + uns + " annotated as unsafe.");
-    console.log("The code is well-typed, but may contain logical paradoxes.");
+    cli_say(1, String(uns) + (uns === 1 ? " term" : " terms")
+      + " annotated as unsafe.\nThe code is well-typed, but may contain"
+      + " logical paradoxes.\n");
   } else {
-    console.log(all + ".");
+    cli_say(1, "All terms check.\n");
   }
 }
 
+function cli_say(fd: number, text: string): void {
+  fs.writeSync(fd, text);
+}
+
 function cli_fail(msg: string): never {
-  console.error("bend: " + msg + "\n" + USAGE);
+  cli_say(2, "bend: " + msg + "\n" + USAGE + "\n");
   process.exit(1);
 }
 
 // Book
 // ====
 
-async function book_read(path: string): Promise<Bend.Book> {
-  const book = Bend.book_nil();
-  await Bend.book_load(book, path, "", new Map());
-  Bend.book_valid(book);
+async function book_read(file: string,
+  base?: Bend.Book): Promise<Bend.Book> {
+  const book = base === undefined ? Bend.book_nil() : book_seed(base);
+  const seen = new Map<string, string | null>(
+    base === undefined ? [] : [[BASE, ""]]);
+  await Bend.book_load(book, file, "", seen);
+  Bend.book_valid(book, base?.order.length ?? 0);
   return book;
+}
+
+function book_seed(base: Bend.Book): Bend.Book {
+  const book = Bend.book_nil();
+  for (const k of Object.keys(base.tlds)) {
+    book.tlds[k] = { ...base.tlds[k] };
+  }
+  Object.assign(book.ctrs, base.ctrs);
+  for (const k of Object.keys(base.tmps)) {
+    book.tmps[k] = { ...base.tmps[k], p: { ...base.tmps[k].p, book },
+      is: { ...base.tmps[k].is } };
+  }
+  book.order.push(...base.order);
+  return book;
+}
+
+function book_run(book: Bend.Book): number {
+  const main = book.tlds["main"];
+  if (main === undefined || main.$ !== "Def"
+    || (main.v === null && main.i === undefined)) {
+    cli_report(book);
+    return 0;
+  }
+  if (Comp.io_type(book) !== null) {
+    return Comp.io_run(book);
+  }
+  const snf = Bend.term_snf(book, main.v as Bend.HTerm);
+  cli_say(1, Bend.term_show(Bend.term_lower(snf)) + "\n");
+  return 0;
 }
 
 function book_err(e: unknown): string {
@@ -176,7 +252,7 @@ async function load_js(path: string): Promise<string> {
     return tld.$ === "Def" && tld.v !== null && tld.b !== true
       && tld.i === undefined && Comp.io_base(book, tld.T) === null;
   });
-  return Comp.js_lib(book, outs);
+  return Comp.js_lib(book, outs, outs);
 }
 
 export async function load(u: string, context: unknown,

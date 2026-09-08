@@ -148,7 +148,7 @@ For more examples, check:
 # needs Bun 1.3+ (https://bun.com) and clang; Metal or CUDA for the GPU
 git clone https://github.com/HigherOrderCO/bend4
 cd bend4
-bun .devs/scripts/install.ts   # puts `bend` on the PATH (~/.bun/bin)
+ln -s "$PWD/bend2/main.ts" ~/.bun/bin/bend   # puts `bend` on the PATH
 ```
 
 ### 2. Save a Hello World:

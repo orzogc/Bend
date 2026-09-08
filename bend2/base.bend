@@ -1139,6 +1139,10 @@ law F32.show:
   for +a: F32
   String
 
+law F32.bits:
+  for a: F32
+  U32
+
 law F32.read:
   for s: String
   Maybe<&2, F32>

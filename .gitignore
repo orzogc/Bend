@@ -1,4 +1,2 @@
-.devs/node_modules
+bend2/conf/node_modules
 .tmp
-/*.txt
-.devs/prompts/
