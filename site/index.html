@@ -109,13 +109,13 @@ no threads, no locks, and not one GPU kernel written by you.</p>
     <div class="dots"></div>
     <figcaption>Apple M4 Max · lower is better</figcaption>
   </figure>
+  <p>Parallelism is near-automatic. Divide the work in two, and a
+call splits until each core holds one task. Then the results
+fold back into one. Here, a single call runs on 4,096 cores:</p>
   <figure>
     <canvas id="cube"></canvas>
     <figcaption>GPU evaluation</figcaption>
   </figure>
-  <p>A call splits until each core holds a task; then the results
-fold back into one. Host and device share one memory, so not
-one byte is copied. The entire language compiles to kernels.</p>
 </section>
 
 <section id="laws">
