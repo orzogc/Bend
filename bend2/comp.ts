@@ -3542,8 +3542,6 @@ using namespace metal;
 #define DEVICE  0
 #define CLZ(x)  (u32)__builtin_clz(x)
 #define FENCE() __atomic_thread_fence(__ATOMIC_SEQ_CST)
-
-#define BEND_GPU (BEND_METAL || BEND_CUDA)
 #endif
 
 #if DEVICE
@@ -3711,6 +3709,7 @@ typedef u32* Cursor;
 #define H_CURSOR     LINE
 #define H_ROOT_DONE  (2 * LINE)
 #define H_ERROR_CODE (3 * LINE)
+#define H_BANG       (H_ERROR_CODE + 1)
 #define H_BITS       (4 * LINE)
 #define H_ROOT_WORD  (H_BITS + NCLS_ALL * BITS_WORDS)
 
@@ -3725,21 +3724,18 @@ typedef u32* Cursor;
 
 #if !DEVICE
 
-typedef _Atomic u32     au32;
-typedef _Atomic u64     au64;
 typedef pthread_mutex_t lock;
-typedef pthread_cond_t  cond;
 
 static Corpus CORPUS;
 static u64    CORPUS_SIZE;
 
-static u32  pool_size;
-static au32 pool_row;
-static bool pool_grow;
-static au64 pool_tick;
-static au32 pool_done;
-static lock pool_lock = PTHREAD_MUTEX_INITIALIZER;
-static cond pool_wake = PTHREAD_COND_INITIALIZER;
+static u32            pool_size;
+static _Atomic u32    pool_row;
+static bool           pool_grow;
+static _Atomic u64    pool_tick;
+static _Atomic u32    pool_done;
+static lock           pool_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t pool_wake = PTHREAD_COND_INITIALIZER;
 
 #if BEND_METAL
 static id<MTLDevice>               gpu_dev;
@@ -3814,10 +3810,9 @@ static const char* CLI_HELP =
 #define a32_xor(p, v)   atomicXor((u32*)(p), v)
 
 INLINE bool a32_swp(DEV u32* p, u32* e, u32 v) {
-  u32 old = atomicCAS((u32*)p, *e, v);
-  bool ok = old == *e;
-  *e = old;
-  return ok;
+  u32 x = *e;
+  *e = atomicCAS((u32*)p, x, v);
+  return *e == x;
 }
 
 #endif
@@ -3845,9 +3840,7 @@ INLINE u32 a32_load_acq(DEV u32* p) {
 INLINE bool a32_cas(DEV u32* p, THR u32* e, u32 v) {
   FENCE();
   bool ok = a32_swp(p, e, v);
-  if (ok) {
-    FENCE();
-  }
+  FENCE();
   return ok;
 }
 
@@ -3878,11 +3871,7 @@ INLINE bool a32_cas(u32* p, u32* e, u32 v) {
 
 INLINE void err_post(Corpus H, Err code) {
   u32 seen = 0;
-  while (!a32_cas(a32_at(H, H_ERROR_CODE), &seen, code)) {
-    if (seen != 0) {
-      return;
-    }
-  }
+  while (seen == 0 && !a32_cas(a32_at(H, H_ERROR_CODE), &seen, code)) {}
 }
 
 #else
@@ -3922,7 +3911,7 @@ ${NATIVE.C}
 INLINE u32 heap_pick(u32 w, u32 r) {
   u32 m = w & (~0u << (r & 31));
   m = m != 0 ? m : w;
-  return 31 - CLZ(m & (0u - m));
+  return 31 - CLZ(m & -m);
 }
 
 OUTLINE Loc heap_swap(Corpus H, Cls cls, u32 s, Loc h) {
@@ -3994,7 +3983,7 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   u32      own  = (u32)ALC_AT(e, M_PUSH);
   DEV u32* bits = slot_bits(H, cls);
   Loc      h    = 0;
-  u32      t    = a32_load(bits + CUBE / 32 + LINE);
+  u32      t    = a32_load(bits + CUBE / 32 + CUBE / 1024);
   while (t != 0 && h == 0) {
     u32 j = heap_pick(t, own >> 10);
     u32 s = a32_load(bits + CUBE / 32 + j);
@@ -4076,9 +4065,7 @@ HOT void heap_free(Env e, Cls cls, Loc loc) {
 // Term
 // ====
 
-INLINE Term term_make(u64 tag, u64 aux, Loc loc) {
-  return (tag << 56) | (aux << 40) | loc;
-}
+#define term_make(g, a, l) (((g) << 56) | ((u64)(a) << 40) | (l))
 
 #define term_ctr(cid, loc) term_make(TAG_CTR, cid, loc)
 #define term_pak(cid, loc) term_make(TAG_PAK, cid, loc)
@@ -4086,25 +4073,19 @@ INLINE Term term_make(u64 tag, u64 aux, Loc loc) {
 #define term_buf(cls, loc) term_make(TAG_BUF, cls, loc)
 #define term_tsk(fid, loc) term_make(TAG_TSK, fid, loc)
 
-INLINE Term term_blk(bool arr, Cls cls, Loc loc) {
-  return term_buf(cls, loc) | ((u64)arr << 57);
-}
+#define term_blk(a, c, l) (term_buf(c, l) | ((u64)(a) << 57))
 
 INLINE u64 term_tag(Term t) {
   return (t >> 56) & 0x7f;
 }
 
-INLINE bool term_rfc(Term t) {
-  return (t & RFC_BIT) != 0;
-}
+#define term_rfc(t) (((t) & RFC_BIT) != 0)
 
 INLINE u64 term_aux(Term t) {
   return (t >> 40) & 0xFFFF;
 }
 
-INLINE Loc term_loc(Term t) {
-  return t & LOC_MASK;
-}
+#define term_loc(t) ((t) & LOC_MASK)
 
 INLINE bool term_triv(Term t) {
   return term_tag(t) <= TAG_PAK || t == TERM_HOLE;
@@ -4232,6 +4213,11 @@ static void term_drop(Env e, Term t) {
           cls = cls_fit(tag == TAG_TSK ? ar + 2 : ar);
         }
         c0 = H[loc];
+        #if !DEVICE
+        for (u32 q = 1; q < n; q += 1) {
+          __builtin_prefetch(H + term_loc(H[loc + q]));
+        }
+        #endif
         H[loc] = cur;
         cur = loc | ((u64)n << 48) | ((u64)cls << 56);
       }
@@ -4277,11 +4263,7 @@ static void term_drop(Env e, Term t) {
   }
 }
 
-HOT void term_sink(Env e, Term t) {
-  if (!term_triv(t)) {
-    term_drop(e, t);
-  }
-}
+#define term_sink(e, t) (term_triv(t) ? (void)0 : term_drop(e, t))
 
 OUTLINE void span_fade(Env e, Term t, Loc src, u32 n) {
   for (u32 j = 0; j < n; j += 1) {
@@ -4474,10 +4456,8 @@ INLINE Term blk_new(Env e, bool arr, Nat d, u32 lgs, u32 n, THR Term* v) {
 #define ring_slot(H, r, p) ring_word(H, r, (p) & (RING_LEN - 1))
 #define ring_get(H, r)     ((DEV u32*)ring_word(H, r, RING_LEN))
 #define ring_put(H, r)     ((DEV u32*)ring_word(H, r, RING_LEN + 1))
-
-INLINE u32 ring_lap(u32 pos) {
-  return ~(u32)(pos / RING_LEN) & 1;
-}
+#define ring_lap(p)        (~(p) / RING_LEN & 1)
+#define ring_skip(H, r)    a32_store(ring_get(H, r), *ring_get(H, r) + 1)
 
 INLINE void ring_push(Corpus H, Ring r, Term tsk) {
   u32 pos = a32_add(ring_put(H, r), 1);
@@ -4500,15 +4480,7 @@ INLINE Term ring_head(Corpus H, Ring r) {
   return (((u64)hi << 32) | a32_load(lo)) & ~RFC_BIT;
 }
 
-INLINE void ring_skip(Corpus H, Ring r) {
-  DEV u32* get = ring_get(H, r);
-  a32_store(get, *get + 1);
-}
-
-INLINE Ring ring_flip(u32 i) {
-  return i / CUBE_SIDE + CUBE_SIDE * (i % CUBE_SIDE);
-}
-
+#define ring_flip(i)       ((i) / CUBE_SIDE + CUBE_SIDE * ((i) % CUBE_SIDE))
 #define ring_pick(b, s, c) ((b) + (s) * (CUR_STEP(c) & (CUBE_SIDE - 1)))
 
 // Task
@@ -4525,9 +4497,7 @@ INLINE Loc task_node(Env e, Fid fid, Term cont, u32 idx, u32 rem) {
   return loc;
 }
 
-INLINE Loc task_tail(Term t) {
-  return term_loc(t) + fid_arity((u32)term_aux(t));
-}
+#define task_tail(t) (term_loc(t) + fid_arity((u32)term_aux(t)))
 
 INLINE Term task_deliver(Corpus H, Term cont, u32 idx, THR Term* v, u32 n) {
   Loc at = cont == TERM_HOLE ? H_ROOT_WORD : term_loc(cont) + idx;
@@ -4572,16 +4542,10 @@ INLINE void task_deal(Corpus H, Term join, u32 base, u32 stride, Cursor cur) {
   }
 }
 
-INLINE bool task_runs(Corpus H, Reply r) {
-  return (u32)H[task_tail(r) + 1] == 0;
-}
-
 // Root
 // ====
 
-INLINE bool root_done(Corpus H) {
-  return a32_load_acq(a32_at(H, H_ROOT_DONE)) != 0;
-}
+#define root_done(H) (a32_load_acq(a32_at(H, H_ROOT_DONE)) != 0)
 
 static u32 root_take(Corpus H, THR Term* v) {
   u32 n = a32_load_acq(a32_at(H, H_ROOT_DONE)) - 1;
@@ -4728,7 +4692,7 @@ INLINE u32 monk_run(Env e, Stk stk, Term t, bool seq, u32 base,
     if (r == 0) {
       return 2;
     }
-    if (task_runs(e.mem, r)) {
+    if ((u32)e.mem[task_tail(r) + 1] == 0) {
       if (err_spun(e.mem, &spin)) {
         return 2;
       }
@@ -4761,6 +4725,12 @@ INLINE u32 monk_grow(Env e, Stk stk, Ring rg, u32 put0, u32 base, u32 stride,
 
 static void monk_work(Env e, Stk stk, Ring r) {
   Corpus H = e.mem;
+  if ((ALC_AT(e, M_PUSH) >> 31 ^ a32_load(a32_at(H, H_BANG))) & 1) {
+    ALC_AT(e, M_PUSH) ^= 1u << 31;
+    for (Cls c = 0; c < NCLS; c += 1) {
+      ALC_AT(e, M_CAP(c)) = ALC_AT(e, M_CAP(c)) >> 41 << 40;
+    }
+  }
   u32 put0 = a32_load(ring_put(H, r));
   while (*ring_get(H, r) != put0) {
     if (err_seen(H)) {
@@ -4772,9 +4742,6 @@ static void monk_work(Env e, Stk stk, Ring r) {
     }
     ring_skip(H, r);
     monk_run(e, stk, t, true, r, 0, (Cursor)0);
-  }
-  for (Cls c = 0; c < NCLS; c += 1) {
-    ALC_AT(e, M_CAP(c)) = ALC_AT(e, M_CAP(c)) >> 41 << 40;
   }
 }
 
@@ -5012,13 +4979,11 @@ static id<MTLComputePipelineState> gpu_pipe(const char* name) {
   return pso;
 }
 
-#define MEM_DFLT (2ull << 30)
-
 static u64 gpu_span(void) {
   u64 span = [gpu_dev recommendedMaxWorkingSetSize];
   u64 most = [gpu_dev maxBufferLength];
   span = span < most ? span : most;
-  return span < MEM_DFLT ? span : MEM_DFLT;
+  return span < (2ull << 30) ? span : 2ull << 30;
 }
 
 static void gpu_load(u64 bytes) {
@@ -5240,6 +5205,7 @@ static void gpu_pass(u32 f) {
 // ====
 
 static void cube_run(Corpus H, bool gpu) {
+  a32_add(a32_at(H, H_BANG), 1);
   for (;;) {
     u32 f = a32_load(a32_at(H, H_CURSOR));
     a32_store(a32_at(H, H_CURSOR), 0);
@@ -5309,7 +5275,7 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
       }
       err_fail(ERR_LEAK, "solo delivery lost");
     }
-    if (task_runs(H, r)) {
+    if ((u32)H[task_tail(r) + 1] == 0) {
       t = r;
       if (io_gpu && fid_bangs((u32)term_aux(t))) {
         Loc  tl   = task_tail(t);
