@@ -8,7 +8,7 @@
 # few thousand nodes along the edges. The caller classifies the child, so
 # the recursion is one def descending on the depth.
 #
-#   bend demos/triangle/main.bend -o triangle && ./triangle
+#   bend demos/hello_triangle/main.bend -o hello_triangle && ./hello_triangle
 import Base
 
 def Tri.pick(c: Bool, a: U32, b: U32) -> U32:

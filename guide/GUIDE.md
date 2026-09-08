@@ -540,8 +540,8 @@ a key with no character (a modifier) 65536 plus its hardware code. Mouse
 positions are device pixels from the top-left; buttons are 0 left, 1
 right, 2 middle. A hidden or minimized window paces at one frame per
 second. Build with `-o`: the JS backend has no display and refuses
-`Window.open`. `demos/pong` draws a few hundred nodes per frame;
-`demos/fly` ray-marches every pixel on the GPU with one `!`.
+`Window.open`. `demos/pong_game` draws a few hundred nodes per frame;
+`demos/ray_tracer` ray-marches every pixel on the GPU with one `!`.
 
 **Imports.** Import lines come first in a file:
 
