@@ -5664,16 +5664,16 @@ typedef struct IoJob {
   Term          args[];
 } IoJob;
 
-static IoJob*  io_park;
-static IoJob** io_park_at = &io_park;
-static IoJob*  io_more;
-static IoJob** io_more_at = &io_more;
-static lock    io_gate = PTHREAD_MUTEX_INITIALIZER;
-static u32     io_pend;
-static u32     io_busy;
-static u32     io_size;
-static int     io_job_fd[2];
-static int     io_wake_fd[2];
+static IoJob*         io_park;
+static IoJob**        io_park_at = &io_park;
+static IoJob*         io_jobs;
+static IoJob**        io_jobs_at = &io_jobs;
+static lock           io_gate = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t io_bell = PTHREAD_COND_INITIALIZER;
+static u32            io_pend;
+static u32            io_busy;
+static u32            io_size;
+static int            io_wake_fd[2];
 
 static void io_take(Env e) {
   IoJob*  jobs[64];
@@ -5690,25 +5690,18 @@ static void io_take(Env e) {
 
 static void* io_help(void* arg) {
   for (;;) {
-    IoJob* job;
     pthread_mutex_lock(&io_gate);
-    ssize_t n = read(io_job_fd[0], &job, sizeof job);
-    pthread_mutex_unlock(&io_gate);
-    if (n != sizeof job) {
-      continue;
+    while (io_jobs == NULL) {
+      pthread_cond_wait(&io_bell, &io_gate);
     }
+    IoJob* job = io_jobs;
+    io_jobs    = job->next;
+    io_jobs_at = io_jobs == NULL ? &io_jobs : io_jobs_at;
+    pthread_mutex_unlock(&io_gate);
     job->work.call(&job->work);
     while (write(io_wake_fd[1], &job, sizeof job) != sizeof job) {
     }
   }
-}
-
-static void io_feed(void) {
-  IoJob* j;
-  while ((j = io_more) != NULL && write(io_job_fd[1], &j, sizeof j) > 0) {
-    io_more = j->next;
-  }
-  io_more_at = io_more == NULL ? &io_more : io_more_at;
 }
 
 static void io_send(IoJob* job) {
@@ -5721,10 +5714,12 @@ static void io_send(IoJob* job) {
     pthread_detach(tid);
     io_size += 1;
   }
-  job->next   = NULL;
-  *io_more_at = job;
-  io_more_at  = &job->next;
-  io_feed();
+  job->next = NULL;
+  pthread_mutex_lock(&io_gate);
+  *io_jobs_at = job;
+  io_jobs_at  = &job->next;
+  pthread_cond_signal(&io_bell);
+  pthread_mutex_unlock(&io_gate);
 }
 
 static void io_fire(Env e, IoJob* job) {
@@ -5772,7 +5767,6 @@ static void io_wait(Env e) {
   if (fds[0].revents != 0) {
     io_take(e);
   }
-  io_feed();
   u64     now = io_tick();
   u32     i   = 1;
   IoJob** at  = &io_park;
@@ -5864,8 +5858,7 @@ OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
   io_gpu = gpu;
   io_stk = pool_stack();
   signal(SIGPIPE, SIG_IGN);
-  if (pipe(io_job_fd) | pipe(io_wake_fd) | fcntl(io_job_fd[1], F_SETFL,
-    O_NONBLOCK) | fcntl(io_wake_fd[0], F_SETFL, O_NONBLOCK)) {
+  if (pipe(io_wake_fd) | fcntl(io_wake_fd[0], F_SETFL, O_NONBLOCK)) {
     err_fail(ERR_FAIL, "the event loop failed to open");
   }
   io_push(term_tsk(fid, task_node(e, fid, TERM_HOLE, 0, 0)),
@@ -5886,7 +5879,6 @@ OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
     }
     if ((n & 63) == 0 && io_busy != 0) {
       io_take(e);
-      io_feed();
     }
     Term* s    = &io_run_at[2 * io_run_beg];
     io_run_beg = (io_run_beg + 1) & (io_run_cap - 1);
