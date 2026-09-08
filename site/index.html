@@ -18,7 +18,6 @@ a:hover{border-bottom-color:var(--blu)}
 b{color:var(--b02);font-weight:600}
 p{margin:1em 0;white-space:pre-line}
 p.c{text-align:center}
-p.gt{text-align:center;font-size:1.2em;color:var(--b02);font-weight:600;margin:1.6em 0 .5em}
 code{color:var(--b02)}
 .x{color:var(--red);font-weight:600}
 
@@ -63,7 +62,7 @@ figcaption{text-align:center;color:var(--b1);font-size:.87em;margin-top:.7em}
 .dots a{color:var(--b00)}
 
 canvas{display:block;width:100%}
-.game{aspect-ratio:12/8}
+#game{aspect-ratio:12/8}
 #cube{aspect-ratio:1;max-width:384px;margin:0 auto}
 
 #sl{position:fixed;left:0;right:0;bottom:0;display:flex;gap:2ch;padding:0 1.5ch;background:var(--bg2);color:var(--b00);font-size:.8em;line-height:2;border-top:1px solid #e4dec9}
@@ -124,12 +123,7 @@ one law: the player can't win. So you write it in LAWS.bend:</p>
   <p>Your rules go there. You are done. The AI must prove them.</p>
   <p>Then you prompt: <i>"please, make the board wrap around"</i>.</p>
   <figure>
-    <p class="gt">Original game:</p>
-    <canvas class="game" id="g0"></canvas>
-    <p class="gt">New feature; no LAWS.bend:</p>
-    <canvas class="game" id="g1"></canvas>
-    <p class="gt">New feature; with LAWS.bend:</p>
-    <canvas class="game" id="g2"></canvas>
+    <canvas id="game"></canvas>
     <figcaption>Vibe-coding a new feature</figcaption>
   </figure>
   <p>Without LAWS.bend, the wrap let the player into the room and
@@ -364,13 +358,13 @@ function play(cv, draw) {
 
 // ---------------------------------------------------------------- the game
 // The level main.bend prints: a 12 x 8 map, a flag at (1,1) in a room
-// sealed by two walls, the player at (8,5). One canvas per act. Act one:
-// the player walks up and bumps the room's wall. Act two: the wrap
-// feature without LAWS.bend: the player walks off the right edge, in at
-// the left, and takes the flag. Act three: with LAWS.bend: the AI's wall
-// on the far edge stops the walk.
+// sealed by two walls, the player at (8,5). Three acts on one canvas,
+// each opened by its title card. Act one: the player walks up and bumps
+// the room's wall. Act two: the wrap feature without LAWS.bend: the
+// player walks off the right edge, in at the left, and takes the flag.
+// Act three: with LAWS.bend: the AI's wall on the far edge stops the walk.
 {
-  const GW = 12, GH = 8, STEP = 0.2, BUMP = 0.4, BUMPS = 3, LEAD = 0.8, HOLD = 1.8;
+  const GW = 12, GH = 8, STEP = 0.2, BUMP = 0.4, BUMPS = 3, TITLE = 1.8, LEAD = 0.6, HOLD = 1.8;
   const up = (x, y0, y1) => { const p = []; for (let y = y0; y >= y1; y--) p.push([x, y]); return p; };
   const near = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) <= 1;
   const routeDur = r => r.reduce((t, c, i) => i && near(c, r[i - 1]) ? t + STEP : t, 0);
@@ -391,17 +385,30 @@ function play(cv, draw) {
     return s;
   }
   const ACTS = [
-    { id: "g0", far: false, route: up(8, 5, 1).concat([[7, 1], [6, 1], [5, 1], [4, 1]]), bump: [-1, "3,1"] },
-    { id: "g1", far: false, route: up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]), win: true,
+    { title: "Original game:", far: false, route: up(8, 5, 1).concat([[7, 1], [6, 1], [5, 1], [4, 1]]), bump: [-1, "3,1"] },
+    { title: "New feature; no LAWS.bend:", far: false, route: up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]), win: true,
       pop: ["YOU WON !?", "#fbe7e3", "#e9a39c", "#dc322f"] },
-    { id: "g2", far: true, route: up(8, 5, 1).concat([[9, 1], [10, 1]]), bump: [1, "11,1"],
+    { title: "New feature; with LAWS.bend:", far: true, route: up(8, 5, 1).concat([[9, 1], [10, 1]]), bump: [1, "11,1"],
       pop: ["LAW HOLDS", "#eef0d9", "#c5c98a", "#859900"] },
   ];
   for (const a of ACTS) {
-    a.walk = routeDur(a.route); a.tail = a.bump ? BUMP*BUMPS : 0.3; a.dur = LEAD + a.walk + a.tail + HOLD;
+    a.walk = routeDur(a.route); a.tail = a.bump ? BUMP*BUMPS : 0.3; a.dur = TITLE + LEAD + a.walk + a.tail + HOLD;
     a.walls = wallsOf(a.far);
-    play(document.getElementById(a.id), (ctx, t, W) => draw(ctx, t % a.dur, W, a));
   }
+  const TOTAL = ACTS.reduce((s, a) => s + a.dur, 0);
+  play(document.getElementById("game"), (ctx, t, W, H) => {
+    let u = t % TOTAL, a = ACTS[0];
+    for (const x of ACTS) { if (u < x.dur) { a = x; break; } u -= x.dur; }
+    if (u < TITLE) {                                                // the title card
+      ctx.globalAlpha = ease(u/0.3)*(1 - ease((u - TITLE + 0.3)/0.3));
+      ctx.fillStyle = "#073642"; ctx.font = "600 " + W/22 + "px " + MONO; ctx.textAlign = "center";
+      ctx.fillText(a.title, W/2, H/2 + W/66); ctx.globalAlpha = 1;
+      return;
+    }
+    ctx.globalAlpha = ease((u - TITLE)/0.3);
+    draw(ctx, u - TITLE, W, a);
+    ctx.globalAlpha = 1;
+  });
   function draw(ctx, u, W, a) {
     const T = W/GW, v = u - LEAD, walls = a.walls;
     let [px, py] = a.route[0], hit = null, flag = true, pop = 0;
