@@ -456,8 +456,6 @@ ${SHIMS}
 #define F32_BIN(a, o, b) f32_rewrap(f32_unbox(a) o f32_unbox(b))
 #define F32_CMP(a, o, b) u32_rewrap(f32_unbox(a) o f32_unbox(b))
 
-static void err_post(Corpus H, Err code);
-
 INLINE U32 f32_to_u32(U32 a) {
   f32 v = f32_unbox(a);
   return v >= 0.0f && v < 4294967296.0f ? (u32)v : 0;
@@ -3187,15 +3185,15 @@ export function compile_book(book: Bend.Book): string {
   const entries = [...fl.segs, { ...seg_new("io_emit", false, [""]),
     dead: !clo }, ...clo ? [seg_new("clo_apply", false, ["", ""])] : []];
   const defs = compile_tables(fl, entries);
-  return width_fold(TEMPLATE
-    .replace(/^\/\/ Tables\n\/\/ ======$/m,
-      (m) => m + "\n\n" + defs.join("\n"))
-    .replace(/^\/\/ Spins\n\/\/ =====$/m, (m) =>
-      [m, ...fl.spins.map((s) => s[1])].join("\n\n"))
-    .replace(/^\/\/ Segments\n\/\/ ========$/m, (m) =>
-      m + "\n\n" + compile_segs(fl))
-    .replace(/^\/\/ Requests\n\/\/ ========$/m, (m) => m + "\n\n" + fl.reqs),
-  true);
+  const fills: [string, string[]][] = [
+    ["Tables", [defs.join("\n")]],
+    ["Spins", fl.spins.map((s) => s[1])],
+    ["Segments", [compile_segs(fl)]],
+    ["Requests", [fl.reqs]],
+  ];
+  return width_fold(fills.reduce((src, [mark, parts]) => src.replace(
+    new RegExp("^// " + mark + "\\n// " + "=".repeat(mark.length) + "$", "m"),
+    (m) => [m, ...parts].join("\n\n")), TEMPLATE), true);
 }
 
 // Js
@@ -3534,10 +3532,11 @@ using namespace metal;
 #else
 #define DEV
 #define DEVL
+#define GRP
 #define THR
 #define INLINE  static inline
 #define HOT     static inline __attribute__((always_inline))
-#define OUTLINE static __attribute__((noinline))
+#define OUTLINE static __attribute__((noinline, cold))
 #define CONSTV  static const
 #define DEVICE  0
 #define CLZ(x)  (u32)__builtin_clz(x)
@@ -3552,7 +3551,7 @@ using namespace metal;
 #define WL_DYN     WL_JMP
 #define WL_SPIN \
   for (;;) { \
-    if (err_spun(e.mem, &wpoll, 4095)) { \
+    if (err_spun(e.mem, &wpoll)) { \
       return 0; \
     }
 #define WL_SPUN    } break;
@@ -3567,12 +3566,8 @@ using namespace metal;
 #define WL_AGAIN   continue
 #define WL_POP()   { sp -= LANE_STEP; WL_DYN((Fid)STK(0)); }
 
-#if DEVICE
-#define LANE_STEP CUBE
-#else
-#define LANE_STEP 1
-#endif
-#define STK(I) sp[(int64_t)(I) * LANE_STEP]
+#define LANE_STEP (DEVICE ? (int64_t)CUBE : 1)
+#define STK(I)    sp[(int64_t)(I) * LANE_STEP]
 
 #define WL_RETN(N)         { resn = (N); WL_POP(); }
 #define WL_RET(V)          { res[0] = (V); WL_RETN(1); }
@@ -3594,7 +3589,11 @@ using namespace metal;
     STK(wi) = e.mem[A + wi]; \
   } \
   sp += (N - 1) * LANE_STEP;
-#define TAB_AT(T, S, I) T[S < I ? S : I]
+#define WL_ROOM(N) \
+  if (DEVICE && sp + (N) * CUBE >= e.mem + HEAP_OFF + CUBE) { \
+    err_post(e.mem, ERR_DEEP); \
+    return 0; \
+  }
 
 // Types
 // =====
@@ -3624,13 +3623,6 @@ typedef u32 Cls;
 typedef u32 Fid;
 typedef u32 Cid;
 
-// Term ::=
-//   | Wrd(val)
-//   | Ctr(cid, loc)
-//   | Clo(fid, loc)
-//   | Arr(cls, loc)
-//   | Buf(cls, loc)
-//   | Tsk(fid, loc)
 typedef u64 Term;
 #define TAG_PAK 1ull
 #define TAG_CTR 2ull
@@ -3650,50 +3642,21 @@ typedef u32 Err;
 #define ERR_FAIL 1
 #define ERR_RING 2
 #define ERR_TAGS 3
-#define ERR_HEAP 5
-#define ERR_FIDS 6
-#define ERR_LEAK 7
-#define ERR_NATS 8
-#define ERR_RFCS 9
-#define ERR_DEEP 10
-#define ERR_TICK ((1u << 20) - 1)
-
-typedef u32 Page;
-#define PAGE_NIL 0xFFFFFFFEu
+#define ERR_HEAP 4
+#define ERR_FIDS 5
+#define ERR_LEAK 6
+#define ERR_NATS 7
+#define ERR_RFCS 8
+#define ERR_DEEP 9
 
 typedef u32 Monk;
-#define M_RING_GET         0
-#define M_RING_PUT         1
-#define M_HEAD             2
-#define M_HUGE             (2 + ALC_WORDS)
-#define M_SNAP             (3 + ALC_WORDS)
-#define monk_word(H, m, w) ((H) + MONK_OFF + (u64)(w) * CUBE + (m))
-
 typedef u32 Ring;
-
-#define MONK_OFF ((H_ROOT_WORD + WL_RESW + 31ull) & ~31ull)
-#define RING_OFF (MONK_OFF + CUBE * MONK_WORDS)
-#define STAK_OFF (RING_OFF + CUBE * RING_LEN)
-
-#define H_PAGE_BUMP  0ull
-#define H_PAGE_CAP   8ull
-#define H_HUGE_FREE  32ull
-#define H_ROOT_DONE  57ull
-#define H_CURSOR     58ull
-#define H_ROT        59ull
-#define H_ERROR_CODE 64ull
-#define H_ROOT_WORD  65ull
-
-#define HEAP_OFF  (STAK_OFF + CUBE * STAK_LEN)
 
 typedef DEV u64* Corpus;
 
 typedef struct {
   Corpus   mem;
-  Monk     mnk;
-#if DEVICE
   GRP u64* alc;
-#endif
 } Env;
 
 typedef DEVL Term* Stk;
@@ -3723,16 +3686,37 @@ typedef u32* Cursor;
 // Constants
 // =========
 
-#define PAGE_BITS    7
-#define QUANTUM_BITS (DEVICE ? PAGE_BITS : 12)
-#define CUBE_SIDE    128
-#define CUBE         (1ull << 14)
-#define RING_LEN     (1ull << 10)
-#define STAK_LEN     (1ull << 11)
-#define MONK_WORDS   (4 + ALC_WORDS)
-#define NCLS         9
-#define HUGE_CLS     (32 - NCLS)
-#define ALC_WORDS    (2 * NCLS)
+#define LINE      16
+#define PAGE_BITS 7
+#define PAGE_LEN  (1ull << PAGE_BITS)
+#define CUBE_SIDE 128
+#define CUBE      ((u64)CUBE_SIDE * CUBE_SIDE)
+#define RING_LEN  (1ull << 10)
+#define STAK_LEN  (1ull << 11)
+#define NCLS      8
+#define NCLS_ALL  32
+
+#define M_CAP(c)   (NCLS + (c))
+#define M_PAGE     (2 * NCLS)
+#define M_PUSH     (2 * NCLS + 1)
+#define MONK_WORDS (M_PUSH + 1)
+#define SLOT_WORDS (2 * NCLS_ALL)
+#define RING_WORDS (RING_LEN + 2)
+#define BITS_WORDS (CUBE / 64 + LINE)
+
+#define H_BUMP       0
+#define H_CAP        1
+#define H_CURSOR     LINE
+#define H_ROOT_DONE  (2 * LINE)
+#define H_ERROR_CODE (3 * LINE)
+#define H_BITS       (4 * LINE)
+#define H_ROOT_WORD  (H_BITS + NCLS_ALL * BITS_WORDS)
+
+#define MONK_OFF ((H_ROOT_WORD + WL_RESW + PAGE_LEN - 1) & ~(PAGE_LEN - 1))
+#define SLOT_OFF (MONK_OFF + CUBE * MONK_WORDS)
+#define RING_OFF (SLOT_OFF + CUBE * SLOT_WORDS)
+#define STAK_OFF (RING_OFF + CUBE * RING_WORDS)
+#define HEAP_OFF (STAK_OFF + CUBE * STAK_LEN)
 
 // Globals
 // =======
@@ -3768,12 +3752,6 @@ static CUmodule   gpu_lib;
 static CUfunction gpu_grow_pso;
 static CUfunction gpu_work_pso;
 #endif
-#if BEND_GPU
-static u64 gpu_cap;
-#endif
-
-static u64 ALC[CUBE_SIDE][ALC_WORDS];
-
 static bool io_gpu;
 static Stk  io_stk;
 
@@ -3787,9 +3765,10 @@ static const char* CLI_HELP =
 
 #endif
 
-${NATIVE.C}
 // Tables
 // ======
+
+#define TAB_AT(T, S, I) T[S < I ? S : I]
 
 // Fid
 // ===
@@ -3820,6 +3799,7 @@ ${NATIVE.C}
 #define a32_store(p, v)  atomic_store_explicit(A32(p), v, RLX)
 #define a32_add(p, v)    atomic_fetch_add_explicit(A32(p), v, RLX)
 #define a32_sub(p, v)    atomic_fetch_sub_explicit(A32(p), v, RLX)
+#define a32_xor(p, v)    atomic_fetch_xor_explicit(A32(p), v, RLX)
 #define a32_swp(p, e, v) \
   atomic_compare_exchange_weak_explicit(A32(p), e, v, RLX, RLX)
 
@@ -3829,6 +3809,7 @@ ${NATIVE.C}
 #define a32_store(p, v) (*(p) = (v))
 #define a32_add(p, v)   atomicAdd((u32*)(p), v)
 #define a32_sub(p, v)   atomicSub((u32*)(p), v)
+#define a32_xor(p, v)   atomicXor((u32*)(p), v)
 
 INLINE bool a32_swp(DEV u32* p, u32* e, u32 v) {
   u32 old = atomicCAS((u32*)p, *e, v);
@@ -3873,6 +3854,7 @@ INLINE bool a32_cas(DEV u32* p, THR u32* e, u32 v) {
 #define a32_load(p)         __atomic_load_n(p, __ATOMIC_RELAXED)
 #define a32_store(p, v)     __atomic_store_n(p, v, __ATOMIC_RELAXED)
 #define a32_add(p, v)       __atomic_fetch_add(p, v, __ATOMIC_RELAXED)
+#define a32_xor(p, v)       __atomic_fetch_xor(p, v, __ATOMIC_RELAXED)
 #define a32_sub_rel(p, v)   __atomic_fetch_sub(p, v, __ATOMIC_RELEASE)
 #define a32_store_rel(p, v) __atomic_store_n(p, v, __ATOMIC_RELEASE)
 #define a32_load_acq(p)     __atomic_load_n(p, __ATOMIC_ACQUIRE)
@@ -3910,7 +3892,10 @@ static void err_fail(Err code, const char* msg) {
 }
 
 static void err_post(Corpus H, Err code) {
-  err_fail(code, code == ERR_HEAP ? "out of memory" : "runtime fail-stop");
+  err_fail(code, code == ERR_HEAP ? "out of memory: run again with a bigger"
+    " span, as in --gpu-memory 8GB"
+    : code == ERR_FIDS ? "a host call on the device"
+    : code == ERR_DEEP ? "device stack exceeded" : "runtime fail-stop");
 }
 
 static void err_trap(int sig) {
@@ -3919,111 +3904,135 @@ static void err_trap(int sig) {
 
 #endif
 
-INLINE bool err_seen(Corpus H) {
-  return DEVICE && a32_load(a32_at(H, H_ERROR_CODE)) != 0;
-}
+#define err_seen(H)    (DEVICE && a32_load(a32_at(H, H_ERROR_CODE)) != 0)
+#define err_spun(H, n) ((++*(n) & 4095) == 0 && err_seen(H))
 
-INLINE bool err_spun(Corpus H, THR u32* n, u32 mask) {
-  bool tick = (++*n & mask) == 0;
-  return tick && err_seen(H);
-}
-
-// Cls
-// ===
-
-INLINE Cls cls_fit(u32 words) {
-  return words > 1 ? 32 - CLZ(words - 1) : 0;
-}
-
-// Page
-// ====
-
-#define page_loc(p) (HEAP_OFF + ((u64)(p) << PAGE_BITS))
-
-INLINE Page page_claim(Corpus H, u32 span) {
-  Page cap = a32_load(a32_at(H, H_PAGE_CAP));
-  Page p   = err_seen(H) ? cap
-    : a32_add(a32_at(H, H_PAGE_BUMP), span);
-  if ((u64)p + span > cap) {
-    err_post(H, ERR_HEAP);
-    p = 0;
-  }
-  return p;
-}
-
-#define BLK_ALLOC(n, w) \
-  Loc n = heap_alloc(e, w); \
-  if (err_seen(e.mem)) { \
-    return term_buf(0, n); \
-  }
-
-INLINE Page page_stack_pop(Corpus H, DEV u32* head) {
-  for (;;) {
-    u32 e = a32_load_acq(head);
-    if (e == PAGE_NIL || err_seen(H)) {
-      return PAGE_NIL;
-    }
-    if (e != (u32)-1 && a32_cas(head, &e, (u32)-1)) {
-      u32 next = a32_load(a32_at(H, page_loc(e)));
-      a32_store_rel(head, next);
-      return e;
-    }
-  }
-}
-
-INLINE void page_stack_push(Corpus H, Cls cls, Loc loc) {
-  Page p = (u32)((loc - HEAP_OFF) >> PAGE_BITS);
-  DEV u32* head = a32_at(H, H_HUGE_FREE + (cls - NCLS));
-  DEV u32* link = a32_at(H, page_loc(p));
-  u32 e = a32_load(head);
-  for (;;) {
-    if (err_seen(H)) {
-      return;
-    }
-    if (e == (u32)-1) {
-      e = a32_load(head);
-      continue;
-    }
-    a32_store(link, e);
-    if (a32_cas(head, &e, p)) {
-      return;
-    }
-  }
-}
-
-// Alc
-// ===
-
-#if DEVICE
-#define ALC_AT(e, i) (e).alc[(i) * CUBE_SIDE]
-#else
-#define ALC_AT(e, i) ALC[(e).mnk][i]
-#endif
-
-#define cls_quantum(cls) (1u << ((cls) > QUANTUM_BITS ? (cls) : QUANTUM_BITS))
-
+${NATIVE.C}
 // Heap
 // ====
 
-OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
-  Corpus H = e.mem;
-  if (cls >= NCLS) {
-    DEV u64* held = monk_word(H, e.mnk, M_HUGE);
-    u64 prev = *held;
-    if ((prev >> 40) == cls) {
-      *held = 0;
-      return prev & LOC_MASK;
+#define cls_fit(w)      ((w) > 1 ? 32 - CLZ((w) - 1) : 0)
+#define cls_chunk(c)    ((256ull + (1ull << (c))) >> (c) << 40)
+#define slot_bits(H, c) ((DEV u32*)((H) + H_BITS + (c) * BITS_WORDS))
+#define spare_free(e, c, l) \
+  { Loc hl = (l); if (hl != 0) heap_free(e, c, hl); }
+
+INLINE u32 heap_pick(u32 w, u32 r) {
+  u32 m = w & (~0u << (r & 31));
+  m = m != 0 ? m : w;
+  return 31 - CLZ(m & (0u - m));
+}
+
+OUTLINE Loc heap_swap(Corpus H, Cls cls, u32 s, Loc h) {
+  DEV u64* top = H + SLOT_OFF + (cls * CUBE + s) * 2;
+  DEV u32* st  = (DEV u32*)top;
+  for (;;) {
+    u32 z = a32_load(st);
+    if (z == 2 || (h == 0 && z == 0)) {
+      return h;
     }
-    DEV u32* head = a32_at(H, H_HUGE_FREE + (cls - NCLS));
-    Page got = page_stack_pop(H, head);
-    if (got != PAGE_NIL) {
-      return page_loc(got);
+    if (a32_cas(st, &z, 2)) {
+      Loc c = h != 0 ? h : top[1];
+      Loc n = H[c] & LOC_MASK;
+      if (h != 0) {
+        H[c]   = (H[c] & LOC_MASK) | ((top[1] & 0xFFFFFF) << 40);
+        H[n]   = (H[n] & LOC_MASK) | ((top[1] >> 24) << 40);
+        top[1] = c;
+        h = 0;
+      } else {
+        top[1] = (H[c] >> 40) | ((H[n] >> 40) << 24);
+        H[c]   = (H[c] & LOC_MASK) | (cls_chunk(cls) - (1ull << 40));
+        H[n]   = (H[n] & LOC_MASK) | (cls_chunk(cls) - (2ull << 40));
+        h = c;
+      }
+      u32 full = top[1] != 0;
+      for (u32 l = 0, off = 0; z != full && l < 3; l += 1, s >>= 5) {
+        u32 old = a32_xor(slot_bits(H, cls) + off + (s >> 5), 1u << (s & 31));
+        if (old != 0 && old != 1u << (s & 31)) {
+          break;
+        }
+        off = CUBE / 32 + (off >> 5);
+      }
+      a32_store_rel(st, full);
+      return h;
     }
-    return page_loc(page_claim(H, 1u << (cls - PAGE_BITS)));
   }
-  Page p = page_claim(H, cls_quantum(cls) >> PAGE_BITS);
-  ALC_AT(e, NCLS + cls) = ((u64)(1u << cls) << 32) | (p + 1);
-  return page_loc(p);
+}
+
+#define ALC_AT(e, i) (e).alc[(i) * (DEVICE ? CUBE_SIDE : LINE)]
+
+OUTLINE void heap_flow(Env e, Cls cls, Loc h) {
+  u64 w = ALC_AT(e, M_PUSH);
+  while (h != 0) {
+    h  = heap_swap(e.mem, cls, (w + (w >> 32)) & (CUBE - 1), h);
+    w += 1ull << 32;
+  }
+  ALC_AT(e, M_PUSH) = w;
+}
+
+OUTLINE void heap_cut(Env e, Cls cls) {
+  Corpus H = e.mem;
+  u64    h = ALC_AT(e, cls);
+  Loc    x = h & LOC_MASK;
+  ALC_AT(e, cls) = 0;
+  if (h > cls_chunk(cls) + LOC_MASK) {
+    for (u64 k = cls_chunk(cls) - (1ull << 40); k != 0; k -= 1ull << 40) {
+      Loc n = H[x] & LOC_MASK;
+      H[x]  = k | n;
+      x = n;
+    }
+    ALC_AT(e, cls) = H[x];
+    H[x] = 0;
+  }
+  heap_flow(e, cls, h & LOC_MASK);
+}
+
+OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
+  Corpus   H    = e.mem;
+  u32      own  = (u32)ALC_AT(e, M_PUSH);
+  DEV u32* bits = slot_bits(H, cls);
+  Loc      h    = 0;
+  u32      t    = a32_load(bits + CUBE / 32 + LINE);
+  while (t != 0 && h == 0) {
+    u32 j = heap_pick(t, own >> 10);
+    u32 s = a32_load(bits + CUBE / 32 + j);
+    while (s != 0 && h == 0) {
+      u32 k = j * 32 + heap_pick(s, own >> 5);
+      u32 w = a32_load(bits + k);
+      while (w != 0 && h == 0) {
+        u32 b = heap_pick(w, own);
+        h  = heap_swap(H, cls, k * 32 + b, 0);
+        w &= ~(1u << b);
+      }
+      s &= ~(1u << (k & 31));
+    }
+    t &= ~(1u << j);
+  }
+  u32 span = 1;
+  if (h == 0) {
+    if (cls >= NCLS) {
+      span = 1u << (cls - PAGE_BITS);
+    } else if (!DEVICE) {
+      u32 cp = (u32)(ALC_AT(e, M_CAP(cls)) >> 40 << cls >> PAGE_BITS);
+      span   = cp > 32 ? 32 : cp | (cp == 0);
+    }
+    u32 p = a32_add(a32_at(H, H_BUMP), span);
+    if ((u64)p + span > a32_load(a32_at(H, H_CAP))) {
+      err_post(H, ERR_HEAP);
+      p = 0;
+    }
+    h = HEAP_OFF + ((u64)p << PAGE_BITS);
+    if (cls < NCLS) {
+      ALC_AT(e, M_PAGE) = ((PAGE_LEN * span - (1u << cls)) << 40)
+        | (h + (1u << cls));
+    }
+  } else if (cls < NCLS) {
+    ALC_AT(e, cls) = H[h];
+  }
+  if (cls < NCLS && ALC_AT(e, M_CAP(cls)) < (1ull << 22) >> cls << 40) {
+    ALC_AT(e, M_CAP(cls)) += span * cls_chunk(cls);
+  }
+  return h;
 }
 
 HOT Loc heap_alloc(Env e, Cls cls) {
@@ -4031,14 +4040,13 @@ HOT Loc heap_alloc(Env e, Cls cls) {
   if (cls < NCLS) {
     u64 h = ALC_AT(e, cls);
     if (h != 0) {
-      ALC_AT(e, cls) = H[h];
-      return h;
+      ALC_AT(e, cls) = H[h & LOC_MASK];
+      return h & LOC_MASK;
     }
-    u64 own  = ALC_AT(e, NCLS + cls);
-    u32 used = (u32)(own >> 32);
-    if ((u32)own != 0 && used < cls_quantum(cls)) {
-      ALC_AT(e, NCLS + cls) = own + ((u64)(1u << cls) << 32);
-      return page_loc((u32)own - 1) + used;
+    u64 own = ALC_AT(e, M_PAGE);
+    if ((own >> 40) >= (1u << cls)) {
+      ALC_AT(e, M_PAGE) = own + (1u << cls) - ((u64)(1u << cls) << 40);
+      return own & LOC_MASK;
     }
   }
   return heap_alloc_miss(e, cls);
@@ -4049,25 +4057,17 @@ HOT void heap_free(Env e, Cls cls, Loc loc) {
   if (err_seen(H)) {
     return;
   }
-  if (cls < NCLS) {
-    H[loc] = ALC_AT(e, cls);
-    ALC_AT(e, cls) = loc;
+  if (cls >= NCLS) {
+    H[loc] = loc + 1;
+    heap_flow(e, cls, loc);
     return;
   }
-  DEV u64* held = monk_word(H, e.mnk, M_HUGE);
-  u64 prev = *held;
-  *held = ((u64)cls << 40) | loc;
-  if (prev != 0) {
-    page_stack_push(H, (u32)(prev >> 40), prev & LOC_MASK);
-  }
-}
-
-// Spare
-// =====
-
-HOT void spare_free(Env e, Cls cls, Loc loc) {
-  if (loc != 0) {
-    heap_free(e, cls, loc);
+  u64 h  = ALC_AT(e, cls);
+  H[loc] = h;
+  h = ((h & ~LOC_MASK) + (1ull << 40)) | loc;
+  ALC_AT(e, cls) = h;
+  if (h >= ALC_AT(e, M_CAP(cls)) + cls_chunk(cls)) {
+    heap_cut(e, cls);
   }
 }
 
@@ -4107,8 +4107,6 @@ INLINE Loc term_loc(Term t) {
 INLINE bool term_triv(Term t) {
   return term_tag(t) <= TAG_PAK || t == TERM_HOLE;
 }
-
-static void term_drop(Env e, Term t);
 
 OUTLINE Term rfc_wrap(Env e, Term t, u32 cnt) {
   if (term_tag(t) == TAG_CLO || term_tag(t) == TAG_TSK) {
@@ -4173,43 +4171,9 @@ HOT Loc term_peek(Env e, Term t) {
   return term_loc(t);
 }
 
-OUTLINE void span_fade(Env e, Term t, Loc src, u32 n) {
-  for (u32 j = 0; j < n; j += 1) {
-    Term f = e.mem[src + j];
-    if (term_rfc(f)) {
-      rfc_bump(e, term_loc(f));
-    } else if (!term_triv(f)) {
-      err_post(e.mem, ERR_RFCS);
-    }
-  }
-  term_drop(e, t);
-}
-
-HOT Loc ctr_take(Env e, Term t, u32 n, THR Term* out) {
-  Corpus H = e.mem;
-  if (!term_rfc(t)) {
-    for (u32 j = 0; j < n; j += 1) {
-      out[j] = H[term_loc(t) + j];
-    }
-    return term_loc(t);
-  }
-  Loc r    = term_loc(t);
-  u64 cell = rfc_view(e, r);
-  Loc src  = cell >> 24;
-  for (u32 j = 0; j < n; j += 1) {
-    out[j] = H[src + j];
-  }
-  if ((cell & RFC_CNT) == 1) {
-    heap_free(e, 0, r);
-    return src;
-  }
-  span_fade(e, t, src, n);
-  return 0;
-}
-
 INLINE Cls blk_cls(Env e, Term t) {
   Cls c = (u32)term_aux(t);
-  if (c > 31) {
+  if (c >= NCLS_ALL) {
     err_post(e.mem, ERR_TAGS);
     return 0;
   }
@@ -4271,7 +4235,7 @@ static void term_drop(Env e, Term t) {
       }
     }
     for (;;) {
-      if (err_spun(H, &step, ERR_TICK)) {
+      if (err_spun(H, &step)) {
         return;
       }
       if (cur == 0) {
@@ -4317,6 +4281,40 @@ HOT void term_sink(Env e, Term t) {
   }
 }
 
+OUTLINE void span_fade(Env e, Term t, Loc src, u32 n) {
+  for (u32 j = 0; j < n; j += 1) {
+    Term f = e.mem[src + j];
+    if (term_rfc(f)) {
+      rfc_bump(e, term_loc(f));
+    } else if (!term_triv(f)) {
+      err_post(e.mem, ERR_RFCS);
+    }
+  }
+  term_drop(e, t);
+}
+
+HOT Loc ctr_take(Env e, Term t, u32 n, THR Term* out) {
+  Corpus H = e.mem;
+  if (!term_rfc(t)) {
+    for (u32 j = 0; j < n; j += 1) {
+      out[j] = H[term_loc(t) + j];
+    }
+    return term_loc(t);
+  }
+  Loc r    = term_loc(t);
+  u64 cell = rfc_view(e, r);
+  Loc src  = cell >> 24;
+  for (u32 j = 0; j < n; j += 1) {
+    out[j] = H[src + j];
+  }
+  if ((cell & RFC_CNT) == 1) {
+    heap_free(e, 0, r);
+    return src;
+  }
+  span_fade(e, t, src, n);
+  return 0;
+}
+
 INLINE Term term_word(Env e, Term w) {
   u32 x = 0;
   Term t = w;
@@ -4331,6 +4329,12 @@ INLINE Term term_word(Env e, Term w) {
 
 // Blk
 // ===
+
+#define BLK_ALLOC(n, w) \
+  Loc n = heap_alloc(e, w); \
+  if (err_seen(e.mem)) { \
+    return term_buf(0, n); \
+  }
 
 INLINE DEV u32a* blk_ptr(Corpus H, Loc loc, u32 i) {
   return (DEV u32a*)(H + loc) + i;
@@ -4376,7 +4380,7 @@ INLINE Term blk_node(Env e, Term l, Term r) {
   Corpus H = e.mem;
   bool arr = term_tag(l) == TAG_ARR;
   Cls c = blk_cls(e, l);
-  if (c != blk_cls(e, r) || c > 30) {
+  if (c != blk_cls(e, r) || c + 1 >= NCLS_ALL) {
     err_post(H, ERR_TAGS);
     return l;
   }
@@ -4387,8 +4391,7 @@ INLINE Term blk_node(Env e, Term l, Term r) {
   if (arr || c != 0) {
     cw = 1ull << (arr ? c : c - 1);
   }
-  if (cw != 0 && pr == pl + cw
-    && (ps < NCLS || ((pl - HEAP_OFF) & ((1u << PAGE_BITS) - 1)) == 0)) {
+  if (cw != 0 && pr == pl + cw) {
     return term_blk(arr, c + 1, pl);
   }
   BLK_ALLOC(n, ps)
@@ -4465,17 +4468,10 @@ INLINE Term blk_new(Env e, bool arr, Nat d, u32 lgs, u32 n, THR Term* v) {
 // Ring
 // ====
 
-INLINE DEV u64* ring_slot(Corpus H, Ring r, u64 pos) {
-  return H + RING_OFF + (pos & (RING_LEN - 1)) * CUBE + r;
-}
-
-INLINE DEV u32* ring_put(Corpus H, Ring r) {
-  return (DEV u32*)monk_word(H, r, M_RING_PUT);
-}
-
-INLINE DEV u32* ring_get(Corpus H, Ring r) {
-  return (DEV u32*)monk_word(H, r, M_RING_GET);
-}
+#define ring_word(H, r, w) ((H) + RING_OFF + (w) * CUBE + (r))
+#define ring_slot(H, r, p) ring_word(H, r, (p) & (RING_LEN - 1))
+#define ring_get(H, r)     ((DEV u32*)ring_word(H, r, RING_LEN))
+#define ring_put(H, r)     ((DEV u32*)ring_word(H, r, RING_LEN + 1))
 
 INLINE u32 ring_lap(u32 pos) {
   return ~(u32)(pos / RING_LEN) & 1;
@@ -4516,13 +4512,6 @@ INLINE Ring ring_flip(u32 i) {
 // Task
 // ====
 
-#define OWN_SELF(e) (DEVICE ? (e).mnk + 1 : CUBE + 1)
-
-INLINE DEV u32* task_inbox(Corpus H, u32 own) {
-  return (DEV u32*)monk_word(H, (own - 1) & (CUBE - 1), (own - 1) >> 14)
-    + 1;
-}
-
 INLINE Loc task_node(Env e, Fid fid, Term cont, u32 idx, u32 rem) {
   u32 ar  = fid_arity(fid);
   Loc loc = heap_alloc(e, cls_fit(ar + 2));
@@ -4530,34 +4519,8 @@ INLINE Loc task_node(Env e, Fid fid, Term cont, u32 idx, u32 rem) {
     e.mem[loc + i] = TERM_HOLE;
   }
   e.mem[loc + ar]     = cont;
-  e.mem[loc + ar + 1] = ((u64)(rem || !DEVICE ? OWN_SELF(e) : 0) << 48)
-    | ((u64)idx << 32) | rem;
+  e.mem[loc + ar + 1] = ((u64)idx << 32) | rem;
   return loc;
-}
-
-INLINE void task_free(Env e, u32 ar, Loc loc, u32 own) {
-  Cls cls = cls_fit(ar + 2);
-  if (!DEVICE || own == 0 || own == OWN_SELF(e)
-    || ((loc & 1) | (loc >> 33)) != 0) {
-    heap_free(e, cls, loc);
-  } else {
-    DEV u32* in  = task_inbox(e.mem, own);
-    u32      old = a32_load(in);
-    do {
-      e.mem[loc] = ((u64)cls << 32) | old;
-    } while (!a32_cas(in, &old, (u32)(loc >> 1)));
-  }
-}
-
-INLINE void task_take(Env e) {
-  DEV u32* in = task_inbox(e.mem, OWN_SELF(e));
-  u32      n  = a32_load(in);
-  while (n != 0 && !a32_cas(in, &n, 0)) {
-  }
-  for (u64 w; n != 0; n = (u32)w) {
-    w = e.mem[(Loc)n << 1];
-    heap_free(e, w >> 32, (Loc)n << 1);
-  }
 }
 
 INLINE Loc task_tail(Term t) {
@@ -4627,19 +4590,6 @@ static u32 root_take(Corpus H, THR Term* v) {
   return n;
 }
 
-// Stack
-// =====
-
-#if DEVICE
-#define WL_ROOM(N) \
-  if (sp + (N) * CUBE >= e.mem + HEAP_OFF + CUBE) { \
-    err_post(e.mem, ERR_DEEP); \
-    return 0; \
-  }
-#else
-#define WL_ROOM(N)
-#endif
-
 // Spins
 // =====
 
@@ -4667,12 +4617,12 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
   } else {
     WL_LOAD
   }
-  task_free(e, war, a, (u32)(wtw >> 48));
+  heap_free(e, cls_fit(war + 2), a);
   }
 #if DEVICE
   u32 wpoll = 0;
   for (;;) {
-  if (err_spun(e.mem, &wpoll, 255)) {
+  if (err_spun(e.mem, &wpoll)) {
     return 0;
   }
   switch (fid) {
@@ -4739,7 +4689,7 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
       u32 wn = fid_arity(wf);
       WL_FRAME(cont)
       WL_ARGS(wa, wn - resn + 1)
-      task_free(e, wn, wa, (u32)(wtw >> 48));
+      heap_free(e, cls_fit(wn + 2), wa);
       WL_DYN(wf);
     }
     Term rv[WL_RESW];
@@ -4765,6 +4715,9 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
 // Monk
 // ====
 
+#define monk_word(H, m, w) ((H) + MONK_OFF + ((m) & ~(LINE - 1)) * MONK_WORDS \
+  + (w) * LINE + ((m) & (LINE - 1)))
+
 INLINE u32 monk_run(Env e, Stk stk, Term t, bool seq, u32 base,
   u32 stride, Cursor cur) {
   u32 spin = 0;
@@ -4774,7 +4727,7 @@ INLINE u32 monk_run(Env e, Stk stk, Term t, bool seq, u32 base,
       return 2;
     }
     if (task_runs(e.mem, r)) {
-      if (err_spun(e.mem, &spin, ERR_TICK)) {
+      if (err_spun(e.mem, &spin)) {
         return 2;
       }
       if (stride != 0) {
@@ -4804,20 +4757,22 @@ INLINE u32 monk_grow(Env e, Stk stk, Ring rg, u32 put0, u32 base, u32 stride,
   return monk_run(e, stk, t, false, base, stride, cur);
 }
 
-static void monk_work(Env e, Stk stk, Monk m) {
+static void monk_work(Env e, Stk stk, Ring r) {
   Corpus H = e.mem;
-  u32 put0 = DEVICE ? a32_load(ring_put(H, m))
-    : (u32)*monk_word(H, m, M_SNAP);
-  while (*ring_get(H, m) != put0) {
+  u32 put0 = a32_load(ring_put(H, r));
+  while (*ring_get(H, r) != put0) {
     if (err_seen(H)) {
       return;
     }
-    Term t = ring_head(H, m);
+    Term t = ring_head(H, r);
     if (t == 0) {
       continue;
     }
-    ring_skip(H, m);
-    monk_run(e, stk, t, true, m, 0, (Cursor)0);
+    ring_skip(H, r);
+    monk_run(e, stk, t, true, r, 0, (Cursor)0);
+  }
+  for (Cls c = 0; c < NCLS; c += 1) {
+    ALC_AT(e, M_CAP(c)) = ALC_AT(e, M_CAP(c)) >> 41 << 40;
   }
 }
 
@@ -4826,13 +4781,13 @@ static void monk_work(Env e, Stk stk, Monk m) {
 
 #if DEVICE
 
-INLINE void dev_alc(Env e, bool save) {
-  DEV u64* w = monk_word(e.mem, e.mnk, M_HEAD);
-  for (u32 i = 0; i < ALC_WORDS; i += 1) {
+INLINE void dev_alc(Env e, Monk m, bool save) {
+  DEV u64* w = monk_word(e.mem, m, 0);
+  for (u32 i = 0; i < MONK_WORDS; i += 1) {
     if (save) {
-      w[i * CUBE] = ALC_AT(e, i);
+      w[i * LINE] = ALC_AT(e, i);
     } else {
-      ALC_AT(e, i) = w[i * CUBE];
+      ALC_AT(e, i) = w[i * LINE];
     }
   }
 }
@@ -4849,12 +4804,10 @@ extern "C" __global__ void grow_dev(Corpus H) {
   u32 lane  = threadIdx.x;
 #endif
   u32  stride = grids == 1 ? CUBE_SIDE : 1;
-  Ring rg  = (row << 7) + stride * lane;
-  GRPV u64 tg_alc[CUBE_SIDE * ALC_WORDS];
-  Env  e   = { H, (rg + a32_load(a32_at(H, H_ROT))) & (u32)(CUBE - 1),
-    tg_alc + lane };
-  dev_alc(e, false);
-  task_take(e);
+  Ring rg  = row * CUBE_SIDE + stride * lane;
+  GRPV u64 tg_alc[CUBE_SIDE * MONK_WORDS];
+  Env  e   = { H, tg_alc + lane };
+  dev_alc(e, rg, false);
   GA32 tg_cur;
   GA32 tg_grew;
   GA32 tg_has;
@@ -4877,8 +4830,8 @@ extern "C" __global__ void grow_dev(Corpus H) {
       break;
     }
     seen_has = has;
-    if (monk_grow(e, (Stk)(H + STAK_OFF + rg), rg, put0, row << 7, stride,
-      &tg_cur) == 1) {
+    if (monk_grow(e, (Stk)(H + STAK_OFF + rg), rg, put0, row * CUBE_SIDE,
+      stride, &tg_cur) == 1) {
       g32_add(&tg_grew, 1);
     }
     BARD();
@@ -4888,7 +4841,7 @@ extern "C" __global__ void grow_dev(Corpus H) {
     }
     seen_grew = grew;
   }
-  dev_alc(e, true);
+  dev_alc(e, rg, true);
 }
 
 #ifdef __METAL_VERSION__
@@ -4900,12 +4853,11 @@ extern "C" __global__ void work_dev(Corpus H) {
   u32 lane = threadIdx.x;
   u32 tid  = blockIdx.x * CUBE_SIDE + lane;
 #endif
-  GRPV u64 tg_alc[CUBE_SIDE * ALC_WORDS];
-  Env e = { H, (tid + a32_load(a32_at(H, H_ROT))) & (u32)(CUBE - 1),
-    tg_alc + lane };
-  dev_alc(e, false);
+  GRPV u64 tg_alc[CUBE_SIDE * MONK_WORDS];
+  Env e = { H, tg_alc + lane };
+  dev_alc(e, tid, false);
   monk_work(e, (Stk)(H + STAK_OFF + tid), ring_flip(tid));
-  dev_alc(e, true);
+  dev_alc(e, tid, true);
 }
 
 #endif
@@ -4915,16 +4867,15 @@ extern "C" __global__ void work_dev(Corpus H) {
 // Row
 // ===
 
-static void row_grow(Env e, Stk stk, u32 base, u32 stride) {
+static void row_grow(Env e, Stk stk, u32 base) {
   Corpus H = e.mem;
   u32 cur = 0;
   for (;;) {
     u32 put0[CUBE_SIDE];
     u32 has = 0;
     for (u32 i = 0; i < CUBE_SIDE; i += 1) {
-      Ring rg = base + stride * i;
-      put0[i] = *ring_put(H, rg);
-      has += put0[i] != *ring_get(H, rg);
+      put0[i] = *ring_put(H, base + i);
+      has += put0[i] != *ring_get(H, base + i);
     }
     if (root_done(H) || has == CUBE_SIDE) {
       return;
@@ -4932,8 +4883,8 @@ static void row_grow(Env e, Stk stk, u32 base, u32 stride) {
     u32 grew = 0;
     u32 ran  = 0;
     for (u32 i = 0; i < CUBE_SIDE && ran != 2; i += 1) {
-      Ring rg = base + stride * i;
-      ran     = monk_grow(e, stk, rg, put0[i], base, stride, &cur);
+      e.alc = monk_word(H, base + i, 0);
+      ran   = monk_grow(e, stk, base + i, put0[i], base, 1, &cur);
       grew += ran == 1;
     }
     if (grew == 0) {
@@ -4970,17 +4921,18 @@ static void* pool_work(void* arg) {
     }
     pthread_mutex_unlock(&pool_lock);
     seen = atomic_load_explicit(&pool_tick, memory_order_acquire);
-    Env e = { CORPUS, (u32)(uintptr_t)arg };
+    Env e = { CORPUS };
     for (;;) {
       u32 r = atomic_fetch_add_explicit(&pool_row, 1, memory_order_relaxed);
-      if (r >= CUBE_SIDE) {
+      if (r >= (pool_grow ? CUBE_SIDE : CUBE / LINE)) {
         break;
       }
       if (pool_grow) {
-        row_grow(e, stk, r << 7, 1);
+        row_grow(e, stk, r * CUBE_SIDE);
       } else {
-        for (u32 c = 0; c < CUBE_SIDE; c += 1) {
-          monk_work(e, stk, ring_flip((r << 7) + c));
+        for (u32 i = 0; i < LINE; i += 1) {
+          e.alc = monk_word(CORPUS, r * LINE + i, 0);
+          monk_work(e, stk, r * LINE + i);
         }
       }
     }
@@ -5011,7 +4963,7 @@ OUTLINE void pool_open(void) {
   }
   for (u32 w = 0; w < pool_size; w += 1) {
     pthread_t tid;
-    if (pthread_create(&tid, &attr, pool_work, (void*)(uintptr_t)w)) {
+    if (pthread_create(&tid, &attr, pool_work, NULL)) {
       err_fail(ERR_FAIL, "pthread_create");
     }
   }
@@ -5054,9 +5006,6 @@ static id<MTLComputePipelineState> gpu_pipe(const char* name) {
     [gpu_dev newComputePipelineStateWithFunction:fn error:&err];
   if (!pso) {
     err_fail(ERR_FAIL, [[err localizedDescription] UTF8String]);
-  }
-  if ([pso maxTotalThreadsPerThreadgroup] < CUBE_SIDE) {
-    err_fail(ERR_FAIL, "threadgroup too small");
   }
   return pso;
 }
@@ -5276,29 +5225,12 @@ static void gpu_pass(u32 f) {
   }
 }
 
-#endif
-
-#if BEND_GPU
-
-static void gpu_round(Corpus H, u32 f) {
-  gpu_pass(f);
-  u32 ec = a32_load(a32_at(H, H_ERROR_CODE));
-  if (ec > ERR_DEEP || (u64)a32_load(a32_at(H, H_PAGE_BUMP)) > gpu_cap) {
-    ec = ERR_HEAP;
-  }
-  if (ec) {
-    err_fail(ec, ec == ERR_DEEP ? "device stack exceeded"
-      : ec == ERR_FIDS ? "a host call on the device"
-      : ec == ERR_HEAP ? "out of memory: run again with a bigger span,"
-        " as in --gpu-memory 8GB" : "device error");
-  }
-}
-
 #else
 
 #define gpu_probe() false
 #define gpu_span()  0
 #define gpu_load(b)
+#define gpu_pass(f)
 
 #endif
 
@@ -5316,17 +5248,16 @@ static void cube_run(Corpus H, bool gpu) {
       err_fail(ERR_LEAK, "frontier drained without a result");
     }
     if (gpu) {
-      #if BEND_GPU
-      gpu_round(H, f);
-      #endif
+      gpu_pass(f);
     } else {
       if (f < CUBE) {
         pool_turn(true);
       }
-      for (Ring r = 0; r < CUBE; r += 1) {
-        *monk_word(H, r, M_SNAP) = *ring_put(H, r);
-      }
       pool_turn(false);
+    }
+    u32 ec = a32_load(a32_at(H, H_ERROR_CODE));
+    if (ec != 0) {
+      err_post(H, ec);
     }
   }
 }
@@ -5343,28 +5274,21 @@ static Corpus corpus_mmap(u64 bytes) {
   return H;
 }
 
-static void corpus_seed(Corpus H) {
-  for (u64 i = 0; i < HUGE_CLS; i += 1) {
-    H[H_HUGE_FREE + i] = PAGE_NIL;
-  }
-}
-
 static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
   u64 dflt = gpu ? gpu_span() : 1ull << 43;
   CORPUS_SIZE = (gpu && bytes != 0 ? bytes : dflt) & ~16383ull;
   u64 span = CORPUS_SIZE / 8;
   u64 room = span > HEAP_OFF ? (span - HEAP_OFF) >> PAGE_BITS : 0;
-  u64 cap  = room < PAGE_NIL ? room : PAGE_NIL;
+  u64 cap  = room >> 32 ? ~0u : room;
   if (cap == 0) {
     err_fail(ERR_HEAP, "--gpu-memory is under the lane stacks and rings");
   }
   CORPUS = gpu ? gpu_map(CORPUS_SIZE) : corpus_mmap(CORPUS_SIZE);
   Corpus H = CORPUS;
-  corpus_seed(H);
-  a32_store(a32_at(H, H_PAGE_CAP), (u32)cap);
-#if BEND_GPU
-  gpu_cap = cap;
-#endif
+  a32_store(a32_at(H, H_CAP), (u32)cap);
+  for (Monk m = 0; m < CUBE; m += 1) {
+    *monk_word(H, m, M_PUSH) = m;
+  }
   if (gpu) {
     gpu_load(CORPUS_SIZE);
   }
@@ -5373,11 +5297,9 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
 }
 
 OUTLINE Term corpus_eval(Corpus H, Term t) {
-  Env  e = { H, 0 };
+  Env  e = { H, monk_word(H, 0, 0) };
   Term rv[WL_RESW];
   for (;;) {
-    e.mnk = (u32)rand() % pool_size;
-    task_take(e);
     Reply r = work_loop(e, io_stk, t, !BANGS);
     if (r == 0) {
       if (root_done(H)) {
@@ -5393,9 +5315,6 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
         u32  idx  = (u32)(H[tl + 1] >> 32) & 0xFFFF;
         H[tl]     = TERM_HOLE;
         a32_store(a32_at(H, H_CURSOR), 1);
-        static u32 bangs;
-        u32 shift = bangs++ % CUBE_SIDE ? 10125 : (u32)rand();
-        a32_add(a32_at(H, H_ROT), shift);
         ring_push(H, 0, t);
         cube_run(H, true);
         Term p = task_deliver(H, cont, idx, rv, root_take(H, rv));
@@ -5425,7 +5344,7 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
 // ==
 
 OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
-  Env e = { H, 0 };
+  Env e = { H, monk_word(H, 0, 0) };
   io_gpu = gpu;
   io_stk = pool_stack();
   Term op = corpus_eval(H, term_tsk(fid, task_node(e, fid, TERM_HOLE, 0, 0)));
@@ -5730,7 +5649,7 @@ function io_run(m) {
     }
   } catch (req) {
     if (req instanceof RangeError) {
-      throw "bend: error 10: memory fault (machine stack overflow?)";
+      throw "bend: error 9: memory fault (machine stack overflow?)";
     }
     if (req?.$ !== "$FFI") {
       throw req;

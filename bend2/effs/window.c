@@ -288,7 +288,7 @@ static id<MTLBuffer> window_corpus(Env e) {
   if (gpu_buf != nil) {
     return gpu_buf;
   }
-  u64 bump = a32_load(a32_at(e.mem, H_PAGE_BUMP));
+  u64 bump = a32_load(a32_at(e.mem, H_BUMP));
   u64 need = ((HEAP_OFF + (bump << PAGE_BITS)) * 8 + 16383) & ~16383ull;
   if (need > window_len) {
     u64 most = [window_dev maxBufferLength] & ~16383ull;
