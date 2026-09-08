@@ -1157,13 +1157,7 @@ function eff_src(path: string, seen: Set<string>): string {
     return "";
   }
   seen.add(path);
-  const src = fs.readFileSync(path, "utf8");
-  const dir = path.slice(0, path.lastIndexOf("/") + 1);
-  let out = "";
-  for (const m of src.matchAll(/^\/\/! use (.+)$/gm)) {
-    out += eff_src(dir + m[1], seen);
-  }
-  return out + src;
+  return fs.readFileSync(path, "utf8");
 }
 
 // Io
