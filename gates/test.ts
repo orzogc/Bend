@@ -103,7 +103,7 @@ function shard_pack(shard: Test[]): Buffer {
   const dir = fs.mkdtempSync("/tmp/bend-shard-");
   fs.cpSync(path.join(lib.ROOT, "bend2"), path.join(dir, "bend2"),
     { recursive: true, filter: (p) =>
-      !p.includes("/conf") && !p.includes("/docs") });
+      !p.includes("/pack") && !p.includes("/docs") });
   for (const sub of fs.readdirSync(TESTS)) {
     fs.mkdirSync(path.join(dir, "tests", sub), { recursive: true });
     for (const f of fs.readdirSync(path.join(TESTS, sub))) {

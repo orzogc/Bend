@@ -189,7 +189,7 @@ function cell_pack(dir: string): Buffer {
   const tmp = fs.mkdtempSync("/tmp/bend-perf-");
   fs.cpSync(path.join(lib.ROOT, "bend2"), path.join(tmp, "bend2"),
     { recursive: true, filter: (p) =>
-      !p.includes("/conf") && !p.includes("/docs") });
+      !p.includes("/pack") && !p.includes("/docs") });
   fs.copyFileSync(path.join(dir, "main.bend"), path.join(tmp, "main.bend"));
   const tar = child.spawnSync("tar", ["-czf", "-", "-C", tmp, "."],
     { maxBuffer: 1 << 28 });

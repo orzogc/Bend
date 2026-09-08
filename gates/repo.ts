@@ -28,7 +28,6 @@ function allow(at: string | RegExp, cap: number, bytes = false): void {
 }
 
 allow(".gitattributes", 200);
-allow(".gitignore", 50);
 allow("AGENTS.md", 2000);
 allow("README.md", 2500);
 allow("bend2/base.bend", 20000);
@@ -37,7 +36,7 @@ allow("bend2/bend.ts", 40000);
 allow("bend2/comp.ts", 65000);
 allow("bend2/main.ts", 4000);
 allow(/^bend2\/effs\/[a-z_]+\.(c|js)$/, 4000);
-allow(/^bend2\/conf\/(package\.json|tsconfig\.json|bun\.lock)$/, 1000);
+allow(/^bend2\/pack\/(\.gitignore|package\.json|tsconfig\.json|bun\.lock)$/, 1000);
 allow(/^bend2\/docs\/(BendRT|BendTT)\/(main\.typ|refs\.bib)$/, 60000);
 allow("bend2/docs/bend.sublime-syntax", 1000);
 allow("bend2/docs/gen_charts.ts", 4000);
