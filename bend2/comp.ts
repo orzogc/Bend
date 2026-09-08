@@ -2841,37 +2841,33 @@ function emit_fork(fl: File, x: HLet): void {
 }
 
 function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
-  const js = fl.decl === "const";
   let s = Bend.term_strip(t);
   while (s.$ === "Lam") {
     s = Bend.term_strip(term_open(s).b);
   }
   s = emit_fold(fl, s) ?? s;
   if (term_const(s)) {
-    return js ? js_expr(fl, s, ty) : val_word(emit_expr(fl, s, ty));
+    return js_expr(fl, s, ty);
   }
   const m = term_spine(fl, s);
   const it = m.t.$ === "Ref" ? intr_of(fl, m.t.k) : undefined;
-  if (typeof it?.C !== "string" || TAB_BAD.test(it.C)) {
+  if (typeof it?.JS !== "string" || TAB_BAD.test(it.JS)) {
     return null;
   }
   const xs = m.args.map((a) => emit_row(fl, a, null));
-  if (xs.includes(null)) {
-    return null;
-  }
-  return tpl(js ? it.JS : it.C, xs as string[]);
+  return xs.includes(null) ? null : tpl(it.JS, xs as string[]);
 }
 
 function emit_tab(fl: File, rows: Chain | null, ty: HTerm): number | null {
   const ret = lay_of(fl.book, ty);
-  if (rows === null || ret.ks.length !== 1 || ret.ks[0] === "box") {
-    return null;
-  }
-  const ls = rows.map(([t]) => emit_row(fl, t, ty));
+  const ls = rows === null || ret.ks.length !== 1 || ret.ks[0] === "box"
+    ? [null] : rows.map(([t]) => emit_row(fl, t, ty));
   if (ls.includes(null)) {
     return null;
   }
-  const key = ls.join(", ");
+  const key = fl.decl === "const" ? ls.join(", ") : Function("return ["
+    + ls + "]")().map((v: number) => (ty_adt(fl.book, ty)?.k === "F32"
+    ? Bend.f32_to_bits(v) : BigInt(v)) + "ull").join(", ");
   const id = fl.tabs.get(key) ?? fl.tabs.size;
   fl.tabs.set(key, id);
   return id;
@@ -3179,9 +3175,9 @@ export function compile_book(book: Bend.Book): string {
     dead: !clo }, ...clo ? [seg_new("clo_apply", false, ["", ""])] : []];
   const defs = compile_tables(fl, entries);
   const fills: [string, string[]][] = [
-    ["Tables", [defs.join("\n")]],
-    ["Spins", [...[...fl.tabs].map(([r, i]) =>
-      `CONSTV u64 TAB_${i}[] = { ${r} };`), ...fl.spins.map((s) => s[1])]],
+    ["Tables", [defs.join("\n"), ...[...fl.tabs].map(([r, i]) =>
+      `CONSTV u64 TAB_${i}[] = { ${r} };`)]],
+    ["Spins", fl.spins.map((s) => s[1])],
     ["Segments", [compile_segs(fl)]],
     ["Requests", [fl.reqs]],
   ];
@@ -5841,5 +5837,4 @@ function io_run(m) {
 }
 `.slice(1);
 
-const TAB_BAD = new RegExp(`\\be\\b|\\b(?!(?:${TEMPLATE.match(
-  /(?<=#define )\w+(?=\()/g)?.join("|")})\\()\\w+\\(`);
+const TAB_BAD = /\b(?!(?:fround|imul|Number|BigInt)\()\w+\(/;
