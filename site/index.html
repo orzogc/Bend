@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bend</title>
-<meta name="description" content="Bend: a fast language that prevents AI mistakes with proof.">
+<meta name="description" content="Bend: a fast language that prevents AI mistakes via proofs.">
 <style>
 :root{
   --bg:#fdf6e3;--bg2:#eee8d5;--b1:#93a1a1;--b0:#839496;--b00:#657b83;--b01:#586e75;--b02:#073642;
@@ -79,7 +79,7 @@ canvas{display:block;width:100%}
 
 <div id="hero">
   <h1>Bend</h1>
-  <p class="sub">a <b>fast</b> language that <b>prevents AI mistakes</b> with <b>proof</b></p>
+  <p class="sub">a <b>fast</b> language that <b>prevents AI mistakes</b> via <b>proofs</b></p>
 </div>
 
 <section>
@@ -157,17 +157,17 @@ objects, closures, recursion: all of it compiles to kernels.</p>
 
 <section id="start">
   <h2><span>4.</span>Get started.</h2>
-  <h3><span>1.</span>Install</h3>
+  <h3><span>4.1.</span>Install</h3>
 <pre><code><span class="c"># needs Bun 1.3+ and clang; Metal or CUDA for the GPU</span>
 git clone https://github.com/HigherOrderCO/bend4
 cd bend4
 ln -s <span class="s">"$PWD/bend2/main.ts"</span> ~/.bun/bin/bend</code></pre>
-  <h3><span>2.</span>Save hello.bend</h3>
+  <h3><span>4.2.</span>Save hello.bend</h3>
 <pre><code><span class="k">import</span> Base
 
 <span class="k">def</span> main() -> <span class="t">IO</span>(<span class="t">Unit</span>):
   <span class="t">IO</span>.print(<span class="s">"Hello, world!"</span>)</code></pre>
-  <h3><span>3.</span>Check, compile, run</h3>
+  <h3><span>4.3.</span>Check, compile, run</h3>
 <pre><code>bend hello.bend            <span class="c"># check + run</span>
 bend hello.bend -o hello   <span class="c"># native binary, GPU-enabled</span>
 ./hello</code></pre>
@@ -282,18 +282,18 @@ function play(cv, draw) {
 // ---------------------------------------------------------------- the GPU
 // sum!(24n, 0) splits in two, in four, ... until one task sits on each of
 // 64 x 64 cores; every core works its task; then the results fold back,
-// pairwise, into the top-left cell, the cells they leave going gray; then
-// the view zooms onto that one cell, and it shows the answer.
+// pairwise: the blue region contracts toward the top-left cell, halving
+// along one axis at a time, the cells it leaves going gray; then the view
+// zooms onto that one cell, and it shows the answer.
 {
   const N = 64, LEVELS = 12, D0 = 0.4, HOLD1 = 0.7;
   const splitDur = k => 0.8*Math.pow(0.8, k);
   let DALL = D0; for (let k = 0; k < LEVELS; k++) DALL += splitDur(k);
   const E0 = DALL + HOLD1, ELEN = 1.0, ESPREAD = 1.3, R0 = E0 + ELEN + ESPREAD + 0.8;
-  const FOLD = 0.5, MERGE = 0.7, RDONE = R0 + LEVELS*FOLD;
+  const FOLD = 0.5, RDONE = R0 + LEVELS*FOLD;
   const Z0 = RDONE + 0.6, ZLEN = 1.4, Z1 = Z0 + ZLEN, TOTAL = Z1 + 2.6;
   const SKY = "#dce8f1", DEEP = "#268bd2", MIST = "#ebe5d2", BG = "#fdf6e3";
   const HEAT = []; for (let i = 0; i <= 16; i++) HEAT.push(mix(SKY, "#a9cbe8", i/16));
-  const RUNG = []; for (let j = 0; j <= LEVELS; j++) RUNG.push(mix("#a9cbe8", DEEP, j/LEVELS));
   const dims = k => [1 << Math.ceil(k/2), 1 << Math.floor(k/2)];
   const phase = (c, r) => rnd(c*7919 + r*104729)*ESPREAD;
 
@@ -336,16 +336,11 @@ function play(cv, draw) {
         cell(ctx, c*cs, r*cs, cs, cs, HEAT[Math.round(j*16)]);
       }
     } else if (u < Z0) {                                            // fold
-      const f = clamp((u - R0)/FOLD, 0, LEVELS), j = Math.floor(f), p = f - j, folding = j < LEVELS;
-      const sx = 1 << Math.ceil(j/2), sy = 1 << Math.floor(j/2), vert = j % 2 === 0;
-      const m = ease(p/MERGE), landed = folding && p >= MERGE;
+      const f = clamp((u - R0)/FOLD, 0, LEVELS), j = Math.floor(f), m = ease(f - j);
+      const k = LEVELS - j, [w, h] = dims(k), vert = k % 2 === 1, fill = mix("#a9cbe8", DEEP, f/LEVELS);
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) cell(ctx, c*cs, r*cs, cs, cs, MIST);
-      for (let y = 0; y < N; y += sy) for (let x = 0; x < N; x += sx) {
-        const odd = folding && (vert ? x/sx : y/sy) % 2 === 1;
-        if (!odd) { cell(ctx, x*cs, y*cs, cs, cs, RUNG[landed ? j + 1 : j]); continue; }
-        if (landed) continue;
-        cell(ctx, (vert ? x - sx*m : x)*cs, (vert ? y : y - sy*m)*cs, cs, cs, RUNG[j]);
-      }
+      for (let r = 0; r < h; r++) for (let c = 0; c < w; c++)
+        cell(ctx, (vert ? lerp(c, c/2, m) : c)*cs, (vert ? r : lerp(r, r/2, m))*cs, cs, cs, fill);
     } else {                                                        // zoom
       const s = Math.pow(N, ease((u - Z0)/ZLEN)), zs = cs*s, lim = Math.min(N, Math.ceil(N/s) + 1);
       for (let r = 0; r < lim; r++) for (let c = 0; c < lim; c++) if (c || r) cell(ctx, c*zs, r*zs, zs, zs, MIST);
