@@ -3435,7 +3435,7 @@ export function js_book(book: Bend.Book): string {
   }
   return js_lib(book, null) + "\n" + RUNTIME_MAIN
     + (main === undefined ? ""
-    : "\nio_exit(" + js_sat("main") + ");");
+    : "\ncli(process.argv.slice(2));\nio_exit(" + js_sat("main") + ");");
 }
 
 // RuntimeC
@@ -6157,6 +6157,68 @@ function run_lib(f, n) {
 `.slice(1);
 
 const RUNTIME_MAIN: string = String.raw`
+// Cli
+// ===
+
+function cli_fail(msg) {
+  io_errs("bend: " + msg);
+  process.exit(1);
+}
+
+function cli_flag(name, val) {
+  if (val !== "on" && val !== "off") {
+    cli_fail("expected 'on' or 'off' after " + name);
+  }
+  return val === "on";
+}
+
+function cli(argv) {
+  let thr = 0;
+  let par = -1;
+  let gpu = -1;
+  for (let i = 0; i < argv.length; i += 2) {
+    const a = argv[i];
+    const v = argv[i + 1] ?? "";
+    if (a === "--help") {
+      io_out(1, Uint8Array.from([
+        "usage: " + process.argv[1] + " [options]",
+        "  --threads N        worker threads: a JS program runs one",
+        "  --parallel on|off  off means one thread and no GPU (default: on)",
+        "  --gpu on|off       send ! calls to the GPU (default: on if present)",
+        "  --gpu-memory 4GB   device span: a JS program uses the JS heap",
+        "  --help             show this text",
+        "",
+      ].join("\n"), (c) => c.codePointAt(0)));
+      process.exit(0);
+    } else if (a === "--threads") {
+      thr = /^[ \t\n\v\f\r]*\+?\d+$/.test(v) ? Number(v) : 0;
+      if (thr < 1) {
+        cli_fail("expected a thread count of 1 or more after --threads");
+      }
+    } else if (a === "--parallel") {
+      par = cli_flag("--parallel", v) ? 1 : 0;
+    } else if (a === "--gpu") {
+      gpu = cli_flag("--gpu", v) ? 1 : 0;
+    } else if (a === "--gpu-memory") {
+      if (!/^[ \t\n\v\f\r]*\+?(\d+\.?\d*|\.\d+)(GB|MB)$/.test(v)
+        || Number.parseFloat(v) <= 0) {
+        cli_fail("expected a size like 4GB or 512MB after --gpu-memory");
+      }
+    } else {
+      cli_fail("unknown option " + a);
+    }
+  }
+  if (par === 0 && (gpu === 1 || thr > 1)) {
+    cli_fail("--parallel off means --threads 1 with --gpu off");
+  }
+  if (gpu === 1) {
+    cli_fail("--gpu on, but this binary found no GPU device");
+  }
+  if (thr > 1) {
+    cli_fail("--threads over 1, but a JS program runs one thread");
+  }
+}
+
 // Io
 // ==
 
