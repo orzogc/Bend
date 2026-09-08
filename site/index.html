@@ -19,7 +19,9 @@ b{color:var(--b02);font-weight:600}
 p{margin:1em 0;white-space:pre-line}
 p.c{text-align:center}
 code{color:var(--b02)}
-.x{color:var(--red);font-weight:600}
+.pl{margin:1.6em 0}
+.pl .q{color:var(--vio)}
+.pl em{font-style:normal;color:var(--grn);font-weight:600}
 
 header{display:flex;justify-content:space-between;padding:1.2em 0 0;color:var(--b1);font-size:.87em}
 header nav a{color:var(--b00);border:0;margin-left:2ch}
@@ -85,10 +87,9 @@ canvas{display:block;width:100%}
 
 <section>
   <h2><span>1.</span>Bend compiles <b>FAST</b>.</h2>
-  <p>As AI writes more code, compile time becomes the bottleneck.
-Proof assistants take minutes on a mid-sized codebase, which
-makes proofs unviable. Bend checks in one linear pass, so it
-stays under a second, and proofs stay practical at any size.</p>
+  <p>When the AI writes the code, the compiler is the bottleneck.
+Proof assistants take minutes to check a mid-sized codebase.
+Bend checks that same code in one pass, in under one second.</p>
   <figure class="chart" id="c1">
     <p class="ct"></p>
     <div class="bars"></div>
@@ -100,9 +101,9 @@ stays under a second, and proofs stay practical at any size.</p>
 
 <section>
   <h2><span>2.</span>Bend runs <b>FAST</b>.</h2>
-  <p>Bend competes with hand-written C on one core. The very same
-program, unchanged, runs on sixteen cores and on the GPU: no
-threads, no locks, and not one line of CUDA written by hand.</p>
+  <p>On one core, Bend competes with hand-written C. And the same
+program, unchanged, runs on all sixteen cores, then the GPU:
+no threads, no locks, and not one GPU kernel written by you.</p>
   <figure class="chart" id="c2">
     <p class="ct"></p>
     <div class="bars"></div>
@@ -110,52 +111,38 @@ threads, no locks, and not one line of CUDA written by hand.</p>
     <figcaption>Apple M4 Max · lower is better</figcaption>
   </figure>
   <p class="note c">every number is a pin: <a href="https://github.com/HigherOrderCO/bend4/tree/main/bench/runtime">bench/runtime</a>, 2026-09-04</p>
+  <figure>
+    <canvas id="cube"></canvas>
+    <figcaption>GPU evaluation</figcaption>
+  </figure>
+  <p>A call splits until each core holds a task; then the results
+fold back into one. Host and device share one memory, so not
+one byte is copied. The entire language compiles to kernels.</p>
 </section>
 
 <section id="laws">
   <h2><span>3.</span>Bend blocks <b>mistakes</b>.</h2>
-  <p>How do you trust code you never read? Ask the AI to prove it
-correct. Take a game: grab the flag and you win. It has just
-one law: the player can't win. So you write it in LAWS.bend:</p>
+  <p>How can you trust code you never read? By demanding a proof.
+Take a game with a single law: the player can never win. You
+write that law in LAWS.bend, and Bend makes the AI prove it:</p>
 <p class="f">LAWS.bend</p>
 <pre><code><span class="c"># LAW: no sequence of moves can ever lead to victory.</span>
 <span class="k">law</span> winning_is_a_bug:
   <span class="k">for</span> moves: <span class="t">List</span>&lt;Game.Move&gt;
   board = Game.replay(Game.start(), moves)
   {Game.is_won(board) == False{} : <span class="t">Bool</span>}</code></pre>
-  <p>Your rules go there. You are done. The AI must prove them.</p>
-  <p>Then you prompt: <i>"please, make the board wrap around"</i>.</p>
+  <p>Now you prompt a new feature: <i>"make the board wrap around"</i>.</p>
   <figure>
     <canvas id="game"></canvas>
     <figcaption>Vibe-coding a new feature</figcaption>
   </figure>
-  <p>Without LAWS.bend, the wrap let the player into the room and
-a bug shipped. With LAWS.bend, Bend rejected that code until
-the AI placed a wall and proved the law. The proof spans all
-sequences of moves, of any length. It is not a test. It is a
-theorem, and Bend checks it with the same algorithm as Lean.</p>
-  <p class="c"><b>LAWS.bend is AGENTS.md backed by proof.</b>
-<b>"Make no mistakes" becomes enforceable.</b></p>
+  <p>Without LAWS.bend, the AI shipped a bug. With LAWS.bend, its
+code was rejected until it placed a wall and proved the law,
+for every possible sequence of moves. Not a test: a theorem.</p>
+  <p class="c pl"><code>LAWS.bend</code> is <code>AGENTS.md</code> backed by <b>proof</b>.
+<span class="q">“Make no mistakes”</span> becomes <em>enforceable</em>.</p>
   <p class="note c"><a href="https://victortaelin.github.io/winning_is_a_bug">play the game</a> · <a href="https://github.com/HigherOrderCO/bend4/tree/main/demos/winning_is_a_bug">game, law and proof</a></p>
 
-  <p style="margin-top:2.6em">Bend looks like Python. <code class="x">!</code> runs a call on the GPU.</p>
-<pre><code><span class="k">def</span> sum(+d: <span class="t">Nat</span>, +i: <span class="t">U32</span>) -> <span class="t">U32</span>:
-  <span class="k">match</span> d:
-    <span class="k">case</span> <span class="n">0n</span>:
-      i
-    <span class="k">case</span> <span class="n">1n</span>+p:
-      a b = sum(p, (i * <span class="n">2</span> : <span class="t">U32</span>)) sum(p, (i * <span class="n">2</span> + <span class="n">1</span> : <span class="t">U32</span>))
-      (a + b : <span class="t">U32</span>)
-
-<span class="k">def</span> main() -> <span class="t">IO</span>(<span class="t">Unit</span>):
-  result = sum<span class="x">!</span>(<span class="n">24n</span>, <span class="n">0</span>)
-  <span class="t">IO</span>.print(<span class="t">U32</span>.show(result))</code></pre>
-  <figure>
-    <canvas id="cube"></canvas>
-    <figcaption>GPU evaluation</figcaption>
-  </figure>
-  <p>Host and device share one memory: nothing is copied. Arrays,
-objects, closures, recursion: all of it compiles to kernels.</p>
 </section>
 
 <section id="start">
@@ -174,10 +161,9 @@ ln -s <span class="s">"$PWD/bend2/main.ts"</span> ~/.bun/bin/bend</code></pre>
 <pre><code>bend hello.bend            <span class="c"># check + run</span>
 bend hello.bend -o hello   <span class="c"># native binary, GPU-enabled</span>
 ./hello</code></pre>
-  <p>Then, read the <a href="https://github.com/HigherOrderCO/bend4/blob/main/guide/GUIDE.md">guide</a>. The core is <a href="https://github.com/HigherOrderCO/bend4/blob/main/bend2/bend.lean">formalized in Lean</a>: sound,
-confluent, normalizing. Two papers: <a href="https://github.com/HigherOrderCO/bend4/blob/main/paper/BendTT.pdf">BendTT</a>, the type theory,
-and <a href="https://github.com/HigherOrderCO/bend4/blob/main/paper/BendRT.pdf">BendRT</a>, the runtime. The compiler is new, so expect bugs
-and please report every one that you find in a <a href="https://github.com/HigherOrderCO/bend4/issues">GitHub issue</a>.</p>
+  <p>Then read the <a href="https://github.com/HigherOrderCO/bend4/blob/main/guide/GUIDE.md">guide</a>. The core is <a href="https://github.com/HigherOrderCO/bend4/blob/main/bend2/bend.lean">formalized in Lean</a>, and two
+papers describe it: <a href="https://github.com/HigherOrderCO/bend4/blob/main/paper/BendTT.pdf">BendTT</a>, the type theory, and <a href="https://github.com/HigherOrderCO/bend4/blob/main/paper/BendRT.pdf">BendRT</a>, the
+runtime. The compiler is young: expect bugs and <a href="https://github.com/HigherOrderCO/bend4/issues">report them</a>.</p>
 </section>
 
 <div id="sl"><b>NORMAL</b><span>bend.md</span><span>j/k · d/u · g/G</span><span class="r" id="pct">Top</span></div>
