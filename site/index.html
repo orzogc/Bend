@@ -46,7 +46,8 @@ pre code{color:inherit}
 
 figure{margin:1.4em 0}
 figcaption{text-align:center;color:var(--b1);font-size:.87em;margin-top:.7em}
-.bars{display:flex;align-items:flex-end;gap:10px;max-width:520px;margin:0 auto;padding-top:2.6em}
+.ct{text-align:center;color:var(--b02);font-weight:600;margin:0}
+.bars{display:flex;align-items:flex-end;gap:10px;max-width:520px;margin:0 auto;padding-top:2.4em}
 .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;font-size:.8em;color:var(--b01)}
 .bar i{display:block;width:100%;height:calc(var(--h)*150px);min-height:2px;background:#c9cfcc;transform:scaleY(0);transform-origin:bottom;transition:transform .5s ease-out calc(var(--i)*.12s)}
 .bar.bend i{background:var(--blu)}
@@ -89,9 +90,10 @@ Proof assistants take minutes on a mid-sized codebase, which
 makes proofs unviable. Bend checks in one linear pass, so it
 stays under a second, and proofs stay practical at any size.</p>
   <figure class="chart" id="c1">
+    <p class="ct"></p>
     <div class="bars"></div>
-    <figcaption><span></span> · Apple M4 Max · lower is better</figcaption>
     <div class="dots"></div>
+    <figcaption>Apple M4 Max · lower is better</figcaption>
   </figure>
   <p class="note c">every number is a pin: <a href="https://github.com/HigherOrderCO/bend4/tree/main/bench/checker">bench/checker</a>, 2026-09-02</p>
 </section>
@@ -102,9 +104,10 @@ stays under a second, and proofs stay practical at any size.</p>
 program, unchanged, runs on sixteen cores and on the GPU: no
 threads, no locks, and not one line of CUDA written by hand.</p>
   <figure class="chart" id="c2">
+    <p class="ct"></p>
     <div class="bars"></div>
-    <figcaption><span></span> · Apple M4 Max · lower is better</figcaption>
     <div class="dots"></div>
+    <figcaption>Apple M4 Max · lower is better</figcaption>
   </figure>
   <p class="note c">every number is a pin: <a href="https://github.com/HigherOrderCO/bend4/tree/main/bench/runtime">bench/runtime</a>, 2026-09-04</p>
 </section>
@@ -203,7 +206,7 @@ const io = new IntersectionObserver(es => es.forEach(e => {
 // again each time. Every number is a pin from bench/*/_pin_/apple_m4_max.txt.
 function chart(id, rows, bars) {
   const fig = document.getElementById(id), box = fig.querySelector(".bars");
-  const cap = fig.querySelector("figcaption span"), dots = fig.querySelector(".dots");
+  const cap = fig.querySelector(".ct"), dots = fig.querySelector(".dots");
   let cur = 0;
   function show(i) {
     cur = (i + rows.length) % rows.length;
