@@ -359,8 +359,9 @@ function play(cv, draw) {
 // sealed by two walls, the player at (8,5). Three acts on one canvas,
 // each opened by its title card. Act one: the player walks up and bumps
 // the room's wall. Act two: the wrap feature without LAWS.bend: the
-// player walks off the right edge, in at the left, and takes the flag.
-// Act three: with LAWS.bend: the AI's wall on the far edge stops the walk.
+// player walks off the right edge, in at the left, and takes the flag,
+// and the win screen pops. Act three: with LAWS.bend: the AI's wall on
+// the far edge stops the walk, and nothing pops.
 {
   const GW = 12, GH = 8, STEP = 0.2, BUMP = 0.4, BUMPS = 3, TITLE = 1.8, LEAD = 0.6, HOLD = 1.8;
   const up = (x, y0, y1) => { const p = []; for (let y = y0; y >= y1; y--) p.push([x, y]); return p; };
@@ -386,8 +387,7 @@ function play(cv, draw) {
     { title: "Original game:", far: false, route: up(8, 5, 1).concat([[7, 1], [6, 1], [5, 1], [4, 1]]), bump: [-1, "3,1"] },
     { title: "New feature; no LAWS.bend:", far: false, route: up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]), win: true,
       pop: ["YOU WON !?", "#fbe7e3", "#e9a39c", "#dc322f"] },
-    { title: "New feature; with LAWS.bend:", far: true, route: up(8, 5, 1).concat([[9, 1], [10, 1]]), bump: [1, "11,1"],
-      pop: ["LAW HOLDS", "#eef0d9", "#c5c98a", "#859900"] },
+    { title: "New feature; with LAWS.bend:", far: true, route: up(8, 5, 1).concat([[9, 1], [10, 1]]), bump: [1, "11,1"] },
   ];
   for (const a of ACTS) {
     a.walk = routeDur(a.route); a.tail = a.bump ? BUMP*BUMPS : 0.3; a.dur = TITLE + LEAD + a.walk + a.tail + HOLD;
