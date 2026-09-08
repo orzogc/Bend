@@ -186,8 +186,9 @@ const io = new IntersectionObserver(es => es.forEach(e => {
 }), { threshold: 0.15 });
 
 // ---------------------------------------------------------------- charts
-// One chart, many benches: the dots below switch the bench, the bars rise
-// again each time. Every number is a pin from bench/*/_pin_/apple_m4_max.txt.
+// One chart, many benches: it pages to the next bench every 4 s while on
+// screen, or when a dot or arrow is clicked, the bars rising again each
+// time. Every number is a pin from bench/*/_pin_/apple_m4_max.txt.
 function chart(id, rows, bars) {
   const fig = document.getElementById(id), box = fig.querySelector(".bars");
   const cap = fig.querySelector(".ct"), dots = fig.querySelector(".dots");
@@ -205,14 +206,18 @@ function chart(id, rows, bars) {
     void box.offsetWidth;
     if (fig._on) box.classList.add("on");
   }
+  let timer = 0;
+  const arm = () => { clearInterval(timer); timer = setInterval(() => { if (fig._on) show(cur + 1); }, 4000); };
   dots.addEventListener("click", e => {
     const t = e.target;
     if (t.tagName === "A") show(cur + (t.textContent === "«" ? -1 : 1));
     else if (t.tagName === "I") show([...dots.querySelectorAll("i")].indexOf(t));
+    else return;
+    arm();
   });
   fig._run = () => box.classList.add("on");
   io.observe(fig);
-  show(0);
+  show(0); arm();
 }
 // checker: Isabelle, Agda, Lean, Rocq, Bend; >300 is a timeout
 chart("c1", [
