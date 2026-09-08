@@ -18,11 +18,11 @@
 // caps, not crushes, the scale) -- never omitted, never drawn as
 // finished, ranking slowest.
 //
-// docs/assets/checker.svg -- one panel per checker bench family,
+// media/checker.svg -- one panel per checker bench family,
 // each system checking the SAME generated workload, panels ordered
 // by Bend's lead, largest first.
 //
-// docs/assets/single_core.svg -- one panel per runtime bench:
+// media/single_core.svg -- one panel per runtime bench:
 // single-core Bend against its native twins (C, TypeScript, Lean),
 // then the SAME Bend binary on all cores and on the GPU.
 
@@ -34,7 +34,7 @@ import * as os from "node:os";
 // =========
 
 const ROOT = path.join(import.meta.dirname, "..", "..");
-const DOCS = path.join(ROOT, "docs", "assets");
+const DOCS = path.join(ROOT, "media");
 const RUNTIME_PIN = path.join(ROOT, "bench", "runtime", "_pin_",
   "apple_m4_max.txt");
 const CHECKER_PIN = path.join(ROOT, "bench", "checker", "_pin_",

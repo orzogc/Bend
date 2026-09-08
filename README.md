@@ -8,13 +8,13 @@ In the post-AGI economy, what still matters for a programming language? Two thin
 
 That's it. Nothing else matters. Bend addresses both. And nothing else.
 
-![Bend, in five minutes](docs/intro.gif)
+![Bend, in five minutes](media/intro.gif)
 
 ## Bend4 runs FAST
 
 **Target:** be as fast as C on the CPU, as fast as CUDA on the GPU. **Status:**
 
-![Single-core benchmarks](docs/assets/single_core.svg)
+![Single-core benchmarks](media/single_core.svg)
 
 Strong types, linearity and purity let Bend compete with hand-written C on one
 core and scale to thousands of CPU or GPU threads, with near-ideal speedups at
@@ -27,7 +27,7 @@ write an issue.
 
 **Target:** outperform every proof assistant by several OOMs. **Status:**
 
-![Checker benchmarks](docs/assets/checker.svg)
+![Checker benchmarks](media/checker.svg)
 
 As AI models get faster, compile times become the bottleneck of software
 engineering. Other proof assistants take minutes on a mid-sized codebase, making
@@ -170,10 +170,10 @@ bend hello.bend -o hello    # compile to a native binary (GPU-enabled when Metal
 
 ### 4. Read the Guide:
 
-Everything else you need is in [Bend's GUIDE.md](docs/GUIDE.md). Read it!
+Everything else you need is in [Bend's GUIDE.md](guide/GUIDE.md). Read it!
 
 ## Formalization
 
-- Bend's core is [formalized in Lean](bend2/bend.lean): the checker's rules, with kinds and `Data` copying, are proven confluent, sound, normalizing and consistent with `Type : Type` and negative datatypes. Read the paper: [BendTT: An Affine Dependent Type Theory](docs/BendTT.pdf).
+- Bend's core is [formalized in Lean](bend2/bend.lean): the checker's rules, with kinds and `Data` copying, are proven confluent, sound, normalizing and consistent with `Type : Type` and negative datatypes. Read the paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf).
 
-- The runtime's paper: [BendRT: A Parallel Runtime for CPUs and GPUs](docs/BendRT.pdf).
+- The runtime's paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
