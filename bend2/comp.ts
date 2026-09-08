@@ -5313,10 +5313,9 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
 // ==
 
 // IoJob ::=
-//   | IoJob(what, need, word, cont, time, next, work, args)
+//   | IoJob(what, word, cont, time, next, work, args)
 typedef struct IoJob {
   IoEff*        what;
-  u32           need;
   u32           word;
   Term          cont;
   u64           time;
@@ -5325,19 +5324,16 @@ typedef struct IoJob {
   Term          args[];
 } IoJob;
 
-static IoJob* io_park;
-static lock   io_gate = PTHREAD_MUTEX_INITIALIZER;
-static u32    io_pend;
-static u32    io_busy;
-static u32    io_size;
-static int    io_job_fd[2];
-static int    io_wake_fd[2];
-
-static u64 io_tick(void) {
-  struct timespec ts;
-  clock_gettime(CLOCK_MONOTONIC, &ts);
-  return (u64)ts.tv_sec * 1000000000ull + (u64)ts.tv_nsec;
-}
+static IoJob*  io_park;
+static IoJob** io_park_at = &io_park;
+static IoJob*  io_more;
+static IoJob** io_more_at = &io_more;
+static lock    io_gate = PTHREAD_MUTEX_INITIALIZER;
+static u32     io_pend;
+static u32     io_busy;
+static u32     io_size;
+static int     io_job_fd[2];
+static int     io_wake_fd[2];
 
 static void io_take(Env e) {
   IoJob*  jobs[64];
@@ -5367,7 +5363,15 @@ static void* io_help(void* arg) {
   }
 }
 
-static void io_send(Env e, IoJob* job) {
+static void io_feed(void) {
+  IoJob* j;
+  while ((j = io_more) != NULL && write(io_job_fd[1], &j, sizeof j) > 0) {
+    io_more = j->next;
+  }
+  io_more_at = io_more == NULL ? &io_more : io_more_at;
+}
+
+static void io_send(IoJob* job) {
   io_busy += 1;
   if (io_busy > io_size && io_size < IO_HELP) {
     pthread_t tid;
@@ -5377,65 +5381,77 @@ static void io_send(Env e, IoJob* job) {
     pthread_detach(tid);
     io_size += 1;
   }
-  while (write(io_job_fd[1], &job, sizeof job) != sizeof job) {
-    struct pollfd room = { io_job_fd[1], POLLOUT, 0 };
-    io_take(e);
-    poll(&room, 1, -1);
-  }
+  job->next   = NULL;
+  *io_more_at = job;
+  io_more_at  = &job->next;
+  io_feed();
 }
 
-static void io_fire(Env e, IoJob* job) {
+static bool io_fire(Env e, IoJob* job) {
   Term x = job->what->run(e, job->args, &job->work);
+  if (x == IO_WAIT) {
+    return false;
+  }
   if (x == IO_WORK) {
-    io_send(e, job);
-    return;
+    io_send(job);
+    return true;
   }
   io_pend -= 1;
   if (x != IO_PARK) {
     io_push(job->cont, x, false);
   }
   free(job);
+  return true;
 }
 
-static void io_wait(Env e, bool block) {
+static void io_wait(Env e) {
   struct pollfd fds[IO_ROWS + 1];
-  u32 n  = 1;
-  int ms = block ? -1 : 0;
-  IoJob* soon = io_park;
+  u32 n    = 1;
+  u64 soon = 0;
+  int ms   = -1;
   fds[0].fd     = io_wake_fd[0];
   fds[0].events = POLLIN;
-  for (; soon != NULL && soon->time == 0; soon = soon->next) {
-    fds[n].fd     = (int)soon->word;
-    fds[n].events = soon->need & IO_WRITE ? POLLOUT : POLLIN;
-    n += 1;
+  for (IoJob* j = io_park; j != NULL; j = j->next) {
+    if (j->time != 0) {
+      soon = soon == 0 || j->time < soon ? j->time : soon;
+    } else if (n > IO_ROWS) {
+      err_fail(ERR_FAIL, "more waits than handles");
+    } else {
+      fds[n].fd     = (int)j->word;
+      fds[n].events = POLLIN;
+      n += 1;
+    }
   }
-  if (block && soon != NULL) {
+  if (soon != 0) {
     u64 now = io_tick();
-    u64 gap = soon->time > now ? (soon->time - now) / 1000000 + 1 : 0;
+    u64 gap = soon > now ? (soon - now) / 1000000 + 1 : 0;
     ms = gap > 0x7fffffff ? 0x7fffffff : (int)gap;
   }
-  if (block) {
-    io_sync();
-  }
-  if (poll(fds, n, ms) < 0 && errno != EINTR) {
-    err_fail(ERR_FAIL, "the poller failed");
+  io_sync();
+  while (poll(fds, n, ms) < 0) {
+    if (errno != EINTR) {
+      err_fail(ERR_FAIL, "the poller failed");
+    }
   }
   if (fds[0].revents != 0) {
     io_take(e);
   }
-  u64 now = io_tick();
-  u32 i   = 1;
-  for (IoJob** at = &io_park; *at != NULL;) {
+  io_feed();
+  u64     now = io_tick();
+  u32     i   = 1;
+  IoJob** at  = &io_park;
+  while (*at != NULL) {
     IoJob* j   = *at;
+    IoJob* nx  = j->next;
     bool   due = j->time == 0 ? fds[i].revents != 0 : j->time <= now;
     i += j->time == 0;
-    if (!due) {
+    if (due && io_fire(e, j)) {
+      *at = nx;
+    } else {
       at = &j->next;
-      continue;
     }
-    *at = j->next;
-    io_fire(e, j);
   }
+  io_park_at = at;
 }
 
 static int io_step(Env e, Term op, Term x) {
@@ -5475,7 +5491,7 @@ static int io_step(Env e, Term op, Term x) {
     }
     u32 need = eff->ask;
     u32 word = (u32)fs[0];
-    if (need & (IO_READ | IO_WRITE)) {
+    if (need & IO_READ) {
       word = (u32)io_sys_read(io_hand_p(e, fs[0]), 0);
       need = (int)word < 0 ? 0 : need;
     }
@@ -5489,23 +5505,19 @@ static int io_step(Env e, Term op, Term x) {
     }
     IoJob* job = io_mem(malloc(sizeof(IoJob) + (n + 1) * sizeof(Term)));
     job->what = eff;
-    job->need = need;
     job->word = word;
     job->cont = fs[n];
     job->work = w;
     io_pend += 1;
     if (need == 0) {
-      io_send(e, job);
+      io_send(job);
       return -1;
     }
     memcpy(job->args, fs, (n + 1) * sizeof(Term));
     job->time = need & IO_TIME ? io_tick() + (u64)word * 1000000ull : 0;
-    IoJob** at = &io_park;
-    while (*at != NULL && (*at)->time <= job->time) {
-      at = &(*at)->next;
-    }
-    job->next = *at;
-    *at = job;
+    job->next = NULL;
+    *io_park_at = job;
+    io_park_at  = &job->next;
     return -1;
   }
 }
@@ -5531,11 +5543,12 @@ OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
           " channel\n");
         return 1;
       }
-      io_wait(e, true);
+      io_wait(e);
       continue;
     }
-    if ((n & 63) == 0 && io_pend != 0) {
-      io_wait(e, false);
+    if ((n & 63) == 0 && io_busy != 0) {
+      io_take(e);
+      io_feed();
     }
     Term* s    = io_pop();
     int   code = io_step(e, s[0], s[1]);
@@ -5760,16 +5773,16 @@ function io_push(fun, arg, fresh) {
   io.live += fresh ? 1 : 0;
 }
 
-function io_wait(io, block) {
+function io_wait(io) {
   const soon = io.waits.reduce((m, w) => Math.min(m, w.at ?? m), Infinity);
-  let ms = block && soon === Infinity ? -1 : 0;
-  if (block && soon !== Infinity) {
+  let ms = -1;
+  if (soon !== Infinity) {
     ms = Math.ceil(soon - performance.now());
     ms = Math.min(Math.max(0, ms), 2147483647);
   }
   const fds = io.waits.filter((w) => w.fd !== undefined);
   const ready = fds.length === 0 ? [] : $0eff.sys_get().poll(fds, ms);
-  if (fds.length === 0 && ms !== 0) {
+  if (fds.length === 0) {
     Bun.sleepSync(ms);
   }
   const now = performance.now();
@@ -5785,7 +5798,7 @@ function io_run(m) {
   globalThis.BEND_IO = io;
   try {
     io_push(run_loop(m()), (x) => ({ $: "Emit", value: x }), true);
-    for (let n = 0;; n += 1) {
+    for (;;) {
       if (io.runs.length === 0) {
         if (io.live === 0) {
           return 0;
@@ -5794,11 +5807,8 @@ function io_run(m) {
           io_errs("bend: deadlock: every computation waits on a channel");
           return 1;
         }
-        io_wait(io, true);
+        io_wait(io);
         continue;
-      }
-      if ((n & 63) === 0 && io.waits.length > 0) {
-        io_wait(io, false);
       }
       const s = io.runs.shift();
       let op = s.fun(s.arg);
@@ -5811,14 +5821,13 @@ function io_run(m) {
           io_errs(op.message);
           return op.code;
         }
-        const need = op.need === undefined ? {} : op.need();
-        const kind = need.read ?? need.write;
-        const fd = kind === undefined ? null
-          : $0eff.sys_get().read(op.args[0], kind);
+        const need = op.need?.() ?? {};
+        const fd = need.read === undefined ? null
+          : $0eff.sys_get().read(op.args[0], need.read);
         if (need.time || fd !== null) {
           io.waits.push(fd === null
             ? { at: performance.now() + Number(op.args[0]), op: op }
-            : { fd: fd, dir: need.read ? 1 : 4, op: op });
+            : { fd: fd, op: op });
           break;
         }
         const x = op.run(...op.args, op.kont);

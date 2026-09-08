@@ -59,6 +59,9 @@ function sys_get() {
     },
     mint(ctr, kind, fd) {
       const slot = this.free.length > 0 ? this.free.pop() : this.rows.length;
+      if (slot === 4096) {
+        throw "bend: error 1: the handle table is full";
+      }
       const row = this.rows[slot];
       const gen = row === undefined ? 1 : (row.gen + 1) >>> 0;
       this.rows[slot] = { gen: gen, kind: kind, fd: fd };
@@ -89,12 +92,7 @@ function sys_get() {
       return fd;
     },
     sock(type) {
-      const fd = this.s.socket(2, type, 0);
-      if (fd >= 0 && mac) {
-        const one = new Int32Array([1]);
-        this.s.setsockopt(fd, 0xffff, 0x1022, this.ptr(one), 4);
-      }
-      return fd;
+      return this.s.socket(2, type, 0);
     },
     reuse(fd) {
       const one = new Int32Array([1]);
@@ -102,14 +100,11 @@ function sys_get() {
       const name = mac ? 0x0004 : 2;
       this.s.setsockopt(fd, level, name, this.ptr(one), 4);
     },
-    flags() {
-      return mac ? 0 : 0x4000;
-    },
     poll(polls, ms) {
       const buf = new Int32Array(polls.length * 2);
       polls.forEach((w, i) => {
         buf[2 * i] = w.fd;
-        buf[2 * i + 1] = w.dir;
+        buf[2 * i + 1] = 1;
       });
       const n = this.s.poll(this.ptr(buf), polls.length, ms);
       return polls.filter((w, i) => n > 0 && (buf[2 * i + 1] >>> 16) !== 0);

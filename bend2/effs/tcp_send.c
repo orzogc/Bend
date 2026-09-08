@@ -6,7 +6,7 @@ static void tcp_send_call(IoWork* w) {
   int fd = (int)io_sys_read(w->hand, IO_TCPS);
   ssize_t n = 0;
   for (uint64_t at = 0; n >= 0 && at < w->size; at += (uint64_t)n) {
-    n = send(fd, w->data + at, w->size - at, MSG_NOSIGNAL);
+    n = send(fd, w->data + at, w->size - at, 0);
   }
   io_sys_end(w, n);
 }
@@ -25,5 +25,5 @@ Term tcp_send_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) tcp_send_use(void) {
-  io_eff(FID_TCP_SEND, CID_TCP_SEND, tcp_send_run, IO_WRITE);
+  io_eff(FID_TCP_SEND, CID_TCP_SEND, tcp_send_run, 0);
 }

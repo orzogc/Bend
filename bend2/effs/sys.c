@@ -11,10 +11,6 @@
 #define IO_ROWS 4096
 #define IO_EFFS 64
 
-#ifndef MSG_NOSIGNAL
-#define MSG_NOSIGNAL 0
-#endif
-
 #define IO_NONE 0
 #define IO_FILE 1
 #define IO_TCPS 2
@@ -54,12 +50,16 @@ static void __attribute__((constructor)) io_sys_boot(void) {
   signal(SIGPIPE, SIG_IGN);
 }
 
+static uint64_t io_tick(void) {
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (uint64_t)ts.tv_sec * 1000000000ull + (uint64_t)ts.tv_nsec;
+}
+
 #define io_sys_done() io_sys_fall(0)
 
 static IoFall io_sys_fall(uint32_t code) {
-  IoFall out;
-  out.code = code;
-  out.text = code != 0 ? strerror((int)code) : NULL;
+  IoFall out = { code, NULL };
   return out;
 }
 
@@ -141,24 +141,17 @@ static int io_sys_addr(const char* host, uint32_t port, void* out) {
 }
 
 static int io_sys_sock(int type) {
-  int fd = socket(AF_INET, type, 0);
-#ifdef SO_NOSIGPIPE
-  if (fd >= 0) {
-    int one = 1;
-    setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &one, sizeof(one));
-  }
-#endif
-  return fd;
+  return socket(AF_INET, type, 0);
 }
 
 // Effects
 // -------
 
-#define IO_READ  1
-#define IO_WRITE 2
-#define IO_TIME  4
-#define IO_PARK  TERM_HOLE
-#define IO_WORK  (TERM_HOLE - 1)
+#define IO_READ 1
+#define IO_TIME 2
+#define IO_PARK TERM_HOLE
+#define IO_WORK (TERM_HOLE - 1)
+#define IO_WAIT (TERM_HOLE - 2)
 
 struct IoWork;
 typedef void (*IoCall)(struct IoWork* w);

@@ -2,24 +2,15 @@
 // ===
 //! use ./sys.c
 
-static void tcp_recv_call(IoWork* w) {
-  int fd = io_sys_read(w->hand, IO_TCPS);
-  w->size = io_sys_end(w, recv(fd, w->data, w->word, 0));
-}
-
-static Term tcp_recv_pack(Env e, IoWork* w) {
-  Term r = w->fall.code ? io_fail(e, w->fall)
-    : io_done(e, io_str(e, w->data, w->size));
-  free(w->data);
-  return io_tup(e, io_hand(e, CID_SOCKET, w->hand), r);
-}
-
 Term tcp_recv_run(Env e, Term* f, IoWork* w) {
-  w->hand = io_hand_c(e, f[0]);
-  w->word = f[1] < INT32_MAX ? f[1] : INT32_MAX;
-  w->data = io_mem(malloc(w->word + 1));
-  tcp_recv_call(w);
-  return tcp_recv_pack(e, w);
+  int   fd  = io_sys_read(io_hand_p(e, f[0]), IO_TCPS);
+  w->word   = f[1] < INT32_MAX ? f[1] : INT32_MAX;
+  char* buf = io_mem(malloc(w->word + 1));
+  u64   n   = io_sys_end(w, recv(fd, buf, w->word, MSG_DONTWAIT));
+  Term  r   = w->fall.code == EAGAIN ? IO_WAIT : w->fall.code
+    ? io_fail(e, w->fall) : io_done(e, io_str(e, buf, n));
+  free(buf);
+  return r == IO_WAIT ? r : io_tup(e, f[0], r);
 }
 
 static void __attribute__((constructor)) tcp_recv_use(void) {
