@@ -126,13 +126,9 @@ type Native = {
   cond?: Record<Bend.Name, string>;
 };
 
-type Optim = { C?: Native; JS?: Native };
-
 type Of<K> = Extract<HTerm, { $: K }>;
 
 type Probe = Of<"Var">;
-
-type HAll = Of<"All">;
 
 type HAdt = Of<"ADT">;
 
@@ -186,11 +182,10 @@ const EMPTY = new Map<HTerm, HTerm>();
 
 const W32: Lay = { ks: ["w32"], arms: null };
 
-const W64: Lay = { ks: ["w64"], arms: null };
-
 const BOX: Lay = { ks: ["box"], arms: null };
 
-const WORDS: Record<string, Lay> = { U32: W32, F32: W32, Nat: W64 };
+const WORDS: Record<string, Lay> = { U32: W32, F32: W32,
+  Nat: { ks: ["w64"], arms: null } };
 
 // Operations
 // ----------
@@ -206,11 +201,11 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     JS: "(Math.imul($0, $1) >>> 0)",
   },
   u32_div: {
-    C:  "(u32_unbox($1) == 0 ? 0 : U32_BIN($0, /, $1))",
+    C:  "((u32)($1) == 0 ? 0 : U32_BIN($0, /, $1))",
     JS: "($1 === 0 ? 0 : ($0 / $1) >>> 0)",
   },
   u32_mod: {
-    C:  "(u32_unbox($1) == 0 ? $0 : U32_BIN($0, %, $1))",
+    C:  "((u32)($1) == 0 ? $0 : U32_BIN($0, %, $1))",
     JS: "($1 === 0 ? $0 : $0 % $1)",
   },
   ...tpl_ops("u32_", "inc:+ shl:<<", "U32_BIN($0, $o, 1)", "(($0 $o 1) >>> 0)"),
@@ -227,7 +222,7 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     JS: "($1 >= 32n ? 0 : $0 >>> Number($1))",
   },
   u32_not: {
-    C:  "u32_rewrap(~u32_unbox($0))",
+    C:  "((u64)~(u32)($0))",
     JS: "(~$0 >>> 0)",
   },
   u32_is_zero: {
@@ -239,7 +234,7 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     JS: "cmp_new($0, $1)",
   },
   u32_to_f32: {
-    C:  "f32_rewrap((f32)u32_unbox($0))",
+    C:  "f32_rewrap((f32)(u32)($0))",
     JS: "Math.fround($0)",
   },
   u32_to_nat: {
@@ -247,16 +242,17 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     JS: "BigInt($0)",
   },
   u32_from_nat: {
-    C:  "u32_rewrap(u32_unbox($0))",
+    C:  "((u64)(u32)($0))",
     JS: "Number($0 & 0xFFFFFFFFn)",
   },
   ...tpl_ops("f32_", "add:+ sub:- mul:* div:/",
-    "F32_BIN($0, $o, $1)", "Math.fround($0 $o $1)"),
+    "f32_rewrap(f32_unbox($0) $o f32_unbox($1))", "Math.fround($0 $o $1)"),
   f32_neg: {
     C:  "f32_rewrap(-f32_unbox($0))",
     JS: "(-$0)",
   },
-  ...tpl_ops("f32_", CMPS, "F32_CMP($0, $o, $1)", "($0 $o $1)"),
+  ...tpl_ops("f32_", CMPS, "((u64)(f32_unbox($0) $o f32_unbox($1)))",
+    "($0 $o $1)"),
   ...tpl_ops("f32_", "sqrt exp log log2 log10 sin cos tan asin acos atan"
     + " sinh cosh tanh floor ceil trunc",
     "f32_rewrap($kf(f32_unbox($0)))", "Math.fround(Math.$k($0))"),
@@ -348,7 +344,8 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
 // Optimized
 // ---------
 
-const OPTIMIZED: Record<Bend.Name, Optim> = Object.setPrototypeOf({
+const OPTIMIZED: Record<Bend.Name, { C?: Native; JS?: Native }> =
+  Object.setPrototypeOf({
   Nat: {
     C: {
       intr: {
@@ -447,14 +444,17 @@ const NATIVE = {
 ${SHIMS}
 #endif
 
-#define f32_unbox(x)  __builtin_bit_cast(f32, (u32)(x))
-#define u32_unbox(x)  ((u32)(x))
-#define f32_rewrap(x) ((u64)__builtin_bit_cast(u32, (f32)(x)))
-#define u32_rewrap(x) ((u64)(x))
+#define U32_BIN(a, o, b) ((u64)((u32)(a) o (u32)(b)))
 
-#define U32_BIN(a, o, b) u32_rewrap(u32_unbox(a) o u32_unbox(b))
-#define F32_BIN(a, o, b) f32_rewrap(f32_unbox(a) o f32_unbox(b))
-#define F32_CMP(a, o, b) u32_rewrap(f32_unbox(a) o f32_unbox(b))
+INLINE f32 f32_unbox(u64 x) {
+  union { u32 u; f32 f; } p = { (u32)x };
+  return p.f;
+}
+
+INLINE u64 f32_rewrap(f32 x) {
+  union { f32 f; u32 u; } p = { x };
+  return p.u;
+}
 
 INLINE U32 f32_to_u32(U32 a) {
   f32 v = f32_unbox(a);
@@ -558,8 +558,9 @@ function f32_show(x) {
 }
 
 function f32_read(s) {
-  const v = s === "" ? NaN : Number(s);
-  return Number.isNaN(v) ? {$: "None"} : {$: "Some", value: Math.fround(v)};
+  const re = /^\s*[+-]?((\d+\.?\d*|\.\d+)(e[+-]?\d+)?|inf(inity)?|nan)$/i;
+  const v = Number(s.replace(/inf\w*/i, "Infinity"));
+  return re.test(s) ? {$: "Some", value: Math.fround(v)} : {$: "None"};
 }
 
 function char_new(code) {
@@ -887,7 +888,7 @@ function ty_wnf(book: Bend.Book, ty: HTerm | null): HTerm | null {
   return ty && Bend.term_wnf(book, ty);
 }
 
-function ty_all(book: Bend.Book, ty: HTerm | null): HAll | null {
+function ty_all(book: Bend.Book, ty: HTerm | null): Of<"All"> | null {
   return ty && Bend.tele_open(book, ty);
 }
 
@@ -2246,11 +2247,6 @@ function arr_cells(fl: File, a: string, at: string, el: Lay,
   return val_new(ws, el, av);
 }
 
-function arr_at(fl: File, a: string, i: Val, el: Lay): string {
-  return emit_hold(fl,
-    [`blk_at(e, ${a}, ${val_word(i)}, ${lay_arr(el).lgs})`], "at")[0];
-}
-
 function arr_new(fl: File, d: string, v: Val, el: Lay): string {
   const { arr, lgs } = lay_arr(el);
   const ws = val_own(fl, val_to(fl, v, el));
@@ -2273,7 +2269,8 @@ function arr_op(fl: File, k: string, el: Lay, args: Val[]): Val {
     }
     default: {
       const a = emit_alias(fl, val_own(fl, args[0])[0], "a");
-      const at = arr_at(fl, a, args[1], el);
+      const at = emit_hold(fl,
+        [`blk_at(e, ${a}, ${val_word(args[1])}, ${lgs})`], "at")[0];
       if (k === "array_get") {
         const got = arr_cells(fl, a, at, el, false);
         return val_new([a, ...got.ws], arr_lay(el), [null, ...got.av ?? []]);
@@ -2468,16 +2465,12 @@ function emit_call(fl: File, ck: Call, km: Call | null): void {
   emit_jump(fl, cargs, ck.k);
 }
 
-function emit_ret(fl: File, v: Val): void {
-  spare_flush(fl);
-  const ws = val_own(fl, val_to(fl, v, def_ret(fl, fl.seg.def)));
-  emit_res(fl, ws);
-  file_push(fl, `WL_RETN(${ws.length});`);
-}
-
 function emit_put(fl: File, dst: Dst, v: Val): void {
   if (dst === null) {
-    emit_ret(fl, v);
+    spare_flush(fl);
+    const ws = val_own(fl, val_to(fl, v, def_ret(fl, fl.seg.def)));
+    emit_res(fl, ws);
+    file_push(fl, `WL_RETN(${ws.length});`);
   } else {
     val_own(fl, val_to(fl, v, dst.lay)).forEach((w, j) => {
       file_push(fl, `${dst.ws[j]} = ${w};`);
@@ -3076,8 +3069,10 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   const defs: string[] = [];
   for (const ms of [[...fl.cids.keys()].map(cid_mac),
     [...entries.map((s) => s.fid), "FID_EXIT"]]) {
-    if (ms.length > 65536 || new Set(ms).size < ms.length) {
-      die("an id over 65535");
+    const dup = ms.find((m, i) => ms.indexOf(m) < i);
+    if (ms.length > 65536 || dup !== undefined) {
+      die(dup === undefined ? "an id over 65535"
+        : "two names mangle to " + dup);
     }
     const w = Math.max(...ms.map((m) => m.length));
     defs.push(...ms.map((m, i) => `#define ${m.padEnd(w)} ${i}`), "");
@@ -3108,9 +3103,6 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   table("FID_RESW_T", entries.map((s) => s.frame?.resw ?? 0));
   table("CID_ARITY_T", [...fl.cids.values()].map((c) => c[0]));
   table("CID_BOXN_T", [...fl.cids.values()].map((c) => c[1]));
-  for (const [rows, i] of fl.tabs) {
-    defs.push(`CONSTV u64 TAB_${i}[] = { ${rows} };`, "");
-  }
   const bank = Math.max(1, ...entries.filter((s) => s.frame === null)
     .map((s) => s.params.length));
   const ns = [...Array(bank).keys()];
@@ -3187,7 +3179,8 @@ export function compile_book(book: Bend.Book): string {
   const defs = compile_tables(fl, entries);
   const fills: [string, string[]][] = [
     ["Tables", [defs.join("\n")]],
-    ["Spins", fl.spins.map((s) => s[1])],
+    ["Spins", [...[...fl.tabs].map(([r, i]) =>
+      `CONSTV u64 TAB_${i}[] = { ${r} };`), ...fl.spins.map((s) => s[1])]],
     ["Segments", [compile_segs(fl)]],
     ["Requests", [fl.reqs]],
   ];
@@ -3292,7 +3285,7 @@ function js_expr(fl: File, tm: HTerm,
       if (native !== undefined) {
         return tpl(native.intr[x.k] ?? die(x.k + NATIVE_DIE), exprs);
       }
-      return exprs.reduce((e, z, j) => e + ", " + keys[j] + ": " + z,
+      return exprs.reduce((e, z, j) => e + ", [\"" + keys[j] + "\"]: " + z,
         "{$: \"" + x.k + "\"") + "}";
     }
     case "Let": return js_expr(fl, js_open(fl, x), ty);
@@ -3416,7 +3409,7 @@ export function js_lib(book: Bend.Book, outs: Bend.Name[] | null): string {
     }
   }
   const effs = rows.length === 0 ? "" : "const $0eff = (() => {\n"
-    + srcs.filter((s) => s !== "").join("\n") + "\nreturn {\n"
+    + srcs.join("\n") + "\nreturn {\n"
     + width_fold(rows.join("\n"), false) + "\n};\n})();\n\n";
   const tabs = [...fl.tabs].map(([r, i]) => `const TAB_${i} = [${r}];`);
   const lib = outs === null ? "" : "export default {\n" + outs.map((k) =>
