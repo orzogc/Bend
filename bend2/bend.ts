@@ -271,7 +271,7 @@ export type SubsOf<B> = BodyOf<B> extends Function ? TermOf<NoInfer<B>> : HTerm;
 export type TermOf<B> = (
   | { $: "Var"; k: Name; i: number; v?: SubsOf<B> }                                // x
   | { $: "Ref"; k: Name; b?: Bool }                                                // x
-  | { $: "Sub"; i: number; v: TermOf<B>; f: TermOf<B> }                            // x <- v; f
+  | { $: "Sub"; i: number; v: TermOf<B> | Patt; f: TermOf<B> }                     // x <- v; f
   | { $: "Let"; k: Name[]; i: number[]; q: Quant[]; v: TermOf<B>[]; f: LetsOf<B> } // x y = v w; f
   | { $: "Typ"; g: TermOf<B> }                                                     // Kind(g)
   | { $: "Qnt" }                                                                   // Quant
@@ -296,7 +296,7 @@ export type HBody = (x: HTerm) => HTerm;
 export type HTerm = TermOf<HBody>;
 
 // Env
-export type Env = List<HTerm>;
+export type Env = List<HTerm | ((s?: Span) => HTerm)>;
 
 // Definitions & Book
 export type Ctr  = { k: Name; n: number; T: HTerm }
@@ -360,7 +360,7 @@ export function Ref<X>(k: Name, s?: Span, b?: Bool): TermOf<X> {
   return { $: "Ref", k, s, b };
 }
 
-export function Sub<X>(i: number, v: TermOf<X>, f: TermOf<X>, s?: Span): TermOf<X> {
+export function Sub<X>(i: number, v: TermOf<X> | Patt, f: TermOf<X>, s?: Span): TermOf<X> {
   return { $: "Sub", i, v, f, s };
 }
 
@@ -784,15 +784,20 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
       const v = list_get(env, tm.i);
       if (v === null) {
         return Ref(tm.k, tm.s);
+      } else if (typeof v === "function") {
+        return v(tm.s);
       } else {
-        return tm.s === undefined || (v.$ === "Var" && v.i < 0) ? v : { ...v, s: tm.s };
+        return v.s !== undefined || tm.s === undefined || (v.$ === "Var" && v.i < 0) ? v : { ...v, s: tm.s };
       }
     }
     case "Ref": {
       return Ref(tm.k[0] === "." ? "Nat" + tm.k : tm.k, tm.s, tm.b);
     }
     case "Sub": {
-      const v = term_higher(tm.v, env);
+      const x = tm.v;
+      const v = x.$ === "PVar" || x.$ === "PCtr"
+        ? (s?: Span) => term_higher(patt_term(x, s), env)
+        : term_higher(x, env);
       return term_higher(tm.f, list_set(env, tm.i, v));
     }
     case "Let": {
@@ -872,7 +877,7 @@ export function term_lower(term: HTerm, d: number = 0): LTerm {
       return Ref(tm.k, tm.s, tm.b);
     }
     case "Sub": {
-      return Sub(tm.i, term_lower(tm.v, d), term_lower(tm.f, d), tm.s);
+      return Sub(tm.i, tm.v.$ === "PVar" || tm.v.$ === "PCtr" ? tm.v : term_lower(tm.v, d), term_lower(tm.f, d), tm.s);
     }
     case "Let": {
       const xs = tm.k.map((k, j): HTerm => Var(k, d + j));
@@ -1176,7 +1181,7 @@ export function tele_unbind(book: Book, T: HTerm): { doms: Array<[Quant, Name, H
   let tel = T;
   for (let t = tele_open(book, tel); t !== null; t = tele_open(book, tel)) {
     doms.push([t.q, t.k, t.A]);
-    tel = t.B(Var(t.k, doms.length - 1, t.s));
+    tel = t.B(Var(t.k, doms.length - 1));
   }
   return { doms, ret: term_wnf(book, tel) };
 }
@@ -2745,10 +2750,10 @@ export function parse_book(book: Book, dir: string, src: string, ns: string = ""
 // later. a parallel let becomes one Let node binding its names to its
 // values.
 
-export function body_sub(b: Body, i: number, v: LTerm): Body {
+export function body_sub(b: Body, i: number, v: Patt): Body {
   function scrut(e: LTerm): LTerm {
     if (e.$ === "Var") {
-      return e.i !== i ? e : e.s === undefined ? v : { ...v, s: e.s };
+      return e.i !== i ? e : patt_term(v, e.s);
     } else {
       return Sub(i, v, e);
     }
@@ -2821,7 +2826,7 @@ export function match_flatten(m: Match, vars: PVar[], fr: () => number): LTerm {
 }
 
 export function rows_pick_ctr(rows: Rows, x: PVar, k: Name, xs: Patt[]): Rows {
-  const kx = patt_term({ $: "PCtr", k, x: xs, s: x.s });
+  const kx: Patt = { $: "PCtr", k, x: xs, s: x.s };
   return rows.flatMap((row): Rows => {
     const p0 = row.p[0];
     switch (p0.$) {
@@ -2836,7 +2841,7 @@ export function rows_pick_ctr(rows: Rows, x: PVar, k: Name, xs: Patt[]): Rows {
         }
       }
       case "PVar": {
-        const g = body_sub(row.f, p0.i, patt_term(x));
+        const g = body_sub(row.f, p0.i, x);
         const f = body_sub(g, x.i, kx);
         return [{ p: xs.concat(row.p.slice(1)), f }];
       }
@@ -2855,7 +2860,7 @@ export function rows_bind_var(rows: Rows, x: PVar): Rows {
   return rows.map((row): Case => {
     const p0 = row.p[0];
     if (p0.$ === "PVar") {
-      const f = body_sub(row.f, p0.i, patt_term(x));
+      const f = body_sub(row.f, p0.i, x);
       return { p: row.p.slice(1), f };
     } else {
       throw Err(book_nil(), ctx_nil(), "a variable pattern (this column has no constructor row)", undefined, p0.s);
@@ -2883,14 +2888,14 @@ export function patt_binds(qs: Patt[], fr: () => number): PVar[] {
   });
 }
 
-export function patt_term(q: Patt): LTerm {
+export function patt_term(q: Patt, s?: Span): LTerm {
   switch (q.$) {
     case "PVar": {
-      return Var(q.k, q.i, q.s);
+      return Var(q.k, q.i, s ?? q.s);
     }
     case "PCtr": {
-      const xs = q.x.map(patt_term);
-      return Ctr(q.k, xs, q.s);
+      const xs = q.x.map((x) => patt_term(x, s));
+      return Ctr(q.k, xs, s ?? q.s);
     }
   }
 }
@@ -3157,7 +3162,7 @@ export function term_snf(book: Book, term: HTerm): HTerm {
       return Ref(tm.k, tm.s, tm.b);
     }
     case "Sub": {
-      return Sub(tm.i, term_snf(book, tm.v), term_snf(book, tm.f), tm.s);
+      return Sub(tm.i, tm.v.$ === "PVar" || tm.v.$ === "PCtr" ? tm.v : term_snf(book, tm.v), term_snf(book, tm.f), tm.s);
     }
     case "Typ": {
       return Typ(term_snf(book, tm.g), tm.s);
@@ -3444,7 +3449,7 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     case "All": {
       const B_ctx = ctx_bind(ctx, d, tm.q, tm.k, tm.A);
       const A_chk = term_check(book, lhs, tm.A, None(), Typ(Qua(lhs_kind(lhs, tm.q)), tm.s), ctx, d);
-      const B_chk = term_check(book, lhs, tm.B(Var(tm.k, d, tm.s)), None(), Typ(Qua(Lone()), tm.s), B_ctx, d+1);
+      const B_chk = term_check(book, lhs, tm.B(Var(tm.k, d)), None(), Typ(Qua(Lone()), tm.s), B_ctx, d+1);
       return Infer(All(tm.q, tm.k, d, A_chk.tm, B_chk.tm, tm.s), Typ(Qua(Lone()), tm.s), uses_nil());
     }
     // Γ ⊢ f : @q x:A -> B ~ fu
@@ -3545,7 +3550,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       if (t_wnf.$ !== "All") {
         throw Err(book, ctx, ty, typeless_show(book, ctx, tm), tm.s, lhs.def);
       }
-      const x: HTerm = Var(tm.k, d, tm.s);
+      const x: HTerm = Var(tm.k, d);
       let f_lhs = lhs;
       if (lhs.n > 0) {
         f_lhs = { ...lhs, t: term_apply(lhs.t, x), n: lhs.n - 1 };
@@ -3575,7 +3580,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
         us = uses_add(us, v_inf.us);
         f_ctx = ctx_bind(f_ctx, d + j, tm.q[j], tm.k[j], v_inf.ty);
       }
-      const xs = tm.k.map((k, j): HTerm => Var(k, d + j, tm.s, tm.v[j]));
+      const xs = tm.k.map((k, j): HTerm => Var(k, d + j, undefined, tm.v[j]));
       const f_chk = term_check(book, lhs, tm.f(xs), qt, ty, f_ctx, d + n);
       let fu = f_chk.us;
       for (let j = 0; j < n; j++) {
@@ -3787,7 +3792,7 @@ export function adt_valid(book: Book, k: Name, adt: ADT): void {
       }
       term_check(book, { t: Ref(ctr.k), n: 0, def: ctr.k, qs: [] }, t_all.A, None(), goal, ctx, d);
       ctx = ctx_bind(ctx, d, t_all.q, t_all.k, t_all.A);
-      tel = t_all.B(Var(t_all.k, d, t_all.s));
+      tel = t_all.B(Var(t_all.k, d));
     }
     const exp = "a telescope tipped at " + k + " applied to its own parameters";
     const tip = term_wnf(book, tel);
@@ -3808,7 +3813,7 @@ export function def_valid(book: Book, k: Name, def: Def): void {
   if (def.i) {
     let tel = term_strip(def.T);
     for (let d = 0; tel.$ === "All"; d++) {
-      tel = term_strip(tel.B(Var(tel.k, d, tel.s)));
+      tel = term_strip(tel.B(Var(tel.k, d)));
     }
     const [h] = term_unapply(tel);
     const io  = book.tlds["IO"];
