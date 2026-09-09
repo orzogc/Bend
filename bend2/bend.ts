@@ -3575,7 +3575,13 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       for (let j = 0; j < n; j++) {
         const v_dem = quant_dem(tm.q[j], qt);
         const v_inf = term_infer(book, lhs, tm.v[j], v_dem, ctx, d);
-        term_check(book, lhs, v_inf.ty, None(), Typ(Qua(lhs_kind(lhs, tm.q[j])), tm.s), ctx, d);
+        const kind = Typ<HBody>(Qua(lhs_kind(lhs, tm.q[j])), tm.s);
+        try {
+          term_check(book, lhs, v_inf.ty, None(), kind, ctx, d);
+        } catch (e) {
+          const err = e as Err;
+          throw err?.$ === "Err" && err.exp === kind ? { ...err, spn: tm.s ?? err.spn } : e;
+        }
         vx.push(v_inf.tm);
         us = uses_add(us, v_inf.us);
         f_ctx = ctx_bind(f_ctx, d + j, tm.q[j], tm.k[j], v_inf.ty);
