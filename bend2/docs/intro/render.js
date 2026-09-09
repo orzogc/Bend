@@ -795,7 +795,9 @@ function draw(t) {
   const inA  = b.includes(co) ? 1 : ease(u/0.3);
   const outA = nxt && nxt.includes(co) ? 1 : ease((dur - u)/0.3);
   const f = 1 - Math.min(inA, outA);
-  if (f > 0) { cx.fillStyle = `rgba(242,238,231,${f})`; cx.fillRect(0, 0, W, H); }
+  // the alpha goes through globalAlpha, a number: a tiny f printed into an
+  // rgba string comes out as 6e-8, which node-canvas reads as opaque
+  if (f > 0) { cx.globalAlpha = f; cx.fillStyle = BG; cx.fillRect(0, 0, W, H); cx.globalAlpha = 1; }
 }
 
 if (typeof module !== "undefined") module.exports = { draw, setCtx, DUR, SCENES, T0 };
