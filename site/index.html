@@ -267,7 +267,7 @@ function play(cv, draw) {
 }
 
 // ---------------------------------------------------------------- the GPU
-// sum!(16n, 0) splits in two, in four, ... until one task sits on each of
+// pow2!(20n) splits in two, in four, ... until one task sits on each of
 // 64 x 64 cores; every core works its task; then the results fold back,
 // pairwise: the blue region contracts toward the top-left cell, halving
 // along one axis at a time, the cells it leaves going gray; then the view
@@ -305,7 +305,7 @@ function play(cv, draw) {
       if (la <= 0) continue;
       const hx = (c + 0.5)*w, hy = (r + 0.5)*h;
       const px = (Math.floor(c*pc/cols) + 0.5)*pw, py = (Math.floor(r*pr/rows) + 0.5)*ph;
-      label(ctx, "sum(" + (16 - k) + ")", lerp(px, hx, m) - w/2, lerp(py, hy, m) - h/2, w, h, la);
+      label(ctx, "pow2(" + (20 - k) + ")", lerp(px, hx, m) - w/2, lerp(py, hy, m) - h/2, w, h, la);
     }
   }
   function draw(ctx, t, W) {
@@ -332,7 +332,7 @@ function play(cv, draw) {
       const s = Math.pow(N, ease((u - Z0)/ZLEN)), zs = cs*s, lim = Math.min(N, Math.ceil(N/s) + 1);
       for (let r = 0; r < lim; r++) for (let c = 0; c < lim; c++) if (c || r) cell(ctx, c*zs, r*zs, zs, zs, MIST);
       cell(ctx, 0, 0, zs, zs, DEEP);
-      label(ctx, "2147450880", 0, 0, zs, zs, ease((u - Z1 + 0.2)/0.5), BG);
+      label(ctx, "1048576", 0, 0, zs, zs, ease((u - Z1 + 0.2)/0.5), BG);
     }
   }
   play(document.getElementById("cube"), draw);

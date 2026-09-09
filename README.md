@@ -98,18 +98,18 @@ def main() -> IO(Unit):
 ```python
 import Base
 
-# Sums a range of numbers in parallel.
-def sum(+d: Nat, +i: U32) -> U32:
+# Computes 2^d in parallel: a tree of d levels, one leaf per unit.
+def pow2(+d: Nat) -> U32:
   match d:
     case 0n:
-      i
+      1
     case 1n+p:
-      a b = sum(p, (i * 2 : U32)) sum(p, (i * 2 + 1 : U32))
+      a b = pow2(p) pow2(p)
       (a + b : U32)
 
-# Runs sum on the GPU, via `!`.
+# Runs pow2 on the GPU, via `!`.
 def main() -> IO(Unit):
-  result = sum!(16n, 0)
+  result = pow2!(20n)
   IO.print(U32.show(result))
 ```
 

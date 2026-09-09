@@ -465,12 +465,12 @@ S.laws = (u, dur) => {
 
 // ------------------------------------------------------------------ the cube
 // The GPU is a static 64 x 64 grid of cores: the cube, the same grid the
-// landing page draws. sum(16) splits in two, then four, ... until one task
-// sits on every core; each core works its task down to a number; then the
-// numbers fold, pairwise, the live region contracting into the top-left
+// landing page draws. pow2(20) splits in two, then four, ... until one
+// task sits on every core; each core works its task down to a number; then
+// the numbers fold, pairwise, the live region contracting into the top-left
 // corner until one cell holds the result, and the camera dives onto it.
-// Every number is the program's own: core n holds sum(4, n), the sum of
-// the sixteen leaves 16n .. 16n+15, and the total is the sum of 0 .. 65535.
+// Every number is the program's own: a core holds pow2(8), the 256 leaves
+// under it, and the total is 2^20.
 //
 // One camera serves all three beats. Grid coordinates put (0,0) at the
 // grid's top-left corner and CS is one cell; at scale 1 with the camera on
@@ -554,7 +554,7 @@ const boxA = k => clamp((k - 2)/9, 0, 1);
 const splitDur = k => 0.9*Math.pow(0.8, k);
 const D0 = 0.5, DALL = (() => { let t = D0; for (let k = 0; k < LEVELS; k++) t += splitDur(k); return t; })();
 const cutDur = d => Math.min(0.6, d*0.7);
-const lab = k => "sum(" + (16 - k) + ")";
+const lab = k => "pow2(" + (20 - k) + ")";
 function slotBoxes(k, a) {
   if (a <= 0) return;
   const [cols, rows] = dims(k), w = GS/cols, h = GS/rows;
@@ -590,14 +590,15 @@ S.dist = (u, dur) => {
   gridTag(cols*rows, 1, ease((u - DALL - 0.2)/0.4));
 };
 
-// Step 2. Every core works its task, sum(4, n) for core n: its total
-// grows leaf by leaf, sixteen steps, one number at a time. Meanwhile the
-// camera, after a moment on the whole grid, dives toward one core: the
-// dive is quick at first, so the text turns readable early, hundreds of
-// cores mid-work, then slows onto one core, which finishes its sum alone
-// on the screen.
-const trace = n => { const t = ["sum(4," + n + ")"]; for (let k = 1; k <= 16; k++) t.push(String(16*n*k + k*(k - 1)/2)); return t; };
-const STEPS = 17, ESTEP = 0.4, E0 = 0.5, ED = 0.4, DIVE = 3.5, EDONE = E0 + (STEPS - 1)*ESTEP;
+// Step 2. Every core works its task, pow2(8), one call at a time, the way
+// a sequential core runs it: depth first, so at each step the state is
+// what is done plus the call still pending, 128+pow2(7), 192+pow2(6), ...
+// 255+pow2(0), and then the number. Meanwhile the camera, after a moment
+// on the whole grid, dives toward one core: the dive is quick at first, so
+// the text turns readable early, hundreds of cores mid-work, then slows
+// onto one core, which finishes its call alone on the screen.
+const trace = n => { const t = ["pow2(8)"]; for (let d = 7; d >= 0; d--) t.push((256 - (1 << (d + 1)) + (1 << d)) + "+pow2(" + d + ")"); t.push("256"); return t; };
+const STEPS = 10, ESTEP = 0.5, E0 = 0.5, ED = 0.4, DIVE = 3.5, EDONE = E0 + (STEPS - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
 S.eval = (u, dur) => {
   const p = clamp((u - ED)/DIVE, 0, 1), z = 1 - (1 - p)*(1 - p), camr = camLerp(CAM0, CAME, z);
@@ -632,7 +633,7 @@ S.eval = (u, dur) => {
 // cell, ever. When one cell is left the camera dives onto it, the cell
 // riding a straight path to the screen's centre as the zoom grows, and
 // it shows the total.
-const ZO = 1.2, R0 = 1.5, TOTAL_SUM = "2147450880";
+const ZO = 1.2, R0 = 1.5, ANSWER = "1048576";
 const foldDur = j => 0.5*Math.pow(0.85, j);
 const RDONE = (() => { let t = R0; for (let j = 0; j < LEVELS; j++) t += foldDur(j); return t; })();
 const Z0 = RDONE + 0.5, ZLEN = 1.4, Z1 = Z0 + ZLEN;
@@ -668,11 +669,11 @@ S.reduce = (u, dur) => {
     const a = alpha(c, r);
     if (a <= 0) continue;
     cellBox(x, y, cw, ch, fill, a);
-    if (u < R0 && fitText(cw, ch) >= 5) cellText(String(256*(r*N + c) + 120), x, y, cw, ch, a, inkAt(2));
+    if (u < R0 && fitText(cw, ch) >= 5) cellText("256", x, y, cw, ch, a, inkAt(2));
   }
   if (u >= Z0) {
     const [x, y, cw, ch] = blockRect(camr, 0, 0, 1, 1);
-    cellText(TOTAL_SUM, x, y, cw, ch, ease((u - Z1 + 0.3)/0.5), inkAt(6));
+    cellText(ANSWER, x, y, cw, ch, ease((u - Z1 + 0.3)/0.5), inkAt(6));
   }
   cx.globalAlpha = ease((u - Z1 - 0.2)/0.4);
   T("Final result!", W/2, 600, 24, GREEN, "center", true);
