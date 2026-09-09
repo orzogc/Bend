@@ -30,7 +30,7 @@ const BEATS = [
   ["check"],
   ["bench", "gameoflife"],
   ["par", "gameoflife", co],
-  ["say", "#Bend can run on GPUs."],
+  ["say", "#Bend runs on GPUs."],
   ["dist"],
   ["eval", co],
   ["reduce", co],
