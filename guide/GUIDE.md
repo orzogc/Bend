@@ -568,7 +568,7 @@ is a new package. A file with a `?TODO` does not publish; an open `law` does, so
 a claim can be posted before its proof. There are no accounts: a publish carries
 a proof of work of about two seconds of a laptop's cores per 256 KiB (every core
 mines), and a package is 16 MiB at most. The hub checks nothing else: importers
-check every package with their own checker. `https://bend-lang.org/0x<hash>`
+check every package with their own checker. `https://bend-lang.org/hub/0x<hash>`
 shows a package, each name linked to its definition;
 `https://hub.bend-lang.org/0x<hash>/manifest` lists its files.
 
