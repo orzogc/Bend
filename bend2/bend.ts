@@ -3736,7 +3736,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       const e_inf = term_infer(book, lhs, tm.e, qt, ctx, d);
       const e_wnf = term_wnf(book, e_inf.ty);
       if (e_wnf.$ !== "Eql") {
-        throw Err(book, ctx, "an equation {a == b : T}", e_inf.ty, tm.s, lhs.def);
+        throw Err(book, ctx, "an equation {a == b : T}", e_inf.ty, tm.e.s ?? tm.s, lhs.def);
       }
       const p_typ = All<HBody>(Lone(), "_", 0, e_wnf.T, (x: HTerm) => All<HBody>(Lone(), "e", 0, Eql(e_wnf.a, x, e_wnf.T), () => Typ(Qua(Lone())), tm.s), tm.s);
       const p_chk = term_check(book, lhs, tm.p, None(), p_typ, ctx, d);
