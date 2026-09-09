@@ -543,8 +543,9 @@ function keys as they are (up 63232, down 63233, left 63234, right 63235);
 a key with no character (a modifier) 65536 plus its hardware code. Mouse
 positions are device pixels from the top-left; buttons are 0 left, 1
 right, 2 middle. A hidden or minimized window paces at one frame per
-second. Build with `-o`: the JS backend has no display and refuses
-`Window.open`. `demos/pong_game` draws a few hundred nodes per frame;
+second. Build with `-o`: without a display (the JS backend, a CPU-only
+binary, no session) `Window.open` answers `Fail(ENOTSUP, "Window.open: no
+display")`. `demos/pong_game` draws a few hundred nodes per frame;
 `demos/ray_tracer` ray-marches every pixel on the GPU with one `!`.
 
 **Imports.** Import lines come first in a file:

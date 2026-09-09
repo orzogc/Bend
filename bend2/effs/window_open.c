@@ -126,7 +126,7 @@ static IoFall window_make(const char* title, u32 w, u32 h, IoHand* out) {
     return io_sys_fall(EINVAL);
   }
   if (NSScreen.screens.count == 0) {
-    IoFall q = { ENXIO, "Window.open: no display session" };
+    IoFall q = { ENOTSUP, "Window.open: no display" };
     return q;
   }
   if (window_dev == nil) {
@@ -183,7 +183,7 @@ static IoFall window_make(const char* title, u32 w, u32 h, IoHand* out) {
 #else
 
 static IoFall window_make(const char* title, u32 w, u32 h, IoHand* out) {
-  IoFall q = { ENOTSUP, "Window.open: this binary has no display kit" };
+  IoFall q = { ENOTSUP, "Window.open: no display" };
   return q;
 }
 

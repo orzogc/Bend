@@ -1,9 +1,9 @@
 # gfx (gfx_window): build(6n) is the full-detail 64 x 64 Image whose
-# pixel (x, y) is x + 64y; fold sums its leaves (+q is shared). The JS
-# backend and the C11 arm have no display: Window.open Fails, the frames
-# fold unshown. window_run builds this program with the Metal recipe: on
-# a display it frames each image (the shared one twice: a frame answers
-# it unconsumed), closes, and frames the dead handle, which answers Nil.
+# pixel (x, y) is x + 64y; fold sums its leaves (+q is shared). Without a
+# display (the JS backend, a CPU-only binary, a node with no session)
+# Window.open Fails with one line and ENOTSUP on every lane and the frames
+# fold unshown; on a display it frames each image (the shared one twice: a
+# frame answers it unconsumed), closes, and frames the dead handle.
 import Base
 
 def count(xs: List<Event>) -> U32:
@@ -97,7 +97,7 @@ def main() -> IO(Unit):
     r : Result<&1, &1, U32 & String, Window> <- Window.open("gfx", 64, 48)
     opened(r)
 
-#|Window.open: the JS backend has no display; build a binary with -o
+#|Window.open: no display
 #|ENOTSUP
 #|7
 #|8386560
