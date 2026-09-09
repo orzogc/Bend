@@ -169,7 +169,7 @@ bend hello.bend -o hello    # compile to a native binary (GPU-enabled when Metal
 
 ### 4. Read the Guide:
 
-Everything else you need is in [Bend's GUIDE.md](guide/GUIDE.md). Read it!
+Everything else you need is in [Bend's GUIDE.md](guide/GUIDE.md), also printed by `bend guide`. Read it! `bend --help` lists the CLI, `bend base` prints the base library.
 
 ## Formalization
 

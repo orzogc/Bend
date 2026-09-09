@@ -31,10 +31,34 @@ import * as Comp from "./comp.ts";
 // Constants
 // =========
 
-const USAGE = "usage: bend <file.bend> [--checkup] [--publish] [-o <out>]..."
-  + "\n       bend <page.html> -o <dir>";
+const HELP = `Bend: check, run, build and publish Bend programs.
+
+usage:
+  bend <file.bend>            check the file, then run main
+  bend <file.bend> -o <out>   build a binary; <out>.c emits C, <out>.js JS
+  bend <file.bend> --checkup  check and run each import alone; -o builds all
+  bend <file.bend> --publish  publish the file and its imports to the hub
+  bend <page.html> -o <dir>   bundle a page that imports .bend files
+  bend guide                  print the Bend guide
+  bend base [--types|<name>]  print Base, its types, or a name and its subnames
+
+A file with no main just checks: all terms check, or its TODOs and unsafe defs
+are counted. A main that is not IO prints as a value. -o repeats. A binary
+keeps its .c beside it (the GPU kernels compile from it at launch) and takes
+--threads N, --parallel on|off, --gpu on|off, --gpu-memory 4GB: see ./<out>
+--help. A --checkup binary runs one module: ./<out> <module>. --publish prints
+the package's hash and the import line others use.
+
+env:
+  BEND_STORE  the package store  default ~/.bend/store
+  BEND_HUB    the package hub    default https://hub.bend-lang.org
+
+exit: 0; 1 on an error; main's IO.die code.
+`;
 
 const BASE = fs.realpathSync(path.join(import.meta.dirname, "base.bend"));
+
+const GUIDE = path.join(import.meta.dirname, "..", "guide", "GUIDE.md");
 
 // A package's proof of work is a nonce whose sha256(hash + " " + nonce)
 // opens (its top 53 bits) with a number under 2^53 / work, where work is
@@ -71,14 +95,20 @@ const PLUGIN: BunPlugin = {
 
 async function cli(): Promise<void> {
   const args = process.argv.slice(2);
+  if (args[0] === "guide" && args.length === 1) {
+    return cli_say(1, fs.readFileSync(GUIDE, "utf8"));
+  }
+  if (args[0] === "base" && args.length <= 2) {
+    return cli_base(args[1]);
+  }
   const outs: string[] = [];
   let file: string | undefined;
   let checkup = false;
   let publish = false;
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
-    if (a === "--help") {
-      cli_say(1, USAGE + "\n");
+    if (a === "--help" || a === "-h") {
+      cli_say(1, HELP);
       process.exit(0);
     } else if (a === "--checkup") {
       checkup = true;
@@ -95,7 +125,7 @@ async function cli(): Promise<void> {
     }
   }
   if (file === undefined) {
-    cli_say(1, USAGE + "\n");
+    cli_say(1, HELP);
     process.exit(1);
   }
   if (file.endsWith(".html")) {
@@ -195,6 +225,35 @@ function cli_build(bin: string): void {
       throw "Error: clang failed to build " + bin;
     }
   }
+}
+
+// cli_base prints the base library; with --types, its type declarations
+// (every `type`, and every law whose result is a kind); with a name, the
+// blocks declaring it or a name under it (its law, its def, its @unsafe).
+function cli_base(what?: string): void {
+  const src = fs.readFileSync(BASE, "utf8");
+  if (what === undefined) {
+    return cli_say(1, src);
+  }
+  const want: string[] = [];
+  for (const text of src.split(/\n(?=type |law |def |@)/)) {
+    const m = /^(type|law|def) ([^\s(<:]+)/m.exec(text);
+    if (m === null) {
+      continue;
+    }
+    const s = text.replace(/(\n(#[^\n]*)?)+$/, "");
+    const last = s.slice(s.lastIndexOf("\n") + 1);
+    const ok = what === "--types"
+      ? m[1] === "type" || (m[1] === "law" && /^ *(Type|Data|Kind\(.*\))$/.test(last))
+      : m[2] === what || m[2].startsWith(what + ".");
+    if (ok) {
+      want.push(s);
+    }
+  }
+  if (want.length === 0) {
+    cli_fail("Base has no " + what);
+  }
+  cli_say(1, want.join("\n\n") + "\n");
 }
 
 async function cli_bundle(page: string, dir: string): Promise<void> {
@@ -319,7 +378,7 @@ function cli_say(fd: number, text: string): void {
 }
 
 function cli_fail(msg: string): never {
-  cli_say(2, "bend: " + msg + "\n" + USAGE + "\n");
+  cli_say(2, "bend: " + msg + " (see bend --help)\n");
   process.exit(1);
 }
 
