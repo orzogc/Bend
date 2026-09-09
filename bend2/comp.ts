@@ -3022,7 +3022,7 @@ function emit_fold(fl: File, t: HTerm): HTerm | null {
     if (it === undefined) {
       const b = fl.fuel > 0 ? emit_unfold(fl, s) : null;
       fl.fuel -= Number(b !== null);
-      return b === null ? null : emit_fold(fl, b);
+      return b;
     }
     const as = m.all.map((a) =>
       m.args.includes(a) ? emit_fold(fl, a) ?? a : a);
