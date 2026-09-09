@@ -1745,7 +1745,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
         const h = func(caps, s.h, null, left - 1
           + (ctr ? ctr_doms(cb.book, ctr).length : 0));
         const m = func(caps, s.m, null, left);
-        return (env) => Bend.Mat(s.k, h(env), m(env), s.s, s.ks);
+        return (env) => Bend.Mat(s.k, h(env), m(env), s.s);
       }
       default: {
         return mint_lift(s);
