@@ -282,7 +282,7 @@ export type TermOf<B> = (
   | { $: "App"; f: TermOf<B>; x: TermOf<B> }                                       // f(x)
   | { $: "ADT"; k: Name; x: TermOf<B>[]; r: Name[] }                               // A<x0,x1,...>
   | { $: "Ctr"; k: Name; x: TermOf<B>[] }                                          // A{x0,x1,...}
-  | { $: "Mat"; k: Name; h: TermOf<B>; m: TermOf<B> }                              // \{A: h; m}
+  | { $: "Mat"; k: Name; h: TermOf<B>; m: TermOf<B>; ks?: Span }                   // \{A: h; m}
   | { $: "Efq" }                                                                   // \{}
   | { $: "Eql"; a: TermOf<B>; b: TermOf<B>; T: TermOf<B> }                         // {a == b : T}
   | { $: "Rfl" }                                                                   // {==}
@@ -408,8 +408,8 @@ export function Ctr<X>(k: Name, x: TermOf<X>[], s?: Span): TermOf<X> {
   return { $: "Ctr", k, x, s };
 }
 
-export function Mat<X>(k: Name, h: TermOf<X>, m: TermOf<X>, s?: Span): TermOf<X> {
-  return { $: "Mat", k, h, m, s };
+export function Mat<X>(k: Name, h: TermOf<X>, m: TermOf<X>, s?: Span, ks?: Span): TermOf<X> {
+  return { $: "Mat", k, h, m, s, ks };
 }
 
 export function Efq<X>(s?: Span): TermOf<X> {
@@ -752,7 +752,7 @@ export function term_cells(t: HTerm): HTerm {
     case "Ctr": return Ctr(t.k, t.x.map((x) => term_cell(x)), t.s);
     case "ADT": return ADT(t.k, t.x.map((x) => term_cell(x)), t.s, t.r);
     case "All": return All(t.q, t.k, t.i, term_cell(t.A), t.B, t.s);
-    case "Mat": return Mat(t.k, term_cell(t.h), term_cell(t.m), t.s);
+    case "Mat": return Mat(t.k, term_cell(t.h), term_cell(t.m), t.s, t.ks);
     case "Eql": return Eql(term_cell(t.a), term_cell(t.b), term_cell(t.T), t.s);
     case "Min": return Min(term_cell(t.a), term_cell(t.b), t.s);
     case "Typ": return Typ(term_cell(t.g), t.s);
@@ -844,7 +844,7 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
       return Ctr(tm.k, tm.x.map((x) => term_higher(x, env)), tm.s);
     }
     case "Mat": {
-      return Mat(tm.k, term_higher(tm.h, env), term_higher(tm.m, env), tm.s);
+      return Mat(tm.k, term_higher(tm.h, env), term_higher(tm.m, env), tm.s, tm.ks);
     }
     case "Efq": {
       return Efq(tm.s);
@@ -912,7 +912,7 @@ export function term_lower(term: HTerm, d: number = 0): LTerm {
       return Ctr(tm.k, tm.x.map((x) => term_lower(x, d)), tm.s);
     }
     case "Mat": {
-      return Mat(tm.k, term_lower(tm.h, d), term_lower(tm.m, d), tm.s);
+      return Mat(tm.k, term_lower(tm.h, d), term_lower(tm.m, d), tm.s, tm.ks);
     }
     case "Efq": {
       return Efq(tm.s);
@@ -2167,7 +2167,7 @@ export function parse_term_tup(p: Parse, beg: Loc, n0: number): LTerm {
 }
 
 export function parse_term_mat(p: Parse, beg: Loc): LTerm {
-  const arms: Array<[Name, LTerm]> = [];
+  const arms: Array<[Name, LTerm, Span | undefined]> = [];
   let tail: LTerm = Efq();
   while (true) {
     parse_skip(p);
@@ -2178,7 +2178,7 @@ export function parse_term_mat(p: Parse, beg: Loc): LTerm {
     parse_skip(p);
     if ((t.$ === "Var" || t.$ === "Ref") && parse_take(p, ":")) {
       const h = parse_term(p);
-      arms.push([parse_reso(p, t.k), h]);
+      arms.push([parse_reso(p, t.k), h, t.s]);
       parse_skip(p);
       parse_take(p, ";");
       continue;
@@ -2193,7 +2193,7 @@ export function parse_term_mat(p: Parse, beg: Loc): LTerm {
   tail.s ??= s;
   let out = tail;
   for (let i = arms.length - 1; i >= 0; i--) {
-    out = Mat(arms[i][0], arms[i][1], out, s);
+    out = Mat(arms[i][0], arms[i][1], out, s, arms[i][2]);
   }
   return out;
 }
@@ -2816,7 +2816,7 @@ export function match_flatten(m: Match, vars: PVar[], fr: () => number): LTerm {
         const pt = match_flatten({ $: "Match", e: pe, r: ps, s: m.s }, pv, fr);
         const ds = rows_drop_ctr(m.r, c.k);
         const dt = match_flatten({ $: "Match", e: m.e, r: ds, s: m.s }, vars, fr);
-        return Mat(c.k, pt, dt, c.s);
+        return Mat(c.k, pt, dt, m.s, c.s);
       }
     } else {
       const t = match_flatten(m, vars.slice(1), fr);
@@ -3194,7 +3194,7 @@ export function term_snf(book: Book, term: HTerm): HTerm {
       return Ctr(tm.k, tm.x.map((x) => term_snf(book, x)), tm.s);
     }
     case "Mat": {
-      return Mat(tm.k, term_snf(book, tm.h), term_snf(book, tm.m), tm.s);
+      return Mat(tm.k, term_snf(book, tm.h), term_snf(book, tm.m), tm.s, tm.ks);
     }
     case "Efq": {
       return Efq(tm.s);
@@ -3674,7 +3674,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
           const t_all = t_wnf;
           const ctr   = ctrs_find(rem, tm.k);
           if (ctr === null) {
-            throw Err(book, ctx, "a constructor of " + a_wnf.k + " (missing, or already matched)", tm, tm.s, lhs.def);
+            throw Err(book, ctx, "a constructor of " + a_wnf.k + " (missing, or already matched)", tm, tm.ks ?? tm.s, lhs.def);
           }
           const tel = tele_fill(book, ctr.T, a_wnf.x, ctx, lhs.def, tm.s);
           function term_check_mat_goal(cur: HTerm, n: number, xs: HTerm[]): HTerm {
@@ -3695,7 +3695,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
           const h_chk = term_check(book, h_lhs, tm.h, qt, term_check_mat_goal(tel, ctr.n, []), ctx, d);
           const m_gol = All(t_wnf.q, t_wnf.k, t_wnf.i, ADT(a_wnf.k, a_wnf.x, tm.s, a_wnf.r.concat([ctr.k])), t_wnf.B, tm.s);
           const m_chk = term_check(book, lhs, tm.m, qt, m_gol, ctx, d);
-          return Check(Mat(tm.k, h_chk.tm, m_chk.tm, tm.s), ty, uses_join(h_chk.us, m_chk.us));
+          return Check(Mat(tm.k, h_chk.tm, m_chk.tm, tm.s, tm.ks), ty, uses_join(h_chk.us, m_chk.us));
         }
       }
     }
