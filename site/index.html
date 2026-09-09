@@ -69,7 +69,7 @@ canvas{display:block;width:100%}
 .act{margin:2em 0}
 .gt{text-align:center;color:var(--b02);font-weight:600;margin:0 0 .6em}
 .act figcaption{font-size:1em;color:var(--b00)}
-.act figcaption.red{color:var(--red)}.act figcaption.green{color:var(--grn)}
+.act figcaption.red{color:var(--red)}.act figcaption.green{color:var(--grn)}.act figcaption b{color:inherit}
 .ask{margin:3em 0}
 .quote{text-align:center;font-size:1.3em;color:var(--vio);margin:0}
 #cube{aspect-ratio:1;max-width:384px;margin:0 auto}
@@ -145,12 +145,12 @@ prove its code obeys them. Take a game where nobody can win:</p>
   <figure class="act">
     <p class="gt">Without LAWS.bend:</p>
     <canvas id="g1"></canvas>
-    <figcaption class="red">Laws broken. AI mistake: merged.</figcaption>
+    <figcaption class="red">Laws broken. AI mistake: <b>merged</b>.</figcaption>
   </figure>
   <figure class="act">
     <p class="gt">With LAWS.bend:</p>
     <canvas id="g2"></canvas>
-    <figcaption class="green">Laws intact. AI mistake: blocked!</figcaption>
+    <figcaption class="green">Laws intact. AI mistake: <b>blocked</b>!</figcaption>
   </figure>
   <p>Without LAWS.bend, the AI shipped a bug. With LAWS.bend, its
 code was rejected until it placed a wall and proved the law,
