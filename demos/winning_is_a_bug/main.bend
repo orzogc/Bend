@@ -144,6 +144,19 @@ def step(a: Move, g: Game) -> Game:
 def start() -> Game:
   Game{start_x(), start_y(), False{}}
 
+# Keys
+# ----
+# The front end sends every key press as its character code (`w` is 119,
+# space is 32; the arrows arrive as w, a, s, d) and plays the move this
+# answers, so a new key is one more line here and one more Move.
+
+def key(+k: U32) -> Maybe<Move>:
+  pick(Maybe<Move>, U32.is_eq(k, 119), Some{Up{}},
+    pick(Maybe<Move>, U32.is_eq(k, 115), Some{Down{}},
+      pick(Maybe<Move>, U32.is_eq(k, 97), Some{Left{}},
+        pick(Maybe<Move>, U32.is_eq(k, 100), Some{Right{}},
+          pick(Maybe<Move>, U32.is_eq(k, 32), Some{Grab{}}, None{})))))
+
 # The worker takes the list first: the guard wants the shrinking argument
 # in the first live column. `apply` is the API: a board, then its moves.
 def run(moves: List<Move>, g: Game) -> Game:
