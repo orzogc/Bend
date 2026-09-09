@@ -1383,13 +1383,10 @@ export function io_run(book: Bend.Book): number {
 
 // Show
 // ====
-// A pure main prints its value: the compiler writes the printer in Bend,
-// one def per type instance under main's type, spelled as term_show
-// spells a value (Nn, a quoted char or string when every char prints,
-// a machine word as its Word chain, a proof as {==}), and the entry is
-// IO.print of it. A value it cannot walk at run time (a function, a
-// Type, an erased or dependent field, a main with parameters) prints
-// its normal form, taken here.
+// A pure main prints its value through a printer written in Bend, one def
+// per type under main's type, spelled as term_show spells a value; what
+// the printer cannot walk (a function, a Type, an erased or dependent
+// field, a main with parameters) prints its normal form, taken here.
 
 function show_text(t: HTerm): string {
   return Bend.term_show(Bend.term_lower(t));
@@ -2128,6 +2125,13 @@ function seg_fid(k: Bend.Name): string {
   return "FID_" + name_clean(k).toUpperCase();
 }
 
+// A call's first BANK arguments ride named locals, the rest rx[].
+const BANK = 16;
+
+function reg(i: number): string {
+  return i < BANK ? "r" + i : "rx[" + (i - BANK) + "]";
+}
+
 function seg_ref(fl: File, fid: string): string {
   fl.seg.refs.add(fid);
   return fid;
@@ -2784,7 +2788,7 @@ function emit_bang(fl: File, ck: Call, args: string[]): void {
 
 function emit_jump(fl: File, args: string[], k: Bend.Name): void {
   if (fl.seg.def !== k) {
-    args.forEach((a, i) => file_push(fl, `r${i} = ${a};`));
+    args.forEach((a, i) => file_push(fl, `${reg(i)} = ${a};`));
     return file_push(fl, `WL_JMP(${seg_ref(fl, seg_fid(k))});`);
   }
   fl.seg.spin = true;
@@ -3439,15 +3443,22 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   table("CID_ARITY_T", [...fl.cids.values()].map((c) => c[0]));
   table("CID_BOXN_T", [...fl.cids.values()].map((c) => c[1]));
   const bank = (segs: Seg[]): string[] => {
-    const ns = [...Array(Math.max(1, ...segs.filter((s) => s.frame === null)
-      .map((s) => s.params.length))).keys()];
+    const n = Math.max(1, ...segs.filter((s) => s.frame === null)
+      .map((s) => s.params.length));
+    const ns = [...Array(Math.min(n, BANK)).keys()];
     const load = [...ns].reverse().map((r) =>
       `    case ${r + 1}: r${r} = e.mem[a + ${r}]; \\\n`).join("");
     const pass = ns.map((i) =>
       `    case ${i}: r${i} = res[0]; \\\n      break; \\\n`).join("");
-    return [`#define WL_BANK Term ${ns.map((i) => "r" + i).join(", ")};`, "",
-      `#define WL_LOAD \\\n  switch (war) { \\\n${load}  }`, "",
-      `#define WL_LAST \\\n  switch (war) { \\\n${pass}  }`, ""];
+    const rx = n > BANK;
+    return [`#define WL_BANK Term ${ns.map((i) => "r" + i).join(", ")};`
+      + (rx ? ` Term rx[${n - BANK}];` : ""), "",
+      `#define WL_LOAD \\\n` + (rx ? `  for (u32 wi = ${BANK}; wi < war;`
+      + ` wi += 1) { \\\n    rx[wi - ${BANK}] = e.mem[a + wi]; \\\n  } \\\n`
+      : "") + `  switch (war < ${BANK} ? war : ${BANK}) { \\\n${load}  }`, "",
+      `#define WL_LAST \\\n` + (rx ? `  if (war >= ${BANK}) { \\\n`
+      + `    rx[war - ${BANK}] = res[0]; \\\n  } \\\n` : "")
+      + `  switch (war) { \\\n${pass}  }`, ""];
   };
   defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail Con Some".split(" ")
     .reduce((m, k, i) => m | (fl.hot.has(k) ? 1 << i : 0), 0)}`, "");
@@ -3470,7 +3481,7 @@ function compile_segs(fl: File): string {
     }
     const n = seg.params.length;
     seg.params.forEach((p, i) => {
-      let src = `r${i}`;
+      let src = reg(i);
       if (fr !== null) {
         src = i >= n - fr.resw ? `res[${i - (n - fr.resw)}]`
           : `STK(${fr.at[i] + fr.pop})`;
@@ -3498,15 +3509,10 @@ export function compile_book(book: Bend.Book,
     compile_def(fl, k, tld);
   }
   compile_reqs(fl);
-  const reach = (from: Bend.Name[]): Set<string> => {
-    const set = new Set<string>();
-    const grab = (fid: string): void => {
-      if (!set.has(fid)) {
-        set.add(fid);
-        (fl.segs.find((s) => s.fid === fid)?.refs
-          ?? fl.spins.find((s) => s[0] === fid)?.[2])?.forEach(grab);
-      }
-    };
+  const reach = (from: Bend.Name[], set = new Set<string>()): Set<string> => {
+    const grab = (fid: string) => set.has(fid) || (set.add(fid)
+      && (fl.segs.find((s) => s.fid === fid)?.refs
+        ?? fl.spins.find((s) => s[0] === fid)?.[2])?.forEach(grab));
     from.forEach((k) => grab(seg_fid(k)));
     return set;
   };

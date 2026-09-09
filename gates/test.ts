@@ -2,8 +2,7 @@
 // Runs every test under tests/ on the cluster. The tests split into one
 // shard per live mini; each shard is an aggregator that imports its tests,
 // sent to its mini, which checks and runs every module through `bend main.bend
-// --checkup -o main.js -o main.c`, builds main.c once at -O0 (clang -O3
-// takes minutes on a 255-ary def: the worker loop's register bank), runs
+// --checkup -o main.js -o main` (the production build: clang -O3, Metal), runs
 // one program untimed (the first launch compiles the shard's Metal shader,
 // which the node then caches by source) and then runs each program once
 // natively and once under bun, each under a 5 s alarm. A test passes when
@@ -42,9 +41,6 @@ const MARK = "@@B4";
 const LEFT = "Left out of the binary:\n";
 
 const BUN = lib.BUN;
-
-const CC = "clang -std=c11 -O0 -DBEND_METAL=1 -x objective-c -fobjc-arc"
-  + " -fmodules main.c -lpthread -lm -o main";
 
 // Test
 // ====
@@ -138,7 +134,7 @@ function shard_script(shard: Test[], tag: number): string {
   return `export BUN_JSC_maxPerThreadStackUsage=33554432;`
     + ` d=$HOME/bend-test/${tag}; rm -rf $d; mkdir -p $d; cd $d; tar -xzf -;`
     + ` echo "${MARK} checkup"; ${BUN} bend2/main.ts main.bend --checkup`
-    + ` -o main.js -o main.c 2>&1 && ${CC} 2>&1; echo "${MARK} built $?";`
+    + ` -o main.js -o main 2>&1; echo "${MARK} built $?";`
     + ` perl -e 'alarm 60; exec @ARGV' ./main ${runs[0] ?? ""} >/dev/null 2>&1;`
     + ` for m in ${runs.join(" ")}; do ${probe("c", "./main")}`
     + ` ${probe("js", BUN + " main.js")} done; cd; rm -rf $d`;
