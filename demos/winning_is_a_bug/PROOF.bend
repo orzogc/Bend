@@ -2,7 +2,7 @@
 #
 # The proofs. This file imports the game (as Game) and the claims (as
 # Laws) and fills every assert the laws make -- an unfilled assert is an
-# error, so `bend CERT.bend` is the whole verification. Everything here
+# error, so `bend PROOF.bend` is the whole verification. Everything here
 # is AI-written scaffolding for one def: Laws.you_cant_win.
 #
 # The shape of the argument: an invariant ("the player stands on a safe

@@ -55,7 +55,7 @@ law you_cant_win:
 ```
 
 Then ask your agent: "before stopping, **prove the code is correct**". It writes
-the proof into `CERT.bend`, a certificate you neither write nor have to read:
+the proof into `PROOF.bend`, a certificate you neither write nor have to read:
 
 ```python
 # PROOF: you_cant_win holds.
