@@ -379,8 +379,8 @@ function play(cv, draw) {
 // edge stops the walk, and nothing pops.
 {
   const GW = 12, GH = 8, STEP = 0.2, BUMP = 0.4, BUMPS = 3, LEAD = 0.6, HOLD = 1.8;
-  const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#a9a4bb", cap: "#c1bdd0", hit: "#d9a39c", hitcap: "#e8c4bf",
-                pole: "#87847d", cloth: "#7e9a5e", skin: "#7b73a6", eye: "#4d4a44",
+  const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#a6a3a0", cap: "#bebbb8", hit: "#d9a39c", hitcap: "#e8c4bf",
+                pole: "#87847d", cloth: "#7e9a5e", skin: "#8fcfe9", eye: "#2f3b4c",
                 win: "#f6e4e1", winRim: "#dfa9a2", winInk: "#c46a60" };
   const up = (x, y0, y1) => { const p = []; for (let y = y0; y >= y1; y--) p.push([x, y]); return p; };
   const near = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) <= 1;

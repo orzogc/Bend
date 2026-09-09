@@ -311,8 +311,8 @@ S.check = (u, dur) => {
 // walls and the map's edge (base), and the shipped one, with two more walls
 // on the far edges (far). The landing page's tiles, a title above.
 const GW = 12, GH = 8, TILE = 56, BX = W/2 - GW*TILE/2, BY = 126;
-const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#a9a4bb", cap: "#c1bdd0", hit: "#d9a39c", hitcap: "#e8c4bf",
-              pole: "#87847d", cloth: "#7e9a5e", skin: "#7b73a6", eye: "#4d4a44", gold: AMBER,
+const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#a6a3a0", cap: "#bebbb8", hit: "#d9a39c", hitcap: "#e8c4bf",
+              pole: "#87847d", cloth: "#7e9a5e", skin: "#8fcfe9", eye: "#2f3b4c", gold: AMBER,
               win: "#f6e4e1", winRim: "#dfa9a2", winInk: "#c46a60" };
 function wallsOf(v) {
   const s = new Set(), add = (x, y) => s.add(x + "," + y);
