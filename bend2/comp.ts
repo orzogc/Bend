@@ -4314,7 +4314,7 @@ INLINE void bank_push(Corpus H, Cls c, u64 head) {
 #define ALC_AT(e, i) (e).alc[(i) * (DEVICE ? CUBE : 1)]
 
 INLINE u64 heap_hand(Corpus H, Cls cls, u64 h) {
-  if (((h >> 40) << cls) < HOLD_WORDS) {
+  if (h < ((u64)HOLD_WORDS << 40) >> cls) {
     return h;
   }
   if (DEVICE) {
