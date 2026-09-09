@@ -54,6 +54,8 @@ allow("front/index.html", 12000);
 allow("front/lab.ts", 12000);
 allow("front/lab.md", 4000);
 allow("front/pkg.html", 4000);
+allow("front/hub.ts", 2500);
+allow(/^front\/(Caddyfile|bendhub\.service)$/, 400);
 allow(/^front\/(build|shim)\.ts$/, 1500);
 allow("front/lab.js", 400000, true);
 allow(/^paper\/(BendRT|BendTT)\.pdf$/, 400000, true);

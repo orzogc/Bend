@@ -791,7 +791,7 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
       }
     }
     case "Ref": {
-      return Ref(tm.k[0] === "." ? "Nat" + tm.k : tm.k, tm.s, tm.b);
+      return Ref(tm.k[0] === "." && tm.k[1] !== "." ? "Nat" + tm.k : tm.k, tm.s, tm.b);
     }
     case "Sub": {
       const x = tm.v;
