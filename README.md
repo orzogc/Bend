@@ -59,9 +59,8 @@ the proof into `CERT.bend`, a certificate you neither write nor have to read:
 
 ```python
 # PROOF: winning_is_a_bug holds.
-# The AI writes this file. You never have to read it.
 def winning_is_a_bug(moves):
-  ...
+  # ... written by the AI
 ```
 
 Once the proof lands, your code is correct. Mathematically.

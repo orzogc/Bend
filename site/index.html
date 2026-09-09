@@ -67,7 +67,7 @@ figcaption{text-align:center;color:var(--b1);font-size:.87em;margin-top:.7em}
 canvas{display:block;width:100%}
 .act canvas{aspect-ratio:12/8}
 .act{margin:2em 0}
-.gt{text-align:center;color:var(--b02);font-weight:600;margin:0 0 .6em}
+.gt{text-align:center;color:var(--b01);margin:0 0 .6em}
 .act figcaption{font-size:1em;color:var(--b00)}
 .act figcaption.red{color:var(--red)}.act figcaption.green{color:var(--grn)}.act figcaption b{color:inherit}
 .ask{margin:3em 0}
@@ -135,21 +135,21 @@ fold back into one. Here's pow2, and its run on 4,096 cores:</p>
 LAWS.bend is where you declare laws. From then on, no AI can
 ship one line that breaks them, ever. Watch it guard a game:</p>
   <figure class="act">
-    <p class="gt">A game with one law: you can't beat it</p>
+    <p class="gt">A game with <b>one law</b>: winning is <b>impossible</b></p>
     <canvas id="g0"></canvas>
     <figcaption>So far, it works!</figcaption>
   </figure>
   <div class="ask">
-    <p class="gt">New feature:</p>
+    <p class="gt"><b>New feature:</b></p>
     <p class="quote">“please, make the board wrap around”</p>
   </div>
   <figure class="act">
-    <p class="gt">Without LAWS.bend:</p>
+    <p class="gt"><b>Without LAWS.bend:</b></p>
     <canvas id="g1"></canvas>
     <figcaption class="red">Laws broken. AI mistake: <b>merged</b>.</figcaption>
   </figure>
   <figure class="act">
-    <p class="gt">With LAWS.bend:</p>
+    <p class="gt"><b>With LAWS.bend:</b></p>
     <canvas id="g2"></canvas>
     <figcaption class="green">Laws intact. AI mistake: <b>blocked</b>!</figcaption>
   </figure>
@@ -163,10 +163,9 @@ for every possible sequence of moves. Not a test: a theorem.</p>
   board = replay(start(), moves)
   is_won(board) == <span class="o">False</span></code></pre>
 <p class="f">CERT.bend</p>
-<pre><code><span class="c"># PROOF: winning_is_a_bug holds.
-# The AI writes this file. You never have to read it.</span>
+<pre><code><span class="c"># PROOF: winning_is_a_bug holds.</span>
 <span class="k">def</span> <span class="v">winning_is_a_bug</span>(moves):
-  ...</code></pre>
+  <span class="c"># ... written by the AI</span></code></pre>
   <p class="c pl"><code>LAWS.bend</code> is <code>AGENTS.md</code> backed by <b>proof</b>.
 <span class="q">“Make no mistakes”</span> becomes <em>enforceable</em>.</p>
   <p class="note c"><a href="https://victortaelin.github.io/winning_is_a_bug">play the game</a> · <a href="https://github.com/HigherOrderCO/bend4/tree/main/demos/winning_is_a_bug">game, law and proof</a></p>
