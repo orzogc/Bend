@@ -70,6 +70,8 @@ canvas{display:block;width:100%}
 .gt{text-align:center;color:var(--b02);font-weight:600;margin:0 0 .6em}
 .act figcaption{font-size:1em;color:var(--b00)}
 .act figcaption.red{color:var(--red)}.act figcaption.green{color:var(--grn)}
+.ask{margin:3em 0}
+.quote{text-align:center;font-size:1.3em;color:var(--vio);margin:0}
 #cube{aspect-ratio:1;max-width:384px;margin:0 auto}
 
 </style>
@@ -136,13 +138,17 @@ prove its code obeys them. Take a game where nobody can win:</p>
     <canvas id="g0"></canvas>
     <figcaption>Law: the player can't win. So far, it holds.</figcaption>
   </figure>
+  <div class="ask">
+    <p class="gt">New feature:</p>
+    <p class="quote">“please, make the board wrap around”</p>
+  </div>
   <figure class="act">
-    <p class="gt">New feature, without LAWS.bend:</p>
+    <p class="gt">Without LAWS.bend:</p>
     <canvas id="g1"></canvas>
     <figcaption class="red">Laws broken. AI mistake: merged.</figcaption>
   </figure>
   <figure class="act">
-    <p class="gt">New feature, with LAWS.bend:</p>
+    <p class="gt">With LAWS.bend:</p>
     <canvas id="g2"></canvas>
     <figcaption class="green">Laws intact. AI mistake: blocked!</figcaption>
   </figure>
