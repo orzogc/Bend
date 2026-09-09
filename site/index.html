@@ -378,25 +378,25 @@ function play(cv, draw) {
     a.walk = routeDur(a.route); a.tail = a.bump ? BUMP*BUMPS : 0.3; a.dur = LEAD + a.walk + a.tail + HOLD;
     a.walls = wallsOf(a.far);
   }
-  let n = 0;   // the slides are numbered, so the viewer knows where the story is
-  const say = (text, ink) => ({ text: ++n + ". " + text, ink: ink || "#4d4a44", dur: 0.45*text.split(" ").length + 1.4 });
+  const say = (text, ink) => ({ text, ink: ink || "#4d4a44", dur: 0.45*text.split(" ").length + 1.4 });
   const SHOW = [
     say("Let's vibe-code a game!"), say("Law: the player can't win"), ACTS[0], say("So far, it works!"),
-    say("New feature: wrap around."), say("Without LAWS.bend:"), ACTS[1], say("Laws broken.", "#c46a60"),
-    say("With LAWS.bend:"), ACTS[2], say("Laws intact!", "#7e9a5e"), say("AI mistake: *blocked*!"),
+    say("New feature: wrap around."), say("Without LAWS.bend:"), ACTS[1], say("Laws broken.\nAI mistake: *merged*.", "#c46a60"),
+    say("With LAWS.bend:"), ACTS[2], say("Laws intact.\nAI mistake: *blocked*!", "#7e9a5e"),
   ];
   const TOTAL = SHOW.reduce((s, x) => s + x.dur, 0);
   play(document.getElementById("game"), (ctx, t, W, H) => {
     let u = t % TOTAL, x = SHOW[0];
     for (const y of SHOW) { if (u < y.dur) { x = y; break; } u -= y.dur; }
-    if (x.text) {                                                   // a line of text; *stars* mark a word in green
+    if (x.text) {                                                   // centred lines of text; *stars* mark a heavy run
       ctx.globalAlpha = ease(u/0.3)*(1 - ease((u - x.dur + 0.3)/0.3));
-      const runs = x.text.split("*"), fs = W/22;
-      ctx.textAlign = "left";
-      let px = W/2 - runs.reduce((w, r, i) => { ctx.font = (i % 2 ? "800 " : "600 ") + fs + "px " + MONO; return w + ctx.measureText(r).width; }, 0)/2;
-      runs.forEach((r, i) => {
-        ctx.font = (i % 2 ? "800 " : "600 ") + fs + "px " + MONO; ctx.fillStyle = i % 2 ? "#7e9a5e" : x.ink;
-        ctx.fillText(r, px, H/2 + W/66); px += ctx.measureText(r).width;
+      const lines = x.text.split("\n"), fs = W/22;
+      ctx.textAlign = "left"; ctx.fillStyle = x.ink;
+      lines.forEach((line, li) => {
+        const runs = line.split("*"), y = H/2 + W/66 + (li - (lines.length - 1)/2)*fs*1.5;
+        const wide = runs.reduce((w, r, i) => { ctx.font = (i % 2 ? "800 " : "600 ") + fs + "px " + MONO; return w + ctx.measureText(r).width; }, 0);
+        let px = W/2 - wide/2;
+        runs.forEach((r, i) => { ctx.font = (i % 2 ? "800 " : "600 ") + fs + "px " + MONO; ctx.fillText(r, px, y); px += ctx.measureText(r).width; });
       });
       ctx.globalAlpha = 1;
       return;

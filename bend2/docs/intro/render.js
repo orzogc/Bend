@@ -464,18 +464,18 @@ S.laws = (u, dur) => {
 };
 
 // ------------------------------------------------------------------ the cube
-// The GPU is a static 128 x 128 grid of cores: the cube. sum(16) splits in
-// two, then four, ... until one task sits on every core; each core works
-// its task down to a number; then the numbers fold, pairwise, the live
-// region contracting into the top-left corner until one cell holds the
-// result, and the camera dives onto it. Every number is the program's own:
-// core n holds sum(2, n), the sum of the leaves 4n .. 4n+3, and the total
-// is the sum of 0 .. 65535.
+// The GPU is a static 64 x 64 grid of cores: the cube, the same grid the
+// landing page draws. sum(16) splits in two, then four, ... until one task
+// sits on every core; each core works its task down to a number; then the
+// numbers fold, pairwise, the live region contracting into the top-left
+// corner until one cell holds the result, and the camera dives onto it.
+// Every number is the program's own: core n holds sum(4, n), the sum of
+// the sixteen leaves 16n .. 16n+15, and the total is the sum of 0 .. 65535.
 //
 // One camera serves all three beats. Grid coordinates put (0,0) at the
 // grid's top-left corner and CS is one cell; at scale 1 with the camera on
 // the grid's centre, the grid is a 500px square in the middle of the screen.
-const N = 128, LEVELS = 14, GS = 500, CS = GS/N, GCEN = GS/2;
+const N = 64, LEVELS = 12, GS = 500, CS = GS/N, GCEN = GS/2;
 const dims = k => [1 << Math.ceil(k/2), 1 << Math.floor(k/2)];
 function cam(cpx, cpy, s) {
   return { cpx, cpy, s, at: (gx, gy) => [W/2 + s*(gx - cpx), H/2 + s*(gy - cpy)] };
@@ -493,8 +493,8 @@ function gridTag(n, ac, ap) {
   cx.globalAlpha = 1;
   pointer("GPU", W/2 + GS/2 + 8, 392, ap);
 }
-const ZOOM = 92;                               // one cell fills 360px
-const MID = 64, CAME = cam((MID + 0.5)*CS, (MID + 0.5)*CS, ZOOM);   // the core the dive lands on
+const ZOOM = 46;                               // one cell fills 360px
+const MID = 32, CAME = cam((MID + 0.5)*CS, (MID + 0.5)*CS, ZOOM);   // the core the dive lands on
 // a block of the grid, cw x ch cells with its top-left at (c, r), as a rect
 function blockRect(camr, c, r, cw, ch) {
   const [x, y] = camr.at(c*CS, r*CS);
@@ -528,20 +528,12 @@ function rungTile(t) {
   return mix(TILES[i], TILES[i + 1], t - i);
 }
 const inkAt = t => t < 3.5 ? "#1f2f45" : "#f4f8fc";
+// a wide line shrinks to fit the cell
 function cellText(s, x, y, w, h, a, color) {
-  const fs = fitText(w, h);
-  if (fs < 5 || a <= 0) return;
+  if (fitText(w, h) < 5 || a <= 0) return;
+  const fs = Math.min(fitText(w, h), 0.92*w/(0.62*s.length));
   cx.globalAlpha = a;
   T(s, x + w/2, y + h/2 + fs*0.36, fs, color || BLUE, "center", true);
-  cx.globalAlpha = 1;
-}
-// one or two lines in a cell, from a thunk (so a cell too small for text
-// costs nothing); a wide line shrinks to fit the cell
-function cellLines(ls, x, y, w, h, a, color) {
-  if (fitText(w, h) < 5 || a <= 0) return;
-  const l = ls(), fs = Math.min(fitText(w, h), 0.92*w/(0.62*Math.max(...l.map(s => s.length))));
-  cx.globalAlpha = a;
-  l.forEach((s, i) => T(s, x + w/2, y + h/2 + fs*0.36 + (i - (l.length - 1)/2)*fs*1.25, fs, color, "center", true));
   cx.globalAlpha = 1;
 }
 // a label to the right of a picture, its arrow leaving from under the
@@ -598,16 +590,14 @@ S.dist = (u, dur) => {
   gridTag(cols*rows, 1, ease((u - DALL - 0.2)/0.4));
 };
 
-// Step 2. Every core works its task, sum(2, n) for core n, one step at a
-// time: two calls, four leaves, two sums, one sum. Meanwhile the camera,
-// after a moment on the whole grid, dives toward one core: the dive is
-// quick at first, so the text turns readable early, hundreds of cores
-// mid-work, then slows onto one core, which finishes its sum alone on the
-// screen.
-const trace = n => [["sum(2," + n + ")"], ["sum(1," + 2*n + ")", "sum(1," + (2*n + 1) + ")"],
-                    [4*n + "+" + (4*n + 1), (4*n + 2) + "+" + (4*n + 3)],
-                    [String(8*n + 1), String(8*n + 5)], [String(16*n + 6)]];
-const STEPS = 5, ESTEP = 0.8, E0 = 0.5, ED = 0.4, DIVE = 3.5, EDONE = E0 + (STEPS - 1)*ESTEP;
+// Step 2. Every core works its task, sum(4, n) for core n: its total
+// grows leaf by leaf, sixteen steps, one number at a time. Meanwhile the
+// camera, after a moment on the whole grid, dives toward one core: the
+// dive is quick at first, so the text turns readable early, hundreds of
+// cores mid-work, then slows onto one core, which finishes its sum alone
+// on the screen.
+const trace = n => { const t = ["sum(4," + n + ")"]; for (let k = 1; k <= 16; k++) t.push(String(16*n*k + k*(k - 1)/2)); return t; };
+const STEPS = 17, ESTEP = 0.4, E0 = 0.5, ED = 0.4, DIVE = 3.5, EDONE = E0 + (STEPS - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
 S.eval = (u, dur) => {
   const p = clamp((u - ED)/DIVE, 0, 1), z = 1 - (1 - p)*(1 - p), camr = camLerp(CAM0, CAME, z);
@@ -619,7 +609,7 @@ S.eval = (u, dur) => {
     if (a <= 0) continue;
     const j = clamp(Math.floor((u - E0 - phase(c, r))/ESTEP), 0, STEPS - 1), t = 2*j/(STEPS - 1);
     cellBox(x, y, w, h, j ? rungTile(t) : SKY, a);
-    cellLines(() => trace(r*N + c)[j], x, y, w, h, a, j ? inkAt(t) : BLUE);
+    if (fitText(w, h) >= 5) cellText(trace(r*N + c)[j], x, y, w, h, a, j ? inkAt(t) : BLUE);
   }
   // the caption and the pointer stay as the dive begins, and fade with it
   const g = 1 - ease((u - ED)/0.4);
@@ -637,16 +627,29 @@ S.eval = (u, dur) => {
 // one axis (rows when the level is even, columns when odd: the splits,
 // undone in order), so the live region contracts into the top-left corner,
 // each pair landing on one cell, the cells they leave going gray, the tile
-// deepening fold by fold, the camera still. A cell is always one unit
-// square: nothing here scales a cell, ever. When one cell is left the
-// camera dives onto it, and it shows the total.
-const ZO = 1.2, R0 = 1.5, FOLD = 0.45, RDONE = R0 + LEVELS*FOLD;
-const Z0 = RDONE + 0.5, ZLEN = 1.6, Z1 = Z0 + ZLEN, TOTAL_SUM = "2147450880";
-const CAMZ = cam(0.5*CS, 0.5*CS, ZOOM);                  // the corner cell, filling the screen
+// deepening fold by fold, the camera still; the folds quicken as the
+// splits did. A cell is always one unit square: nothing here scales a
+// cell, ever. When one cell is left the camera dives onto it, the cell
+// riding a straight path to the screen's centre as the zoom grows, and
+// it shows the total.
+const ZO = 1.2, R0 = 1.5, TOTAL_SUM = "2147450880";
+const foldDur = j => 0.5*Math.pow(0.85, j);
+const RDONE = (() => { let t = R0; for (let j = 0; j < LEVELS; j++) t += foldDur(j); return t; })();
+const Z0 = RDONE + 0.5, ZLEN = 1.4, Z1 = Z0 + ZLEN;
+function foldAt(u) {
+  let j = 0, t = R0;
+  while (j < LEVELS && u >= t + foldDur(j)) { t += foldDur(j); j++; }
+  return j < LEVELS ? j + clamp((u - t)/foldDur(j), 0, 1) : LEVELS;
+}
+const [DX0, DY0] = CAM0.at(0.5*CS, 0.5*CS);              // the corner cell's centre, on screen, at rest
+function camDive(p) {
+  const s = Math.exp(p*Math.log(ZOOM)), x = lerp(DX0, W/2, p), y = lerp(DY0, H/2, p);
+  return cam(0.5*CS - (x - W/2)/s, 0.5*CS - (y - H/2)/s, s);
+}
 S.reduce = (u, dur) => {
-  const f = clamp((u - R0)/FOLD, 0, LEVELS), j = Math.floor(f), m = ease(f - j), folding = u >= R0 && j < LEVELS;
+  const f = foldAt(u), j = Math.floor(f), m = ease(f - j), folding = u >= R0 && j < LEVELS;
   const k = LEVELS - j, [w, h] = dims(k), vert = k % 2 === 1, fill = rungTile(2 + 4*f/LEVELS);
-  const camr = u < R0 ? camLerp(CAME, CAM0, ease(u/ZO)) : u < Z0 ? CAM0 : camLerp(CAM0, CAMZ, ease((u - Z0)/ZLEN));
+  const camr = u < R0 ? camLerp(CAME, CAM0, ease(u/ZO)) : u < Z0 ? CAM0 : camDive(ease((u - Z0)/ZLEN));
   // the other cores return as the camera pulls back
   const others = u < R0 ? clamp(u/0.6, 0, 1) : 1;
   const alpha = (c, r) => u < R0 && !(c === MID && r === MID) ? others : 1;
@@ -665,11 +668,11 @@ S.reduce = (u, dur) => {
     const a = alpha(c, r);
     if (a <= 0) continue;
     cellBox(x, y, cw, ch, fill, a);
-    if (u < R0) cellLines(() => trace(r*N + c)[STEPS - 1], x, y, cw, ch, a, inkAt(2));
+    if (u < R0 && fitText(cw, ch) >= 5) cellText(String(256*(r*N + c) + 120), x, y, cw, ch, a, inkAt(2));
   }
   if (u >= Z0) {
     const [x, y, cw, ch] = blockRect(camr, 0, 0, 1, 1);
-    cellLines(() => [TOTAL_SUM], x, y, cw, ch, ease((u - Z1 + 0.3)/0.5), inkAt(6));
+    cellText(TOTAL_SUM, x, y, cw, ch, ease((u - Z1 + 0.3)/0.5), inkAt(6));
   }
   cx.globalAlpha = ease((u - Z1 - 0.2)/0.4);
   T("Final result!", W/2, 600, 24, GREEN, "center", true);
