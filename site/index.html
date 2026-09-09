@@ -65,7 +65,11 @@ figcaption{text-align:center;color:var(--b1);font-size:.87em;margin-top:.7em}
 .dots a{color:var(--b00)}
 
 canvas{display:block;width:100%}
-#game{aspect-ratio:12/8}
+.act canvas{aspect-ratio:12/8}
+.act{margin:2em 0}
+.gt{text-align:center;color:var(--b02);font-weight:600;margin:0 0 .6em}
+.act figcaption{font-size:1em;color:var(--b00)}
+.act figcaption.red{color:var(--red)}.act figcaption.green{color:var(--grn)}
 #cube{aspect-ratio:1;max-width:384px;margin:0 auto}
 
 </style>
@@ -127,9 +131,20 @@ prove its code obeys them. Take a game where nobody can win:</p>
   board = replay(start(), moves)
   is_won(board) == <span class="o">False</span></code></pre>
   <p>Here it is in action:</p>
-  <figure>
-    <canvas id="game"></canvas>
-    <figcaption><b>Vibe-coding</b> a new feature with <b>LAWS.bend</b></figcaption>
+  <figure class="act">
+    <p class="gt">Original game:</p>
+    <canvas id="g0"></canvas>
+    <figcaption>Law: the player can't win. So far, it holds.</figcaption>
+  </figure>
+  <figure class="act">
+    <p class="gt">New feature, without LAWS.bend:</p>
+    <canvas id="g1"></canvas>
+    <figcaption class="red">Laws broken. AI mistake: merged.</figcaption>
+  </figure>
+  <figure class="act">
+    <p class="gt">New feature, with LAWS.bend:</p>
+    <canvas id="g2"></canvas>
+    <figcaption class="green">Laws intact. AI mistake: blocked!</figcaption>
   </figure>
   <p>Without LAWS.bend, the AI shipped a bug. With LAWS.bend, its
 code was rejected until it placed a wall and proved the law,
@@ -340,13 +355,13 @@ function play(cv, draw) {
 
 // ---------------------------------------------------------------- the game
 // The level main.bend prints: a 12 x 8 map, a flag at (1,1) in a room
-// sealed by two walls, the player at (8,5). A slide show on one canvas:
-// a slide is one line of text, held long enough to read it twice, or one
-// act on the board. Act one: the player walks up and bumps the room's
-// wall. Act two: the wrap feature without LAWS.bend: the player walks off
-// the right edge, in at the left, and takes the flag, and the win screen
-// pops. Act three: with LAWS.bend: the AI's wall on the far edge stops
-// the walk, and nothing pops.
+// sealed by two walls, the player at (8,5). Three acts, one canvas each,
+// each a short loop that starts when it scrolls into view; the titles and
+// the verdicts are HTML around them. Act one: the player walks up and
+// bumps the room's wall. Act two: the wrap feature without LAWS.bend: the
+// player walks off the right edge, in at the left, and takes the flag, and
+// the win screen pops. Act three: with LAWS.bend: the AI's wall on the far
+// edge stops the walk, and nothing pops.
 {
   const GW = 12, GH = 8, STEP = 0.2, BUMP = 0.4, BUMPS = 3, LEAD = 0.6, HOLD = 1.8;
   const up = (x, y0, y1) => { const p = []; for (let y = y0; y >= y1; y--) p.push([x, y]); return p; };
@@ -369,42 +384,16 @@ function play(cv, draw) {
     return s;
   }
   const ACTS = [
-    { far: false, route: up(8, 5, 1).concat([[7, 1], [6, 1], [5, 1], [4, 1]]), bump: [-1, "3,1"] },
-    { far: false, route: up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]), win: true,
+    { id: "g0", far: false, route: up(8, 5, 1).concat([[7, 1], [6, 1], [5, 1], [4, 1]]), bump: [-1, "3,1"] },
+    { id: "g1", far: false, route: up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]), win: true,
       pop: ["YOU WON !?", "#f8e7e3", "#e0a8a0", "#c46a60"] },
-    { far: true, route: up(8, 5, 1).concat([[9, 1], [10, 1]]), bump: [1, "11,1"] },
+    { id: "g2", far: true, route: up(8, 5, 1).concat([[9, 1], [10, 1]]), bump: [1, "11,1"] },
   ];
   for (const a of ACTS) {
     a.walk = routeDur(a.route); a.tail = a.bump ? BUMP*BUMPS : 0.3; a.dur = LEAD + a.walk + a.tail + HOLD;
     a.walls = wallsOf(a.far);
+    play(document.getElementById(a.id), (ctx, t, W) => draw(ctx, t % a.dur, W, a));
   }
-  const say = (text, ink) => ({ text, ink: ink || "#4d4a44", dur: 0.45*text.split(" ").length + 1.4 });
-  const SHOW = [
-    say("Let's vibe-code a game!"), say("Law: the player can't win"), ACTS[0], say("So far, it works!"),
-    say("New feature: wrap around."), say("Without LAWS.bend:"), ACTS[1], say("Laws broken.\nAI mistake: *merged*.", "#c46a60"),
-    say("With LAWS.bend:"), ACTS[2], say("Laws intact.\nAI mistake: *blocked*!", "#7e9a5e"),
-  ];
-  const TOTAL = SHOW.reduce((s, x) => s + x.dur, 0);
-  play(document.getElementById("game"), (ctx, t, W, H) => {
-    let u = t % TOTAL, x = SHOW[0];
-    for (const y of SHOW) { if (u < y.dur) { x = y; break; } u -= y.dur; }
-    if (x.text) {                                                   // centred lines of text; *stars* mark a heavy run
-      ctx.globalAlpha = ease(u/0.3)*(1 - ease((u - x.dur + 0.3)/0.3));
-      const lines = x.text.split("\n"), fs = W/22;
-      ctx.textAlign = "left"; ctx.fillStyle = x.ink;
-      lines.forEach((line, li) => {
-        const runs = line.split("*"), y = H/2 + W/66 + (li - (lines.length - 1)/2)*fs*1.5;
-        const wide = runs.reduce((w, r, i) => { ctx.font = (i % 2 ? "800 " : "600 ") + fs + "px " + MONO; return w + ctx.measureText(r).width; }, 0);
-        let px = W/2 - wide/2;
-        runs.forEach((r, i) => { ctx.font = (i % 2 ? "800 " : "600 ") + fs + "px " + MONO; ctx.fillText(r, px, y); px += ctx.measureText(r).width; });
-      });
-      ctx.globalAlpha = 1;
-      return;
-    }
-    ctx.globalAlpha = ease(u/0.3);
-    draw(ctx, u, W, x);
-    ctx.globalAlpha = 1;
-  });
   function draw(ctx, u, W, a) {
     const T = W/GW, v = u - LEAD, walls = a.walls;
     let [px, py] = a.route[0], hit = null, flag = true, pop = 0;
