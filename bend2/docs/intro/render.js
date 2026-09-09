@@ -405,11 +405,11 @@ S.intro = (u, dur) => {
   gameCard("base", x, y, true, hit);
   const gone = 1 - ease((u - I0 + 0.6)/0.4);
   cx.globalAlpha = ease((u - 0.6)/0.4)*gone;
-  T("Player", 1130, BY + 5.5*TILE + 8, 26, AMBER, "center", true);
-  bow(1072, BY + 5.5*TILE, BX + 9*TILE + 6, BY + 5.5*TILE, 0.15, AMBER);
+  T("Player", 1130, BY + 5.5*TILE + 8, 26, GREEN, "center", true);
+  bow(1072, BY + 5.5*TILE, BX + 9*TILE + 6, BY + 5.5*TILE, 0.15, GREEN);
   cx.globalAlpha = ease((u - 1.3)/0.4)*gone;
-  T("Goal", 150, BY + 1.5*TILE + 8, 26, AMBER, "center", true);
-  bow(205, BY + 1.5*TILE, BX + TILE - 6, BY + 1.5*TILE, -0.15, AMBER);
+  T("Goal", 150, BY + 1.5*TILE + 8, 26, GREEN, "center", true);
+  bow(205, BY + 1.5*TILE, BX + TILE - 6, BY + 1.5*TILE, -0.15, GREEN);
   cx.globalAlpha = 1;
   footer(LAW, ease((u - 2.0)/0.4), GREEN);
 };
@@ -456,13 +456,13 @@ S.laws = (u, dur) => {
   codeCard(LAWS_SRC, x, y, cw, 20, 34);
   const pa = ease((u - 2.0)/0.5)*(1 - ease((u - 5.8)/0.5));
   cx.globalAlpha = pa;
-  T("your laws go here", W/2, 620, 26, AMBER, "center", true);
-  bow(W/2, 588, W/2, y + h + 10, 0, AMBER, pa);
+  T("your laws go here", W/2, 620, 26, GREEN, "center", true);
+  bow(W/2, 588, W/2, y + h + 10, 0, GREEN, pa);
   LAWS_GLOSS.forEach((g, i) => {
     const a = ease((u - 7.8 - 1.7*i)/0.5), ly = y + 36 + (i + 1)*34;
     cx.globalAlpha = a;
-    T(g, gx, ly, 24, AMBER, "left", true);
-    bow(gx - 14, ly - 8, x + cw + 12, ly - 8, 0, AMBER, a);
+    T(g, gx, ly, 24, GREEN, "left", true);
+    bow(gx - 14, ly - 8, x + cw + 12, ly - 8, 0, GREEN, a);
   });
   cx.globalAlpha = 1;
 };
@@ -545,8 +545,8 @@ function cellText(s, x, y, w, h, a, color) {
 function pointer(s, x1, y1, a) {
   if (a <= 0) return;
   cx.globalAlpha = a;
-  T(s, 1075, 300, 26, AMBER, "center", true);
-  bow(1075 - cx.measureText(s).width/2 + 10, 322, x1, y1, -0.3, AMBER, a);
+  T(s, 1075, 300, 26, GREEN, "center", true);
+  bow(1075 - cx.measureText(s).width/2 + 10, 322, x1, y1, -0.3, GREEN, a);
   cx.globalAlpha = 1;
 }
 
@@ -622,7 +622,7 @@ S.eval = (u, dur) => {
   const [ex, ey] = CAME.at((MID + 1)*CS, (MID + 0.5)*CS);
   pointer("GPU core", ex + 6, ey + 12, ease((u - ED - DIVE - 0.2)/0.5));
   cx.globalAlpha = ease((u - EDONE - 0.3)/0.4);
-  T("Partial result", W/2, 600, 24, AMBER, "center", true);
+  T("Partial result", W/2, 600, 24, GREEN, "center", true);
   cx.globalAlpha = 1;
 };
 
