@@ -2633,12 +2633,15 @@ export function parse_assert(p: Parse, book: Book): void {
     const s = parse_span(p, beg);
     parse_eat(p, ":");
     let A = parse_term(p);
-    if (parse_word(p, "where")) {
+    if (parse_at_word(p, "where")) {
+      const beg = p.pos;
+      parse_word(p, "where");
+      const ws = parse_span(p, beg);
       const n1 = p.sc.stk.length;
       const i  = parse_open(p, c);
       const w  = parse_term(p);
       parse_close(p, n1);
-      A = App(App(Ref("Exists", s), A, s), Lam(c, i, w, s), s);
+      A = App(App(Ref("Exists", ws), A, s), Lam(c, i, w, s), s);
     }
     cls.push([all, q, c, parse_open(p, c), A, s]);
   }
