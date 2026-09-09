@@ -3021,9 +3021,14 @@ function emit_fold(fl: File, t: HTerm): HTerm | null {
     const m = term_spine(fl, s);
     const it = m.t.$ === "Ref" ? intr_of(fl, m.t.k) : undefined;
     if (it === undefined) {
-      const b = fl.fuel > 0 ? emit_unfold(fl, s) : null;
+      const b = emit_unfold(fl, s);
       fl.fuel -= Number(b !== null);
-      return b;
+      return b === null || term_any(fl, b, (y) => {
+        if (y.$ === "App" || y.$ === "Ref") {
+          emit_fold(fl, y);
+        }
+        return fl.fuel < 0;
+      }) ? null : b;
     }
     const as = m.all.map((a) =>
       m.args.includes(a) ? emit_fold(fl, a) ?? a : a);
