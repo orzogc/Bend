@@ -4044,8 +4044,8 @@ typedef u32* Cursor;
 #define DENSE     8
 #define GROW      4
 
-#define ALC_WORDS  (5 * NCLS_ALL)
-#define ALC_NEAR   (3 * NCLS + 1)
+#define ALC_WORDS  (4 * NCLS_ALL)
+#define ALC_NEAR   (2 * NCLS + 1)
 #define LIFO_WORDS (DEVICE ? 2 * PAGE_LEN : 32 * PAGE_LEN)
 #define RESERVE    32
 #define RING_WORDS (RING_LEN + 2)
@@ -4262,21 +4262,32 @@ INLINE Cls cls_fit(u32 words) {
 // DENSE-th of the slots it probed.
 
 #define ALC_LIFO   0
-#define ALC_FRESH  1
-#define ALC_CUR    2
+#define ALC_POS    1
 #define ALC_HEAD   0
 #define ALC_MET    1
+#define POS_SCAN   (1ull << 40)
+#define POS_HIT    (1ull << 41)
 #define SIDE_INNER (~0u)
 
 #if DEVICE
 #define ALC_AT(e, i)   (e).alc[(i) * CUBE_SIDE]
-#define ALC_TILE(e, i) (*alc_word((e).mem, (u32)ALC_AT(e, 3 * NCLS), i))
+#define ALC_TILE(e, i) (*alc_word((e).mem, (u32)ALC_AT(e, 2 * NCLS), i))
+#define ALC_GET(e, c, k) \
+  ((c) < NCLS ? ALC_AT(e, 2 * (c) + (k)) : ALC_TILE(e, 2 * (c) + (k)))
+#define ALC_SET(e, c, k, v) \
+  { \
+    if ((c) < NCLS) { \
+      ALC_AT(e, 2 * (c) + (k)) = (v); \
+    } else { \
+      ALC_TILE(e, 2 * (c) + (k)) = (v); \
+    } \
+  }
 #else
-#define ALC_AT(e, i)   (e).alc[i]
-#define ALC_TILE(e, i) ALC_AT(e, i)
+#define ALC_TILE(e, i)      (e).alc[i]
+#define ALC_GET(e, c, k)    (e).alc[2 * (c) + (k)]
+#define ALC_SET(e, c, k, v) ((e).alc[2 * (c) + (k)] = (v))
 #endif
-#define ALC_HOT(e, c, k)  ALC_AT(e, 3 * (c) + (k))
-#define ALC_COLD(e, c, k) ALC_TILE(e, 3 * NCLS_ALL + 2 * (c) + (k))
+#define ALC_COLD(e, c, k) ALC_TILE(e, 2 * NCLS_ALL + 2 * (c) + (k))
 
 #define alc_word(H, m, i) ((H) + ALC_OFF + ((m) & ~(LINE - 1)) * ALC_WORDS \
   + (i) * LINE + ((m) & (LINE - 1)))
@@ -4286,62 +4297,62 @@ INLINE Cls cls_fit(u32 words) {
 #define heap_page(l)  ((u32)(((l) - HEAP_OFF) >> PAGE_BITS))
 #define side_at(H, p) ((DEV u32*)((H) + (H)[H_SIDE]) + (p))
 
-INLINE u32 heap_grab(Corpus H, u32 pages) {
+INLINE u32 heap_grab(Env e, u32 pages) {
+  Corpus H    = e.mem;
+  bool   fill = !DEVICE && pages == 1;
+  if (fill) {
+    u64 r = e.alc[ALC_WORDS];
+    if ((r >> 32) != 0) {
+      e.alc[ALC_WORDS] = r + 1 - (1ull << 32);
+      return (u32)r;
+    }
+    pages = RESERVE;
+  }
   u32 p = a32_add(a32_at(H, H_BUMP), pages);
   if ((u64)p + pages > a32_load(a32_at(H, H_CAP))) {
     err_post(H, ERR_HEAP);
     p = 0;
   }
+  if (fill) {
+    e.alc[ALC_WORDS] = ((u64)(RESERVE - 1) << 32) | (p + 1);
+  }
   return p;
 }
 
-OUTLINE Loc heap_alloc_miss(Env e, Cls cls, THR u64* hot) {
+OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   Corpus H     = e.mem;
   u64    mark  = heap_mark(H);
   u64    step  = 1ull << cls;
   u64    blk   = cls < PAGE_BITS ? PAGE_LEN : step;
-  u64    f     = hot != 0 ? hot[0] : ALC_TILE(e, 3 * cls + ALC_FRESH);
-  u64    s     = hot != 0 ? hot[1] : ALC_TILE(e, 3 * cls + ALC_CUR);
+  u64    p     = ALC_GET(e, cls, ALC_POS);
   u64    head  = ALC_COLD(e, cls, ALC_HEAD);
   u64    met   = ALC_COLD(e, cls, ALC_MET);
-  Loc    cur   = s & LOC_MASK;
-  u64    found = s >> 40;
+  u64    found = p >> 41;
   Loc    got;
   for (;;) {
-    if (cur == 0) {
-      got = f;
-      if ((f & (PAGE_LEN - 1)) == 0) {
+    got = p & LOC_MASK;
+    if ((p & POS_SCAN) == 0) {
+      if ((got & (PAGE_LEN - 1)) == 0) {
         if (head != 0 && met == 0) {
-          cur = heap_loc(head);
+          p = heap_loc(head) | POS_SCAN;
           continue;
         }
         u32 pages = (u32)(blk >> PAGE_BITS);
-        u32 p;
-        if (!DEVICE && pages == 1) {
-          u64 r = e.alc[ALC_WORDS];
-          if ((r >> 32) == 0) {
-            r = ((u64)RESERVE << 32) | heap_grab(H, RESERVE);
-          }
-          p = (u32)r;
-          e.alc[ALC_WORDS] = r + 1 - (1ull << 32);
-        } else {
-          p = heap_grab(H, pages);
-        }
+        u32 pg    = heap_grab(e, pages);
         for (u32 i = 1; i < pages; i += 1) {
-          *side_at(H, p + i) = SIDE_INNER;
+          *side_at(H, pg + i) = SIDE_INNER;
         }
         if (head == 0) {
-          head = p;
+          head = pg;
         } else {
-          *side_at(H, heap_page(f - blk)) = p;
+          *side_at(H, heap_page(got - blk)) = pg;
           met -= 1;
         }
-        got = heap_loc(p);
+        got = heap_loc(pg);
       }
-      f = got + step;
+      p = got + step;
       break;
     }
-    got = cur;
     u64 pos = 0;
     for (;;) {
       u64 x = H[got + pos];
@@ -4359,81 +4370,64 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls, THR u64* hot) {
     } else {
       met += 1;
     }
-    cur = got + step;
-    if ((cur & (PAGE_LEN - 1)) == 0) {
-      u32 link = *side_at(H, heap_page(cur - blk));
+    p = (got + step) | (found << 41) | POS_SCAN;
+    if (((got + step) & (PAGE_LEN - 1)) == 0) {
+      u32 link = *side_at(H, heap_page(got + step - blk));
       if (link != 0) {
-        cur = heap_loc(link);
+        p = heap_loc(link) | (found << 41) | POS_SCAN;
       } else {
-        u64  seen   = found + met;
-        u64  pages  = (seen << cls >> PAGE_BITS) / (found == 0 ? 1 : GROW);
-        bool sparse = found == 0 || found * DENSE < seen;
-        cur   = heap_loc(head);
-        found = 0;
-        met   = 0;
-        if (sparse) {
-          cur = 0;
+        u64 seen  = found + met;
+        u64 pages = (seen << cls >> PAGE_BITS) / (found == 0 ? 1 : GROW);
+        p   = heap_loc(head) | POS_SCAN;
+        met = 0;
+        if (found == 0 || found * DENSE < seen) {
+          p   = got + step;
           met = pages > 0 ? pages : 1;
         }
+        found = 0;
       }
     }
     if (pos == step) {
       break;
     }
   }
+  ALC_SET(e, cls, ALC_POS, p);
   ALC_COLD(e, cls, ALC_HEAD) = head;
   ALC_COLD(e, cls, ALC_MET)  = met;
-  s = cur | (found << 40);
-  if (hot != 0) {
-    hot[0] = f;
-    hot[1] = s;
-  } else {
-    ALC_TILE(e, 3 * cls + ALC_FRESH) = f;
-    ALC_TILE(e, 3 * cls + ALC_CUR)   = s;
-  }
   return got;
 }
 
 HOT Loc heap_alloc(Env e, Cls cls) {
-  if (!DEVICE || cls < NCLS) {
-    u64 l = ALC_HOT(e, cls, ALC_LIFO);
-    if (l != 0) {
-      ALC_HOT(e, cls, ALC_LIFO) = e.mem[l & LOC_MASK];
-      return l & LOC_MASK;
-    }
-    u64 hot[2] = { ALC_HOT(e, cls, ALC_FRESH), ALC_HOT(e, cls, ALC_CUR) };
-    Loc got    = hot[1] & LOC_MASK;
-    if (hot[1] == 0) {
-      got = hot[0];
-      if ((got & (PAGE_LEN - 1)) != 0) {
-        ALC_HOT(e, cls, ALC_FRESH) = got + (1ull << cls);
-        return got;
-      }
-    } else if (DEVICE && ((got + (1ull << cls)) & (PAGE_LEN - 1)) != 0
-      && (e.mem[got] ^ heap_mark(e.mem)) == cls) {
-      e.mem[got] = 0;
-      ALC_HOT(e, cls, ALC_CUR) = hot[1] + (1ull << cls) + (1ull << 40);
+  u64 l = ALC_GET(e, cls, ALC_LIFO);
+  if (l != 0) {
+    ALC_SET(e, cls, ALC_LIFO, e.mem[l & LOC_MASK]);
+    return l & LOC_MASK;
+  }
+  u64 p   = ALC_GET(e, cls, ALC_POS);
+  Loc got = p & LOC_MASK;
+  if ((p & POS_SCAN) == 0) {
+    if ((got & (PAGE_LEN - 1)) != 0) {
+      ALC_SET(e, cls, ALC_POS, p + (1ull << cls));
       return got;
     }
-    got = heap_alloc_miss(e, cls, hot);
-    ALC_HOT(e, cls, ALC_FRESH) = hot[0];
-    ALC_HOT(e, cls, ALC_CUR)   = hot[1];
+  } else if (DEVICE && ((got + (1ull << cls)) & (PAGE_LEN - 1)) != 0
+    && (e.mem[got] ^ heap_mark(e.mem)) == cls) {
+    e.mem[got] = 0;
+    ALC_SET(e, cls, ALC_POS, p + (1ull << cls) + POS_HIT);
     return got;
   }
-  return heap_alloc_miss(e, cls, (THR u64*)0);
+  return heap_alloc_miss(e, cls);
 }
 
 HOT void heap_free(Env e, Cls cls, Loc loc) {
   if (err_seen(e.mem)) {
     return;
   }
-  if (!DEVICE || cls < NCLS) {
-    u64 l = ALC_HOT(e, cls, ALC_LIFO);
-    if ((l >> 40) < (LIFO_WORDS >> cls)) {
-      e.mem[loc] = l;
-      ALC_HOT(e, cls, ALC_LIFO) = (((l >> 40) + 1) << 40) | loc;
-      return;
-    }
+  u64 l = ALC_GET(e, cls, ALC_LIFO);
+  if ((l >> 40) < (LIFO_WORDS >> cls)) {
+    e.mem[loc] = l;
+    ALC_SET(e, cls, ALC_LIFO, (((l >> 40) + 1) << 40) | loc);
+    return;
   }
   e.mem[loc] = heap_mark(e.mem) | cls;
 }
@@ -5153,7 +5147,7 @@ static void monk_work(Env e, Stk stk, Ring r) {
 #if DEVICE
 
 INLINE void dev_alc(Env e, Monk m, bool save) {
-  for (u32 i = 0; i < 3 * NCLS; i += 1) {
+  for (u32 i = 0; i < 2 * NCLS; i += 1) {
     DEV u64* w = alc_word(e.mem, m, i);
     if (save) {
       *w = ALC_AT(e, i);
@@ -5161,7 +5155,7 @@ INLINE void dev_alc(Env e, Monk m, bool save) {
       ALC_AT(e, i) = *w;
     }
   }
-  ALC_AT(e, 3 * NCLS) = m;
+  ALC_AT(e, 2 * NCLS) = m;
 }
 
 #ifdef __METAL_VERSION__
