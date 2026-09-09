@@ -8,13 +8,13 @@
 <style>
 :root{
   --bg:#f2eee7;--bg2:#e9e4db;--line:#e4dfd5;--b1:#a9a59d;--b0:#87847d;--b00:#87847d;--b01:#69665f;--b02:#4d4a44;
-  --yel:#b7924b;--ora:#c4845c;--red:#c46a60;--vio:#8b83b5;--blu:#5f86ad;--bar:#86a6c7;--cyn:#5f9c95;--grn:#7e9a5e;
+  --ora:#c4845c;--red:#c46a60;--vio:#8b83b5;--grn:#7e9a5e;
 }
 *{box-sizing:border-box}
 html{background:var(--bg);color:var(--b01);font:15px/1.6 ui-monospace,Menlo,"SF Mono",Consolas,"Liberation Mono",monospace;font-size:clamp(10px,2.55vw,15px);-webkit-text-size-adjust:100%}
 body{margin:0 auto;max-width:64ch;padding:0 2ch 4em}
-a{color:var(--blu);text-decoration:none;border-bottom:1px solid #cfd9e3}
-a:hover{border-bottom-color:var(--blu)}
+a{color:var(--vio);text-decoration:none;border-bottom:1px solid #d8d4e2}
+a:hover{border-bottom-color:var(--vio)}
 b{color:var(--b02);font-weight:600}
 p{margin:1em 0;white-space:pre-line}
 p.c{text-align:center}
@@ -25,11 +25,11 @@ code{color:var(--b02)}
 
 header{display:flex;justify-content:space-between;padding:1.2em 0 0;color:var(--b1);font-size:.87em}
 header nav a{color:var(--b00);border:0;margin-left:2ch}
-header nav a:hover{color:var(--blu)}
+header nav a:hover{color:var(--vio)}
 
 #hero{text-align:center;padding:3.4em 0 1.6em}
 #hero h1{font-size:2.9em;line-height:1;margin:0;color:var(--b02);font-weight:600;letter-spacing:-.02em}
-#hero h1::after{content:"";display:inline-block;width:.5em;height:.9em;margin-left:.12em;vertical-align:-.08em;background:var(--b02);animation:blink 1.1s steps(1) infinite}
+#hero h1::after{content:"";display:inline-block;width:.5em;height:.9em;margin-left:.12em;vertical-align:-.08em;background:var(--vio);animation:blink 1.1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
 #hero .sub{margin:1.2em 0 0;color:var(--b00)}
 
@@ -43,25 +43,25 @@ h3 span{color:var(--b1);font-weight:400;margin-right:1ch}
 
 pre{margin:1em 0;padding:.8em 1ch;background:var(--bg2);border-radius:3px;overflow-x:auto;line-height:1.5;color:var(--b01);tab-size:2}
 pre code{color:inherit}
-.k{color:var(--grn)}.t{color:var(--yel)}.s{color:var(--cyn)}.c{color:var(--b1)}.n{color:var(--vio)}.v{color:var(--vio)}.o{color:var(--ora)}
+.k{color:var(--grn)}.v{color:var(--vio)}.o{color:var(--ora)}.c{color:var(--b1)}
 .f{color:var(--b1);font-size:.8em;margin:0 0 -.7em;padding:0 .2ch}
 
 figure{margin:1.4em 0}
 figcaption{text-align:center;color:var(--b1);font-size:.87em;margin-top:.7em}
-.ct{text-align:center;color:var(--b02);font-weight:600;margin:0}
+.ct{text-align:center;color:var(--b00);font-weight:600;margin:0}
 .bars{display:flex;align-items:flex-end;gap:10px;max-width:520px;margin:0 auto;padding-top:2.4em}
 .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;font-size:.8em;color:var(--b01)}
 .bar i{display:block;width:100%;height:calc(var(--h)*150px);min-height:2px;background:#cdc7bc;transform:scaleY(0);transform-origin:bottom;transition:transform .5s ease-out calc(var(--i)*.12s)}
-.bar.bend i{background:var(--bar)}
+.bar.bend i{background:var(--vio)}
 .bar.over i{height:150px;background:repeating-linear-gradient(-45deg,#e2dcd1 0 4px,#efebe4 4px 9px)}
 .bar b{margin-bottom:5px;text-align:center;line-height:1.25;opacity:0;transition:opacity .4s calc(var(--i)*.12s + .3s)}
-.bar b em{display:block;color:var(--yel);font-style:normal}
+.bar b em{display:block;color:var(--grn);font-style:normal}
 .bar span{margin-top:6px;white-space:nowrap;text-align:center;line-height:1.3;height:2.6em;color:var(--b00)}
-.bar.bend span{color:var(--blu)}
+.bar.bend span{color:var(--vio)}
 .bars.on .bar i{transform:none}.bars.on .bar b{opacity:1}
 .dots{display:flex;justify-content:center;gap:1ch;margin-top:.5em;color:var(--b1);user-select:none;font-size:.87em}
 .dots i,.dots a{font-style:normal;cursor:pointer;border:0;color:var(--b1)}
-.dots i.on{color:var(--blu)}
+.dots i.on{color:var(--vio)}
 .dots a{color:var(--b00)}
 
 canvas{display:block;width:100%}
@@ -119,20 +119,21 @@ fold back into one. Here, a single call runs on 4,096 cores:</p>
     <canvas id="cube"></canvas>
     <figcaption><b>Bend</b> programs can run on the <b>GPU</b></figcaption>
   </figure>
+<p class="f">pow2.bend</p>
+<pre><code><span class="k">def</span> <span class="v">pow2</span>(+d: Nat) -> U32:
+  <span class="k">match</span> d:
+    <span class="k">case</span> 0n:
+      1
+    <span class="k">case</span> 1n+p:
+      a b = pow2(p) pow2(p)  <span class="c"># both calls run in parallel</span>
+      (a + b : U32)</code></pre>
 </section>
 
 <section id="laws">
   <h2><span>3.</span>Bend blocks mistakes via <b>PROOF</b>.</h2>
   <p>How can you trust code you never read? By demanding a proof.
-In Bend, you state your laws in LAWS.bend, and the AI has to
-prove its code obeys them. Take a game where nobody can win:</p>
-<p class="f">LAWS.bend</p>
-<pre><code><span class="c"># LAW: no move sequence leads to victory.</span>
-<span class="k">law</span> <span class="v">winning_is_a_bug</span>:
-  <span class="k">for</span> moves: List&lt;Move&gt;
-  board = replay(start(), moves)
-  is_won(board) == <span class="o">False</span></code></pre>
-  <p>Here it is in action:</p>
+Take a game where nobody can win: the flag hides in a sealed
+room. That law goes in LAWS.bend, and the AI codes the rest:</p>
   <figure class="act">
     <p class="gt">Original game:</p>
     <canvas id="g0"></canvas>
@@ -155,6 +156,12 @@ prove its code obeys them. Take a game where nobody can win:</p>
   <p>Without LAWS.bend, the AI shipped a bug. With LAWS.bend, its
 code was rejected until it placed a wall and proved the law,
 for every possible sequence of moves. Not a test: a theorem.</p>
+<p class="f">LAWS.bend</p>
+<pre><code><span class="c"># LAW: no move sequence leads to victory.</span>
+<span class="k">law</span> <span class="v">winning_is_a_bug</span>:
+  <span class="k">for</span> moves: List&lt;Move&gt;
+  board = replay(start(), moves)
+  is_won(board) == <span class="o">False</span></code></pre>
   <p class="c pl"><code>LAWS.bend</code> is <code>AGENTS.md</code> backed by <b>proof</b>.
 <span class="q">“Make no mistakes”</span> becomes <em>enforceable</em>.</p>
   <p class="note c"><a href="https://victortaelin.github.io/winning_is_a_bug">play the game</a> · <a href="https://github.com/HigherOrderCO/bend4/tree/main/demos/winning_is_a_bug">game, law and proof</a></p>
@@ -167,12 +174,12 @@ for every possible sequence of moves. Not a test: a theorem.</p>
 <pre><code><span class="c"># needs Bun 1.3+ and clang; Metal or CUDA for the GPU</span>
 git clone https://github.com/HigherOrderCO/bend4
 cd bend4
-ln -s <span class="s">"$PWD/bend2/main.ts"</span> ~/.bun/bin/bend</code></pre>
+ln -s "$PWD/bend2/main.ts" ~/.bun/bin/bend</code></pre>
   <h3><span>4.2.</span>Write hello.bend</h3>
 <pre><code><span class="k">import</span> Base
 
-<span class="k">def</span> main() -> <span class="t">IO</span>(<span class="t">Unit</span>):
-  <span class="t">IO</span>.print(<span class="s">"Hello, world!"</span>)</code></pre>
+<span class="k">def</span> <span class="v">main</span>() -> IO(Unit):
+  IO.print(<span class="o">"Hello, world!"</span>)</code></pre>
   <h3><span>4.3.</span>Check, compile, run</h3>
 <pre><code>bend hello.bend            <span class="c"># check</span>
 bend hello.bend -o hello   <span class="c"># compile</span>
@@ -290,7 +297,7 @@ function play(cv, draw) {
 // ---------------------------------------------------------------- the GPU
 // pow2!(20n) splits in two, in four, ... until one task sits on each of
 // 64 x 64 cores; every core works its task; then the results fold back,
-// pairwise: the blue region contracts toward the top-left cell, halving
+// pairwise: the purple region contracts toward the top-left cell, halving
 // along one axis at a time, the cells it leaves going gray; then the view
 // zooms onto that one cell, and it shows the answer.
 {
@@ -300,8 +307,10 @@ function play(cv, draw) {
   const E0 = DALL + HOLD1, ELEN = 1.0, ESPREAD = 1.3, R0 = E0 + ELEN + ESPREAD + 0.8;
   const FOLD = 0.5, RDONE = R0 + LEVELS*FOLD;
   const Z0 = RDONE + 0.6, ZLEN = 1.4, Z1 = Z0 + ZLEN, TOTAL = Z1 + 2.6;
-  const SKY = "#dfe4ea", DEEP = "#5f86ad", MIST = "#e6e1d8", BG = "#f2eee7";
-  const HEAT = []; for (let i = 0; i <= 16; i++) HEAT.push(mix(SKY, "#a9bfd6", i/16));
+  const MIST = "#e6e1d8", BG = "#f2eee7", INK = "#5e5787";
+  const TILES = ["#e4e1ec", "#d2cee1", "#bfb9d5", "#aca5c9", "#9a92be", "#8b83b5", "#6e6694"], SKY = TILES[0];
+  const rung = t => { const i = Math.min(Math.floor(t), TILES.length - 2); return mix(TILES[i], TILES[i + 1], t - i); };
+  const HEAT = []; for (let i = 0; i <= 16; i++) HEAT.push(rung(2*i/16));
   const dims = k => [1 << Math.ceil(k/2), 1 << Math.floor(k/2)];
   const phase = (c, r) => rnd(c*7919 + r*104729)*ESPREAD;
 
@@ -314,7 +323,7 @@ function play(cv, draw) {
   function label(ctx, s, x, y, w, h, a, ink) {
     const fs = Math.min(Math.min(w, h)*0.17, 40);
     if (fs < 6 || a <= 0) return;
-    ctx.globalAlpha = a; ctx.fillStyle = ink || "#3f5f80"; ctx.font = "600 " + fs + "px " + MONO;
+    ctx.globalAlpha = a; ctx.fillStyle = ink || INK; ctx.font = "600 " + fs + "px " + MONO;
     ctx.textAlign = "center"; ctx.fillText(s, x + w/2, y + h/2 + fs*0.36); ctx.globalAlpha = 1;
   }
   const boxA = k => clamp((k - 2)/9, 0, 1);
@@ -345,14 +354,14 @@ function play(cv, draw) {
       }
     } else if (u < Z0) {                                            // fold
       const f = clamp((u - R0)/FOLD, 0, LEVELS), j = Math.floor(f), m = ease(f - j);
-      const k = LEVELS - j, [w, h] = dims(k), vert = k % 2 === 1, fill = mix("#a9bfd6", DEEP, f/LEVELS);
+      const k = LEVELS - j, [w, h] = dims(k), vert = k % 2 === 1, fill = rung(2 + 4*f/LEVELS);
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) cell(ctx, c*cs, r*cs, cs, cs, MIST);
       for (let r = 0; r < h; r++) for (let c = 0; c < w; c++)
         cell(ctx, (vert ? lerp(c, c/2, m) : c)*cs, (vert ? r : lerp(r, r/2, m))*cs, cs, cs, fill);
     } else {                                                        // zoom
       const s = Math.pow(N, ease((u - Z0)/ZLEN)), zs = cs*s, lim = Math.min(N, Math.ceil(N/s) + 1);
       for (let r = 0; r < lim; r++) for (let c = 0; c < lim; c++) if (c || r) cell(ctx, c*zs, r*zs, zs, zs, MIST);
-      cell(ctx, 0, 0, zs, zs, DEEP);
+      cell(ctx, 0, 0, zs, zs, TILES[6]);
       label(ctx, "1048576", 0, 0, zs, zs, ease((u - Z1 + 0.2)/0.5), BG);
     }
   }
@@ -370,6 +379,9 @@ function play(cv, draw) {
 // edge stops the walk, and nothing pops.
 {
   const GW = 12, GH = 8, STEP = 0.2, BUMP = 0.4, BUMPS = 3, LEAD = 0.6, HOLD = 1.8;
+  const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#a9a4bb", cap: "#c1bdd0", hit: "#d9a39c", hitcap: "#e8c4bf",
+                pole: "#87847d", cloth: "#7e9a5e", skin: "#7b73a6", eye: "#4d4a44",
+                win: "#f6e4e1", winRim: "#dfa9a2", winInk: "#c46a60" };
   const up = (x, y0, y1) => { const p = []; for (let y = y0; y >= y1; y--) p.push([x, y]); return p; };
   const near = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) <= 1;
   const routeDur = r => r.reduce((t, c, i) => i && near(c, r[i - 1]) ? t + STEP : t, 0);
@@ -392,7 +404,7 @@ function play(cv, draw) {
   const ACTS = [
     { id: "g0", far: false, route: up(8, 5, 1).concat([[7, 1], [6, 1], [5, 1], [4, 1]]), bump: [-1, "3,1"] },
     { id: "g1", far: false, route: up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]), win: true,
-      pop: ["YOU WON !?", "#f8e7e3", "#e0a8a0", "#c46a60"] },
+      pop: "YOU WON !?" },
     { id: "g2", far: true, route: up(8, 5, 1).concat([[9, 1], [10, 1]]), bump: [1, "11,1"] },
   ];
   for (const a of ACTS) {
@@ -415,34 +427,35 @@ function play(cv, draw) {
       if (a.win) flag = false;
       if (a.pop) pop = ease((v - a.walk - a.tail)/0.3);
     } else if (v > 0) [px, py] = routeAt(a.route, v);
+    const tile = (x, y, w, h, r, fill) => { ctx.fillStyle = fill; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); };
     for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
       const key = x + "," + y, X = x*T + 1.5, Y = y*T + 1.5, S = T - 3;
-      if (!walls.has(key)) { ctx.fillStyle = (x + y) % 2 ? "#ebe6dd" : "#e1dbcf"; ctx.fillRect(X, Y, S, S); continue; }
+      if (!walls.has(key)) { tile(X, Y, S, S, T/8, PAL.floor[(x + y) % 2]); continue; }
       const lit = hit === key;
-      ctx.fillStyle = lit ? "#e6b59c" : "#a8a196"; ctx.fillRect(X, Y, S, S);
-      ctx.fillStyle = lit ? "#f1d3c2" : "#c7c1b6"; ctx.fillRect(x*T + 7, y*T + 7, T - 14, T*0.22);
+      tile(X, Y, S, S, T/8, lit ? PAL.hit : PAL.wall);
+      tile(x*T + T/8, y*T + T/8, T*0.75, T*0.21, T/19, lit ? PAL.hitcap : PAL.cap);
     }
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, GW*T, GH*T); ctx.clip();
     const k = T/40;
     if (flag) {
       const fx = T, fy = T;
-      ctx.strokeStyle = "#9b9488"; ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.beginPath();
+      ctx.strokeStyle = PAL.pole; ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.beginPath();
       ctx.moveTo(fx + 14*k, fy + 31*k); ctx.lineTo(fx + 14*k, fy + 9*k); ctx.stroke();
-      ctx.fillStyle = "#d9a444"; ctx.beginPath();
+      ctx.fillStyle = PAL.cloth; ctx.beginPath();
       ctx.moveTo(fx + 15*k, fy + 9*k); ctx.lineTo(fx + 31*k, fy + 14.5*k); ctx.lineTo(fx + 15*k, fy + 20*k); ctx.closePath(); ctx.fill();
     }
     const cx = px*T + T/2, cy = py*T + T/2;
-    ctx.fillStyle = "#6fb8ae"; ctx.beginPath(); ctx.arc(cx, cy, 12.5*k, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "#4d4a44"; ctx.beginPath();
+    ctx.fillStyle = PAL.skin; ctx.beginPath(); ctx.arc(cx, cy, 12.5*k, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = PAL.eye; ctx.beginPath();
     ctx.arc(cx - 4.5*k, cy - 2*k, 2.2*k, 0, Math.PI*2); ctx.arc(cx + 4.5*k, cy - 2*k, 2.2*k, 0, Math.PI*2); ctx.fill();
     ctx.restore();
     if (pop > 0) {
-      const [s, fill, rim, ink] = a.pop, bw = T*5.6, bh = T*1.5, bx = (GW*T - bw)/2, by = (GH*T - bh)/2;
+      const bw = T*5.6, bh = T*1.5, bx = (GW*T - bw)/2, by = (GH*T - bh)/2;
       ctx.globalAlpha = pop;
-      ctx.fillStyle = fill; ctx.strokeStyle = rim; ctx.lineWidth = 1.5;
+      ctx.fillStyle = PAL.win; ctx.strokeStyle = PAL.winRim; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 10); ctx.fill(); ctx.stroke();
-      ctx.fillStyle = ink; ctx.font = "600 " + T*0.6 + "px " + MONO; ctx.textAlign = "center";
-      ctx.fillText(s, GW*T/2, by + bh*0.66);
+      ctx.fillStyle = PAL.winInk; ctx.font = "600 " + T*0.6 + "px " + MONO; ctx.textAlign = "center";
+      ctx.fillText(a.pop, GW*T/2, by + bh*0.66);
       ctx.globalAlpha = 1;
     }
   }

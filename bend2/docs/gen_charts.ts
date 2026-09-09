@@ -10,7 +10,8 @@
 //
 // The visual language is bend3's gen_charts.ts, unchanged:
 // transparent background, mid-gray ink readable on GitHub light and
-// dark, Bend in dark blue, rivals gray, large type, no axis clutter.
+// dark, Bend in the landing page's purple, rivals gray, large type, no
+// axis clutter.
 // Every panel is linear, scaled to its slowest bar; every bar
 // prints its exact seconds. The ONE dashed idiom is a checker
 // timeout: hatched, ">5min" above and "timeout" inside, drawn at
@@ -44,8 +45,8 @@ const CHECK_FAMILIES: Record<string, string> = {
   defs: "plain programs", proofs: "proof libraries",
   trees: "evaluation (smalltt trees)", generics: "generic instantiation",
 };
-const INK = "#818b98";
-const BLUE = "#1a4f8a";
+const INK = "#87847d";
+const PURPLE = "#8b83b5";
 const FONT = "-apple-system, 'Helvetica Neue', Arial, sans-serif";
 
 function say(text: string): void {
@@ -177,7 +178,7 @@ function bar_groups(file: string, groups: Group[], note: string, opts: { cols?: 
       const by = Math.round((y0 + plotY + PLOT_H - h) * 10) / 10;
       const r = Math.min(5, h / 2);
       const shape = `M ${bx} ${by + h} L ${bx} ${by + r} Q ${bx} ${by} ${bx + r} ${by} L ${bx + BAR_W - r} ${by} Q ${bx + BAR_W} ${by} ${bx + BAR_W} ${by + r} L ${bx + BAR_W} ${by + h} Z`;
-      const hue = bar.bend === true ? BLUE : null;
+      const hue = bar.bend === true ? PURPLE : null;
       body += bar.over === true
         ? `<path d="${shape}" fill="url(#hatch)" stroke="${INK}" stroke-opacity="0.5" stroke-dasharray="4 3"/>\n`
         : `<path d="${shape}" fill="${hue ?? INK}"${hue === null ? ` fill-opacity="0.4"` : ""}/>\n`;

@@ -70,9 +70,11 @@ const BEATS = [
 ];
 
 const W = 1280, H = 720;
-const BG = "#ffffff", INK = "#151a20", DIM = "#6c7681", FAINT = "#aeb6bf";
-const CARD = "#f6f8fa", EDGE = "#e2e7ec", GREEN = "#0f8a45", RED = "#cf2230";
-const BLUE = "#1a4f8a", SKY = "#dbe7f5", MIST = "#eef2f6", AMBER = "#d98c00", GRAY = "#c4ccd5";
+// the landing page's palette: its page, its inks, its code panel, and
+// purple for Bend, green for gains and good news, red for bad news
+const BG = "#f2eee7", INK = "#4d4a44", TEXT = "#69665f", DIM = "#87847d", FAINT = "#a9a59d";
+const CARD = "#e9e4db", GREEN = "#7e9a5e", RED = "#c46a60", PURPLE = "#8b83b5", ORANGE = "#c4845c";
+const AMBER = "#b7924b", GRAY = "#cdc7bc", SKY = "#e4e1ec", MIST = "#e6e1d8";
 const MONO = "Menlo,ui-monospace,monospace";
 
 let cx = null;
@@ -143,17 +145,16 @@ function bow(x0, y0, x1, y1, k, color, a, via) {
 // ------------------------------------------------------------------ code
 const KW = new Set(["def", "type", "is", "Data", "match", "case", "import", "as", "law", "do", "return"]);
 const QUANT = new Set(["for", "exs"]), CTR = new Set(["True", "False"]);
-const COMMENT = "#5a8f4e", PURPLE = "#6f42c1", ORANGE = "#c2410c";
 function codeLine(s, x, y, size) {
   font(size);
   const re = /("[^"]*"|#.*$|[A-Za-z_][A-Za-z0-9_.]*|\d+n?|\s+|.)/g;
-  let m, px = x;
+  let m, px = x, prev = "";
   while ((m = re.exec(s)) !== null) {
-    const t = m[0], kw = KW.has(t) || QUANT.has(t);
+    const t = m[0], kw = KW.has(t) || QUANT.has(t), name = prev === "def" || prev === "law";
     font(size, kw);
-    cx.fillStyle = t[0] === "#" ? COMMENT : t[0] === "\"" ? GREEN : KW.has(t) ? BLUE
-                 : QUANT.has(t) ? PURPLE : CTR.has(t) ? ORANGE : INK;
+    cx.fillStyle = t[0] === "#" ? FAINT : t[0] === "\"" || CTR.has(t) ? ORANGE : kw ? GREEN : name ? PURPLE : TEXT;
     cx.fillText(t, px, y); px += cx.measureText(t).width;
+    if (t.trim()) prev = t;
   }
   font(size);
 }
@@ -161,13 +162,15 @@ function codeLine(s, x, y, size) {
 // first line's caps as below the last line's descenders
 const cardH = (n, pitch) => n*pitch + 30;
 function codeCard(lines, x, y, w, size, pitch) {
-  box(x, y, w, cardH(lines.length, pitch), 10, CARD, EDGE, 1.5);
+  box(x, y, w, cardH(lines.length, pitch), 10, CARD);
   lines.forEach((l, i) => codeLine(l, x + 28, y + 36 + i*pitch, size));
 }
 
-// LAWS.bend, for the reader: the namespaces and the equality's braces are
-// left out (that sugar comes later); each line gets a gloss
-const LAWS_SRC = `law winning_is_a_bug:
+// LAWS.bend, for the reader, as the landing page shows it: the namespaces
+// and the equality's braces are left out (that sugar comes later); each
+// line of the law gets a gloss
+const LAWS_SRC = `# LAW: no move sequence leads to victory.
+law winning_is_a_bug:
   for moves: List<Move>
   board = replay(start(), moves)
   is_won(board) == False`.split("\n");
@@ -175,16 +178,17 @@ const LAWS_GLOSS = ["LAW: Winning Is A Bug", "\"for any sequence of moves\"",
                     "\"replaying them from the start\"", "\"can never lead to victory\""];
 
 // ------------------------------------------------------------------ benches
-// Every number is a pin from bench/runtime/_pin_apple_m4_max_.txt and
-// bench/checker/_pin_apple_m4_max_.txt (2026-08-31, commit 64fc4b7): the
-// same Bend binary on one core, on all 16 cores, and on the GPU, against
-// its native twins in C, TypeScript and Lean.
+// Every number is a pin from bench/runtime/_pin_/apple_m4_max.txt
+// (2026-09-04, a671551) and bench/checker/_pin_/apple_m4_max.txt
+// (2026-09-02, 0bf427f), the landing page's numbers: the same Bend binary
+// on one core, on all 16 cores, and on the GPU, against its native twins
+// in C, TypeScript and Lean.
 const BENCH = {
-  gameoflife: { title: "game of life", rivals: [["TypeScript", 18.778], ["Lean", 13.922], ["C", 6.821]],
-                seq: 5.458, par: 0.475, gpu: 0.082 },
+  gameoflife: { title: "game of life", rivals: [["TypeScript", 18.957], ["Lean", 14.081], ["C", 6.989]],
+                seq: 7.788, par: 0.659, gpu: 0.093 },
 };
-const CHECK = [["Isabelle", 300, true], ["Agda", 300, true], ["Lean", 18.356],
-               ["Rocq", 5.951], ["Bend", 0.344]];
+const CHECK = [["Isabelle", 300, true], ["Agda", 300, true], ["Lean", 19.557],
+               ["Rocq", 6.124], ["Bend", 0.345]];
 
 const secs = s => (s >= 10 ? s.toFixed(1) : s.toFixed(2)) + "s";
 const times = x => (x >= 10 ? Math.round(x) : x.toFixed(1)) + "x";
@@ -199,7 +203,7 @@ function bar(x, v, vmax, name, color, a, over, mul) {
   const h = BARH*v/vmax*ease(a);
   cx.globalAlpha = m;
   if (over) {
-    box(x, BASE - h, BW, h, 4, "#eef1f4");
+    box(x, BASE - h, BW, h, 4, "#efebe4");
     cx.save(); cx.beginPath(); cx.rect(x, BASE - h, BW, h); cx.clip();
     cx.strokeStyle = GRAY; cx.lineWidth = 2; cx.beginPath();
     for (let d = -h; d < BW; d += 12) { cx.moveTo(x + d, BASE); cx.lineTo(x + d + h, BASE - h); }
@@ -207,7 +211,7 @@ function bar(x, v, vmax, name, color, a, over, mul) {
   } else box(x, BASE - h, BW, h, 4, color);
   cx.globalAlpha = m*ease((a - 0.5)/0.5);
   T(over ? ">5 min" : secs(v), x + BW/2, BASE - h - 14, 22, INK, "center", true);
-  T(name, x + BW/2, BASE + 32, 20, color === BLUE ? BLUE : DIM, "center", color === BLUE);
+  T(name, x + BW/2, BASE + 32, 20, color === PURPLE ? PURPLE : DIM, "center", color === PURPLE);
   cx.globalAlpha = 1;
 }
 // one readout straight above a parallel bar: the speedup, the cores it
@@ -222,7 +226,7 @@ function speedup(B, v, i, counts, chip, u, t0) {
   if (a <= 0) return;
   const x = slotX(i, 3, G3) + BW/2, T1 = t0 + 0.5, T2 = T1 + 0.4, RUN = 0.8, PAUSE = 0.4, RUN2 = 1.6;
   cx.globalAlpha = a;
-  T(times(B.seq/v) + " faster", x, SPY + 6*(1 - a), 26, AMBER, "center", true);
+  T(times(B.seq/v) + " faster", x, SPY + 6*(1 - a), 26, GREEN, "center", true);
   let n = Math.round(lerp(1, counts[0], clamp((u - T2)/RUN, 0, 1))), tEnd = T2 + RUN;
   if (counts[1]) {
     if (u > tEnd + PAUSE) n = Math.round(lerp(counts[0], counts[1], clamp((u - tEnd - PAUSE)/RUN2, 0, 1)));
@@ -233,15 +237,15 @@ function speedup(B, v, i, counts, chip, u, t0) {
   const oa = ease((u - T1)/0.4), na = ease((u - T2)/0.3), ca = ease((u - tEnd - 0.4)/0.4), ka = ease((u - tEnd - 0.8)/0.4), y = SPY + 30;
   let px = x - (onW + numW + chipW + coresW)/2;
   cx.globalAlpha = oa;
-  T("on ", px, y + 6*(1 - oa), 20, AMBER, "left"); px += onW;
+  T("on ", px, y + 6*(1 - oa), 20, GREEN, "left"); px += onW;
   cx.globalAlpha = na;
-  T(String(n), px, y + 6*(1 - na), 20, AMBER, "left", true); px += numW;
+  T(String(n), px, y + 6*(1 - na), 20, GREEN, "left", true); px += numW;
   cx.globalAlpha = ca;
-  T(" " + chip, px, y + 6*(1 - ca), 20, AMBER, "left", true); px += chipW;
+  T(" " + chip, px, y + 6*(1 - ca), 20, GREEN, "left", true); px += chipW;
   cx.globalAlpha = ka;
-  T(" cores", px, y + 6*(1 - ka), 20, AMBER, "left", true);
+  T(" cores", px, y + 6*(1 - ka), 20, GREEN, "left", true);
   cx.globalAlpha = a;
-  bow(x, SPY + 48, x, barTop(v, B.seq) - 44, -0.2, AMBER, a);
+  bow(x, SPY + 48, x, barTop(v, B.seq) - 44, -0.2, GREEN, a);
   cx.globalAlpha = 1;
 }
 const S = {};
@@ -256,7 +260,7 @@ function chart(B, u, go, rise) {
   all.forEach(([name, v], i) => {
     const a = rise ? ease((u - 1.0 - i*1.0)/0.5) : 1;
     if (i < 3) bar(slotX(i, 4, 70), v, vmax, name, GRAY, a, false, 1 - go);
-    else bar(lerp(slotX(3, 4, 70), slotX(0, 3, G3), go), v, vz, "Bend", BLUE, a);
+    else bar(lerp(slotX(3, 4, 70), slotX(0, 3, G3), go), v, vz, "Bend", PURPLE, a);
   });
   cx.globalAlpha = rise ? ease((u - 5.2)/0.5) : 1;
   T(B.title + " · Apple M4 Max", W/2, 640, 20, DIM, "center");
@@ -269,35 +273,35 @@ S.bench = (u, dur, b) => {
   chart(B, u, 0, true);
   const pa = ease((u - 6.2)/0.5)*(1 - ease((u - dur + 0.6)/0.4));
   cx.globalAlpha = pa;
-  T("Competes with C", 930, 250, 26, AMBER, "center", true);
-  T("on a single core", 930, 282, 26, AMBER, "center", true);
-  bow(940, 305, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, AMBER, pa);
+  T("Competes with C", 930, 250, 26, GREEN, "center", true);
+  T("on a single core", 930, 282, 26, GREEN, "center", true);
+  bow(940, 305, slotX(3, 4, 70) + BW/2, barTop(B.seq, vmax) - 42, -0.2, GREEN, pa);
   cx.globalAlpha = 1;
 };
 // the same chart: the rivals leave, then the 16-core bar rises and its
 // readout lands, then the GPU's bar and readout; both readouts stay
 S.par = (u, dur, b) => {
   const B = BENCH[b[2]], vz = chart(B, u, ease((u - 0.6)/0.9), false);
-  bar(slotX(1, 3, G3), B.par, vz, "Bend", BLUE, ease((u - 2.0)/0.5));
+  bar(slotX(1, 3, G3), B.par, vz, "Bend", PURPLE, ease((u - 2.0)/0.5));
   speedup(B, B.par, 1, [16], "CPU", u, 2.8);
-  bar(slotX(2, 3, G3), B.gpu, vz, "Bend", BLUE, ease((u - 5.6)/0.5));
+  bar(slotX(2, 3, G3), B.gpu, vz, "Bend", PURPLE, ease((u - 5.6)/0.5));
   speedup(B, B.gpu, 2, [16, 16384], "GPU", u, 6.4);
 };
 
 // five bars, then the gap between Bend and the field, pointed out
 S.check = (u, dur) => {
-  const vmax = 2*18.356;
+  const vmax = 2*19.557;
   rich("Bend compiles *FAST*", W/2, 96, 30);
   CHECK.forEach(([name, v, over], i) =>
-    bar(slotX(i, 5, 70), over ? vmax : v, vmax, name, name === "Bend" ? BLUE : GRAY,
+    bar(slotX(i, 5, 70), over ? vmax : v, vmax, name, name === "Bend" ? PURPLE : GRAY,
         ease((u - 1.0 - i*1.0)/0.5), over));
   cx.globalAlpha = ease((u - 6.2)/0.5);
   T("3,200 generic instantiations · Apple M4 Max", W/2, 640, 20, DIM, "center");
   const pa = ease((u - 7.4)/0.5);
   cx.globalAlpha = pa;
-  T("Up to 100x faster", 930, 330, 26, AMBER, "center", true);
-  T("than other provers", 930, 362, 26, AMBER, "center", true);
-  bow(950, 385, slotX(4, 5, 70) + BW/2, BASE - 42, -0.25, AMBER, pa);
+  T("Up to 100x faster", 930, 330, 26, GREEN, "center", true);
+  T("than other provers", 930, 362, 26, GREEN, "center", true);
+  bow(950, 385, slotX(4, 5, 70) + BW/2, BASE - 42, -0.25, GREEN, pa);
   cx.globalAlpha = 1;
 };
 
@@ -305,11 +309,11 @@ S.check = (u, dur) => {
 // The board is drawn from the same level main.bend prints: '#' walls, the
 // flag at (1,1), the player at (8,5). Two levels: the room sealed by two
 // walls and the map's edge (base), and the shipped one, with two more walls
-// on the far edges (far). Pastel tiles on the white page, a title above.
+// on the far edges (far). The landing page's tiles, a title above.
 const GW = 12, GH = 8, TILE = 56, BX = W/2 - GW*TILE/2, BY = 126;
-const PAL = { floor: ["#f5f7fa", "#e9eef4"], wall: "#b9c6da", cap: "#d3dce9", hit: "#f3c6b2", hitcap: "#f9dccf",
-              pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441",
-              win: "#fde9e6", winRim: "#f0aaa1", winInk: "#a3302a" };
+const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#a9a4bb", cap: "#c1bdd0", hit: "#d9a39c", hitcap: "#e8c4bf",
+              pole: "#87847d", cloth: "#7e9a5e", skin: "#7b73a6", eye: "#4d4a44", gold: AMBER,
+              win: "#f6e4e1", winRim: "#dfa9a2", winInk: "#c46a60" };
 function wallsOf(v) {
   const s = new Set(), add = (x, y) => s.add(x + "," + y);
   for (let y = 0; y <= 3; y++) add(3, y);
@@ -360,7 +364,7 @@ function gameCard(v, px, py, flag, hit) {
   cx.restore();
 }
 // a line under the board
-const LAW = "LAW: player can't win.";
+const LAW = "LAW: the player can't win.";
 function footer(s, a, color) {
   if (a <= 0) return;
   cx.globalAlpha = a; T(s, W/2, 664, 26, color || INK, "center", true); cx.globalAlpha = 1;
@@ -455,7 +459,7 @@ S.laws = (u, dur) => {
   T("your laws go here", W/2, 620, 26, AMBER, "center", true);
   bow(W/2, 588, W/2, y + h + 10, 0, AMBER, pa);
   LAWS_GLOSS.forEach((g, i) => {
-    const a = ease((u - 7.8 - 1.7*i)/0.5), ly = y + 36 + i*34;
+    const a = ease((u - 7.8 - 1.7*i)/0.5), ly = y + 36 + (i + 1)*34;
     cx.globalAlpha = a;
     T(g, gx, ly, 24, AMBER, "left", true);
     bow(gx - 14, ly - 8, x + cw + 12, ly - 8, 0, AMBER, a);
@@ -516,24 +520,24 @@ function cellBox(x, y, w, h, fill, a) {
   cx.fillStyle = deepen(fill, Math.min(1/c, 1.5)); cx.fillRect(x + g/2, y + g/2, w - g, h - g);
   if (a !== undefined) cx.globalAlpha = 1;
 }
-// Numbers wear the film's own blue: a sum starts in the sky blue of the
-// task grid and deepens as it grows, one even climb, until the total wears
-// the very blue of Bend's bars. Ink is navy on the light tiles and white on
-// the deep ones. A tile's rung is fractional: 0..2 while a core works,
-// 2..6 over the fold levels.
+// Numbers wear Bend's purple: a result starts in the lavender of the task
+// grid and deepens as it grows, one even climb, through the purple of
+// Bend's bars to the total's deep tile. Ink is deep purple on the light
+// tiles and the page's colour on the deep ones. A tile's rung is
+// fractional: 0..2 while a core works, 2..6 over the fold levels.
 const mix = (h1, h2, f) => "#" + rgb(h1).map((c, k) => Math.round(lerp(c, rgb(h2)[k], f)).toString(16).padStart(2, "0")).join("");
-const TILES = [SKY, "#c3d7ef", "#a6c3e6", "#86acdb", "#6693cd", "#3f73b3", BLUE];
+const TILES = [SKY, "#d2cee1", "#bfb9d5", "#aca5c9", "#9a92be", PURPLE, "#6e6694"], INKP = "#5e5787";
 function rungTile(t) {
   const i = Math.min(Math.floor(t), TILES.length - 2);
   return mix(TILES[i], TILES[i + 1], t - i);
 }
-const inkAt = t => t < 3.5 ? "#1f2f45" : "#f4f8fc";
+const inkAt = t => t < 3.5 ? INKP : BG;
 // a wide line shrinks to fit the cell
 function cellText(s, x, y, w, h, a, color) {
   if (fitText(w, h) < 5 || a <= 0) return;
   const fs = Math.min(fitText(w, h), 0.92*w/(0.62*s.length));
   cx.globalAlpha = a;
-  T(s, x + w/2, y + h/2 + fs*0.36, fs, color || BLUE, "center", true);
+  T(s, x + w/2, y + h/2 + fs*0.36, fs, color || INKP, "center", true);
   cx.globalAlpha = 1;
 }
 // a label to the right of a picture, its arrow leaving from under the
@@ -610,7 +614,7 @@ S.eval = (u, dur) => {
     if (a <= 0) continue;
     const j = clamp(Math.floor((u - E0 - phase(c, r))/ESTEP), 0, STEPS - 1), t = 2*j/(STEPS - 1);
     cellBox(x, y, w, h, j ? rungTile(t) : SKY, a);
-    if (fitText(w, h) >= 5) cellText(trace(r*N + c)[j], x, y, w, h, a, j ? inkAt(t) : BLUE);
+    if (fitText(w, h) >= 5) cellText(trace(r*N + c)[j], x, y, w, h, a, j ? inkAt(t) : INKP);
   }
   // the caption and the pointer stay as the dive begins, and fade with it
   const g = 1 - ease((u - ED)/0.4);
@@ -682,11 +686,11 @@ S.reduce = (u, dur) => {
 
 // ------------------------------------------------------------------- beats
 // ~ is a dim aside in smaller type, % a quote (a law, a prompt): a
-// full-size line in bold blue, # is a title, "" is a breath of space
+// full-size line in bold purple, # is a title, "" is a breath of space
 function sayLines(b) {
   return b.slice(2).filter(s => !TAG.has(s)).map(s => s[0] === "~"
     ? { s: s.slice(1), size: 22, pitch: 40, color: DIM }
-    : s[0] === "%" ? { s: "*" + s.slice(1) + "*", size: 34, pitch: 62, color: BLUE }
+    : s[0] === "%" ? { s: "*" + s.slice(1) + "*", size: 34, pitch: 62, color: PURPLE }
     : s[0] === "#" ? { s: "*" + s.slice(1).replace(/([,.:;]*)$/, "*$1"), size: 44, pitch: 78, color: INK }
     : s[0] === "/" ? { s: s.slice(1), size: 30, pitch: 56, color: INK, slant: true }
     : s === "" ? { s, size: 34, pitch: 30, color: INK }
@@ -729,12 +733,12 @@ S.reveal = (u, dur, b) => {
 };
 
 S.end = (u, dur) => {
-  T("Bend", W/2, 290, 64, INK, "center", true);
+  T("Bend", W/2, 290, 64, PURPLE, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
   T("fast  ·  parallel  ·  no mistakes", W/2, 360, 24, GREEN, "center");
   cx.globalAlpha = ease((u - 1.8)/0.5);
   T("Python syntax · C speed · CPU and GPU · proofs", W/2, 430, 19, DIM, "center");
-  T("github.com/HigherOrderCO/Bend", W/2, 480, 22, "#1a5fd0", "center");
+  T("github.com/HigherOrderCO/bend4", W/2, 480, 22, PURPLE, "center");
   cx.globalAlpha = 1;
 };
 
@@ -771,7 +775,7 @@ function draw(t) {
   const inA  = b.includes(co) ? 1 : ease(u/0.3);
   const outA = nxt && nxt.includes(co) ? 1 : ease((dur - u)/0.3);
   const f = 1 - Math.min(inA, outA);
-  if (f > 0) { cx.fillStyle = `rgba(255,255,255,${f})`; cx.fillRect(0, 0, W, H); }
+  if (f > 0) { cx.fillStyle = `rgba(242,238,231,${f})`; cx.fillRect(0, 0, W, H); }
 }
 
 if (typeof module !== "undefined") module.exports = { draw, setCtx, DUR, SCENES, T0 };
