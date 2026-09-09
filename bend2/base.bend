@@ -1389,19 +1389,19 @@ def Array.swap(-T: Type, a: Array<T>, +i: U32, v: T) -> Array<T> & T:
   Array.swap.at(T, i, v, Array.size(T, a))
 
 def Array.clone.node(
-  cx: Array<U32> & Array<U32>, cy: Array<U32> & Array<U32>
-) -> Array<U32> & Array<U32>:
+  -T: Data, cx: Array<T> & Array<T>, cy: Array<T> & Array<T>
+) -> Array<T> & Array<T>:
   (xa, xb) = cx
   (ya, yb) = cy
   (ANode{xa, ya}, ANode{xb, yb})
 
-def Array.clone(a: Array<U32>) -> Array<U32> & Array<U32>:
+def Array.clone(-T: Data, a: Array<T>) -> Array<T> & Array<T>:
   match a:
     case ALeaf{x}:
       +x2 = x
       (ALeaf{x2}, ALeaf{x2})
     case ANode{xs, ys}:
-      Array.clone.node(Array.clone(xs), Array.clone(ys))
+      Array.clone.node(T, Array.clone(T, xs), Array.clone(T, ys))
 
 def Array.new(-T: Data, +d: Nat, +v: T) -> Array<T>:
   match d:

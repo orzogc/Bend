@@ -2289,7 +2289,8 @@ function facts_scan(cb: Carb, k: Bend.Name, sites: (HTerm | null)[],
       const it = m.t.$ === "Ref" ? intr_of(cb, m.t.k) : undefined;
       const pk = packed(it === OPERATIONS.array_new
         ? Bend.term_strip(m.all[2]) : s);
-      if ((it === OPERATIONS.array_get || it === OPERATIONS.array_new)
+      if ((it === OPERATIONS.array_get || it === OPERATIONS.array_new
+        || it === OPERATIONS.array_clone)
         && lay_of(cb.book, m.all[0]).ks.includes("box") && !pk) {
         facts_hot(cb, m.all[0], true);
       }
@@ -3299,7 +3300,8 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
         const el = lay_of(fl.book, adt.x[0]);
         return [`blk_cls(e, ${sw}) ${k === "ALeaf" ? "==" : "!="} ${
           lay_arr(el).lgs}`, h, () => k === "ALeaf" ? [arr_leaf(fl, sw, el)]
-          : [0, 1].map((hi) => val_new([`blk_half(e, ${sw}, ${hi})`], BOX))];
+          : emit_hold(fl, [0, 1].map((hi) => `blk_half(e, ${sw}, ${hi})`),
+            "h").map((w) => val_new([w], BOX))];
       }
       if (lay_box(lay)) {
         return [`term_aux(${sw}) == ${cid_reg(fl, k)}`, h,
@@ -4647,6 +4649,17 @@ INLINE Term term_word(Env e, Term w) {
 // Blk
 // ===
 
+// A block owns one allocation in its physical class (an ARR of class
+// c 2^c Terms in 2^c words, a BUF 2^c u32 in 2^buf_wcls(c) words) and
+// blk_free returns it there. A match on ANode is blk_half twice: each
+// half allocated in its class and copied, the source freed shallow by
+// the high call (its elements moved; the emitter binds the low half
+// first). ANode{l, r} is blk_node: the merged class, l and r copied
+// and freed shallow. Array.clone is blk_copy: a BUF raw, an ARR's
+// elements retained through blk_keep. A match to the leaves copies
+// O(n log n) words where a view copied none; get, set, swap, size and
+// new open no half.
+
 #define BLK_ALLOC(n, w) \
   Loc n = heap_alloc(e, w); \
   if (err_seen(e.mem)) { \
@@ -4677,20 +4690,24 @@ INLINE u32 blk_at(Env e, Term a, U32 i, u32 lgs) {
 }
 
 INLINE Term blk_keep(Env e, Loc at) {
-  Term v = term_keep(e, e.mem[at]);
-  e.mem[at] = v;
+  Term w = e.mem[at];
+  Term v = term_keep(e, w);
+  if (v != w) {
+    e.mem[at] = v;
+  }
   return v;
 }
 
 OUTLINE Term blk_copy(Env e, Term a) {
   Corpus H = e.mem;
+  bool arr = term_tag(a) == TAG_ARR;
   Cls cls = blk_span(e, a);
   Loc src = term_loc(a);
   BLK_ALLOC(dst, cls)
   for (u64 j = 0; j < (1ull << cls); j += 1) {
-    H[dst + j] = H[src + j];
+    H[dst + j] = arr ? blk_keep(e, src + j) : H[src + j];
   }
-  return term_blk(term_tag(a) == TAG_ARR, blk_cls(e, a), dst);
+  return term_blk(arr, blk_cls(e, a), dst);
 }
 
 INLINE Term blk_node(Env e, Term l, Term r) {
@@ -4703,18 +4720,11 @@ INLINE Term blk_node(Env e, Term l, Term r) {
   }
   Loc pl = term_loc(l);
   Loc pr = term_loc(r);
-  Cls ps = arr ? c + 1 : c;
-  u64 cw = 0;
-  if (arr || c != 0) {
-    cw = 1ull << (arr ? c : c - 1);
-  }
-  if (cw != 0 && pr == pl + cw) {
-    return term_blk(arr, c + 1, pl);
-  }
-  BLK_ALLOC(n, ps)
-  if (cw == 0) {
+  BLK_ALLOC(n, arr ? c + 1 : c)
+  if (!arr && c == 0) {
     H[n] = (u64)*blk_ptr(H, pl, 0) | ((u64)*blk_ptr(H, pr, 0) << 32);
   } else {
+    u64 cw = 1ull << blk_span(e, l);
     for (u64 w = 0; w < cw; w += 1) {
       H[n + w]      = H[pl + w];
       H[n + cw + w] = H[pr + w];
@@ -4734,21 +4744,20 @@ INLINE Term blk_half(Env e, Term a, u32 hi) {
     return a;
   }
   c -= 1;
-  Loc pa = term_loc(a);
+  Cls cw = arr ? c : buf_wcls(c);
+  BLK_ALLOC(n, cw)
   if (!arr && c == 0) {
-    u64 v = (u64)*blk_ptr(H, pa, hi);
-    if (hi) {
-      heap_free(e, 0, pa);
+    H[n] = (u64)*blk_ptr(H, term_loc(a), hi);
+  } else {
+    Loc src = term_loc(a) + ((u64)hi << cw);
+    for (u64 w = 0; w < (1ull << cw); w += 1) {
+      H[n + w] = H[src + w];
     }
-    BLK_ALLOC(n, 0)
-    H[n] = v;
-    return term_buf(0, n);
   }
-  Loc off = 0;
   if (hi) {
-    off = 1ull << (arr ? c : c - 1);
+    blk_free(e, a);
   }
-  return term_blk(arr, c, pa + off);
+  return term_blk(arr, c, n);
 }
 
 INLINE Term blk_new(Env e, bool arr, Nat d, u32 lgs, u32 n, THR Term* v) {
