@@ -49,7 +49,7 @@ allow(/^demos\/[a-z0-9_]+\/[A-Za-z_]+\.bend$/, 30000);
 allow(/^demos\/[a-z0-9_]+\/[A-Za-z_]+\.(c|sh|md)$/, 4000);
 allow(/^demos\/[a-z_]+\/web\/(index\.html|main\.js|bunfig\.toml)$/, 4000);
 allow("guide/GUIDE.md", 12000);
-allow("site/index.html", 12000);
+allow("front/index.html", 12000);
 allow(/^paper\/(BendRT|BendTT)\.pdf$/, 400000, true);
 allow(/^media\/intro\.(gif|mp4)$/, 25000000, true);
 allow(/^media\/[a-z_]+\.svg$/, 40000, true);
