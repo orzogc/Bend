@@ -1,8 +1,8 @@
 # Winning Is A Bug -- the game.
 #
 # The whole game, and nothing else: a torus map, a walled room, a flag,
-# five moves, and the level as text (the front end asks `grid` for
-# it). The claims about this game live in LAWS.bend; their proofs live
+# four moves, and the level as text (the front end asks `grid` for
+# it). Stepping onto the flag's cell is the win. The claims about this game live in LAWS.bend; their proofs live
 # in PROOF.bend. This file is AI-written and may be rewritten at will --
 # the laws hold or the book stops checking.
 
@@ -13,7 +13,6 @@ type Move is Data:
   Down{}
   Left{}
   Right{}
-  Grab{}
 
 type Game is Data:
   Game{x: Nat, y: Nat, won: Bool}
@@ -108,10 +107,13 @@ def warp_left(x: Nat) -> Nat:
 def warp_right(+x: Nat) -> Nat:
   pick(Nat, nat_eq(1n+x, map_w()), 0n, 1n+x)
 
+def on_flag(+x: Nat, +y: Nat) -> Bool:
+  nat_eq(x, flag_x()) && nat_eq(y, flag_y())
+
 def move(+tx: Nat, +ty: Nat, g: Game) -> Game:
   Game{x, y, w0} = g
   +w = w0
-  pick(Game, wall(tx, ty), Game{x, y, w}, Game{tx, ty, w})
+  pick(Game, wall(tx, ty), Game{x, y, w}, Game{tx, ty, w || on_flag(tx, ty)})
 
 def step(a: Move, g: Game) -> Game:
   match a:
@@ -135,27 +137,21 @@ def step(a: Move, g: Game) -> Game:
       +x = x0
       +y = y0
       move(warp_right(x), y, Game{x, y, w})
-    case Grab{}:
-      Game{x0, y0, w} = g
-      +x = x0
-      +y = y0
-      Game{x, y, w || (nat_eq(x, flag_x()) && nat_eq(y, flag_y()))}
 
 def start() -> Game:
   Game{start_x(), start_y(), False{}}
 
 # Keys
 # ----
-# The front end sends every key press as its character code (`w` is 119,
-# space is 32; the arrows arrive as w, a, s, d) and plays the move this
-# answers, so a new key is one more line here and one more Move.
+# The front end sends every key press as its character code (`w` is 119;
+# the arrows arrive as w, a, s, d) and plays the move this answers, so a
+# new key is one more line here and one more Move.
 
 def key(+k: U32) -> Maybe<Move>:
   pick(Maybe<Move>, U32.is_eq(k, 119), Some{Up{}},
     pick(Maybe<Move>, U32.is_eq(k, 115), Some{Down{}},
       pick(Maybe<Move>, U32.is_eq(k, 97), Some{Left{}},
-        pick(Maybe<Move>, U32.is_eq(k, 100), Some{Right{}},
-          pick(Maybe<Move>, U32.is_eq(k, 32), Some{Grab{}}, None{})))))
+        pick(Maybe<Move>, U32.is_eq(k, 100), Some{Right{}}, None{}))))
 
 # The worker takes the list first: the guard wants the shrinking argument
 # in the first live column. `apply` is the API: a board, then its moves.
@@ -180,7 +176,7 @@ def is_won(g: Game) -> Bool:
 # once, here.
 
 def cell(+x: Nat, +y: Nat) -> String:
-  is_flag  = nat_eq(x, flag_x()) && nat_eq(y, flag_y())
+  is_flag  = on_flag(x, y)
   is_start = nat_eq(x, start_x()) && nat_eq(y, start_y())
   pick(String, wall(x, y), "#",
     pick(String, is_flag, "F",
@@ -206,5 +202,5 @@ def grid(y: Nat) -> String:
 def main() -> IO(Unit):
   do IO<Unit>:
     u : Unit <- IO.print(grid(Nat.sub(map_h(), 1n)))
-    IO.print(pick(String, is_won(replay(start(), [Left{}, Left{}, Up{}, Grab{}])),
+    IO.print(pick(String, is_won(replay(start(), [Left{}, Left{}, Up{}])),
       "WON (this line is unreachable)", "still not won"))

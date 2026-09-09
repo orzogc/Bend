@@ -25,14 +25,14 @@ for (let y = 0; y < H; y++) {
 // Bend bridge
 // ===========
 // The conventions: a constructor is {$: "Name", field: value, ...} (live
-// fields only), Nat is BigInt, Bool is a plain boolean.
+// fields only), Nat is BigInt, Bool is a plain boolean. Stepping onto the
+// flag's cell is the win: the game sets `won` itself.
 
 const one  = (act) => ({ $: "Con", head: { $: act }, tail: { $: "Nil" } });
 const send = (act, g) => Game.replay(g, one(act));
 
 let st    = Game.start();
 let moves = 0;
-let grabs = 0;
 
 // Render
 // ======
@@ -142,20 +142,14 @@ function act(name) {
   st = send(name, st);
   const tx = Number(st.x);
   const ty = Number(st.y);
-  if (name === "Grab") {
-    grabs++;
-    document.getElementById("grabs").textContent = grabs;
-    if (!st.won) toast("nothing to grab here");
-  } else {
-    moves++;
-    document.getElementById("moves").textContent = moves;
-    const [dx, dy] = DELTA[name];
-    if (tx === fx && ty === fy) {
-      bump = { dx, dy, t0: performance.now() };            // a wall said no
-    } else if (Math.abs(tx - fx) <= 1 && Math.abs(ty - fy) <= 1) {
-      anim = { fx, fy, tx, ty, t0: performance.now() };    // a plain step
-    }                                                      // else: the wrap
-  }
+  moves++;
+  document.getElementById("moves").textContent = moves;
+  const [dx, dy] = DELTA[name];
+  if (tx === fx && ty === fy) {
+    bump = { dx, dy, t0: performance.now() };            // a wall said no
+  } else if (Math.abs(tx - fx) <= 1 && Math.abs(ty - fy) <= 1) {
+    anim = { fx, fy, tx, ty, t0: performance.now() };    // a plain step
+  }                                                      // else: the wrap
   if (st.won) {
     document.getElementById("status").textContent = "YOU WON?!";
     toast("YOU WON?! please file a bug: this is mathematically impossible");
@@ -164,7 +158,7 @@ function act(name) {
 
 const KEYS = {
   ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right",
-  w: "Up", s: "Down", a: "Left", d: "Right", " ": "Grab",
+  w: "Up", s: "Down", a: "Left", d: "Right",
 };
 
 document.addEventListener("keydown", (e) => {

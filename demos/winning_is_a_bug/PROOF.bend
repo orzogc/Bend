@@ -3,7 +3,8 @@
 # The proofs. This file imports the game (as Game) and the claims (as
 # Laws) and fills every assert the laws make -- an unfilled assert is an
 # error, so `bend PROOF.bend` is the whole verification. Everything here
-# is AI-written scaffolding for one def: Laws.you_cant_win.
+# is AI-written scaffolding for two defs: Laws.you_cant_win and
+# Laws.on_flag_wins.
 #
 # The shape of the argument: an invariant ("the player stands on a safe
 # cell: on the map, not in the room, not on a wall") holds at the start
@@ -158,8 +159,6 @@ def tx(+a: Game.Move, +x: Nat, +y: Nat) -> Nat:
       Game.warp_left(x)
     case Game.Right{}:
       Game.warp_right(x)
-    case Game.Grab{}:
-      x
 
 def ty(+a: Game.Move, +x: Nat, +y: Nat) -> Nat:
   match a:
@@ -170,8 +169,6 @@ def ty(+a: Game.Move, +x: Nat, +y: Nat) -> Nat:
     case Game.Left{}:
       y
     case Game.Right{}:
-      y
-    case Game.Grab{}:
       y
 
 def chk(+a: Game.Move, +x: Nat, +y: Nat) -> Bool:
@@ -291,7 +288,15 @@ def no_flag(+x: Nat, +y: Nat, +hp: T(okpos(x, y)),
                 %sym(Nat, y, 1n, eq_sound(y, 1n, wey)) : T(Game.nat_le(1n, 2n) && Game.nat_le(_, 2n))
                 Unit{}))))
 
-# the chosen cell: a step from a safe cell lands somewhere safe (or stays)
+# on a safe cell the flag test computes to False
+def off_flag(+x: Nat, +y: Nat, +hp: T(okpos(x, y)))
+  -> {False{} == Game.on_flag(x, y) : Bool}:
+  bool_case(Game.on_flag(x, y), z => {False{} == z : Bool},
+    et => Empty.absurd({False{} == True{} : Bool}, no_flag(x, y, hp, et)),
+    ef => {==})
+
+# the chosen cell: a step from a safe cell lands somewhere safe (or stays),
+# and lands unwon, since a safe cell is off the flag
 def go_pos(+a: Game.Move, +x: Nat, +y: Nat, hp: T(okpos(x, y)),
   ca: T(chk_all(a, 11n)))
   -> &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
@@ -303,9 +308,15 @@ def go_pos(+a: Game.Move, +x: Nat, +y: Nat, hp: T(okpos(x, y)),
         & {Game.Game{nx, ny, False{}} == gz : Game.Game},
     Game.wall(tx(a, x, y), ty(a, x, y)),
     Game.Game{x, y, False{}},
-    Game.Game{tx(a, x, y), ty(a, x, y), False{}},
+    Game.Game{tx(a, x, y), ty(a, x, y), Game.on_flag(tx(a, x, y), ty(a, x, y))},
     et => (x, (y, (hp2, {==}))),
-    ef => (tx(a, x, y), (ty(a, x, y), (go_ok(a, x, y, hp2, ca, ef), {==}))))
+    ef =>
+      +safe = go_ok(a, x, y, hp2, ca, ef)
+      (tx(a, x, y), (ty(a, x, y), (safe,
+        %off_flag(tx(a, x, y), ty(a, x, y), safe)
+          : {Game.Game{tx(a, x, y), ty(a, x, y), False{}}
+             == Game.Game{tx(a, x, y), ty(a, x, y), _} : Game.Game}
+        {==}))))
 
 def use4(-a: Game.Move, -x: Nat, -y: Nat,
   w: &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
@@ -321,60 +332,92 @@ def use4(-a: Game.Move, -x: Nat, -y: Nat,
   (hq, eq) = w2
   k(nx, ny, hq, eq)
 
-# The theorem's engine: from any safe unwon state, no action list wins.
-def run_false(t: List<Game.Move>, x: Nat, y: Nat, hp: T(okpos(x, y)))
-  -> {Game.is_won(Game.run(t, Game.Game{x, y, False{}})) == False{} : Bool}:
+# The engine of both laws: from a safe unwon cell, any list of moves ends
+# on a safe unwon cell. Each arm: the step lands safe (go_pos), then the
+# rest of the list runs from there.
+def run_safe(t: List<Game.Move>, x: Nat, y: Nat, hp: T(okpos(x, y)))
+  -> &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+   & {Game.run(t, Game.Game{x, y, False{}}) == Game.Game{nx, ny, False{}} : Game.Game}:
   match t:
     case Nil{}:
-      {==}
+      (x, (y, (hp, {==})))
     case Con{Game.Up{}, as0}:
       +x2 = x
       +y2 = y
       use4(Game.Up{}, x2, y2, go_pos(Game.Up{}, x2, y2, hp, Unit{}),
-        {Game.is_won(Game.run(as0, Game.move(tx(Game.Up{}, x2, y2), ty(Game.Up{}, x2, y2),
-          Game.Game{x2, y2, False{}}))) == False{} : Bool},
-        nx => ny => hq => eq =>
-          %eq : {Game.is_won(Game.run(as0, _)) == False{} : Bool}
-          run_false(as0, nx, ny, hq))
+        &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+         & {Game.run(as0, Game.move(tx(Game.Up{}, x2, y2), ty(Game.Up{}, x2, y2),
+            Game.Game{x2, y2, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
+        mx => my => hq => eq =>
+          %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+              & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
+          run_safe(as0, mx, my, hq))
     case Con{Game.Down{}, as0}:
       +x2 = x
       +y2 = y
       use4(Game.Down{}, x2, y2, go_pos(Game.Down{}, x2, y2, hp, Unit{}),
-        {Game.is_won(Game.run(as0, Game.move(tx(Game.Down{}, x2, y2), ty(Game.Down{}, x2, y2),
-          Game.Game{x2, y2, False{}}))) == False{} : Bool},
-        nx => ny => hq => eq =>
-          %eq : {Game.is_won(Game.run(as0, _)) == False{} : Bool}
-          run_false(as0, nx, ny, hq))
+        &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+         & {Game.run(as0, Game.move(tx(Game.Down{}, x2, y2), ty(Game.Down{}, x2, y2),
+            Game.Game{x2, y2, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
+        mx => my => hq => eq =>
+          %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+              & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
+          run_safe(as0, mx, my, hq))
     case Con{Game.Left{}, as0}:
       +x2 = x
       +y2 = y
       use4(Game.Left{}, x2, y2, go_pos(Game.Left{}, x2, y2, hp, Unit{}),
-        {Game.is_won(Game.run(as0, Game.move(tx(Game.Left{}, x2, y2), ty(Game.Left{}, x2, y2),
-          Game.Game{x2, y2, False{}}))) == False{} : Bool},
-        nx => ny => hq => eq =>
-          %eq : {Game.is_won(Game.run(as0, _)) == False{} : Bool}
-          run_false(as0, nx, ny, hq))
+        &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+         & {Game.run(as0, Game.move(tx(Game.Left{}, x2, y2), ty(Game.Left{}, x2, y2),
+            Game.Game{x2, y2, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
+        mx => my => hq => eq =>
+          %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+              & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
+          run_safe(as0, mx, my, hq))
     case Con{Game.Right{}, as0}:
       +x2 = x
       +y2 = y
       use4(Game.Right{}, x2, y2, go_pos(Game.Right{}, x2, y2, hp, Unit{}),
-        {Game.is_won(Game.run(as0, Game.move(tx(Game.Right{}, x2, y2), ty(Game.Right{}, x2, y2),
-          Game.Game{x2, y2, False{}}))) == False{} : Bool},
-        nx => ny => hq => eq =>
-          %eq : {Game.is_won(Game.run(as0, _)) == False{} : Bool}
-          run_false(as0, nx, ny, hq))
-    case Con{Game.Grab{}, as0}:
-      +x2 = x
-      +y2 = y
-      +hp2 = hp
-      bool_case(Game.nat_eq(x2, Game.flag_x()) && Game.nat_eq(y2, Game.flag_y()),
-        z => {Game.is_won(Game.run(as0, Game.Game{x2, y2, z})) == False{} : Bool},
-        et => Empty.absurd(
-          {Game.is_won(Game.run(as0, Game.Game{x2, y2, True{}})) == False{} : Bool},
-          no_flag(x2, y2, hp2, et)),
-        ef => run_false(as0, x2, y2, hp2))
+        &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+         & {Game.run(as0, Game.move(tx(Game.Right{}, x2, y2), ty(Game.Right{}, x2, y2),
+            Game.Game{x2, y2, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
+        mx => my => hq => eq =>
+          %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+              & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
+          run_safe(as0, mx, my, hq))
 
-# The law, filled: the start cell is safe (checked by computation), and
-# run_false carries that safety through any list of actions.
+# opens run_safe's answer for a goal
+def use_safe(-t: List<Game.Move>, -x: Nat, -y: Nat,
+  w: &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
+   & {Game.run(t, Game.Game{x, y, False{}}) == Game.Game{nx, ny, False{}} : Game.Game},
+  -P: Type,
+  k: @nx: Nat -> @ny: Nat -> @hq: T(okpos(nx, ny))
+   -> @eq: {Game.run(t, Game.Game{x, y, False{}}) == Game.Game{nx, ny, False{}} : Game.Game}
+   -> P) -> P:
+  (nx, w1) = w
+  (ny, w2) = w1
+  (hq, eq) = w2
+  k(nx, ny, hq, eq)
+
+# The laws, filled. The start cell is safe (checked by computation), and
+# run_safe carries that through any list of moves: the final board is
+# some Game{nx, ny, False{}} with (nx, ny) safe. Unwon, so the first law;
+# off the flag (a safe cell is), so the second.
 def Laws.you_cant_win(moves):
-  run_false(moves, Game.start_x(), Game.start_y(), Unit{})
+  use_safe(moves, Game.start_x(), Game.start_y(),
+    run_safe(moves, Game.start_x(), Game.start_y(), Unit{}),
+    {Game.is_won(Game.replay(Game.start(), moves)) == False{} : Bool},
+    nx => ny => hq => eq =>
+      %sym(Game.Game, Game.run(moves, Game.Game{Game.start_x(), Game.start_y(), False{}}),
+        Game.Game{nx, ny, False{}}, eq) : {Game.is_won(_) == False{} : Bool}
+      {==})
+
+def Laws.on_flag_wins(moves):
+  use_safe(moves, Game.start_x(), Game.start_y(),
+    run_safe(moves, Game.start_x(), Game.start_y(), Unit{}),
+    {Laws.looks_won(Game.replay(Game.start(), moves)) == False{} : Bool},
+    nx => ny => hq => eq =>
+      %sym(Game.Game, Game.run(moves, Game.Game{Game.start_x(), Game.start_y(), False{}}),
+        Game.Game{nx, ny, False{}}, eq) : {Laws.looks_won(_) == False{} : Bool}
+      %off_flag(nx, ny, hq) : {Bool.and(_, Bool.not(False{})) == False{} : Bool}
+      {==})

@@ -63,7 +63,6 @@
     height: 44px;
   }
   .pad button:active { background: var(--line); }
-  .pad .grab { width: 88px; color: var(--gold); }
   @media (hover: none) { .pad { display: flex; } }
   #toast {
     position: fixed;
@@ -84,23 +83,21 @@
 <body>
   <h1>WINNING IS A BUG</h1>
   <div class="tag">
-    Grab the flag <b>&#9873;</b> to win. The map wraps around.
+    Step on the flag <b>&#9873;</b> to win. The map wraps around.
     The room has only two walls. There is a catch: this game ships with a
     <b>formal proof</b> that winning is impossible. Try anyway.
   </div>
   <canvas id="game"></canvas>
   <div class="hud">
     <span>moves <b id="moves">0</b></span>
-    <span>grabs <b id="grabs">0</b></span>
     <span id="status">STILL NOT WON</span>
   </div>
-  <div class="keys">arrows / WASD to move &middot; space to grab</div>
+  <div class="keys">arrows / WASD to move</div>
   <div class="pad">
     <button data-act="Left">&#8592;</button>
     <button data-act="Up">&#8593;</button>
     <button data-act="Down">&#8595;</button>
     <button data-act="Right">&#8594;</button>
-    <button data-act="Grab" class="grab">GRAB</button>
   </div>
   <div id="toast"></div>
   <div class="foot">
