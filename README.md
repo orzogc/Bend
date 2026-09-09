@@ -49,9 +49,9 @@ many sequences of moves. On Bend, you state the law in `LAWS.bend`:
 ```python
 # LAW: no move sequence leads to victory.
 law winning_is_a_bug:
-  for moves: List<Move>
-  board = replay(start(), moves)
-  is_won(board) == False
+  for moves: List<Move>           # any sequence of moves
+  board = replay(start(), moves)  # replayed from the start
+  is_won(board) == False          # never leads to victory
 ```
 
 Then ask your agent: "before stopping, **prove the code is correct**". It writes
