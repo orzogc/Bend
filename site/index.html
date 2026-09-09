@@ -132,12 +132,12 @@ fold back into one. Here's pow2, and its run on 4,096 cores:</p>
 <section id="laws">
   <h2><span>3.</span>Bend blocks mistakes via <b>PROOF</b>.</h2>
   <p>How can you trust code you never read? By demanding a proof.
-Take a game where nobody can win: the flag hides in a sealed
-room. That law goes in LAWS.bend, and the AI codes the rest:</p>
+LAWS.bend is where you declare laws. From then on, no AI can
+ship one line that breaks them, ever. Watch it guard a game:</p>
   <figure class="act">
-    <p class="gt">Original game:</p>
+    <p class="gt">A game unbeatable by construction</p>
     <canvas id="g0"></canvas>
-    <figcaption>Law: the player can't win. So far, it holds.</figcaption>
+    <figcaption>So far, it works!</figcaption>
   </figure>
   <div class="ask">
     <p class="gt">New feature:</p>
