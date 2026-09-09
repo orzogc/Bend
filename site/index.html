@@ -7,7 +7,7 @@
 <meta name="description" content="Bend: a fast language that prevents AI mistakes via proofs.">
 <style>
 :root{
-  --bg:#f2eee7;--bg2:#faf8f4;--line:#e4dfd5;--b1:#a9a59d;--b0:#87847d;--b00:#87847d;--b01:#69665f;--b02:#4d4a44;
+  --bg:#f2eee7;--bg2:#e9e4db;--line:#e4dfd5;--b1:#a9a59d;--b0:#87847d;--b00:#87847d;--b01:#69665f;--b02:#4d4a44;
   --yel:#b7924b;--ora:#c4845c;--red:#c46a60;--vio:#8b83b5;--blu:#5f86ad;--bar:#86a6c7;--cyn:#5f9c95;--grn:#7e9a5e;
 }
 *{box-sizing:border-box}
@@ -41,7 +41,7 @@ h3 span{color:var(--b1);font-weight:400;margin-right:1ch}
 .note{color:var(--b1);font-size:.87em}
 .note a{color:var(--b0);border-bottom-color:var(--line)}
 
-pre{margin:1em 0;padding:.8em 1ch;background:var(--bg2);border:1px solid var(--line);border-radius:3px;overflow-x:auto;line-height:1.5;color:var(--b01);tab-size:2}
+pre{margin:1em 0;padding:.8em 1ch;background:var(--bg2);border-radius:3px;overflow-x:auto;line-height:1.5;color:var(--b01);tab-size:2}
 pre code{color:inherit}
 .k{color:var(--grn)}.t{color:var(--yel)}.s{color:var(--cyn)}.c{color:var(--b1)}.n{color:var(--vio)}.v{color:var(--vio)}.o{color:var(--ora)}
 .f{color:var(--b1);font-size:.8em;margin:0 0 -.7em;padding:0 .2ch}
@@ -114,7 +114,7 @@ call splits until each core holds one task. Then the results
 fold back into one. Here, a single call runs on 4,096 cores:</p>
   <figure>
     <canvas id="cube"></canvas>
-    <figcaption>GPU evaluation</figcaption>
+    <figcaption>Bend programs can run on the <b>GPU</b></figcaption>
   </figure>
 </section>
 
