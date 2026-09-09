@@ -3835,7 +3835,6 @@ using namespace metal;
 #define DEV     device
 #define DEVL    device
 #define GRP     threadgroup
-#define GRPV    threadgroup
 #define GA32    threadgroup atomic_uint
 #define THR     thread
 #define INLINE  inline
@@ -3858,7 +3857,6 @@ using namespace metal;
 #define DEV     volatile
 #define DEVL
 #define GRP
-#define GRPV    __shared__
 #define GA32    __shared__ u32
 #define THR
 #define INLINE  static inline
@@ -4050,8 +4048,14 @@ typedef u32* Cursor;
 #define IO_HELP   64
 
 #define ALC_WORDS NCLS_ALL
-#define QUANTUM   (DEVICE ? PAGE_LEN : 32 * PAGE_LEN)
-#define CAP_WORDS (DEVICE ? 256 : 32768)
+#define TG_HOLD   2304
+#define CHUNK     256
+#define CAP_WORDS 32768
+#define QUANTUM   (DEVICE ? PAGE_LEN \
+  : KEEP_WORDS < 32 * PAGE_LEN ? KEEP_WORDS : 32 * PAGE_LEN)
+#if DEVICE
+#define KEEP_WORDS CHUNK
+#endif
 #define RING_WORDS (RING_LEN + 2)
 
 #define H_BUMP       0
@@ -4063,7 +4067,7 @@ typedef u32* Cursor;
 #define H_BANK       (H_ROOT_WORD + WL_RESW)
 
 #define ALC_OFF  ((H_BANK + 3 * NCLS_ALL + PAGE_LEN - 1) & ~(PAGE_LEN - 1))
-#define RING_OFF (ALC_OFF + CUBE * ALC_WORDS)
+#define RING_OFF (ALC_OFF + CUBE * 2 * ALC_WORDS)
 #define STAK_OFF (RING_OFF + CUBE * RING_WORDS)
 #define HEAP_OFF (STAK_OFF + CUBE * STAK_LEN)
 
@@ -4076,7 +4080,8 @@ typedef pthread_mutex_t lock;
 
 static Corpus CORPUS;
 static u64    CORPUS_SIZE;
-static u64    ALC[CUBE_SIDE + 1][2 * ALC_WORDS] __attribute__((aligned(128)));
+static u64    ALC[CUBE_SIDE + 1][3 * ALC_WORDS] __attribute__((aligned(128)));
+static u32    KEEP_WORDS;
 static u32    bank_lock;
 
 static u32            pool_size;
@@ -4260,19 +4265,17 @@ INLINE Cls cls_fit(u32 words) {
 // Bank
 // ====
 
-// One stack of free chunks per class: a chunk is a chain of free
-// slots, its head word the entry, a host generation of CAP_WORDS words
-// or a device cache of CAP_WORDS or more (a slot for a wide class), so
-// 2 heap_words / max(256, 2^c) entries never fill. The host pops and
-// pushes at rd under bank_lock; a device pass pops down from rd and
-// pushes up from top, the rd it began at, and the host then moves
-// that run down onto rd.
+// One stack of exact generations per class; 2 heap_words / max(CHUNK,
+// 2^c) entries cover the old ones plus a pass of returns. The host
+// pops and pushes at rd under bank_lock; a device pass pops down from
+// rd and pushes above top, and the host then compacts [top, wr) onto
+// rd, so a pass never sees what it handed.
 
 #define bank_at(H, c) ((DEV Bank*)((H) + H_BANK) + (c))
 
-INLINE u64 bank_pop(Corpus H, Cls c) {
+INLINE Loc bank_pop(Corpus H, Cls c) {
   DEV Bank* b = bank_at(H, c);
-  u64 got = 0;
+  Loc got = 0;
   LOCK(bank_lock);
   u32 t = a32_sub(&b->rd, 1);
   if ((int)t > 0) {
@@ -4287,7 +4290,7 @@ INLINE u64 bank_pop(Corpus H, Cls c) {
   return got;
 }
 
-INLINE void bank_push(Corpus H, Cls c, u64 head) {
+INLINE void bank_push(Corpus H, Cls c, Loc head) {
   DEV Bank* b = bank_at(H, c);
   LOCK(bank_lock);
   H[b->off + a32_add(&b->wr, 1)] = head;
@@ -4300,44 +4303,50 @@ INLINE void bank_push(Corpus H, Cls c, u64 head) {
 // Heap
 // ====
 
-// A lane's words, its tile row on the device: per class a LIFO chain
-// of free slots, HOT (head loc, count above bit 40; a slot's word 0
-// holds the head word it replaced, so a pop is one load and a count
-// an exact depth), and on the host a second chain, COLD. A free
-// pushes onto HOT. A host free that finds HOT at CAP_WORDS sends COLD
-// to the bank and parks HOT as COLD, so a lane reuses its last two
-// generations before it touches the bank and every host chunk is one
-// generation; a device lane keeps its frees for the pass (a pass sees
-// only the chunks pushed before it) and hands a cache of CAP_WORDS or
-// more to the bank at the kernel end. A miss takes COLD, else a bank
-// chunk, else a fresh quantum (QUANTUM words, one slot for a wide
-// class) threaded into HOT. The bump grows only when the bank is
-// empty: the footprint is at most the live peak, the stacks, 2 *
-// CAP_WORDS (a slot more for a wide class) and a quantum per lane and
-// class, and one device pass of frees.
+// Per lane and class (a tile row on the device): HOT, a LIFO chain of
+// free slots (word 0 the head it replaced); LEN, its exact length in
+// words, off the chain; on the host COLD, one generation. A free is a
+// push and an add. A host free at KEEP_WORDS (a slot for a wide class)
+// runs heap_hand: COLD to the bank, HOT parked as COLD, generations
+// exact. A miss takes COLD, else a bank entry, else a quantum of at
+// most a generation, and sets LEN to what it took: no adoption past a
+// generation, no list re-aged. A device lane keeps its frees for the
+// pass; at the kernel end dev_cut hands its complete generations,
+// walking only those. KEEP_WORDS is CAP_WORDS, or CHUNK with the GPU
+// (fixed at boot), so a device lane may adopt every host entry.
+// Bounds: a host lane and class under 2 max(KEEP_WORDS, 2^c) words, a
+// device one under max(CHUNK, 2^c) after each kernel plus its own
+// frees within one, bank entries exact. The bump grows only when this
+// lane's HOT and COLD and the class's bank are empty. A zero row is an
+// empty lane.
 
-#define ALC_AT(e, i)   (e).alc[(i) * (DEVICE ? CUBE : 1)]
-#define ALC_COLD(e, c) ALC_AT(e, ALC_WORDS + (c))
-#define ALC_FULL(h, c) ((h) >= ((u64)CAP_WORDS << 40) >> (c))
+#define ALC_AT(e, i)   (e).alc[(i) * LANE_STEP]
+#define ALC_LEN(e, c)  ALC_AT(e, ALC_WORDS + (c))
+#define ALC_COLD(e, c) ALC_AT(e, 2 * ALC_WORDS + (c))
+#define KEEP(c)        (KEEP_WORDS >> (c) ? KEEP_WORDS >> (c) : 1)
 
-INLINE void heap_hand(Env e, Cls cls, u64 h) {
-  u64 cold = ALC_COLD(e, cls);
-  if (cold != 0) {
+OUTLINE void heap_hand(Env e, Cls cls) {
+  Loc cold = ALC_COLD(e, cls);
+  if (cold) {
     bank_push(e.mem, cls, cold);
   }
-  ALC_COLD(e, cls) = h;
+  ALC_COLD(e, cls) = ALC_AT(e, cls);
+  ALC_AT(e, cls)   = 0;
+  ALC_LEN(e, cls)  = 0;
 }
 
 OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   Corpus H = e.mem;
-  u64    h = 0;
+  Loc  got = 0;
   if (!DEVICE) {
-    h = ALC_COLD(e, cls);
+    got = ALC_COLD(e, cls);
     ALC_COLD(e, cls) = 0;
   }
-  Loc got = (h != 0 ? h : bank_pop(H, cls)) & LOC_MASK;
-  if (got == 0) {
-    u32 n     = (cls < NCLS ? QUANTUM : 1u << cls) >> cls;
+  if (!got) {
+    got = bank_pop(H, cls);
+  }
+  u32 n = got ? KEEP(cls) : cls < NCLS ? QUANTUM >> cls : 1;
+  if (!got) {
     u32 pages = (n << cls) >> PAGE_BITS;
     u32 p     = a32_add(a32_at(H, H_BUMP), pages);
     if ((u64)p + pages > a32_load(a32_at(H, H_CAP))) {
@@ -4346,35 +4355,34 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
     }
     got = HEAP_OFF + ((u64)p << PAGE_BITS);
     for (u32 i = 1; i <= n; i += 1) {
-      H[got + ((u64)(i - 1) << cls)] = i < n
-        ? ((u64)(n - i) << 40) | (got + ((u64)i << cls)) : 0;
+      H[got + ((u64)(i - 1) << cls)] = i < n ? got + ((u64)i << cls) : 0;
     }
   }
-  ALC_AT(e, cls) = H[got];
+  ALC_AT(e, cls)  = H[got];
+  ALC_LEN(e, cls) = (u64)(n - 1) << cls;
   return got;
 }
 
 HOT Loc heap_alloc(Env e, Cls cls) {
-  u64 h = ALC_AT(e, cls);
-  if (h != 0) {
-    ALC_AT(e, cls) = e.mem[h & LOC_MASK];
-    return h & LOC_MASK;
+  Loc h = ALC_AT(e, cls);
+  if (h) {
+    ALC_AT(e, cls)   = e.mem[h];
+    ALC_LEN(e, cls) -= 1ull << cls;
+    return h;
   }
   return heap_alloc_miss(e, cls);
 }
 
 HOT void heap_free(Env e, Cls cls, Loc loc) {
-  Corpus H = e.mem;
-  if (err_seen(H)) {
+  if (err_seen(e.mem)) {
     return;
   }
-  u64 h = ALC_AT(e, cls);
-  if (!DEVICE && ALC_FULL(h, cls)) {
-    heap_hand(e, cls, h);
-    h = 0;
+  e.mem[loc]       = ALC_AT(e, cls);
+  ALC_AT(e, cls)   = loc;
+  ALC_LEN(e, cls) += 1ull << cls;
+  if (!DEVICE && ALC_LEN(e, cls) >= KEEP_WORDS) {
+    heap_hand(e, cls);
   }
-  H[loc] = h;
-  ALC_AT(e, cls) = ((h + (1ull << 40)) & ~LOC_MASK) | loc;
 }
 
 // Spare
@@ -4434,7 +4442,7 @@ OUTLINE Term rfc_wrap(Env e, Term t, u32 cnt) {
 }
 
 INLINE Term rfc_seal(Env e, Term t) {
-  if (term_triv(t) || term_rfc(t) || term_tag(t) >= TAG_CLO) {
+  if (term_tag(t) != TAG_CTR || term_rfc(t)) {
     return t;
   }
   return rfc_wrap(e, t, 1);
@@ -4510,8 +4518,7 @@ static void term_drop(Env e, Term t) {
     if (!term_triv(t) && term_rfc(t)) {
       t = rfc_out(e, t);
     }
-    if (!term_triv(t) && term_tag(t) == TAG_CLO
-      && fid_arity((u32)term_aux(t)) == 1) {
+    if (term_tag(t) == TAG_CLO && fid_arity((u32)term_aux(t)) == 1) {
       t = 0;
     }
     if (!term_triv(t)) {
@@ -4960,22 +4967,9 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
     fid      = (Fid)term_aux(fun);
     u32 war  = fid_arity(fid) - 1;
     Loc a    = term_loc(fun);
-    u64 cnt  = 0;
-    if (term_rfc(fun)) {
-      u64 cell = rfc_view(e, a);
-      cnt = cell & RFC_CNT;
-      a   = cell >> 24;
-    }
     WL_LOAD
-    if (cnt > 1) {
-      span_fade(e, fun, a, war);
-    } else {
-      if (cnt == 1) {
-        heap_free(e, 0, term_loc(fun));
-      }
-      if (war > 0) {
-        heap_free(e, cls_fit(war), a);
-      }
+    if (war > 0) {
+      heap_free(e, cls_fit(war), a);
     }
     WL_LAST
     WL_DYN(fid);
@@ -5080,25 +5074,50 @@ static void monk_work(Env e, Stk stk, Ring r) {
 // Dev
 // ===
 
+// A kernel reserves TG_HOLD words of threadgroup memory, a length the
+// host sets at each dispatch: one resident threadgroup per Apple core,
+// the occupancy the pins were measured under (bitonic PAR-GPU 2.81 s
+// -> 1.87 s; 2.85 s again with no threadgroup argument, lane 0's write
+// keeps it). grow_dev runs at most CUBE_SIDE rounds, so a program that
+// never fills a group still cuts at a kernel end.
+
 #if DEVICE
 
-INLINE void dev_hand(Env e) {
+INLINE void dev_hold(GRP volatile u64* hold, u32 lane) {
+  if (lane == 0) {
+    hold[0] = 0;
+  }
+}
+
+INLINE void dev_cut(Env e) {
+  if (err_seen(e.mem)) {
+    return;
+  }
   for (Cls c = 0; c < NCLS_ALL; c += 1) {
-    u64 h = ALC_AT(e, c);
-    if (ALC_FULL(h, c)) {
-      bank_push(e.mem, c, h);
-      ALC_AT(e, c) = 0;
+    u64 gen = (u64)KEEP(c) << c;
+    while (ALC_LEN(e, c) >= gen) {
+      Loc head = ALC_AT(e, c);
+      Loc tail = head;
+      for (u32 i = KEEP(c); --i;) {
+        tail = e.mem[tail];
+      }
+      ALC_AT(e, c)    = e.mem[tail];
+      ALC_LEN(e, c)  -= gen;
+      e.mem[tail]     = 0;
+      bank_push(e.mem, c, head);
     }
   }
 }
 
 #ifdef __METAL_VERSION__
 kernel void grow_dev(Corpus H [[buffer(0)]],
+  GRP volatile u64* hold [[threadgroup(0)]],
   u32 grids [[threadgroups_per_grid]],
   u32 row [[threadgroup_position_in_grid]],
   u32 lane [[thread_position_in_threadgroup]]) {
 #else
 extern "C" __global__ void grow_dev(Corpus H) {
+  extern __shared__ volatile u64 hold[];
   u32 grids = gridDim.x;
   u32 row   = blockIdx.x;
   u32 lane  = threadIdx.x;
@@ -5106,6 +5125,7 @@ extern "C" __global__ void grow_dev(Corpus H) {
   u32  stride = grids == 1 ? CUBE_SIDE : 1;
   Ring rg  = row * CUBE_SIDE + stride * lane;
   Env  e   = { H, H + ALC_OFF + rg };
+  dev_hold(hold, lane);
   GA32 tg_cur;
   GA32 tg_grew;
   GA32 tg_has;
@@ -5115,7 +5135,7 @@ extern "C" __global__ void grow_dev(Corpus H) {
   BAR();
   u32 seen_has  = 0;
   u32 seen_grew = 0;
-  for (;;) {
+  for (u32 turn = 0; turn < CUBE_SIDE; turn += 1) {
     u32 put0 = a32_load(ring_put(H, rg));
     u32 vote = put0 != a32_load(ring_get(H, rg));
     if (lane == 0 && (err_seen(H) || root_done(H))) {
@@ -5139,21 +5159,24 @@ extern "C" __global__ void grow_dev(Corpus H) {
     }
     seen_grew = grew;
   }
-  dev_hand(e);
+  dev_cut(e);
 }
 
 #ifdef __METAL_VERSION__
 kernel void work_dev(Corpus H [[buffer(0)]],
+  GRP volatile u64* hold [[threadgroup(0)]],
   u32 tid [[thread_position_in_grid]],
   u32 lane [[thread_position_in_threadgroup]]) {
 #else
 extern "C" __global__ void work_dev(Corpus H) {
+  extern __shared__ volatile u64 hold[];
   u32 lane = threadIdx.x;
   u32 tid  = blockIdx.x * CUBE_SIDE + lane;
 #endif
   Env e = { H, H + ALC_OFF + tid };
+  dev_hold(hold, lane);
   monk_work(e, (Stk)(H + STAK_OFF + tid), ring_flip(tid));
-  dev_hand(e);
+  dev_cut(e);
 }
 
 #endif
@@ -5352,6 +5375,7 @@ static void gpu_kernel(id<MTLComputeCommandEncoder> enc,
   id<MTLComputePipelineState> pso, u32 groups) {
   [enc setComputePipelineState:pso];
   [enc setBuffer:gpu_buf offset:0 atIndex:0];
+  [enc setThreadgroupMemoryLength:TG_HOLD * 8 atIndex:0];
   [enc dispatchThreadgroups:MTLSizeMake(groups, 1, 1)
     threadsPerThreadgroup:MTLSizeMake(CUBE_SIDE, 1, 1)];
   [enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
@@ -5509,8 +5533,8 @@ static void gpu_load(u64 bytes) {
 
 static void gpu_kernel(CUfunction pso, u32 groups) {
   void* args[] = { &CORPUS };
-  if (cuLaunchKernel(pso, groups, 1, 1, CUBE_SIDE, 1, 1, 0, NULL, args, NULL)
-    != CUDA_SUCCESS) {
+  if (cuLaunchKernel(pso, groups, 1, 1, CUBE_SIDE, 1, 1, TG_HOLD * 8, NULL,
+    args, NULL) != CUDA_SUCCESS) {
     err_fail(ERR_FAIL, "device launch failed");
   }
 }
@@ -5575,7 +5599,9 @@ static void cube_run(Corpus H, bool gpu) {
 // ======
 
 static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
-  u64 dflt = gpu ? gpu_span() : 1ull << 43;
+  io_gpu     = gpu;
+  KEEP_WORDS = gpu ? CHUNK : CAP_WORDS;
+  u64 dflt   = gpu ? gpu_span() : 1ull << 43;
   CORPUS_SIZE = (gpu && bytes != 0 ? bytes : dflt) & ~16383ull;
   u64 span = CORPUS_SIZE / 8;
   u64 cap  = span > HEAP_OFF ? (span - HEAP_OFF) / (PAGE_LEN + 10) : 0;
@@ -5586,6 +5612,11 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
   cap = cap < ~0u ? cap : ~0u - 1;
   CORPUS = gpu ? gpu_map(CORPUS_SIZE) : pool_mmap(CORPUS_SIZE);
   Corpus H  = CORPUS;
+#if BEND_CUDA
+  if (gpu) {
+    memset(H, 0, STAK_OFF * 8);
+  }
+#endif
   u64    at = HEAP_OFF + (cap << PAGE_BITS);
   for (u32 c = 0; c < NCLS_ALL; c += 1) {
     bank_at(H, c)->off = at;
@@ -6139,9 +6170,8 @@ static int io_step(Env e, Term op, Term x) {
   }
 }
 
-OUTLINE int io_loop(Corpus H, bool gpu, Fid fid) {
+OUTLINE int io_loop(Corpus H, Fid fid) {
   Env e = { H, ALC[0] };
-  io_gpu = gpu;
   io_stk = pool_stack();
   signal(SIGPIPE, SIG_IGN);
   if (pipe(io_wake_fd) | fcntl(io_wake_fd[0], F_SETFL, O_NONBLOCK)) {
@@ -6338,7 +6368,7 @@ int main(int argc, char** argv) {
   }
   long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
   Corpus H  = corpus_setup(dev, thr > 0 ? thr : ncpu, mem);
-  int code  = io_loop(H, dev, MAIN_FIDS[at]);
+  int code  = io_loop(H, MAIN_FIDS[at]);
   io_sync();
   return code;
 }
