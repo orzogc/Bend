@@ -2,8 +2,13 @@
 // Runs the benchmarks on the cluster: every runtime bench in each of its
 // three modes on its own mini (48 cells), plus the five checker benches,
 // and draws one fixed screen with each measure beside its ratio to the
-// pin. A cell passes at 1.15x or under; --pin writes the measures as the
-// new pins; --gate prints only the verdict.
+// pin. A runtime cell times `bend main.bend -o main` for the COMPILER
+// column, then builds the main.c it wrote with the cc line and runs it
+// with the flags the pins were measured with (.devs/check/perf.ts at
+// e913e65: no -lm, no -fmodules, PAR on the power of two under the core
+// count, GPU with the bench's --gpu-memory), one warm run and one under
+// /usr/bin/time -l. A cell passes at 1.15x or under; --pin writes the
+// measures as the new pins; --gate prints only the verdict.
 
 import * as child from "node:child_process";
 import * as fs from "node:fs";
@@ -41,7 +46,22 @@ const HW = "apple_m4";
 
 const MODES = ["SEQ-CPU", "PAR-CPU", "PAR-GPU"];
 
-const FLAGS = ["--parallel off", "--gpu off", "--gpu on"];
+const CC = "cc -std=c11 -O3 -fno-slp-vectorize";
+
+const BUILD = [CC + " main.c -lpthread", CC + " main.c -lpthread",
+  CC + " -DBEND_METAL=1 -x objective-c -fobjc-arc main.c -lpthread"
+  + " -framework Metal -framework Foundation"];
+
+const THREADS = "nt=1; while [ $nt -lt $(getconf _NPROCESSORS_ONLN) ] &&"
+  + " [ $nt -lt 256 ]; do nt=$((nt*2)); done;";
+
+const FLAGS = ["--parallel off", "--threads $nt --gpu off", "--gpu on"];
+
+const MEMORY: Record<string, string> = {
+  bitonic: "768MB", gameoflife: "512MB", kmeans: "768MB",
+  mandelbrot: "512MB", merkle: "768MB", nbody: "768MB",
+  queens: "512MB", raytrace: "512MB", symreg: "512MB", terrain: "1GB",
+};
 
 const SLACK = 1.15;
 
@@ -197,14 +217,18 @@ function cell_pack(dir: string): Buffer {
   return tar.stdout;
 }
 
-function cell_script(tag: string, run: string): string {
-  return `d=$HOME/bend-perf/${tag}; rm -rf $d; mkdir -p $d; cd $d; tar -xzf -;`
-    + ` t0=$(${CLOCK}); ${lib.BUN} bend2/main.ts main.bend -o main > build.txt`
-    + ` 2>&1; b=$?; t1=$(${CLOCK}); echo "${MARK} built $b $t0 $t1"; cat`
-    + ` build.txt; if [ $b = 0 ]; then ./main ${run} > /dev/null 2>&1;`
-    + ` /usr/bin/time -l ./main ${run} > out.txt 2> time.txt; echo "${MARK}`
-    + ` ran $?"; cat out.txt; echo "${MARK} time"; cat time.txt; fi;`
-    + ` cd; rm -rf $d`;
+function cell_script(c: Cell): string {
+  const mem = c.mode === 2 && MEMORY[c.bench] !== undefined
+    ? " --gpu-memory " + MEMORY[c.bench] : "";
+  const run = "./cell " + FLAGS[c.mode] + mem;
+  return `d=$HOME/bend-perf/${c.bench}-${String(c.mode)}; rm -rf $d;`
+    + ` mkdir -p $d; cd $d; tar -xzf -; ${THREADS} t0=$(${CLOCK}); ${lib.BUN}`
+    + ` bend2/main.ts main.bend -o main > build.txt 2>&1; b=$?;`
+    + ` t1=$(${CLOCK}); [ $b = 0 ] && { ${BUILD[c.mode]} -o cell >> build.txt`
+    + ` 2>&1; b=$?; }; echo "${MARK} built $b $t0 $t1"; cat build.txt;`
+    + ` if [ $b = 0 ]; then ${run} > /dev/null 2>&1; /usr/bin/time -l ${run}`
+    + ` > out.txt 2> time.txt; echo "${MARK} ran $?"; cat out.txt; echo`
+    + ` "${MARK} time"; cat time.txt; fi; cd; rm -rf $d`;
 }
 
 function cell_note(out: string): string {
@@ -214,8 +238,8 @@ function cell_note(out: string): string {
 }
 
 async function cell_run(c: Cell, node: number): Promise<void> {
-  const got = await lib.ssh(node, cell_script(c.bench + "-" + String(c.mode),
-    FLAGS[c.mode]), cell_pack(path.join(RUNTIME, c.bench)), 20 * 60 * 1000);
+  const got = await lib.ssh(node, cell_script(c),
+    cell_pack(path.join(RUNTIME, c.bench)), 20 * 60 * 1000);
   const built = new RegExp("^" + MARK + " built (\\d+) ([\\d.]+) ([\\d.]+)$",
     "m")
     .exec(got.out);
