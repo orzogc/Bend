@@ -1385,8 +1385,8 @@ export function io_run(book: Bend.Book): number {
 // ====
 // A pure main prints its value through a printer written in Bend, one def
 // per type under main's type, spelled as term_show spells a value; what
-// the printer cannot walk (a function, a Type, an erased or dependent
-// field, a main with parameters) prints its normal form, taken here.
+// it cannot walk (a function, a Type, an erased or dependent field, a
+// main with parameters) prints its normal form, taken here.
 
 function show_text(t: HTerm): string {
   return Bend.term_show(Bend.term_lower(t));
@@ -2125,7 +2125,7 @@ function seg_fid(k: Bend.Name): string {
   return "FID_" + name_clean(k).toUpperCase();
 }
 
-// A call's first BANK arguments ride named locals, the rest rx[].
+// The first BANK arguments ride named locals; the rest ride rx[].
 const BANK = 16;
 
 function reg(i: number): string {
