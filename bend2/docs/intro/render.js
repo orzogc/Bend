@@ -305,11 +305,11 @@ S.check = (u, dur) => {
 // The board is drawn from the same level main.bend prints: '#' walls, the
 // flag at (1,1), the player at (8,5). Two levels: the room sealed by two
 // walls and the map's edge (base), and the shipped one, with two more walls
-// on the far edges (far). Pastel tiles, the film's own, a title above.
+// on the far edges (far). The landing page's tiles, a title above.
 const GW = 12, GH = 8, TILE = 56, BX = W/2 - GW*TILE/2, BY = 126;
-const PAL = { floor: ["#f5f7fa", "#e9eef4"], wall: "#b9c6da", cap: "#d3dce9", hit: "#f3c6b2", hitcap: "#f9dccf",
-              pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441",
-              win: "#fde9e6", winRim: "#f0aaa1", winInk: "#a3302a" };
+const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#a6a3a0", cap: "#bebbb8", hit: "#d9a39c", hitcap: "#e8c4bf",
+              pole: "#87847d", cloth: "#7e9a5e", skin: "#78c0e3", eye: "#2f3b4c", gold: AMBER,
+              win: "#f6e4e1", winRim: "#dfa9a2", winInk: "#c46a60" };
 function wallsOf(v) {
   const s = new Set(), add = (x, y) => s.add(x + "," + y);
   for (let y = 0; y <= 3; y++) add(3, y);

@@ -384,9 +384,9 @@ function play(cv, draw) {
 // edge stops the walk, and nothing pops.
 {
   const GW = 12, GH = 8, STEP = 0.2, BUMP = 0.4, BUMPS = 3, LEAD = 0.6, HOLD = 1.8;
-  const PAL = { floor: ["#f4edd9", "#ece5d0"], wall: "#aab6b6", cap: "#c9d1d1", hit: "#f0c3a6", hitcap: "#f8dccb",
-                pole: "#93a1a1", cloth: "#d9a72a", skin: "#6fc3bc", eye: "#073642",
-                win: "#f8e7e3", winRim: "#e0a8a0", winInk: "#c46a60" };
+  const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#a6a3a0", cap: "#bebbb8", hit: "#d9a39c", hitcap: "#e8c4bf",
+                pole: "#87847d", cloth: "#7e9a5e", skin: "#78c0e3", eye: "#2f3b4c",
+                win: "#f6e4e1", winRim: "#dfa9a2", winInk: "#c46a60" };
   const up = (x, y0, y1) => { const p = []; for (let y = y0; y >= y1; y--) p.push([x, y]); return p; };
   const near = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) <= 1;
   const routeDur = r => r.reduce((t, c, i) => i && near(c, r[i - 1]) ? t + STEP : t, 0);
@@ -432,12 +432,13 @@ function play(cv, draw) {
       if (a.win) flag = false;
       if (a.pop) pop = ease((v - a.walk - a.tail)/0.3);
     } else if (v > 0) [px, py] = routeAt(a.route, v);
+    const tile = (x, y, w, h, r, fill) => { ctx.fillStyle = fill; ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.fill(); };
     for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
       const key = x + "," + y, X = x*T + 1.5, Y = y*T + 1.5, S = T - 3;
-      if (!walls.has(key)) { ctx.fillStyle = PAL.floor[(x + y) % 2]; ctx.fillRect(X, Y, S, S); continue; }
+      if (!walls.has(key)) { tile(X, Y, S, S, T/8, PAL.floor[(x + y) % 2]); continue; }
       const lit = hit === key;
-      ctx.fillStyle = lit ? PAL.hit : PAL.wall; ctx.fillRect(X, Y, S, S);
-      ctx.fillStyle = lit ? PAL.hitcap : PAL.cap; ctx.fillRect(x*T + 7, y*T + 7, T - 14, T*0.22);
+      tile(X, Y, S, S, T/8, lit ? PAL.hit : PAL.wall);
+      tile(x*T + T/8, y*T + T/8, T*0.75, T*0.21, T/19, lit ? PAL.hitcap : PAL.cap);
     }
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, GW*T, GH*T); ctx.clip();
     const k = T/40;
