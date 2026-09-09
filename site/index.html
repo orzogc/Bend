@@ -383,7 +383,7 @@ function play(cv, draw) {
   const SHOW = [
     say("Let's vibe-code a game!"), say("Law: the player can't win"), ACTS[0], say("So far, it works!"),
     say("New feature: wrap around."), say("Without LAWS.bend:"), ACTS[1], say("Laws broken.", "#c46a60"),
-    say("With LAWS.bend:"), ACTS[2], say("Laws intact!", "#7e9a5e"),
+    say("With LAWS.bend:"), ACTS[2], say("Laws intact!", "#7e9a5e"), say("Bend blocked an AI-made bug!", "#7e9a5e"),
   ];
   const TOTAL = SHOW.reduce((s, x) => s + x.dur, 0);
   play(document.getElementById("game"), (ctx, t, W, H) => {
