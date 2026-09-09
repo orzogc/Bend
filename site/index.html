@@ -420,22 +420,22 @@ function play(cv, draw) {
     } else if (v > 0) [px, py] = routeAt(a.route, v);
     for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
       const key = x + "," + y, X = x*T + 1.5, Y = y*T + 1.5, S = T - 3;
-      if (!walls.has(key)) { ctx.fillStyle = (x + y) % 2 ? "#f8f5ef" : "#ebe6dd"; ctx.fillRect(X, Y, S, S); continue; }
+      if (!walls.has(key)) { ctx.fillStyle = (x + y) % 2 ? "#ebe6dd" : "#e1dbcf"; ctx.fillRect(X, Y, S, S); continue; }
       const lit = hit === key;
-      ctx.fillStyle = lit ? "#e9c2ad" : "#b5afa5"; ctx.fillRect(X, Y, S, S);
-      ctx.fillStyle = lit ? "#f3dccf" : "#d1ccc3"; ctx.fillRect(x*T + 7, y*T + 7, T - 14, T*0.22);
+      ctx.fillStyle = lit ? "#e6b59c" : "#a8a196"; ctx.fillRect(X, Y, S, S);
+      ctx.fillStyle = lit ? "#f1d3c2" : "#c7c1b6"; ctx.fillRect(x*T + 7, y*T + 7, T - 14, T*0.22);
     }
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, GW*T, GH*T); ctx.clip();
     const k = T/40;
     if (flag) {
       const fx = T, fy = T;
-      ctx.strokeStyle = "#a39e94"; ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.beginPath();
+      ctx.strokeStyle = "#9b9488"; ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.beginPath();
       ctx.moveTo(fx + 14*k, fy + 31*k); ctx.lineTo(fx + 14*k, fy + 9*k); ctx.stroke();
-      ctx.fillStyle = "#d6a64f"; ctx.beginPath();
+      ctx.fillStyle = "#d9a444"; ctx.beginPath();
       ctx.moveTo(fx + 15*k, fy + 9*k); ctx.lineTo(fx + 31*k, fy + 14.5*k); ctx.lineTo(fx + 15*k, fy + 20*k); ctx.closePath(); ctx.fill();
     }
     const cx = px*T + T/2, cy = py*T + T/2;
-    ctx.fillStyle = "#7dbbb2"; ctx.beginPath(); ctx.arc(cx, cy, 12.5*k, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#6fb8ae"; ctx.beginPath(); ctx.arc(cx, cy, 12.5*k, 0, Math.PI*2); ctx.fill();
     ctx.fillStyle = "#4d4a44"; ctx.beginPath();
     ctx.arc(cx - 4.5*k, cy - 2*k, 2.2*k, 0, Math.PI*2); ctx.arc(cx + 4.5*k, cy - 2*k, 2.2*k, 0, Math.PI*2); ctx.fill();
     ctx.restore();
