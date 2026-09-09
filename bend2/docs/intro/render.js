@@ -354,7 +354,7 @@ function player(px, py) {
 // still there, hit a wall tile lit by a bump
 function gameCard(v, px, py, flag, hit) {
   const walls = wallsOf(v);
-  spaced("WINNING IS A BUG", W/2, 96, 22, PAL.gold, 6);
+  spaced("WINNING IS IMPOSSIBLE", W/2, 96, 22, PAL.gold, 6);
   for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
     if (!walls.has(x + "," + y)) { tile(x, y, PAL.floor[(x + y) % 2]); continue; }
     const lit = hit && hit[0] === x && hit[1] === y;
