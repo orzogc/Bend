@@ -56,6 +56,7 @@ type Seg = {
   frame: { pop: number; resw: number; at: number[] } | null;
   refs: Set<string>;
   dead?: boolean;
+  host?: boolean;
   spin?: boolean;
 };
 
@@ -3437,21 +3438,23 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   table("FID_RESW_T", entries.map((s) => s.frame?.resw ?? 0));
   table("CID_ARITY_T", [...fl.cids.values()].map((c) => c[0]));
   table("CID_BOXN_T", [...fl.cids.values()].map((c) => c[1]));
-  const bank = Math.max(1, ...entries.filter((s) => s.frame === null)
-    .map((s) => s.params.length));
-  const ns = [...Array(bank).keys()];
-  const rs = ns.map((i) => "r" + i).join(", ");
-  const load = [...ns].reverse().map((r) =>
-    `    case ${r + 1}: r${r} = e.mem[a + ${r}]; \\\n`).join("");
+  const bank = (segs: Seg[]): string[] => {
+    const ns = [...Array(Math.max(1, ...segs.filter((s) => s.frame === null)
+      .map((s) => s.params.length))).keys()];
+    const load = [...ns].reverse().map((r) =>
+      `    case ${r + 1}: r${r} = e.mem[a + ${r}]; \\\n`).join("");
+    const pass = ns.map((i) =>
+      `    case ${i}: r${i} = res[0]; \\\n      break; \\\n`).join("");
+    return [`#define WL_BANK Term ${ns.map((i) => "r" + i).join(", ")};`, "",
+      `#define WL_LOAD \\\n  switch (war) { \\\n${load}  }`, "",
+      `#define WL_LAST \\\n  switch (war) { \\\n${pass}  }`, ""];
+  };
   defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail Con Some".split(" ")
     .reduce((m, k, i) => m | (fl.hot.has(k) ? 1 << i : 0), 0)}`, "");
-  const pass = ns.map((i) =>
-    `    case ${i}: r${i} = res[0]; \\\n      break; \\\n`).join("");
-  defs.push(`#define WL_LAST \\\n  switch (war) { \\\n${pass}  }`);
   defs.push(`#define WL_RESW ${fl.resw}`,
     `#define BANGS   ${fl.bangs.size}`, "");
-  defs.push(`#define WL_BANK Term ${rs};`, "", "#define WL_LOAD \\\n"
-    + `  switch (war) { \\\n${load}  }`, "",
+  defs.push("#if DEVICE", ...bank(entries.filter((s) => !s.host)), "#else",
+    ...bank(entries), "#endif", "",
     `#define WL_LABELS ${entries.map((s) =>
       "&&L_" + (s.dead ? "FID_EXIT" : s.fid))
       .join(", ")}, &&L_FID_EXIT`);
@@ -3476,7 +3479,7 @@ function compile_segs(fl: File): string {
     });
     out.push(...seg.lines);
     out.push("  }");
-    return out.join("\n");
+    return (seg.host ? ["#if !DEVICE", ...out, "#endif"] : out).join("\n");
   }).join("\n\n");
 }
 
@@ -3495,18 +3498,28 @@ export function compile_book(book: Bend.Book,
     compile_def(fl, k, tld);
   }
   compile_reqs(fl);
-  const live = new Set<string>();
-  const grab = (fid: string) => live.has(fid) || (live.add(fid)
-    && (fl.segs.find((s) => s.fid === fid)?.refs
-      ?? fl.spins.find((s) => s[0] === fid)?.[2])?.forEach(grab));
-  for (const [, k] of mains) {
-    grab(seg_fid(k));
-  }
+  const reach = (from: Bend.Name[]): Set<string> => {
+    const set = new Set<string>();
+    const grab = (fid: string): void => {
+      if (!set.has(fid)) {
+        set.add(fid);
+        (fl.segs.find((s) => s.fid === fid)?.refs
+          ?? fl.spins.find((s) => s[0] === fid)?.[2])?.forEach(grab);
+      }
+    };
+    from.forEach((k) => grab(seg_fid(k)));
+    return set;
+  };
+  const roots = mains.map(([, k]) => k);
+  const live = reach(roots);
+  const dev = reach([...fl.bangs, ...[...fl.dyn].filter((k) =>
+    !roots.includes(k))]);
   fl.segs = fl.segs.filter((s) =>
     live.has(s.fid) || def_foreign(cb.book.tlds[s.def]));
   const clo = live.has("FID_CLO_APPLY");
   for (const s of fl.segs) {
     s.dead = !live.has(s.fid) || (!clo && def_foreign(cb.book.tlds[s.def]));
+    s.host = !dev.has(s.fid);
   }
   fl.spins = fl.spins.filter(([n]) => live.has(n));
   const entries = [...fl.segs, { ...seg_new("io_emit", false, [""]),

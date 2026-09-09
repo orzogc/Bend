@@ -109,8 +109,10 @@ is reported as `Left out of the binary:` and stays out.
 
 **GPU.** Mark a call with `!` and the task tree under it runs on the GPU:
 `sum!(24n, 0)`. The mark means nothing to the checker, and a binary with no
-device runs it on the CPU. Host and device share one address space, so
-nothing is copied; the CPU and the GPU never compute at the same time. What
+device runs it on the CPU. The device compiles only the code a `!` can
+reach (and every closure), so its shader stays small however large the
+program. Host and device share one address space, so nothing is copied;
+the CPU and the GPU never compute at the same time. What
 wins on a GPU is a balanced tree of uniform scalar leaves (mandelbrot,
 nbody); divergent or skewed work (n-queens, symbolic regression) stays
 faster on the CPU.
