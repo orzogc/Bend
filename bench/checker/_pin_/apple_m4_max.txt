@@ -1,9 +1,9 @@
 # Checker
-# 2026-09-02 0bf427f bun .devs/scripts/gen_pins.ts m4max-checker
+# 2026-09-09 f655a39d bun bend2/docs/gen_pins.ts checker; isabelle kept from 2026-09-02 0bf427f, not measured
 
 | bench         | Isabelle | Agda     | Lean     | Rocq     | Bend     |
 |---------------|----------|----------|----------|----------|----------|
-| defs_12800    | >300s    | >300s    |  35.644s |   3.095s |   0.294s |
-| proofs_3200   | >300s    | >300s    | >300s    |   9.760s |   0.842s |
-| trees_400     |   8.475s |   3.294s |   1.386s |   1.337s |   0.608s |
-| generics_3200 | >300s    | >300s    |  19.557s |   6.124s |   0.345s |
+| defs_12800    | >300s    | >300s    |  36.177s |   5.985s |   0.295s |
+| generics_3200 | >300s    | >300s    |  19.214s |   6.038s |   0.384s |
+| proofs_3200   | >300s    | >300s    | >300s    |   9.526s |   0.834s |
+| trees_400     |   8.475s |   3.266s |   1.335s |   1.339s |   0.606s |

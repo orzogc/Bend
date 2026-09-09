@@ -6,9 +6,14 @@
 // column, then builds the main.c it wrote with the cc line and runs it
 // with the flags the pins were measured with (.devs/check/perf.ts at
 // e913e65: no -lm, no -fmodules, PAR on the power of two under the core
-// count, GPU with the bench's --gpu-memory), one warm run and one under
-// /usr/bin/time -l. A cell passes at 1.15x or under; --pin writes the
-// measures as the new pins; --gate prints only the verdict.
+// count, GPU with the bench's --gpu-memory), one warm run and one timed
+// by a microsecond clock around /usr/bin/time -l, whose own 10 ms tick
+// cannot grade a 50 ms GPU cell (its RSS is the space). A cell passes at
+// 1.15x or under; --pin runs every
+// cell three times and writes the medians as the new pins (a space in
+// tenths of a megabyte, so a 2.5 MB program is not graded against "2M"),
+// refusing to write while any cell is unmeasured; --gate prints only the
+// verdict.
 
 import * as child from "node:child_process";
 import * as fs from "node:fs";
@@ -44,20 +49,20 @@ const CHECKER = path.join(lib.ROOT, "bench", "checker");
 
 const HW = "apple_m4";
 
-const MODES = ["SEQ-CPU", "PAR-CPU", "PAR-GPU"];
+export const MODES = ["SEQ-CPU", "PAR-CPU", "PAR-GPU"];
 
-const CC = "cc -std=c11 -O3 -fno-slp-vectorize";
+export const CC = "cc -std=c11 -O3 -fno-slp-vectorize";
 
-const BUILD = [CC + " main.c -lpthread", CC + " main.c -lpthread",
+export const BUILD = [CC + " main.c -lpthread", CC + " main.c -lpthread",
   CC + " -DBEND_METAL=1 -x objective-c -fobjc-arc main.c -lpthread"
   + " -framework Metal -framework Foundation"];
 
 const THREADS = "nt=1; while [ $nt -lt $(getconf _NPROCESSORS_ONLN) ] &&"
   + " [ $nt -lt 256 ]; do nt=$((nt*2)); done;";
 
-const FLAGS = ["--parallel off", "--threads $nt --gpu off", "--gpu on"];
+export const FLAGS = ["--parallel off", "--threads $nt --gpu off", "--gpu on"];
 
-const MEMORY: Record<string, string> = {
+export const MEMORY: Record<string, string> = {
   bitonic: "768MB", gameoflife: "512MB", kmeans: "768MB",
   mandelbrot: "512MB", merkle: "768MB", nbody: "768MB",
   queens: "512MB", raytrace: "512MB", symreg: "512MB", terrain: "1GB",
@@ -82,8 +87,8 @@ function fmt_secs(x: number): string {
 }
 
 function fmt_mem(mb: number): string {
-  return (mb < 10000 ? String(Math.round(mb)).padStart(5) + "M"
-    : (mb / 1024).toFixed(2) + "G");
+  return mb < 100 ? mb.toFixed(1) + "M" : mb < 10000
+    ? String(Math.round(mb)) + "M" : (mb / 1024).toFixed(2) + "G";
 }
 
 function fmt_ratio(got: number, pin: number | undefined): string {
@@ -178,6 +183,10 @@ function pin_read(): [Map<string, Pin>, Map<string, number>] {
 }
 
 function pin_write(cells: Cell[], chks: Chk[]): void {
+  const head = child.spawnSync("git", ["rev-parse", "--short", "HEAD"],
+    { cwd: lib.ROOT, encoding: "utf8" }).stdout.trim();
+  const stamp = "# " + new Date().toISOString().slice(0, 10) + " " + head
+    + " bun gates/perf.ts --pin";
   const benches = [...new Set(cells.map((c) => c.bench))];
   const w = Math.max(10, ...benches.map((b) => b.length),
     ...chks.map((c) => c.bench.length));
@@ -191,12 +200,12 @@ function pin_write(cells: Cell[], chks: Chk[]): void {
         + fmt_mem(c.mem ?? 0).padStart(7) + " |").join("") + " "
       + cs[0].out.padEnd(10) + " |";
   });
-  fs.writeFileSync(path.join(RUNTIME, "_pin_", HW + ".txt"), [
+  fs.writeFileSync(path.join(RUNTIME, "_pin_", HW + ".txt"), [stamp,
     "| " + "bench".padEnd(w) + " | COMPILER |" + MODES.map((m) =>
       " " + m.padEnd(16) + " |").join("") + " OUTPUT     |",
     "|" + bar(w) + "|" + bar(8) + "|" + MODES.map(() => bar(16) + "|").join("")
       + bar(10) + "|", ...rows, ""].join("\n"));
-  fs.writeFileSync(path.join(CHECKER, "_pin_", HW + ".txt"), [
+  fs.writeFileSync(path.join(CHECKER, "_pin_", HW + ".txt"), [stamp,
     "| " + "bench".padEnd(w) + " | CHECKER  |", "|" + bar(w) + "|" + bar(8)
       + "|", ...chks.map((c) => "| " + c.bench.padEnd(w) + " | "
       + fmt_secs(c.secs ?? 0).padStart(8) + " |"), ""].join("\n"));
@@ -226,9 +235,10 @@ function cell_script(c: Cell): string {
     + ` bend2/main.ts main.bend -o main > build.txt 2>&1; b=$?;`
     + ` t1=$(${CLOCK}); [ $b = 0 ] && { ${BUILD[c.mode]} -o cell >> build.txt`
     + ` 2>&1; b=$?; }; echo "${MARK} built $b $t0 $t1"; cat build.txt;`
-    + ` if [ $b = 0 ]; then ${run} > /dev/null 2>&1; /usr/bin/time -l ${run}`
-    + ` > out.txt 2> time.txt; echo "${MARK} ran $?"; cat out.txt; echo`
-    + ` "${MARK} time"; cat time.txt; fi; cd; rm -rf $d`;
+    + ` if [ $b = 0 ]; then ${run} > /dev/null 2>&1; t2=$(${CLOCK});`
+    + ` /usr/bin/time -l ${run} > out.txt 2> time.txt; r=$?; t3=$(${CLOCK});`
+    + ` echo "${MARK} ran $r $t2 $t3"; cat out.txt; echo "${MARK} time";`
+    + ` cat time.txt; fi; cd; rm -rf $d`;
 }
 
 function cell_note(out: string): string {
@@ -243,7 +253,8 @@ async function cell_run(c: Cell, node: number): Promise<void> {
   const built = new RegExp("^" + MARK + " built (\\d+) ([\\d.]+) ([\\d.]+)$",
     "m")
     .exec(got.out);
-  const ran = new RegExp("^" + MARK + " ran (\\d+)$", "m").exec(got.out);
+  const ran = new RegExp("^" + MARK + " ran (\\d+) ([\\d.]+) ([\\d.]+)$", "m")
+    .exec(got.out);
   if (built === null) {
     throw new Error("node");
   }
@@ -254,15 +265,14 @@ async function cell_run(c: Cell, node: number): Promise<void> {
       + cell_note(got.out);
     return;
   }
-  const tail = got.out.split(new RegExp("^" + MARK + " ran \\d+\n", "m"))[1];
+  const tail = got.out.split(new RegExp("^" + MARK + " ran .*\n", "m"))[1];
   const [body, time] = (tail ?? "").split(MARK + " time\n");
-  const real = /([\d.,]+)\s+real/.exec(time ?? "");
   const rss = /(\d+)\s+maximum resident set size/.exec(time ?? "");
   c.out = body.split("\n").map((l) => l.trim()).filter((l) => l !== "")
     .pop() ?? "";
-  c.secs = real === null ? null : Number(real[1].replace(",", "."));
+  c.secs = Number(ran[3]) - Number(ran[2]);
   c.mem = rss === null ? null : Number(rss[1]) / (1 << 20);
-  if (c.secs === null || c.mem === null) {
+  if (c.mem === null) {
     c.note = c.bench + " " + MODES[c.mode] + ": unreadable time output";
   }
 }
@@ -295,8 +305,10 @@ async function chk_run(c: Chk, node: number): Promise<void> {
 if (import.meta.main) {
   const benches = fs.readdirSync(RUNTIME).filter((f) => !f.startsWith("_"))
     .sort();
-  const cells: Cell[] = benches.flatMap((bench) => MODES.map((_, mode) =>
-    ({ bench, mode, secs: null, mem: null, comp: null, out: "", note: "" })));
+  const reps = PIN ? 3 : 1;
+  let cells: Cell[] = benches.flatMap((bench) => MODES.flatMap((_, mode) =>
+    Array.from({ length: reps }, () => ({ bench, mode, secs: null,
+      mem: null, comp: null, out: "", note: "" }))));
   const chks: Chk[] = fs.readdirSync(CHECKER).filter((f) => !f.startsWith("_"))
     .sort().map((bench) => ({ bench, secs: null, note: "" }));
   const [pins, cpins] = PIN
@@ -315,6 +327,22 @@ if (import.meta.main) {
     draw();
   })]);
   if (PIN) {
+    const mid = (xs: (number | null)[]): number | null => {
+      const ys = xs.filter((x) => x !== null).sort((x, y) => x - y);
+      return ys.length === xs.length ? ys[Math.floor(ys.length / 2)] : null;
+    };
+    cells = benches.flatMap((bench) => MODES.map((_, mode) => {
+      const cs = cells.filter((c) => c.bench === bench && c.mode === mode);
+      return { bench, mode, secs: mid(cs.map((c) => c.secs)),
+        mem: mid(cs.map((c) => c.mem)), comp: mid(cs.map((c) => c.comp)),
+        out: cs[0].out, note: cs.map((c) => c.note).find((n) => n !== "")
+          ?? (cs.every((c) => c.out === cs[0].out) ? "" : bench + " "
+          + MODES[mode] + ": the runs printed different outputs") };
+    }));
+    if (notes().length > 0) {
+      console.log(notes().join("\n"));
+      lib.verdict(0, 1);
+    }
     pin_write(cells, chks);
   }
   const fits = (got: number | null, pin: number | undefined): boolean =>

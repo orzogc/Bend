@@ -1,31 +1,25 @@
 #!/usr/bin/env bun
-// The two README images, drawn from the pins. This script measures
-// NOTHING: every bar comes from a bench/*/_pin_apple_m4_max_.txt
-// file, and those files hold only what gen_pins.ts measured on this
-// machine, in this repo, at the stamped commit (see its header for
-// the protocol). Repin first, then draw:
+// The two README images, and the numbers the landing page and the film
+// quote, all from the record pins: this script measures NOTHING. Every
+// bar and figure comes from bench/*/_pin_/apple_m4_max.txt, which holds
+// only what gen_pins.ts measured on this machine at the stamped commit.
+// Repin first, then draw:
 //
-//   bun .devs/scripts/the record pins
-//   bun .devs/scripts/gen_charts.ts
+//   bun bend2/docs/gen_pins.ts
+//   bun bend2/docs/gen_charts.ts
 //
-// The visual language is bend3's gen_charts.ts, unchanged:
-// transparent background, mid-gray ink readable on GitHub light and
-// dark, Bend in the landing page's purple, rivals gray, large type, no
-// axis clutter.
-// Every panel is linear, scaled to its slowest bar; every bar
-// prints its exact seconds. The ONE dashed idiom is a checker
-// timeout: hatched, ">5min" above and "timeout" inside, drawn at
-// twice the height of the panel's slowest finishing bar (so it
-// caps, not crushes, the scale) -- never omitted, never drawn as
-// finished, ranking slowest.
-//
-// media/checker.svg -- one panel per checker bench family,
-// each system checking the SAME generated workload, panels ordered
-// by Bend's lead, largest first.
-//
-// media/single_core.svg -- one panel per runtime bench:
-// single-core Bend against its native twins (C, TypeScript, Lean),
-// then the SAME Bend binary on all cores and on the GPU.
+// media/single_core.svg: one panel per runtime bench, single-core Bend
+// against its native twins (C, TypeScript, Lean), then the same binary
+// on all cores and on the GPU. media/checker.svg: one panel per checker
+// family, each system checking the same generated file, panels ordered
+// by Bend's lead. Transparent background, gray ink readable on GitHub
+// light and dark, Bend in the landing page's purple, every panel linear
+// and scaled to its slowest bar, every bar printing its seconds; a
+// checker timeout is the one hatched bar, ">5min" above, drawn at twice
+// the slowest finishing bar so it caps the scale, never omitted.
+// front/index.html's chart rows keep their ids and titles and take their
+// seconds from the pins; render.js's BENCH and CHECK take theirs the
+// same way (render the film after) and its comment names the stamps.
 
 import * as fs from "node:fs";
 import * as path from "node:path";
@@ -207,26 +201,15 @@ function charts_order(rows: RunRow[]): RunRow[] {
 }
 
 function charts_checker(rows: CheckRow[]): void {
-  const LANGS = ["isabelle", "agda", "lean", "rocq"];
-  const NAMES = ["Isabelle", "Agda", "Lean", "Rocq"];
+  const names = ["Isabelle", "Agda", "Lean", "Rocq", "Bend"];
   const groups = Object.keys(CHECK_FAMILIES).map((family): Group => {
     const mine = rows.filter((r) => r.family === family);
-    const bend = mine.find((r) => r.lang === "bend");
-    if (bend === undefined) throw new Error(family + ": no bend cell");
-    const bars = LANGS.map((lang, i): Bar => {
-      const r = mine.find((it) => it.lang === lang);
-      if (r === undefined) throw new Error(family + "/" + lang + ": missing");
-      return { name: NAMES[i], secs: r.over ? CHECK_TIMEOUT : r.secs,
-        over: r.over };
-    });
-    bars.push({ name: "Bend", secs: bend.secs, bend: true });
-    return { title: CHECK_FAMILIES[family] + " · n=" + String(bend.n), bars };
+    return { title: CHECK_FAMILIES[family] + " · n=" + String(mine[0].n),
+      bars: mine.map((r, i): Bar => ({ name: names[i], over: r.over,
+        secs: r.over ? CHECK_TIMEOUT : r.secs, bend: r.lang === "bend" })) };
   });
-  const lead = (g: Group): number => {
-    const bd = g.bars.find((b) => b.name === "Bend");
-    if (bd === undefined) throw new Error(g.title + ": no bend bar");
-    return Math.min(...g.bars.filter((b) => b.name !== "Bend").map((b) => b.secs)) / bd.secs;
-  };
+  const lead = (g: Group): number =>
+    Math.min(...g.bars.slice(0, 4).map((b) => b.secs)) / g.bars[4].secs;
   groups.sort((a, b) => lead(b) - lead(a));
   bar_groups(path.join(DOCS, "checker.svg"), groups,
     "cold check of one file, lower is better · " + MACHINE);
@@ -253,8 +236,77 @@ function charts_single_core(rows: RunRow[]): void {
     "lower is better · " + MACHINE, { cols: 4 });
 }
 
+// Quote
+// =====
+
+function pin_stamp(file: string): string {
+  const got = /^# (\d{4}-\d\d-\d\d) ([0-9a-f]+) /m
+    .exec(fs.readFileSync(file, "utf8"));
+  if (got === null) {
+    throw new Error(file + ": no stamp line -- repin");
+  }
+  return "(" + got[1] + ", " + got[2] + ")";
+}
+
+function quote_secs(r: { secs: number; over: boolean }): string {
+  return r.over ? String(CHECK_TIMEOUT) : r.secs.toFixed(3);
+}
+
+function quote_front(runs: RunRow[], checks: CheckRow[]): void {
+  const file = path.join(ROOT, "front", "index.html");
+  fs.writeFileSync(file, fs.readFileSync(file, "utf8").split("\n")
+    .map((line) => {
+      const row = /^(\s*\["([a-z0-9_]+)", "[^"]*",) [^\]]*\],$/.exec(line);
+      if (row === null) {
+        return line;
+      }
+      const run = runs.find((r) => r.bench === row[2]);
+      const cells = run !== undefined
+        ? [run.ts, run.lean, run.c, run.seq, run.par, run.gpu]
+          .map((x) => x.toFixed(3))
+        : checks.filter((c) => c.family + "_" + String(c.n) === row[2])
+          .map(quote_secs);
+      if (cells.length === 0) {
+        throw new Error(file + ": " + row[2] + " has no pin");
+      }
+      return row[1] + " " + cells.join(", ") + "],";
+    }).join("\n"));
+  say("wrote " + file);
+}
+
+function quote_film(runs: RunRow[], checks: CheckRow[]): void {
+  const file = path.join(ROOT, "bend2", "docs", "intro", "render.js");
+  const text = fs.readFileSync(file, "utf8");
+  const bench = /^const BENCH = \{\n  ([a-z]+):/m.exec(text)?.[1];
+  const run = runs.find((r) => r.bench === bench);
+  const family = /^\/\/ CHECK: (\S+)$/m.exec(text)?.[1];
+  const check = checks.filter((c) => c.family + "_" + String(c.n) === family);
+  if (run === undefined || check.length !== 5) {
+    throw new Error(file + ": BENCH " + String(bench) + " or CHECK "
+      + String(family) + " has no pin");
+  }
+  const names = ["Isabelle", "Agda", "Lean", "Rocq", "Bend"];
+  const stamps = [pin_stamp(RUNTIME_PIN), pin_stamp(CHECKER_PIN)];
+  fs.writeFileSync(file, text
+    .replace(/rivals: \[[^\n]*\],/, `rivals: [["TypeScript", ${
+      run.ts.toFixed(3)}], ["Lean", ${run.lean.toFixed(3)}], ["C", ${
+      run.c.toFixed(3)}]],`)
+    .replace(/seq: [\d.]+, par: [\d.]+, gpu: [\d.]+/, `seq: ${
+      run.seq.toFixed(3)}, par: ${run.par.toFixed(3)}, gpu: ${
+      run.gpu.toFixed(3)}`)
+    .replace(/^const CHECK = \[[^;]*\];$/m, "const CHECK = [" + check.map(
+      (c, i) => `["${names[i]}", ${quote_secs(c)}${c.over ? ", true" : ""}]`)
+      .join(", ") + "];")
+    .replace(/\(\d{4}-\d\d-\d\d, [0-9a-f]+\)/g, () => stamps.shift() ?? ""));
+  say("wrote " + file);
+}
+
 // Main
 // ====
 
-charts_checker(pin_checker());
-charts_single_core(pin_runtime());
+const RUNS = pin_runtime();
+const CHECKS = pin_checker();
+charts_checker(CHECKS);
+charts_single_core(RUNS);
+quote_front(RUNS, CHECKS);
+quote_film(RUNS, CHECKS);

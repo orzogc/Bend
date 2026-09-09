@@ -40,6 +40,7 @@ allow(/^bend2\/pack\/(\.gitignore|package\.json|tsconfig\.json|bun\.lock)$/, 100
 allow(/^bend2\/docs\/(BendRT|BendTT)\/(main\.typ|refs\.bib)$/, 60000);
 allow("bend2/docs/bend.sublime-syntax", 1000);
 allow("bend2/docs/gen_charts.ts", 4000);
+allow("bend2/docs/gen_pins.ts", 4000);
 allow(/^bend2\/docs\/intro\/[a-z.]+$/, 20000);
 allow(/^bench\/checker\/[a-z]+_[0-9]+\/main\.(bend|agda|lean|thy|v)$/, 3000000);
 allow(/^bench\/checker\/_pin_\/[a-z0-9_]+\.txt$/, 2000);
