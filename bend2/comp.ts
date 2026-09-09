@@ -4046,7 +4046,7 @@ typedef u32* Cursor;
 
 #define ALC_WORDS  (4 * NCLS_ALL)
 #define ALC_NEAR   (2 * NCLS + 1)
-#define LIFO_WORDS (DEVICE ? 2 * PAGE_LEN : 1024 * PAGE_LEN)
+#define LIFO_WORDS (DEVICE ? 2 * PAGE_LEN : 32 * PAGE_LEN)
 #define RESERVE    32
 #define RING_WORDS (RING_LEN + 2)
 
