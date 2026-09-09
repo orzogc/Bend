@@ -36,7 +36,7 @@ def dup(T, c, x):
 #|- T : Type
 #|- c : @x:T -> Sigma<&1, &1, T, _ => T>
 #|Location: dup
-#|23 | law dup:
-#|24>|   for -T: Type
 #|25 |   for -c: Copiable(T)
+#|26>|   for +x: T
+#|27 |   Sigma<&1, &1, T, _ => T>
 #|exit 1

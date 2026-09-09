@@ -11,7 +11,7 @@ def bad(x: One) -> Type:
 #|- expected : Type
 #|- observed : One
 #|Location: bad
-#|4 |   One.new{}
-#|5>| def bad(x: One) -> Type:
-#|6 |   match x:
+#|7 |     case One.new{}:
+#|8>|       x
+#|9 | 
 #|exit 1

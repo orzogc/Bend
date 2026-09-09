@@ -25,7 +25,7 @@ def launder(T, e, x):
 #|- e : Empty
 #|- x : T
 #|Location: launder
-#|15 | 
-#|16>| def launder(T, e, x):
-#|17 |   +y = {x : Empty.absurd(Data, e)};
+#|16 | def launder(T, e, x):
+#|17>|   +y = {x : Empty.absurd(Data, e)};
+#|18 |   Two2{y, y}
 #|exit 1

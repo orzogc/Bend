@@ -25,7 +25,7 @@ def up(xs):
 #|Context:
 #|- xs : List<&1, Nat>
 #|Location: up
-#|18 | 
-#|19>| def up(xs):
-#|20 |   xs
+#|19 | def up(xs):
+#|20>|   xs
+#|21 | 
 #|exit 1

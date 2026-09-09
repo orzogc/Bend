@@ -25,7 +25,7 @@ type Cp<-T: Type, -x: T> is Data:
 #|- T : Type
 #|- x : T
 #|Location: MkCp
-#|17 | # Data declaration: no live x hides behind its own reflexivity.
-#|18>| type Cp<-T: Type, -x: T> is Data:
-#|19 |   MkCp{y: T, e: {x == y : T}}
+#|18 | type Cp<-T: Type, -x: T> is Data:
+#|19>|   MkCp{y: T, e: {x == y : T}}
+#|20 | 
 #|exit 1

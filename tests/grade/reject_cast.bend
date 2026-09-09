@@ -25,7 +25,7 @@ def cast(A):
 #|Context:
 #|- A : Type
 #|Location: cast
-#|18 | 
-#|19>| def cast(A):
-#|20 |   A
+#|19 | def cast(A):
+#|20>|   A
+#|21 | 
 #|exit 1

@@ -17,7 +17,7 @@ def relax(f):
 #|Context:
 #|- f : @+x:Nat -> Nat
 #|Location: relax
-#|10 | 
-#|11>| def relax(f):
-#|12 |   f
+#|11 | def relax(f):
+#|12>|   f
+#|13 | 
 #|exit 1

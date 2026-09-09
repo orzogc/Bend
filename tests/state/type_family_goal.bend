@@ -29,7 +29,7 @@ def vpad(n, v):
 #|- n : Nat
 #|- v : Vec(n)
 #|Location: vpad
-#|21 | 
-#|22>| def vpad(n, v):
-#|23 |   v
+#|22 | def vpad(n, v):
+#|23>|   v
+#|24 | 
 #|exit 1

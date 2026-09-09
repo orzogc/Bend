@@ -20,7 +20,7 @@ def main():
 #|- a : Quant
 #|- T : Kind(a)
 #|Location: Mk
-#|6 | 
-#|7>| type Tag<a, -T: Kind(a)> is Data:
-#|8 |   Mk{val: T}
+#|7 | type Tag<a, -T: Kind(a)> is Data:
+#|8>|   Mk{val: T}
+#|9 | 
 #|exit 1

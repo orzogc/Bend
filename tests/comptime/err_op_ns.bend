@@ -16,7 +16,7 @@ def main() -> IO(Unit):
 #|- f : @_:U32 -> U32
 #|- x : U32
 #|Location: T~0
-#|5 | 
-#|6>| def T(~f: U32 -> U32, x: U32) -> U32:
-#|7 |   f(x)
+#|6 | def T(~f: U32 -> U32, x: U32) -> U32:
+#|7>|   f(x)
+#|8 | 
 #|exit 1

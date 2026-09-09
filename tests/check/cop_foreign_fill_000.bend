@@ -26,7 +26,7 @@ def dup(A, x):
   magic(A, x)
 
 #|Error:
-#|- expected : a foreign definition answering base's IO
+#|- expected : a foreign definition returning base IO(...) directly (return type aliases are not unfolded)
 #|- observed : magic
 #|Location: magic
 #|16 |   for  x: A

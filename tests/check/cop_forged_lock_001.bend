@@ -31,7 +31,7 @@ def main():
 #|Context:
 #|- A : Type
 #|Location: Mk
-#| 8 | 
-#| 9>| type Box<-A: Type> is Data:
-#|10 |   Mk{x: A}
+#| 9 | type Box<-A: Type> is Data:
+#|10>|   Mk{x: A}
+#|11 | 
 #|exit 1

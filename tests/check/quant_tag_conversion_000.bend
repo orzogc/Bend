@@ -32,7 +32,7 @@ def main(): dupl(1n)
 #|Context:
 #|- f : @x:Nat -> Nat
 #|Location: relax
-#|12 | 
-#|13>| def relax(f):
-#|14 |   f
+#|13 | def relax(f):
+#|14>|   f
+#|15 | 
 #|exit 1

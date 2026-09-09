@@ -672,7 +672,7 @@ function char_new(code) {
 // Caches
 // ------
 
-let PIDN = 0;
+const PROBES: Probe[] = [];
 
 const DUMMY = probe("~");
 
@@ -784,11 +784,13 @@ function memo_gc(): void {
 // =====
 
 function probe(k: Bend.Name): Probe {
-  return Bend.Var(k, (PIDN += 1)) as Probe;
+  const p = Bend.Var(k, PROBES.length) as Probe;
+  PROBES.push(p);
+  return p;
 }
 
 function probe_of(t: HTerm): Probe {
-  return Bend.term_force(t) as Probe;
+  return PROBES[(Bend.term_force(t) as Probe).i];
 }
 
 // Term
@@ -1558,7 +1560,7 @@ function show_of(st: Show, T: HTerm): string | null {
 // ====
 
 function mint_lift(t: HTerm): Open {
-  return (env) => env.get(t) ?? t;
+  return (env) => env.get(t.$ === "Var" ? probe_of(t) : t) ?? t;
 }
 
 function mint_caps(cs: Capture[], f: Open): Open {

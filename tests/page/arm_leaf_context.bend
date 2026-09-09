@@ -49,7 +49,7 @@ def use(n, h):
 #|- h : {dbl(n) == MZ{} : MNat}
 #|- p : MNat
 #|Location: use.at
-#|37 |       0
-#|38>|     case MS{p}:
-#|39 |       p
+#|38 |     case MS{p}:
+#|39>|       p
+#|40 | 
 #|exit 1

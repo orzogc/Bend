@@ -32,7 +32,7 @@ def main():
 #|- Empty : Type
 #|- w     : @_:{1n == 1n : Nat} -> Empty
 #|Location: sneaky
-#|12 | 
-#|13>| def sneaky(Empty, w):
-#|14 |   w
+#|13 | def sneaky(Empty, w):
+#|14>|   w
+#|15 | 
 #|exit 1

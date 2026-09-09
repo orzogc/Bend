@@ -24,7 +24,7 @@ type T<a, b, -A: Kind(a), -B: Kind(b)> is Kind(a):
 #|- A : Kind(a)
 #|- B : Kind(b)
 #|Location: C
-#|14 | # a header grade a cannot entail a sibling grade b
-#|15>| type T<a, b, -A: Kind(a), -B: Kind(b)> is Kind(a):
-#|16 |   C{x: B}
+#|15 | type T<a, b, -A: Kind(a), -B: Kind(b)> is Kind(a):
+#|16>|   C{x: B}
+#|17 | 
 #|exit 1
