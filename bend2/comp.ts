@@ -4049,9 +4049,10 @@ typedef u32* Cursor;
 #define NCLS_ALL  32
 #define IO_HELP   64
 
-#define ALC_WORDS  (NCLS + NCLS_ALL)
+#define ALC_WORDS  NCLS_ALL
 #define QUANTUM    (DEVICE ? PAGE_LEN : 32 * PAGE_LEN)
-#define CAP_WORDS  (DEVICE ? 256 : 4096)
+#define HOLD_WORDS (DEVICE ? 256 : 65536)
+#define CAP_WORDS  4096
 #define RING_WORDS (RING_LEN + 2)
 
 #define H_BUMP       0
@@ -4062,7 +4063,7 @@ typedef u32* Cursor;
 #define H_ROOT_WORD  (4 * LINE)
 #define H_BANK       (H_ROOT_WORD + WL_RESW)
 
-#define ALC_OFF  ((H_BANK + 4 * NCLS_ALL + PAGE_LEN - 1) & ~(PAGE_LEN - 1))
+#define ALC_OFF  ((H_BANK + 3 * NCLS_ALL + PAGE_LEN - 1) & ~(PAGE_LEN - 1))
 #define RING_OFF (ALC_OFF + CUBE * ALC_WORDS)
 #define STAK_OFF (RING_OFF + CUBE * RING_WORDS)
 #define HEAP_OFF (STAK_OFF + CUBE * STAK_LEN)
@@ -4260,13 +4261,12 @@ INLINE Cls cls_fit(u32 words) {
 // Bank
 // ====
 
-// One stack of free chunks per class, the return path between lanes: a
-// chunk is a lane's cache handed over whole, its head word the entry,
-// CAP_WORDS or more (one slot at least) of free slots linked by word 0,
-// so 2 heap_words / max(256, 2^c) entries never fill. The host pops and
-// pushes at rd under bank_lock; a device pass pops down from rd and
-// pushes up from top, the rd it began at, and the host then moves the
-// pushed run down onto rd.
+// One stack of free chunks per class: a chunk is a list of free slots,
+// its head word the entry, CAP_WORDS words cut off a host cache or a
+// whole device cache of HOLD_WORDS or more, so 2 heap_words / max(256,
+// 2^c) entries never fill. The host pops and pushes at rd under
+// bank_lock; a device pass pops down from rd and pushes up from top,
+// the rd it began at, and the host then moves that run down onto rd.
 
 #define bank_at(H, c) ((DEV Bank*)((H) + H_BANK) + (c))
 
@@ -4300,64 +4300,67 @@ INLINE void bank_push(Corpus H, Cls c, u64 head) {
 // Heap
 // ====
 
-// A lane's words, on the device its tile row: per class cls a LIFO cache
-// of free slots, HEAD (the head loc, the count above bit 40; a slot's
-// word 0 holds the head word it replaced), and per class under NCLS a
-// quantum of fresh slots, OWN (the next loc, the words left above bit
-// 40). A cache of CAP_WORDS words or more (one slot at least) goes to
-// the bank at a free on the host and at the kernel end on the device, so
-// a lane reuses its own frees within a pass. The bump grows only when
-// the bank is empty, so the footprint is at most the live peak, the
-// stacks and what the lanes hold: popped chunks, under CAP_WORDS of own
-// frees per class, a quantum per small class and, on the device, one
-// pass of frees.
+// A lane's words, its tile row on the device: per class a LIFO cache of
+// free slots, HEAD (head loc, count above bit 40; a slot's word 0 holds
+// the head word it replaced). A miss pops a chunk from the bank or
+// threads in a fresh quantum (QUANTUM words, one slot for a wide class).
+// A cache of HOLD_WORDS or more goes to the bank, whole at the kernel
+// end on the device, CAP_WORDS off its top at a free on the host, so a
+// lane reuses its own frees within a pass or a burst. The bump grows
+// only when the bank is empty: the footprint is at most the live peak,
+// the stacks, the popped chunks, HOLD_WORDS of own frees per lane and
+// class, and one device pass of frees.
 
-#define ALC_AT(e, i)   (e).alc[(i) * (DEVICE ? CUBE : 1)]
-#define ALC_HEAD(e, c) ALC_AT(e, (c) < NCLS ? (c) : NCLS + (c))
-#define ALC_OWN(e, c)  ALC_AT(e, NCLS + (c))
-#define alc_row(H, m)  ((H) + ALC_OFF + (m))
+#define ALC_AT(e, i) (e).alc[(i) * (DEVICE ? CUBE : 1)]
 
 INLINE u64 heap_hand(Corpus H, Cls cls, u64 h) {
-  if (((h >> 40) << cls) >= CAP_WORDS) {
+  if (((h >> 40) << cls) < HOLD_WORDS) {
+    return h;
+  }
+  if (DEVICE) {
     bank_push(H, cls, h);
     return 0;
   }
-  return h;
-}
-
-INLINE Loc heap_carve(Env e, Cls cls, u64 own) {
-  ALC_OWN(e, cls) = own - (LOC_MASK << cls);
-  return own & LOC_MASK;
+  u32 n = CAP_WORDS >> cls;
+  h &= LOC_MASK;
+  Loc s = h;
+  for (u32 i = 1; i < n; i += 1) {
+    u64 w = H[s];
+    H[s]  = (w & LOC_MASK) | ((u64)(n - i) << 40);
+    s     = w & LOC_MASK;
+  }
+  u64 rest = H[s];
+  H[s] = 0;
+  bank_push(H, cls, ((u64)n << 40) | h);
+  return rest;
 }
 
 OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   Corpus H   = e.mem;
-  u64    got = bank_pop(H, cls);
-  if (got != 0) {
-    ALC_HEAD(e, cls) = H[got & LOC_MASK];
-    return got & LOC_MASK;
+  Loc    got = bank_pop(H, cls) & LOC_MASK;
+  if (got == 0) {
+    u32 n     = (cls < NCLS ? QUANTUM : 1u << cls) >> cls;
+    u32 pages = (n << cls) >> PAGE_BITS;
+    u32 p     = a32_add(a32_at(H, H_BUMP), pages);
+    if ((u64)p + pages > a32_load(a32_at(H, H_CAP))) {
+      err_post(H, ERR_HEAP);
+      p = 0;
+    }
+    got = HEAP_OFF + ((u64)p << PAGE_BITS);
+    for (u32 i = 1; i <= n; i += 1) {
+      H[got + ((u64)(i - 1) << cls)] = i < n
+        ? ((u64)(n - i) << 40) | (got + ((u64)i << cls)) : 0;
+    }
   }
-  u32 pages = (cls < NCLS ? QUANTUM : 1u << cls) >> PAGE_BITS;
-  u32 p     = a32_add(a32_at(H, H_BUMP), pages);
-  if ((u64)p + pages > a32_load(a32_at(H, H_CAP))) {
-    err_post(H, ERR_HEAP);
-    p = 0;
-  }
-  got = HEAP_OFF + ((u64)p << PAGE_BITS);
-  return cls < NCLS ? heap_carve(e, cls, ((u64)QUANTUM << 40) | got) : got;
+  ALC_AT(e, cls) = H[got];
+  return got;
 }
 
 HOT Loc heap_alloc(Env e, Cls cls) {
-  u64 h = ALC_HEAD(e, cls);
+  u64 h = ALC_AT(e, cls);
   if (h != 0) {
-    ALC_HEAD(e, cls) = e.mem[h & LOC_MASK];
+    ALC_AT(e, cls) = e.mem[h & LOC_MASK];
     return h & LOC_MASK;
-  }
-  if (cls < NCLS) {
-    u64 own = ALC_OWN(e, cls);
-    if ((own >> 40) != 0) {
-      return heap_carve(e, cls, own);
-    }
   }
   return heap_alloc_miss(e, cls);
 }
@@ -4367,9 +4370,9 @@ HOT void heap_free(Env e, Cls cls, Loc loc) {
   if (err_seen(H)) {
     return;
   }
-  u64 h = DEVICE ? ALC_HEAD(e, cls) : heap_hand(H, cls, ALC_HEAD(e, cls));
+  u64 h = DEVICE ? ALC_AT(e, cls) : heap_hand(H, cls, ALC_AT(e, cls));
   H[loc] = h;
-  ALC_HEAD(e, cls) = ((h + (1ull << 40)) & ~LOC_MASK) | loc;
+  ALC_AT(e, cls) = ((h + (1ull << 40)) & ~LOC_MASK) | loc;
 }
 
 // Spare
@@ -5079,7 +5082,7 @@ static void monk_work(Env e, Stk stk, Ring r) {
 
 INLINE void dev_hand(Env e) {
   for (Cls c = 0; c < NCLS_ALL; c += 1) {
-    ALC_HEAD(e, c) = heap_hand(e.mem, c, ALC_HEAD(e, c));
+    ALC_AT(e, c) = heap_hand(e.mem, c, ALC_AT(e, c));
   }
 }
 
@@ -5096,7 +5099,7 @@ extern "C" __global__ void grow_dev(Corpus H) {
 #endif
   u32  stride = grids == 1 ? CUBE_SIDE : 1;
   Ring rg  = row * CUBE_SIDE + stride * lane;
-  Env  e   = { H, alc_row(H, rg) };
+  Env  e   = { H, H + ALC_OFF + rg };
   GA32 tg_cur;
   GA32 tg_grew;
   GA32 tg_has;
@@ -5142,7 +5145,7 @@ extern "C" __global__ void work_dev(Corpus H) {
   u32 lane = threadIdx.x;
   u32 tid  = blockIdx.x * CUBE_SIDE + lane;
 #endif
-  Env e = { H, alc_row(H, tid) };
+  Env e = { H, H + ALC_OFF + tid };
   monk_work(e, (Stk)(H + STAK_OFF + tid), ring_flip(tid));
   dev_hand(e);
 }
