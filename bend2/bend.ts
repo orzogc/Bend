@@ -3835,7 +3835,7 @@ export function def_valid(book: Book, k: Name, def: Def): void {
     const [h] = term_unapply(tel);
     const io  = book.tlds["IO"];
     if (h.$ !== "Ref" || h.k !== "IO" || io === undefined || io.$ !== "Def" || io.b !== true) {
-      throw Err(book, ctx_nil(), "a foreign definition answering base's IO", k, tel.s, k);
+      throw Err(book, ctx_nil(), "a foreign definition returning base IO(...) directly (return type aliases are not unfolded)", k, tel.s, k);
     }
   }
   if (def.v !== null) {
