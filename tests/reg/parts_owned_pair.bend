@@ -47,7 +47,7 @@ law Pr.clone:
 
 def Pr.clone(p):
   (a, o) = p
-  Pr.clone.go(o, Array.clone(a))
+  Pr.clone.go(o, Array.clone(U32, a))
 
 law use2.go:
   for c: (Array<U32> & U32) & (Array<U32> & U32)

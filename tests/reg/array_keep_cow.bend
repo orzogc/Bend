@@ -36,7 +36,7 @@ def main.go(c):
   main.fin(a, Array.swap(U32, b, 2, 50))
 
 def main.out():
-  main.go(Array.clone(ANode{ANode{ALeaf{1}, ALeaf{2}}, ANode{ALeaf{3}, ALeaf{4}}}))
+  main.go(Array.clone(U32, ANode{ANode{ALeaf{1}, ALeaf{2}}, ANode{ALeaf{3}, ALeaf{4}}}))
 
 law main:
   IO(Unit)

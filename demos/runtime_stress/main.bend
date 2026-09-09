@@ -468,7 +468,7 @@ law cow:
   U32
 
 def cow(a):
-  cow.go(Array.clone(a))
+  cow.go(Array.clone(U32, a))
 
 law share.out:
   U32

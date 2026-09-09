@@ -51,7 +51,7 @@ def main.go(w):
   main.fst(y, Array.swap(U32, x, 1, 9))
 
 def main.out():
-  main.go(Array.clone(mk()))
+  main.go(Array.clone(U32, mk()))
 
 law main:
   IO(Unit)
