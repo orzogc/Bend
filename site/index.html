@@ -12,7 +12,7 @@
 }
 *{box-sizing:border-box}
 html{background:var(--bg);color:var(--b01);font:15px/1.6 ui-monospace,Menlo,"SF Mono",Consolas,"Liberation Mono",monospace;font-size:clamp(10px,2.55vw,15px);-webkit-text-size-adjust:100%}
-body{margin:0 auto;max-width:64ch;padding:0 2ch 5em}
+body{margin:0 auto;max-width:64ch;padding:0 2ch 4em}
 a{color:var(--blu);text-decoration:none;border-bottom:1px solid #cfd9e3}
 a:hover{border-bottom-color:var(--blu)}
 b{color:var(--b02);font-weight:600}
@@ -68,9 +68,6 @@ canvas{display:block;width:100%}
 #game{aspect-ratio:12/8}
 #cube{aspect-ratio:1;max-width:384px;margin:0 auto}
 
-#sl{position:fixed;left:0;right:0;bottom:0;display:flex;gap:2ch;padding:0 1.5ch;background:#fcfbf9;color:var(--b00);font-size:.8em;line-height:2;border-top:1px solid var(--line)}
-#sl b{background:var(--blu);color:#fff;font-weight:600;padding:0 1ch;margin-left:-1.5ch}
-#sl .r{margin-left:auto}
 </style>
 </head>
 <body>
@@ -114,7 +111,7 @@ call splits until each core holds one task. Then the results
 fold back into one. Here, a single call runs on 4,096 cores:</p>
   <figure>
     <canvas id="cube"></canvas>
-    <figcaption>Bend programs can run on the <b>GPU</b></figcaption>
+    <figcaption><b>Bend</b> programs can run on the <b>GPU</b></figcaption>
   </figure>
 </section>
 
@@ -124,7 +121,7 @@ fold back into one. Here, a single call runs on 4,096 cores:</p>
 Take a game with a single law: the player can never win. You
 write that law in LAWS.bend, and Bend makes the AI prove it:</p>
 <p class="f">LAWS.bend</p>
-<pre><code><span class="c"># LAW: no sequence of moves can ever lead to victory.</span>
+<pre><code><span class="c"># LAW: no move sequence leads to victory.</span>
 <span class="k">law</span> <span class="v">winning_is_a_bug</span>:
   <span class="k">for</span> moves: List&lt;Move&gt;
   board = replay(start(), moves)
@@ -132,7 +129,7 @@ write that law in LAWS.bend, and Bend makes the AI prove it:</p>
   <p>Now you prompt a new feature: <i>"make the board wrap around"</i>.</p>
   <figure>
     <canvas id="game"></canvas>
-    <figcaption>Vibe-coding a new feature with LAWS.bend</figcaption>
+    <figcaption><b>Vibe-coding</b> a new feature with <b>LAWS.bend</b></figcaption>
   </figure>
   <p>Without LAWS.bend, the AI shipped a bug. With LAWS.bend, its
 code was rejected until it placed a wall and proved the law,
@@ -163,8 +160,6 @@ bend hello.bend -o hello   <span class="c"># compile</span>
 papers describe it: <a href="https://github.com/HigherOrderCO/bend4/blob/main/paper/BendTT.pdf">BendTT</a>, the type theory, and <a href="https://github.com/HigherOrderCO/bend4/blob/main/paper/BendRT.pdf">BendRT</a>, the
 runtime. The compiler is young: expect bugs and <a href="https://github.com/HigherOrderCO/bend4/issues">report them</a>.</p>
 </section>
-
-<div id="sl"><b>NORMAL</b><span>bend.md</span><span>j/k · d/u · g/G</span><span class="r" id="pct">Top</span></div>
 
 <script>
 (() => {
@@ -383,9 +378,10 @@ function play(cv, draw) {
     a.walk = routeDur(a.route); a.tail = a.bump ? BUMP*BUMPS : 0.3; a.dur = LEAD + a.walk + a.tail + HOLD;
     a.walls = wallsOf(a.far);
   }
-  const say = (text, ink) => ({ text, ink: ink || "#4d4a44", dur: 0.45*text.split(" ").length + 1.4 });
+  let n = 0;   // the slides are numbered, so the viewer knows where the story is
+  const say = (text, ink) => ({ text: ++n + ". " + text, ink: ink || "#4d4a44", dur: 0.45*text.split(" ").length + 1.4 });
   const SHOW = [
-    say("Law: the player can't win"), ACTS[0], say("So far, it works!"),
+    say("Let's vibe-code a game!"), say("Law: the player can't win"), ACTS[0], say("So far, it works!"),
     say("New feature: wrap around."), say("Without LAWS.bend:"), ACTS[1], say("Laws broken.", "#c46a60"),
     say("With LAWS.bend:"), ACTS[2], say("Laws intact!", "#7e9a5e"),
   ];
@@ -451,21 +447,6 @@ function play(cv, draw) {
   }
 }
 
-// ---------------------------------------------------------------- vim
-// the statusline's ruler, and j/k, d/u, g/G
-{
-  const el = document.getElementById("pct"), doc = document.documentElement;
-  const upd = () => {
-    const top = doc.scrollTop, max = doc.scrollHeight - doc.clientHeight;
-    el.textContent = max <= 0 || top <= 0 ? "Top" : top >= max - 1 ? "Bot" : Math.round(top/max*100) + "%";
-  };
-  addEventListener("scroll", upd, { passive: true }); upd();
-  addEventListener("keydown", e => {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const m = { j: 60, k: -60, d: innerHeight/2, u: -innerHeight/2 }[e.key];
-    if (m !== undefined) scrollBy(0, m); else if (e.key === "g") scrollTo(0, 0); else if (e.key === "G") scrollTo(0, 1e9);
-  });
-}
 })();
 </script>
 </body>
