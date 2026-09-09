@@ -2243,12 +2243,13 @@ export function parse_term_brc(p: Parse): LTerm {
     return Eql(a, b, T);
   }
   if (parse_take(p, "!=")) {
+    const ns = parse_span(p, p.pos - 2);
     const b = parse_term(p);
     parse_eat(p, ":");
     const T = parse_term(p);
     parse_eat(p, "}");
     const s = parse_span(p, beg);
-    return All(Lone(), "_", parse_open(p, "_"), Eql(a, b, T, s), Ref("Empty", s), s);
+    return All(Lone(), "_", parse_open(p, "_"), Eql(a, b, T, s), Ref("Empty", ns), s);
   }
   parse_eat(p, ":");
   const T = parse_term(p);
