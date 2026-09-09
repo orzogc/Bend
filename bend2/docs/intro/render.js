@@ -26,6 +26,7 @@ const co = "co", punch = "punch", quick = "quick", left = "left", red = "red", g
 const TAG = new Set([co, punch, quick, left, red, green]);
 const BEATS = [
   ["title"],
+  ["say", "First, let's talk about *speed*."],
   ["check"],
   ["bench", "gameoflife"],
   ["par", "gameoflife", co],
