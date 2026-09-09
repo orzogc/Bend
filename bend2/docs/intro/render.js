@@ -25,6 +25,8 @@ const cost = s => (s = s.replace(/[*+~#%/]/g, "").trim()) ? s.split(/\s+/)
 const co = "co", punch = "punch", quick = "quick", left = "left", red = "red", green = "green";
 const TAG = new Set([co, punch, quick, left, red, green]);
 const BEATS = [
+  ["say", "Imagine a programming language", "where AIs couldn't write bugs?"],
+  ["say", "#Introducing...", quick],
   ["title"],
   ["say", "First, let's talk about *speed*."],
   ["check"],
@@ -91,7 +93,7 @@ function T(s, x, y, size, color, align, bold) {
 }
 // centred sentence with emphasis: *bold*  +green+  /oblique/
 // (Menlo has no italic, so an oblique run is the text leaned by a skew)
-function rich(s, x, y, size, color, plain) {
+function richToks(s) {
   const toks = [];
   for (let i = 0; i < s.length; ) {
     const c = s[i], j = "*+/".includes(c) ? s.indexOf(c, i + 1) : -1;
@@ -99,11 +101,15 @@ function rich(s, x, y, size, color, plain) {
     let e = i + 1; while (e < s.length && !"*+/".includes(s[e])) e++;
     toks.push([s.slice(i, e), ""]); i = e;
   }
-  const bold = m => !!m && m !== "/";
-  let total = 0;
-  toks.forEach(([p, m]) => { font(size, bold(m)); total += cx.measureText(p).width; });
-  let px = x - total/2;
-  toks.forEach(([p, m]) => {
+  return toks;
+}
+const bold = m => !!m && m !== "/";
+function richW(s, size) {
+  return richToks(s).reduce((t, [p, m]) => { font(size, bold(m)); return t + cx.measureText(p).width; }, 0);
+}
+function rich(s, x, y, size, color, plain) {
+  let px = x - richW(s, size)/2;
+  richToks(s).forEach(([p, m]) => {
     font(size, bold(m));
     cx.fillStyle = m === "+" ? GREEN : m || !plain ? (color || INK) : plain;
     if (m === "/") { cx.save(); cx.transform(1, 0, -0.2, 1, 0.2*y, 0); }
@@ -167,11 +173,11 @@ function codeCard(lines, x, y, w, size, pitch) {
 // and the equality's braces are left out (that sugar comes later); each
 // line of the law gets a gloss
 const LAWS_SRC = `# LAW: no move sequence leads to victory.
-law winning_is_a_bug:
+law you_cant_win:
   for moves: List<Move>
   board = replay(start(), moves)
   is_won(board) == False`.split("\n");
-const LAWS_GLOSS = ["LAW: Winning Is A Bug", "\"for any sequence of moves\"",
+const LAWS_GLOSS = ["LAW: You Can't Win", "\"for any sequence of moves\"",
                     "\"replaying it from the start\"", "\"can never lead to victory\""];
 
 // ------------------------------------------------------------------ benches
@@ -731,11 +737,19 @@ S.reveal = (u, dur, b) => {
 
 // the landing page's hero: Bend, a purple block cursor blinking after it,
 // and the pitch, its bold words in ink and the rest dim
+// the pitch lands in three parts, each read before the next appears
+const PITCH = ["a *fast* language", " that *blocks AI mistakes*", " via *proof*"], PAT = [0.6, 1.9, 3.2];
 S.title = (u, dur) => {
   font(72, true); const w = cx.measureText("Bend").width, cw = 36, x = W/2 - (w + 8 + cw)/2;
   T("Bend", x, 340, 72, INK, "left", true);
   if (Math.floor(u/0.55) % 2 === 0) box(x + w + 8, 340 - 62, cw, 66, 0, PURPLE);
-  rich("a *fast* language that *blocks AI mistakes* via *proof*", W/2, 404, 26, INK, DIM);
+  const ws = PITCH.map(s => richW(s, 26));
+  let px = W/2 - ws.reduce((a, b) => a + b, 0)/2;
+  PITCH.forEach((s, i) => {
+    cx.globalAlpha = ease((u - PAT[i])/0.4);
+    rich(s, px + ws[i]/2, 404, 26, INK, DIM); px += ws[i];
+  });
+  cx.globalAlpha = 1;
 };
 
 S.end = (u, dur) => {
@@ -752,7 +766,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { title: 5.8, check: 11.2, bench: 10.2, par: 13.8, dist: DALL + 1.5, eval: EDONE + 1.9,
+const FIXED = { title: 7.0, check: 11.2, bench: 10.2, par: 13.8, dist: DALL + 1.5, eval: EDONE + 1.9,
                 reduce: Z1 + 2.6, laws: 17.8, intro: 8.0, walk: 6.3, block: 5.8, end: 7.1 };
 for (const b of BEATS) {
   if (b[0] === "say") {

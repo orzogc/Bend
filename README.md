@@ -48,7 +48,7 @@ many sequences of moves. On Bend, you state the law in `LAWS.bend`:
 
 ```python
 # LAW: no move sequence leads to victory.
-law winning_is_a_bug:
+law you_cant_win:
   for moves: List<Move>           # any sequence of moves
   board = replay(start(), moves)  # replayed from the start
   is_won(board) == False          # never leads to victory
@@ -58,8 +58,8 @@ Then ask your agent: "before stopping, **prove the code is correct**". It writes
 the proof into `CERT.bend`, a certificate you neither write nor have to read:
 
 ```python
-# PROOF: winning_is_a_bug holds.
-def winning_is_a_bug(moves):
+# PROOF: you_cant_win holds.
+def you_cant_win(moves):
   # ... written by the AI
 ```
 

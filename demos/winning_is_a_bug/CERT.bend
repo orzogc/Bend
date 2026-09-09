@@ -3,7 +3,7 @@
 # The proofs. This file imports the game (as Game) and the claims (as
 # Laws) and fills every assert the laws make -- an unfilled assert is an
 # error, so `bend CERT.bend` is the whole verification. Everything here
-# is AI-written scaffolding for one def: Laws.winning_is_a_bug.
+# is AI-written scaffolding for one def: Laws.you_cant_win.
 #
 # The shape of the argument: an invariant ("the player stands on a safe
 # cell: on the map, not in the room, not on a wall") holds at the start
@@ -376,5 +376,5 @@ def run_false(t: List<Game.Move>, x: Nat, y: Nat, hp: T(okpos(x, y)))
 
 # The law, filled: the start cell is safe (checked by computation), and
 # run_false carries that safety through any list of actions.
-def Laws.winning_is_a_bug(moves):
+def Laws.you_cant_win(moves):
   run_false(moves, Game.start_x(), Game.start_y(), Unit{})
