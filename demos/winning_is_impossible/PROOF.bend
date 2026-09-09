@@ -1,4 +1,4 @@
-# Winning Is A Bug -- the certificate.
+# Winning Is Impossible -- the certificate.
 #
 # The proofs. This file imports the game (as Game) and the claims (as
 # Laws) and fills every assert the laws make -- an unfilled assert is an

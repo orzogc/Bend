@@ -1,4 +1,4 @@
-# Winning Is A Bug -- the game.
+# Winning Is Impossible -- the game.
 #
 # The whole game, and nothing else: a torus map, a walled room, a flag,
 # four moves, and the level as text (the front end asks `grid` for

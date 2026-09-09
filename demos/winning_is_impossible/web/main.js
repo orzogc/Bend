@@ -1,4 +1,4 @@
-// Winning Is A Bug: the visual half. The game itself is main.bend, imported
+// Winning Is Impossible: the visual half. The game itself is main.bend, imported
 // as a module: the bend loader compiles it on the fly, and every
 // def becomes a function on Game. The map is asked from Game.grid, so the
 // level has one author. Every move goes through Game.replay; this file only
