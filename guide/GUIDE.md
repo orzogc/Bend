@@ -561,7 +561,29 @@ this file only, so `Util.inc` names `lib/util.inc`, and a
 Names are dotted and dots are just characters: `U32.show` needs no module.
 An `import 0x<hash>/path.bend as P` line is a content-addressed package,
 read from `$BEND_STORE` (default `~/.bend/store`) and fetched from
-`$BEND_HUB` (default proofmarket.com) on a miss. Cycles are rejected.
+`$BEND_HUB` (default hub.bend-lang.org) on a miss, each file checked
+against the package's manifest and the manifest against the hash. Cycles
+are rejected.
+
+**Publishing.** `bend file.bend --publish` checks the file and uploads what
+the loader read (every imported `.bend`, `.c` and `.js` file at its path
+from the file's directory, base and other packages left out) as one
+package, then prints its hash and the import line others use:
+
+```
+0x3f1c9e2a7b4d5e6f8a9b0c1d2e3f4a5b
+import 0x3f1c9e2a7b4d5e6f8a9b0c1d2e3f4a5b/main.bend as Main
+```
+
+The hash names the bytes: the same files publish to the same hash, and a
+change is a new package. A file with a `?TODO` does not publish; an open
+`law` does, so a claim can be posted before its proof. There are no
+accounts: a publish carries a proof of work of about two seconds of a
+laptop's cores per 256 KiB (every core mines), and a package is 16 MiB at
+most. The hub checks nothing else: importers check every package with
+their own checker. `https://bend-lang.org/0x<hash>` shows a package, each
+name linked to its definition; `https://hub.bend-lang.org/0x<hash>/manifest`
+lists its files.
 
 **Templates.** A `def` whose first parameter has `~` is a template: its
 text parses once, and each call with a distinct tuple of `~` arguments

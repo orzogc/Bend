@@ -12,8 +12,10 @@
 // the bun build CLI takes no plugins.
 
 import * as child from "node:child_process";
+import * as crypto from "node:crypto";
 import * as fs from "node:fs";
 import * as mod from "node:module";
+import * as os from "node:os";
 import * as path from "node:path";
 import * as url from "node:url";
 import * as thr from "node:worker_threads";
@@ -29,10 +31,29 @@ import * as Comp from "./comp.ts";
 // Constants
 // =========
 
-const USAGE = "usage: bend <file.bend> [--checkup] [-o <out>]..."
+const USAGE = "usage: bend <file.bend> [--checkup] [--publish] [-o <out>]..."
   + "\n       bend <page.html> -o <dir>";
 
 const BASE = fs.realpathSync(path.join(import.meta.dirname, "base.bend"));
+
+// A package's proof of work is a nonce whose sha256(hash + " " + nonce)
+// opens (its top 53 bits) with a number under 2^53 / work, where work is
+// POW hashes (two seconds of an M4 Max's sixteen cores) per 256 KiB of
+// package, and no less. Every core mines; the hub checks it with one hash.
+const POW = 140000000;
+
+const POW_JS = `
+const crypto = require("node:crypto");
+const { parentPort, workerData: { pre, lim, from, step } }
+  = require("node:worker_threads");
+for (let n = from;; n += step) {
+  const h = crypto.hash("sha256", pre + n, "buffer");
+  if ((h[0] * 16777216 + (h[1] << 16) + (h[2] << 8) + h[3]) * 2097152
+    + ((h[4] * 16777216 + (h[5] << 16) + (h[6] << 8) + h[7]) >>> 11) < lim) {
+    parentPort.postMessage(n);
+    break;
+  }
+}`;
 
 export const METAL = ["-DBEND_METAL=1", "-x", "objective-c", "-fobjc-arc",
   "-fmodules"];
@@ -53,6 +74,7 @@ async function cli(): Promise<void> {
   const outs: string[] = [];
   let file: string | undefined;
   let checkup = false;
+  let publish = false;
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
     if (a === "--help") {
@@ -60,6 +82,8 @@ async function cli(): Promise<void> {
       process.exit(0);
     } else if (a === "--checkup") {
       checkup = true;
+    } else if (a === "--publish") {
+      publish = true;
     } else if (a === "-o") {
       i += 1;
       outs.push(args[i] ?? cli_fail("-o needs an output file"));
@@ -75,12 +99,18 @@ async function cli(): Promise<void> {
     process.exit(1);
   }
   if (file.endsWith(".html")) {
-    if (outs.length !== 1 || checkup) {
+    if (outs.length !== 1 || checkup || publish) {
       cli_fail("a page bundles with -o <dir>");
     }
     return cli_bundle(file, outs[0]);
   }
+  if (publish && (outs.length !== 0 || checkup)) {
+    cli_fail("--publish takes no other option");
+  }
   try {
+    if (publish) {
+      return await cli_publish(file);
+    }
     const book = checkup ? await cli_checkup(file) : await book_read(file);
     if (outs.length === 0 && !checkup) {
       process.exit(book_run(book));
@@ -180,11 +210,100 @@ async function cli_bundle(page: string, dir: string): Promise<void> {
   }
 }
 
+// Publish
+// =======
+
+// cli_publish checks the file, then posts what the loader read (no TODO
+// left) to the hub with its proof of work, and prints the import line.
+async function cli_publish(file: string): Promise<void> {
+  const seen = new Map<string, string | null>();
+  const book = await book_read(file, undefined, seen);
+  if (book.hols > 0) {
+    throw "Error: " + String(book.hols) + " TODO" + (book.hols === 1 ? ""
+      : "s") + " to fill before publishing";
+  }
+  const files = pkg_files(file, book, seen);
+  const paths = Object.keys(files).sort();
+  const bytes = paths.reduce((n, p) => n + Buffer.byteLength(files[p]), 0);
+  const hash  = "0x" + sha256(paths.map((p) => sha256(files[p]) + " " + p
+    + "\n").join("")).slice(0, 32);
+  cli_say(2, "publishing " + String(paths.length) + " files, "
+    + String(bytes) + " bytes, as " + hash + " (mining its proof of work)\n");
+  const nonce = await pow_mine(hash, bytes);
+  const res = await fetch(Bend.BEND_HUB, { method: "POST",
+    body: JSON.stringify({ files, nonce }) });
+  const got = (await res.text()).trim();
+  if (!res.ok || got !== hash) {
+    throw "Error: " + Bend.BEND_HUB + " answered: " + got;
+  }
+  const entry = Object.keys(files)[0];
+  const name  = path.basename(entry, ".bend");
+  cli_say(1, hash + "\nimport " + hash + "/" + entry + " as "
+    + name[0].toUpperCase() + name.slice(1) + "\n");
+}
+
+// pkg_files is the package the loader read for this file, the entry first:
+// every .bend file at its namespace (the entry at its name), every foreign
+// .c or .js file at its path from the entry's directory; base and the
+// store's packages stay out. A path that climbs above the entry's directory
+// takes the entry's ancestor directories along, as many as the deepest climb.
+function pkg_files(file: string, book: Bend.Book,
+  seen: Map<string, string | null>): Record<string, string> {
+  const dir  = file.slice(0, file.lastIndexOf("/") + 1);
+  const raws: Array<[string, string]> = [];
+  for (const [real, ns] of seen) {
+    if (real !== BASE && ns !== null && !ns.startsWith("0x")) {
+      raws.push([ns === "" ? path.basename(file) : ns + ".bend", real]);
+    }
+  }
+  for (const [k, tld] of Object.entries(book.tlds)) {
+    if (tld.$ === "Def" && tld.i !== undefined && tld.b !== true
+      && !k.startsWith("0x")) {
+      for (const f of tld.i) {
+        raws.push([f.startsWith(dir) ? f.slice(dir.length) : f, f]);
+      }
+    }
+  }
+  const ups = raws.map(([p]) => path.posix.normalize(p).split("/")
+    .filter((s) => s === "..").length);
+  const anc = fs.realpathSync(path.dirname(file)).split("/")
+    .slice(-Math.max(0, ...ups) || Infinity);
+  const files: Record<string, string> = {};
+  for (const [raw, real] of raws) {
+    const p = path.posix.join(...anc, raw);
+    if (p.startsWith("/") || p.startsWith("..")) {
+      throw "Error: " + real + " cannot be published (an absolute import,"
+        + " or a climb above the file system)";
+    }
+    files[p] = fs.readFileSync(real, "utf8");
+  }
+  return files;
+}
+
+function sha256(text: string): string {
+  return crypto.createHash("sha256").update(text).digest("hex");
+}
+
+async function pow_mine(hash: string, bytes: number): Promise<number> {
+  const step = os.availableParallelism();
+  const lim  = 2 ** 53 / (POW * Math.max(1, bytes / 262144));
+  const ws   = Array.from({ length: step }, (_, k) => new thr.Worker(POW_JS,
+    { eval: true, workerData: { pre: hash + " ", lim, from: k, step } }));
+  const n = await new Promise<number>((res) =>
+    ws.forEach((w) => w.on("message", res)));
+  ws.forEach((w) => w.terminate());
+  return n;
+}
+
+// Report
+// ======
+
 function cli_report(book: Bend.Book): void {
   const tlds = Object.values(book.tlds);
   const uns  = tlds.filter((t) => t.$ === "Def" && t.u === true).length;
-  if (book.hols > 0) {
-    cli_say(1, String(book.hols) + (book.hols === 1 ? " TODO" : " TODOs")
+  const hols = book.hols + book.open;
+  if (hols > 0) {
+    cli_say(1, String(hols) + (hols === 1 ? " TODO" : " TODOs")
       + " found.\nThe code is incomplete, and not a valid proof yet.\n");
   } else if (uns > 0) {
     cli_say(1, String(uns) + (uns === 1 ? " term" : " terms")
@@ -207,11 +326,12 @@ function cli_fail(msg: string): never {
 // Book
 // ====
 
-async function book_read(file: string,
-  base?: Bend.Book): Promise<Bend.Book> {
+async function book_read(file: string, base?: Bend.Book,
+  seen = new Map<string, string | null>()): Promise<Bend.Book> {
   const book = base === undefined ? Bend.book_nil() : book_seed(base);
-  const seen = new Map<string, string | null>(
-    base === undefined ? [] : [[BASE, ""]]);
+  if (base !== undefined) {
+    seen.set(BASE, "");
+  }
   await Bend.book_load(book, file, "", seen);
   Bend.book_valid(book, base?.order.length ?? 0);
   return book;
@@ -261,7 +381,7 @@ async function load_js(path: string): Promise<string> {
   } catch (e) {
     throw new Error(book_err(e));
   }
-  if (book.hols > 0) {
+  if (book.hols + book.open > 0) {
     throw new Error(path + " has TODOs and cannot compile");
   }
   const outs = [...new Set(book.order)].filter((k) => {

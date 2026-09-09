@@ -305,7 +305,7 @@ export type ADT  = { $: "ADT"; n: number; g: number; T: HTerm; c: Ctrs; };
 export type Def  = { $: "Def"; n: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; };
 export type TLD  = ADT | Def;
 export type Tmpl = { p: Parse; u: Bool; is: Record<string, Name>; };
-export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; tmps: Record<Name, Tmpl>; };
+export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; open: number; tmps: Record<Name, Tmpl>; };
 
 // Context
 export type Ann = { q: Quant; k: Name; T: HTerm };
@@ -1032,7 +1032,7 @@ export function ctrs_find(cs: Ctrs, k: Name): Ctr | null {
 // ====
 
 export function book_nil(): Book {
-  return { tlds: Object.create(null), ctrs: Object.create(null), order: [], hols: 0, tmps: Object.create(null) };
+  return { tlds: Object.create(null), ctrs: Object.create(null), order: [], hols: 0, open: 0, tmps: Object.create(null) };
 }
 
 export function book_ctr(book: Book, k: Name): Ctr | null {
@@ -1061,17 +1061,30 @@ export function book_adt(book: Book, tm: Extract<HTerm, { $: "ADT" }>, ctx: Ctx,
 
 const BASE_BEND  = fs.realpathSync(url.fileURLToPath(new URL("./base.bend", import.meta.url)));
 const BEND_STORE = path.resolve(process.env.BEND_STORE ?? path.join(os.homedir(), ".bend", "store"));
-const BEND_HUB   = process.env.BEND_HUB ?? "https://proofmarket.com";
+export const BEND_HUB   = process.env.BEND_HUB ?? "https://hub.bend-lang.org";
+
+async function hub_get(book: Book, sub: string, hash: string, spn?: Span): Promise<string> {
+  const res = await fetch(BEND_HUB + "/" + sub);
+  const src = res.ok ? await res.text() : "";
+  if (!res.ok || !(await sha256(src)).startsWith(hash)) {
+    throw Err(book, ctx_nil(), "a file at " + BEND_HUB + "/" + sub + " hashing to " + hash, undefined, spn);
+  }
+  return src;
+}
+
+async function sha256(text: string): Promise<string> {
+  return Buffer.from(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text))).toString("hex");
+}
 
 export async function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>, spn?: Span): Promise<number> {
   if (file.startsWith(BEND_STORE + "/") && !fs.existsSync(file)) {
-    const sub = file.slice(BEND_STORE.length + 1);
-    const res = await fetch(BEND_HUB + "/api/v1/files/" + sub);
-    if (!res.ok) {
-      throw Err(book, ctx_nil(), "a published package (" + BEND_HUB + " has no " + sub + ")", undefined, spn);
+    const pkg = file.slice(BEND_STORE.length + 1).split("/")[0];
+    const dir = BEND_STORE + "/" + pkg + "/";
+    const man = await hub_get(book, pkg + "/manifest", pkg.slice(2), spn);
+    for (const [h, p] of man.trim().split("\n").map((l) => l.split(" "))) {
+      fs.mkdirSync(path.dirname(dir + p), { recursive: true });
+      fs.writeFileSync(dir + p, await hub_get(book, pkg + "/" + p, h, spn));
     }
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, await res.text());
   }
   if (!fs.existsSync(file)) {
     throw Err(book, ctx_nil(), "no such file: " + file, undefined, spn);
@@ -3873,7 +3886,7 @@ export function book_valid(book: Book, done: number = 0): void {
       continue;
     }
     if (fin && tld.v === null && tld.b !== true && !tld.i) {
-      book.hols += 1;
+      book.open += 1;
     }
     seen.tlds[k] = dec;
     def_valid(seen, k, fin ? tld : dec);
