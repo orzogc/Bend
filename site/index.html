@@ -118,15 +118,15 @@ fold back into one. Here, a single call runs on 4,096 cores:</p>
 <section id="laws">
   <h2><span>3.</span>Bend blocks mistakes via <b>PROOF</b>.</h2>
   <p>How can you trust code you never read? By demanding a proof.
-Take a game with a single law: the player can never win. You
-write that law in LAWS.bend, and Bend makes the AI prove it:</p>
+In Bend, you state your laws in LAWS.bend, and the AI has to
+prove its code obeys them. Take a game where nobody can win:</p>
 <p class="f">LAWS.bend</p>
 <pre><code><span class="c"># LAW: no move sequence leads to victory.</span>
 <span class="k">law</span> <span class="v">winning_is_a_bug</span>:
   <span class="k">for</span> moves: List&lt;Move&gt;
   board = replay(start(), moves)
   is_won(board) == <span class="o">False</span></code></pre>
-  <p>Now you prompt a new feature: <i>"make the board wrap around"</i>.</p>
+  <p>Here it is in action:</p>
   <figure>
     <canvas id="game"></canvas>
     <figcaption><b>Vibe-coding</b> a new feature with <b>LAWS.bend</b></figcaption>
@@ -267,7 +267,7 @@ function play(cv, draw) {
 }
 
 // ---------------------------------------------------------------- the GPU
-// sum!(24n, 0) splits in two, in four, ... until one task sits on each of
+// sum!(16n, 0) splits in two, in four, ... until one task sits on each of
 // 64 x 64 cores; every core works its task; then the results fold back,
 // pairwise: the blue region contracts toward the top-left cell, halving
 // along one axis at a time, the cells it leaves going gray; then the view
@@ -305,7 +305,7 @@ function play(cv, draw) {
       if (la <= 0) continue;
       const hx = (c + 0.5)*w, hy = (r + 0.5)*h;
       const px = (Math.floor(c*pc/cols) + 0.5)*pw, py = (Math.floor(r*pr/rows) + 0.5)*ph;
-      label(ctx, "sum(" + (24 - k) + ")", lerp(px, hx, m) - w/2, lerp(py, hy, m) - h/2, w, h, la);
+      label(ctx, "sum(" + (16 - k) + ")", lerp(px, hx, m) - w/2, lerp(py, hy, m) - h/2, w, h, la);
     }
   }
   function draw(ctx, t, W) {
@@ -332,7 +332,7 @@ function play(cv, draw) {
       const s = Math.pow(N, ease((u - Z0)/ZLEN)), zs = cs*s, lim = Math.min(N, Math.ceil(N/s) + 1);
       for (let r = 0; r < lim; r++) for (let c = 0; c < lim; c++) if (c || r) cell(ctx, c*zs, r*zs, zs, zs, MIST);
       cell(ctx, 0, 0, zs, zs, DEEP);
-      label(ctx, "4286578688", 0, 0, zs, zs, ease((u - Z1 + 0.2)/0.5), BG);
+      label(ctx, "2147450880", 0, 0, zs, zs, ease((u - Z1 + 0.2)/0.5), BG);
     }
   }
   play(document.getElementById("cube"), draw);

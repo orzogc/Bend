@@ -38,8 +38,8 @@ compile its GPU kernels.
 
 ## Parallelism
 
-This sums the numbers from 0 to 2^24 - 1 by splitting the range in half,
-24 times. `Nat` is the unary natural (`0n`; `1n+p` is the successor of `p`)
+This sums the numbers from 0 to 2^16 - 1 by splitting the range in half,
+16 times. `Nat` is the unary natural (`0n`; `1n+p` is the successor of `p`)
 and `match` opens a value by its constructors:
 
 ```python
@@ -54,13 +54,13 @@ def sum(+d: Nat, +i: U32) -> U32:
       (a + b : U32)
 
 def main() -> IO(Unit):
-  IO.print(U32.show(sum(24n, 0)))
+  IO.print(U32.show(sum(16n, 0)))
 ```
 
 ```bash
 bend sum.bend -o sum
-./sum                  # 4286578688, on every core
-./sum --parallel off   # 4286578688, on one thread
+./sum                  # 2147450880, on every core
+./sum --parallel off   # 2147450880, on one thread
 ```
 
 `a b = sum(p, i * 2) sum(p, i * 2 + 1)` is the **parallel let**: n names,
@@ -106,7 +106,7 @@ with `--checkup` reports each module alone (as `bend module.bend` would)
 and the binary it builds runs one of them: `./main module`.
 
 **GPU.** Mark a call with `!` and the task tree under it runs on the GPU:
-`sum!(24n, 0)`. The mark means nothing to the checker, and a binary with no
+`sum!(16n, 0)`. The mark means nothing to the checker, and a binary with no
 device runs it on the CPU. Host and device share one address space, so
 nothing is copied; the CPU and the GPU never compute at the same time. What
 wins on a GPU is a balanced tree of uniform scalar leaves (mandelbrot,

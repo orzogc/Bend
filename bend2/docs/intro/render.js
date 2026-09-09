@@ -464,10 +464,13 @@ S.laws = (u, dur) => {
 };
 
 // ------------------------------------------------------------------ the cube
-// The GPU is a static 128 x 128 grid of cores: the cube. sum(24) splits in
+// The GPU is a static 128 x 128 grid of cores: the cube. sum(16) splits in
 // two, then four, ... until one task sits on every core; each core works
 // its task down to a number; then the numbers fold, pairwise, the live
-// region collapsing into the top-left corner until one cell holds the result.
+// region contracting into the top-left corner until one cell holds the
+// result, and the camera dives onto it. Every number is the program's own:
+// core n holds sum(2, n), the sum of the leaves 4n .. 4n+3, and the total
+// is the sum of 0 .. 65535.
 //
 // One camera serves all three beats. Grid coordinates put (0,0) at the
 // grid's top-left corner and CS is one cell; at scale 1 with the camera on
@@ -516,22 +519,29 @@ function cellBox(x, y, w, h, fill, a) {
 // Numbers wear the film's own blue: a sum starts in the sky blue of the
 // task grid and deepens as it grows, one even climb, until the total wears
 // the very blue of Bend's bars. Ink is navy on the light tiles and white on
-// the deep ones.
+// the deep ones. A tile's rung is fractional: 0..2 while a core works,
+// 2..6 over the fold levels.
 const mix = (h1, h2, f) => "#" + rgb(h1).map((c, k) => Math.round(lerp(c, rgb(h2)[k], f)).toString(16).padStart(2, "0")).join("");
 const TILES = [SKY, "#c3d7ef", "#a6c3e6", "#86acdb", "#6693cd", "#3f73b3", BLUE];
-// a value's rung on the tiles, fractional: 0..2 while the leaf counts up,
-// 2..6 over the fold levels (log2 of value / leaf)
-const rung = v => v <= LEAF ? 2*v/LEAF : 2 + 4*clamp(Math.log2(v/LEAF), 0, LEVELS)/LEVELS;
-function heat(v) {
-  const t = rung(v), i = Math.min(Math.floor(t), TILES.length - 2);
+function rungTile(t) {
+  const i = Math.min(Math.floor(t), TILES.length - 2);
   return mix(TILES[i], TILES[i + 1], t - i);
 }
-const ink = v => rung(v) < 3.5 ? "#1f2f45" : "#f4f8fc";
+const inkAt = t => t < 3.5 ? "#1f2f45" : "#f4f8fc";
 function cellText(s, x, y, w, h, a, color) {
   const fs = fitText(w, h);
   if (fs < 5 || a <= 0) return;
   cx.globalAlpha = a;
   T(s, x + w/2, y + h/2 + fs*0.36, fs, color || BLUE, "center", true);
+  cx.globalAlpha = 1;
+}
+// one or two lines in a cell, from a thunk (so a cell too small for text
+// costs nothing); a wide line shrinks to fit the cell
+function cellLines(ls, x, y, w, h, a, color) {
+  if (fitText(w, h) < 5 || a <= 0) return;
+  const l = ls(), fs = Math.min(fitText(w, h), 0.92*w/(0.62*Math.max(...l.map(s => s.length))));
+  cx.globalAlpha = a;
+  l.forEach((s, i) => T(s, x + w/2, y + h/2 + fs*0.36 + (i - (l.length - 1)/2)*fs*1.25, fs, color, "center", true));
   cx.globalAlpha = 1;
 }
 // a label to the right of a picture, its arrow leaving from under the
@@ -552,7 +562,7 @@ const boxA = k => clamp((k - 2)/9, 0, 1);
 const splitDur = k => 0.9*Math.pow(0.8, k);
 const D0 = 0.5, DALL = (() => { let t = D0; for (let k = 0; k < LEVELS; k++) t += splitDur(k); return t; })();
 const cutDur = d => Math.min(0.6, d*0.7);
-const lab = k => "sum(" + (24 - k) + ")";
+const lab = k => "sum(" + (16 - k) + ")";
 function slotBoxes(k, a) {
   if (a <= 0) return;
   const [cols, rows] = dims(k), w = GS/cols, h = GS/rows;
@@ -588,15 +598,16 @@ S.dist = (u, dur) => {
   gridTag(cols*rows, 1, ease((u - DALL - 0.2)/0.4));
 };
 
-// Step 2. Every core works its sum(10,0) down one call at a time while the
-// camera, after a moment on the whole grid, dives toward one core: the
-// dive is quick at first, so the text turns readable early, hundreds of
-// cores mid-work, then slows onto one core, which finishes its sum alone
-// on the screen.
-const EVAL = ["sum(10,0)", "sum(9,10)", "sum(8,19)", "sum(7,27)", "sum(6,34)", "sum(5,40)",
-              "sum(4,45)", "sum(3,49)", "sum(2,52)", "sum(1,54)", "sum(0,55)", "55"];
-const EVALV = [0, 10, 19, 27, 34, 40, 45, 49, 52, 54, 55, 55];
-const ESTEP = 0.5, E0 = 0.5, ED = 0.4, DIVE = 3.5, EDONE = E0 + (EVAL.length - 1)*ESTEP;
+// Step 2. Every core works its task, sum(2, n) for core n, one step at a
+// time: two calls, four leaves, two sums, one sum. Meanwhile the camera,
+// after a moment on the whole grid, dives toward one core: the dive is
+// quick at first, so the text turns readable early, hundreds of cores
+// mid-work, then slows onto one core, which finishes its sum alone on the
+// screen.
+const trace = n => [["sum(2," + n + ")"], ["sum(1," + 2*n + ")", "sum(1," + (2*n + 1) + ")"],
+                    [4*n + "+" + (4*n + 1), (4*n + 2) + "+" + (4*n + 3)],
+                    [String(8*n + 1), String(8*n + 5)], [String(16*n + 6)]];
+const STEPS = 5, ESTEP = 0.8, E0 = 0.5, ED = 0.4, DIVE = 3.5, EDONE = E0 + (STEPS - 1)*ESTEP;
 const phase = (c, r) => c === MID && r === MID ? 0 : rnd(c*7919 + r*104729)*0.9;
 S.eval = (u, dur) => {
   const p = clamp((u - ED)/DIVE, 0, 1), z = 1 - (1 - p)*(1 - p), camr = camLerp(CAM0, CAME, z);
@@ -606,9 +617,9 @@ S.eval = (u, dur) => {
     if (offscreen(x, y, w, h)) continue;
     const a = c === MID && r === MID ? 1 : others;
     if (a <= 0) continue;
-    const j = clamp(Math.floor((u - E0 - phase(c, r))/ESTEP), 0, EVAL.length - 1);
-    cellBox(x, y, w, h, j ? heat(EVALV[j]) : SKY, a);
-    cellText(EVAL[j], x, y, w, h, a, j ? ink(EVALV[j]) : BLUE);
+    const j = clamp(Math.floor((u - E0 - phase(c, r))/ESTEP), 0, STEPS - 1), t = 2*j/(STEPS - 1);
+    cellBox(x, y, w, h, j ? rungTile(t) : SKY, a);
+    cellLines(() => trace(r*N + c)[j], x, y, w, h, a, j ? inkAt(t) : BLUE);
   }
   // the caption and the pointer stay as the dive begins, and fade with it
   const g = 1 - ease((u - ED)/0.4);
@@ -621,60 +632,46 @@ S.eval = (u, dur) => {
 };
 
 // Step 3. The camera pulls back to the whole cube, every core holding its
-// 55. Then the numbers fold, pairwise, the way Bend's runtime joins
-// results: every second live cell slides onto its neighbour, a tile riding
-// over it, and dissolves into it, the neighbour now holding the sum; then
-// the survivors close ranks, so the live region halves, in width and in
-// height by turns, collapsing into the top-left corner, the camera
-// following the ranks in. A cell is always one unit square: nothing here
-// scales a cell, ever. A fold takes FOLD: the ride is its first MERGE,
-// the closing of ranks the rest. The zoom is steady, root two per fold,
-// and the centre rides the diagonal at the same pace, so the grid's
-// corner stays put on screen and the ranks contract into it: no panning.
-// S0 is sized so the tall phases (a region whose height is still to fold)
-// never clip, and the final cell lands where the whole grid started.
-const ZO = 1.2, R0 = 1.5, LEAF = 55, MERGE = 0.6, FOLD = 0.45;
-const RDONE = R0 + LEVELS*FOLD, S0 = 0.56;
-const region = j => [N >> Math.ceil(j/2), N >> Math.floor(j/2)];
-const camAt = f => cam(GCEN*Math.pow(2, -f/2), GCEN*Math.pow(2, -f/2), S0*Math.pow(2, f/2));
+// number. Then the numbers fold, pairwise, the way Bend's runtime joins
+// results: at each fold every live cell moves to half its coordinate along
+// one axis (rows when the level is even, columns when odd: the splits,
+// undone in order), so the live region contracts into the top-left corner,
+// each pair landing on one cell, the cells they leave going gray, the tile
+// deepening fold by fold, the camera still. A cell is always one unit
+// square: nothing here scales a cell, ever. When one cell is left the
+// camera dives onto it, and it shows the total.
+const ZO = 1.2, R0 = 1.5, FOLD = 0.45, RDONE = R0 + LEVELS*FOLD;
+const Z0 = RDONE + 0.5, ZLEN = 1.6, Z1 = Z0 + ZLEN, TOTAL_SUM = "2147450880";
+const CAMZ = cam(0.5*CS, 0.5*CS, ZOOM);                  // the corner cell, filling the screen
 S.reduce = (u, dur) => {
-  const f = clamp((u - R0)/FOLD, 0, LEVELS), j = Math.floor(f), p = f - j;
-  const folding = u >= R0 && j < LEVELS;
-  const m1 = ease(p/MERGE), m2 = ease((p - MERGE)/(1 - MERGE)), landed = folding && p >= MERGE;
-  const camr = u < R0 ? camLerp(CAME, camAt(0), ease(u/ZO)) : camAt(f);
-  const [w, h] = region(j), vert = j % 2 === 0;          // even steps fold the width
-  const v1 = LEAF*Math.pow(2, j), v2 = 2*v1;
-  // the other cores return as the camera pulls back, and leave once the
-  // total is in: the last frame is one cell alone
-  const others = u < R0 ? clamp(u/0.6, 0, 1) : j < LEVELS ? 1 : 1 - ease((u - RDONE - 0.4)/0.6);
-  const alpha = (c, r) => u < R0 && !(c === MID && r === MID) ? others : j >= LEVELS && !(c === 0 && r === 0) ? others : 1;
-  // the empty cells; under a fold the live slots too, as their cells leave
+  const f = clamp((u - R0)/FOLD, 0, LEVELS), j = Math.floor(f), m = ease(f - j), folding = u >= R0 && j < LEVELS;
+  const k = LEVELS - j, [w, h] = dims(k), vert = k % 2 === 1, fill = rungTile(2 + 4*f/LEVELS);
+  const camr = u < R0 ? camLerp(CAME, CAM0, ease(u/ZO)) : u < Z0 ? CAM0 : camLerp(CAM0, CAMZ, ease((u - Z0)/ZLEN));
+  // the other cores return as the camera pulls back
+  const others = u < R0 ? clamp(u/0.6, 0, 1) : 1;
+  const alpha = (c, r) => u < R0 && !(c === MID && r === MID) ? others : 1;
+  // the gray: every slot, under the live cells
   for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) {
-    if (c < w && r < h && !folding) continue;
     const [x, y, cw, ch] = blockRect(camr, c, r, 1, 1);
     if (offscreen(x, y, cw, ch)) continue;
     const a = alpha(c, r);
     if (a > 0) cellBox(x, y, cw, ch, MIST, a);
   }
-  // the live cells: at rest, a rider on its way onto its even neighbour
-  // (drawn after it, with a white rim, so it reads as a tile on top, and
-  // fading as it arrives), or a survivor closing ranks
+  // the live cells, each on its way to half its coordinate
   for (let r = 0; r < h; r++) for (let c = 0; c < w; c++) {
-    const odd = (vert ? c : r) % 2 === 1;
-    if (odd && landed) continue;
-    let gc = c, gr = r;
-    if (folding && odd) { if (vert) gc -= m1; else gr -= m1; }
-    else if (folding) { if (vert) gc = lerp(c, c/2, m2); else gr = lerp(r, r/2, m2); }
+    const gc = folding && vert ? lerp(c, c/2, m) : c, gr = folding && !vert ? lerp(r, r/2, m) : r;
     const [x, y, cw, ch] = blockRect(camr, gc, gr, 1, 1);
     if (offscreen(x, y, cw, ch)) continue;
-    const a = alpha(c, r)*(folding && odd ? 1 - ease((m1 - 0.6)/0.4) : 1);
+    const a = alpha(c, r);
     if (a <= 0) continue;
-    if (folding && odd) { cx.globalAlpha = a; cx.fillStyle = BG; cx.fillRect(x, y, cw, ch); cx.globalAlpha = 1; }
-    const v = landed && !odd ? v2 : v1;
-    cellBox(x, y, cw, ch, heat(v), a);
-    cellText(num(v), x, y, cw, ch, a, ink(v));
+    cellBox(x, y, cw, ch, fill, a);
+    if (u < R0) cellLines(() => trace(r*N + c)[STEPS - 1], x, y, cw, ch, a, inkAt(2));
   }
-  cx.globalAlpha = ease((u - RDONE - 0.8)/0.4);
+  if (u >= Z0) {
+    const [x, y, cw, ch] = blockRect(camr, 0, 0, 1, 1);
+    cellLines(() => [TOTAL_SUM], x, y, cw, ch, ease((u - Z1 + 0.3)/0.5), inkAt(6));
+  }
+  cx.globalAlpha = ease((u - Z1 - 0.2)/0.4);
   T("Final result!", W/2, 600, 24, GREEN, "center", true);
   cx.globalAlpha = 1;
 };
@@ -742,7 +739,7 @@ S.end = (u, dur) => {
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
 const FIXED = { check: 11.2, bench: 10.2, par: 13.8, dist: DALL + 1.5, eval: EDONE + 1.9,
-                reduce: RDONE + 3.2, laws: 17.8, intro: 8.0, walk: 6.3, block: 5.8, end: 7.1 };
+                reduce: Z1 + 2.6, laws: 17.8, intro: 8.0, walk: 6.3, block: 5.8, end: 7.1 };
 for (const b of BEATS) {
   if (b[0] === "say") {
     const ls = b.slice(1).filter(s => !TAG.has(s));

@@ -109,7 +109,7 @@ def sum(+d: Nat, +i: U32) -> U32:
 
 # Runs sum on the GPU, via `!`.
 def main() -> IO(Unit):
-  result = sum!(24n, 0)
+  result = sum!(16n, 0)
   IO.print(U32.show(result))
 ```
 
