@@ -38,32 +38,32 @@ compile its GPU kernels.
 
 ## Parallelism
 
-This sums the numbers from 0 to 2^24 - 1 by splitting the range in half,
-24 times. `Nat` is the unary natural (`0n`; `1n+p` is the successor of `p`)
+This computes 2^20 as a tree of 20 levels with a 1 at every leaf, adding
+the halves. `Nat` is the unary natural (`0n`; `1n+p` is the successor of `p`)
 and `match` opens a value by its constructors:
 
 ```python
 import Base
 
-def sum(+d: Nat, +i: U32) -> U32:
+def pow2(+d: Nat) -> U32:
   match d:
     case 0n:
-      i
+      1
     case 1n+p:
-      a b = sum(p, (i * 2 : U32)) sum(p, (i * 2 + 1 : U32))
+      a b = pow2(p) pow2(p)
       (a + b : U32)
 
 def main() -> IO(Unit):
-  IO.print(U32.show(sum(24n, 0)))
+  IO.print(U32.show(pow2(20n)))
 ```
 
 ```bash
-bend sum.bend -o sum
-./sum                  # 4286578688, on every core
-./sum --parallel off   # 4286578688, on one thread
+bend pow2.bend -o pow2
+./pow2                  # 1048576, on every core
+./pow2 --parallel off   # 1048576, on one thread
 ```
 
-`a b = sum(p, i * 2) sum(p, i * 2 + 1)` is the **parallel let**: n names,
+`a b = pow2(p) pow2(p)` is the **parallel let**: n names,
 n calls, one per name, on one line. It is Bend's only parallelism
 primitive. To the checker it is n ordinary lets, each checked in the outer
 scope, so no sibling sees another. To the compiler it is a fork: each call
@@ -72,8 +72,8 @@ recursive def that forks builds a tree of tasks, which is how one line fans
 out to thousands of cores.
 
 Two rules make this safe with no locks. Values are **affine**: a variable is
-consumed once, so siblings own their arguments and share nothing (`+d` and
-`+i` license reuse, and only because `Nat` and `U32` are `Data`; see
+consumed once, so siblings own their arguments and share nothing (`+d` licenses
+reuse, and only because `Nat` is `Data`; see
 [Quantities](#quantities)). And Bend is pure, so a fork has no order to
 keep. What the runtime asks of you is balance: siblings should carry about
 equal work, because tasks are dealt out once and never stolen. An
@@ -96,11 +96,11 @@ A binary takes `--threads N` (default: the CPU count, at most 128),
 if a device is found), `--gpu-memory 4GB` (the device span: 2GB on Metal,
 the whole card on CUDA). It exits 0, or with its `IO.die` code.
 
-To hold the source yourself, `bend sum.bend -o sum.c` emits the C file
-(`clang -std=c11 -O3 sum.c -lpthread -lm -o sum` builds it CPU-only), and
-`-o sum.js` emits plain JavaScript: the same program, sequential, host
-GC. `bend sum.bend` runs that JS in memory, so it is also the interpreter.
-`-o` repeats: `bend sum.bend -o sum -o sum.js` builds both. A `main` that
+To hold the source yourself, `bend pow2.bend -o pow2.c` emits the C file
+(`clang -std=c11 -O3 pow2.c -lpthread -lm -o pow2` builds it CPU-only), and
+`-o pow2.js` emits plain JavaScript: the same program, sequential, host
+GC. `bend pow2.bend` runs that JS in memory, so it is also the interpreter.
+`-o` repeats: `bend pow2.bend -o pow2 -o pow2.js` builds both. A `main` that
 is not `IO` prints its value on every backend; a file of imports checked
 with `--checkup` reports each module alone (as `bend module.bend` would)
 and the binary it builds runs one of them: `./main module`. A module the
@@ -108,7 +108,7 @@ combined book refuses (a name its file binds and Base's sugar also names)
 is reported as `Left out of the binary:` and stays out.
 
 **GPU.** Mark a call with `!` and the task tree under it runs on the GPU:
-`sum!(24n, 0)`. The mark means nothing to the checker, and a binary with no
+`pow2!(20n)`. The mark means nothing to the checker, and a binary with no
 device runs it on the CPU. The device compiles only the code a `!` can
 reach (and every closure), so its shader stays small however large the
 program. Host and device share one address space, so nothing is copied;
