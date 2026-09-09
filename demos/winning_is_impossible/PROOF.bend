@@ -4,14 +4,16 @@
 # Laws) and fills every assert the laws make -- an unfilled assert is an
 # error, so `bend PROOF.bend` is the whole verification. Everything here
 # is AI-written scaffolding for two defs: Laws.you_cant_win and
-# Laws.on_flag_wins.
+# Laws.never_on_flag.
 #
 # The shape of the argument: an invariant ("the player stands on a safe
 # cell: on the map, not in the room, not on a wall") holds at the start
 # and survives every action. The finite geometry is computed, not
 # argued: chk_all enumerates the whole map and evaluates to True, and
-# the *_at lemmas index that certificate at open coordinates. A grab off
-# the flag never sets `won`, and the flag's cell is in the room.
+# the *_at lemmas index that certificate at open coordinates. A step off
+# the flag never sets `won` (the flag's cell is in the room), and a
+# second certificate, fchk_all, walks the board the page draws and finds
+# no flag on any safe cell.
 
 import Base
 import ./main.bend as Game
@@ -288,6 +290,106 @@ def no_flag(+x: Nat, +y: Nat, +hp: T(okpos(x, y)),
                 %sym(Nat, y, 1n, eq_sound(y, 1n, wey)) : T(Game.nat_le(1n, 2n) && Game.nat_le(_, 2n))
                 Unit{}))))
 
+# The board the page draws, certified: fchk_all(s, 11n) checks every
+# cell of the map, and finds no flag drawn on a safe one. The board is
+# passed in, so it is computed once for the whole walk.
+
+def fchk(+s: String, +x: Nat, +y: Nat) -> Bool:
+  imp(okpos(x, y), Bool.not(Laws.flag_at(y, x, s)))
+
+def fchk_row(+s: String, +x: Nat, y: Nat) -> Bool:
+  match y:
+    case 0n:
+      fchk(s, x, 0n)
+    case 1n+q0:
+      +q = q0
+      fchk(s, x, 1n+q) && fchk_row(s, x, q)
+
+def fchk_all(+s: String, x: Nat) -> Bool:
+  match x:
+    case 0n:
+      fchk_row(s, 0n, 7n)
+    case 1n+p0:
+      +p = p0
+      fchk_row(s, 1n+p, 7n) && fchk_all(s, p)
+
+def fchk_row_at(+s: String, +x: Nat, y: Nat, j: Nat, wr: T(fchk_row(s, x, y)),
+  wj: T(Game.nat_le(j, y))) -> T(fchk(s, x, j)):
+  match y:
+    case 0n:
+      match j:
+        case 0n:
+          wr
+        case 1n+jp:
+          Empty.absurd(T(fchk(s, x, 1n+jp)), wj)
+    case 1n+q0:
+      match j:
+        case 0n:
+          +q = q0
+          and_split(fchk(s, x, 1n+q), fchk_row(s, x, q), wr, T(fchk(s, x, 0n)),
+            wp => wt => fchk_row_at(s, x, q, 0n, wt, Unit{}))
+        case 1n+jp0:
+          +q = q0
+          +jp = jp0
+          and_split(fchk(s, x, 1n+q), fchk_row(s, x, q), wr, T(fchk(s, x, 1n+jp)),
+            wp => wt =>
+              or_case(T(Game.nat_le(1n+jp, q)), {jp == q : Nat},
+                le_split(jp, q, wj), T(fchk(s, x, 1n+jp)),
+                l => fchk_row_at(s, x, q, 1n+jp, wt, l),
+                e => %sym(Nat, jp, q, e) : T(fchk(s, x, 1n+_))
+                     wp))
+
+def fchk_all_at(+s: String, x: Nat, i: Nat, wa: T(fchk_all(s, x)),
+  wi: T(Game.nat_le(i, x))) -> T(fchk_row(s, i, 7n)):
+  match x:
+    case 0n:
+      match i:
+        case 0n:
+          wa
+        case 1n+ip:
+          Empty.absurd(T(fchk_row(s, 1n+ip, 7n)), wi)
+    case 1n+p0:
+      match i:
+        case 0n:
+          +p = p0
+          and_split(fchk_row(s, 1n+p, 7n), fchk_all(s, p), wa,
+            T(fchk_row(s, 0n, 7n)),
+            wp => wt => fchk_all_at(s, p, 0n, wt, Unit{}))
+        case 1n+ip0:
+          +p = p0
+          +ip = ip0
+          and_split(fchk_row(s, 1n+p, 7n), fchk_all(s, p), wa,
+            T(fchk_row(s, 1n+ip, 7n)),
+            wp => wt =>
+              or_case(T(Game.nat_le(1n+ip, p)), {ip == p : Nat},
+                le_split(ip, p, wi), T(fchk_row(s, 1n+ip, 7n)),
+                l => fchk_all_at(s, p, 1n+ip, wt, l),
+                e => %sym(Nat, ip, p, e) : T(fchk_row(s, 1n+_, 7n))
+                     wp))
+
+def fcert(+s: String, +x: Nat, +y: Nat, ca: T(fchk_all(s, 11n)),
+  lx: T(Game.nat_le(x, 11n)), ly: T(Game.nat_le(y, 7n))) -> T(fchk(s, x, y)):
+  fchk_row_at(s, x, 7n, y, fchk_all_at(s, 11n, x, ca, lx), ly)
+
+# on a safe cell the page draws no flag: the certificate says so
+def off_F(+x: Nat, +y: Nat, +hp: T(okpos(x, y)))
+  -> {False{} == Laws.flag_at(y, x, Laws.drawn()) : Bool}:
+  and_split(Game.nat_le(x, 11n) && Game.nat_le(y, 7n),
+    Bool.not(room(x, y)) && Bool.not(Game.wall(x, y)), hp,
+    {False{} == Laws.flag_at(y, x, Laws.drawn()) : Bool},
+    wb => wnr =>
+      and_split(Game.nat_le(x, 11n), Game.nat_le(y, 7n), wb,
+        {False{} == Laws.flag_at(y, x, Laws.drawn()) : Bool},
+        lx => ly =>
+          bool_case(Laws.flag_at(y, x, Laws.drawn()), z => {False{} == z : Bool},
+            et => Empty.absurd({False{} == True{} : Bool},
+              not_elim(Laws.flag_at(y, x, Laws.drawn()),
+                imp_elim(okpos(x, y), Bool.not(Laws.flag_at(y, x, Laws.drawn())),
+                  fcert(Laws.drawn(), x, y, Unit{}, lx, ly), hp),
+                %et : T(_)
+                Unit{})),
+            ef => {==})))
+
 # on a safe cell the flag test computes to False
 def off_flag(+x: Nat, +y: Nat, +hp: T(okpos(x, y)))
   -> {False{} == Game.on_flag(x, y) : Bool}:
@@ -402,7 +504,7 @@ def use_safe(-t: List<Game.Move>, -x: Nat, -y: Nat,
 # The laws, filled. The start cell is safe (checked by computation), and
 # run_safe carries that through any list of moves: the final board is
 # some Game{nx, ny, False{}} with (nx, ny) safe. Unwon, so the first law;
-# off the flag (a safe cell is), so the second.
+# no flag drawn there (the certificate), so the second.
 def Laws.you_cant_win(moves):
   use_safe(moves, Game.start_x(), Game.start_y(),
     run_safe(moves, Game.start_x(), Game.start_y(), Unit{}),
@@ -412,12 +514,12 @@ def Laws.you_cant_win(moves):
         Game.Game{nx, ny, False{}}, eq) : {Game.is_won(_) == False{} : Bool}
       {==})
 
-def Laws.on_flag_wins(moves):
+def Laws.never_on_flag(moves):
   use_safe(moves, Game.start_x(), Game.start_y(),
     run_safe(moves, Game.start_x(), Game.start_y(), Unit{}),
-    {Laws.looks_won(Game.replay(Game.start(), moves)) == False{} : Bool},
+    {Laws.at_flag(Game.replay(Game.start(), moves)) == False{} : Bool},
     nx => ny => hq => eq =>
       %sym(Game.Game, Game.run(moves, Game.Game{Game.start_x(), Game.start_y(), False{}}),
-        Game.Game{nx, ny, False{}}, eq) : {Laws.looks_won(_) == False{} : Bool}
-      %off_flag(nx, ny, hq) : {Bool.and(_, Bool.not(False{})) == False{} : Bool}
+        Game.Game{nx, ny, False{}}, eq) : {Laws.at_flag(_) == False{} : Bool}
+      %off_F(nx, ny, hq) : {_ == False{} : Bool}
       {==})
