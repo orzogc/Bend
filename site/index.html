@@ -7,13 +7,13 @@
 <meta name="description" content="Bend: a fast language that prevents AI mistakes via proofs.">
 <style>
 :root{
-  --bg:#fdf6e3;--bg2:#eee8d5;--b1:#93a1a1;--b0:#839496;--b00:#657b83;--b01:#586e75;--b02:#073642;
-  --yel:#b58900;--ora:#cb4b16;--red:#dc322f;--vio:#6c71c4;--blu:#268bd2;--cyn:#2aa198;--grn:#859900;
+  --bg:#f2eee7;--bg2:#faf8f4;--line:#e4dfd5;--b1:#a9a59d;--b0:#87847d;--b00:#87847d;--b01:#69665f;--b02:#4d4a44;
+  --yel:#b7924b;--ora:#c4845c;--red:#c46a60;--vio:#8b83b5;--blu:#5f86ad;--bar:#86a6c7;--cyn:#5f9c95;--grn:#7e9a5e;
 }
 *{box-sizing:border-box}
 html{background:var(--bg);color:var(--b01);font:15px/1.6 ui-monospace,Menlo,"SF Mono",Consolas,"Liberation Mono",monospace;font-size:clamp(10px,2.55vw,15px);-webkit-text-size-adjust:100%}
 body{margin:0 auto;max-width:64ch;padding:0 2ch 5em}
-a{color:var(--blu);text-decoration:none;border-bottom:1px solid #c8dced}
+a{color:var(--blu);text-decoration:none;border-bottom:1px solid #cfd9e3}
 a:hover{border-bottom-color:var(--blu)}
 b{color:var(--b02);font-weight:600}
 p{margin:1em 0;white-space:pre-line}
@@ -33,17 +33,17 @@ header nav a:hover{color:var(--blu)}
 @keyframes blink{50%{opacity:0}}
 #hero .sub{margin:1.2em 0 0;color:var(--b00)}
 
-section{margin:3em 0 0;padding-top:1.4em;border-top:1px solid var(--bg2)}
+section{margin:3em 0 0;padding-top:1.4em;border-top:1px solid var(--line)}
 h2{font-size:1.13em;margin:0 0 .9em;color:var(--b02);font-weight:600}
 h2 span{color:var(--b1);font-weight:400;margin-right:1ch}
 h3{font-size:1em;margin:1.6em 0 .4em;color:var(--b02);font-weight:600}
 h3 span{color:var(--b1);font-weight:400;margin-right:1ch}
 .note{color:var(--b1);font-size:.87em}
-.note a{color:var(--b0);border-bottom-color:var(--bg2)}
+.note a{color:var(--b0);border-bottom-color:var(--line)}
 
-pre{margin:1em 0;padding:.8em 1ch;background:var(--bg2);border-radius:3px;overflow-x:auto;line-height:1.5;color:var(--b01);tab-size:2}
+pre{margin:1em 0;padding:.8em 1ch;background:var(--bg2);border:1px solid var(--line);border-radius:3px;overflow-x:auto;line-height:1.5;color:var(--b01);tab-size:2}
 pre code{color:inherit}
-.k{color:var(--grn)}.t{color:var(--yel)}.s{color:var(--cyn)}.c{color:var(--b1)}.n{color:var(--vio)}
+.k{color:var(--grn)}.t{color:var(--yel)}.s{color:var(--cyn)}.c{color:var(--b1)}.n{color:var(--vio)}.v{color:var(--vio)}.o{color:var(--ora)}
 .f{color:var(--b1);font-size:.8em;margin:0 0 -.7em;padding:0 .2ch}
 
 figure{margin:1.4em 0}
@@ -51,9 +51,9 @@ figcaption{text-align:center;color:var(--b1);font-size:.87em;margin-top:.7em}
 .ct{text-align:center;color:var(--b02);font-weight:600;margin:0}
 .bars{display:flex;align-items:flex-end;gap:10px;max-width:520px;margin:0 auto;padding-top:2.4em}
 .bar{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;font-size:.8em;color:var(--b01)}
-.bar i{display:block;width:100%;height:calc(var(--h)*150px);min-height:2px;background:#c9cfcc;transform:scaleY(0);transform-origin:bottom;transition:transform .5s ease-out calc(var(--i)*.12s)}
-.bar.bend i{background:var(--blu)}
-.bar.over i{height:150px;background:repeating-linear-gradient(-45deg,#e2dbc4 0 4px,var(--bg2) 4px 9px)}
+.bar i{display:block;width:100%;height:calc(var(--h)*150px);min-height:2px;background:#cdc7bc;transform:scaleY(0);transform-origin:bottom;transition:transform .5s ease-out calc(var(--i)*.12s)}
+.bar.bend i{background:var(--bar)}
+.bar.over i{height:150px;background:repeating-linear-gradient(-45deg,#e2dcd1 0 4px,#efebe4 4px 9px)}
 .bar b{margin-bottom:5px;text-align:center;line-height:1.25;opacity:0;transition:opacity .4s calc(var(--i)*.12s + .3s)}
 .bar b em{display:block;color:var(--yel);font-style:normal}
 .bar span{margin-top:6px;white-space:nowrap;text-align:center;line-height:1.3;height:2.6em;color:var(--b00)}
@@ -68,7 +68,7 @@ canvas{display:block;width:100%}
 #game{aspect-ratio:12/8}
 #cube{aspect-ratio:1;max-width:384px;margin:0 auto}
 
-#sl{position:fixed;left:0;right:0;bottom:0;display:flex;gap:2ch;padding:0 1.5ch;background:var(--bg2);color:var(--b00);font-size:.8em;line-height:2;border-top:1px solid #e4dec9}
+#sl{position:fixed;left:0;right:0;bottom:0;display:flex;gap:2ch;padding:0 1.5ch;background:#fcfbf9;color:var(--b00);font-size:.8em;line-height:2;border-top:1px solid var(--line)}
 #sl b{background:var(--blu);color:#fff;font-weight:600;padding:0 1ch;margin-left:-1.5ch}
 #sl .r{margin-left:auto}
 </style>
@@ -125,10 +125,10 @@ Take a game with a single law: the player can never win. You
 write that law in LAWS.bend, and Bend makes the AI prove it:</p>
 <p class="f">LAWS.bend</p>
 <pre><code><span class="c"># LAW: no sequence of moves can ever lead to victory.</span>
-<span class="k">law</span> winning_is_a_bug:
-  <span class="k">for</span> moves: <span class="t">List</span>&lt;Game.Move&gt;
-  board = Game.replay(Game.start(), moves)
-  {Game.is_won(board) == False{} : <span class="t">Bool</span>}</code></pre>
+<span class="k">law</span> <span class="v">winning_is_a_bug</span>:
+  <span class="k">for</span> moves: List&lt;Move&gt;
+  board = replay(start(), moves)
+  is_won(board) == <span class="o">False</span></code></pre>
   <p>Now you prompt a new feature: <i>"make the board wrap around"</i>.</p>
   <figure>
     <canvas id="game"></canvas>
@@ -150,7 +150,7 @@ for every possible sequence of moves. Not a test: a theorem.</p>
 git clone https://github.com/HigherOrderCO/bend4
 cd bend4
 ln -s <span class="s">"$PWD/bend2/main.ts"</span> ~/.bun/bin/bend</code></pre>
-  <h3><span>4.2.</span>Save hello.bend</h3>
+  <h3><span>4.2.</span>Write hello.bend</h3>
 <pre><code><span class="k">import</span> Base
 
 <span class="k">def</span> main() -> <span class="t">IO</span>(<span class="t">Unit</span>):
@@ -284,8 +284,8 @@ function play(cv, draw) {
   const E0 = DALL + HOLD1, ELEN = 1.0, ESPREAD = 1.3, R0 = E0 + ELEN + ESPREAD + 0.8;
   const FOLD = 0.5, RDONE = R0 + LEVELS*FOLD;
   const Z0 = RDONE + 0.6, ZLEN = 1.4, Z1 = Z0 + ZLEN, TOTAL = Z1 + 2.6;
-  const SKY = "#dce8f1", DEEP = "#268bd2", MIST = "#ebe5d2", BG = "#fdf6e3";
-  const HEAT = []; for (let i = 0; i <= 16; i++) HEAT.push(mix(SKY, "#a9cbe8", i/16));
+  const SKY = "#dfe4ea", DEEP = "#5f86ad", MIST = "#e6e1d8", BG = "#f2eee7";
+  const HEAT = []; for (let i = 0; i <= 16; i++) HEAT.push(mix(SKY, "#a9bfd6", i/16));
   const dims = k => [1 << Math.ceil(k/2), 1 << Math.floor(k/2)];
   const phase = (c, r) => rnd(c*7919 + r*104729)*ESPREAD;
 
@@ -298,7 +298,7 @@ function play(cv, draw) {
   function label(ctx, s, x, y, w, h, a, ink) {
     const fs = Math.min(Math.min(w, h)*0.17, 40);
     if (fs < 6 || a <= 0) return;
-    ctx.globalAlpha = a; ctx.fillStyle = ink || "#1f4e79"; ctx.font = "600 " + fs + "px " + MONO;
+    ctx.globalAlpha = a; ctx.fillStyle = ink || "#3f5f80"; ctx.font = "600 " + fs + "px " + MONO;
     ctx.textAlign = "center"; ctx.fillText(s, x + w/2, y + h/2 + fs*0.36); ctx.globalAlpha = 1;
   }
   const boxA = k => clamp((k - 2)/9, 0, 1);
@@ -329,7 +329,7 @@ function play(cv, draw) {
       }
     } else if (u < Z0) {                                            // fold
       const f = clamp((u - R0)/FOLD, 0, LEVELS), j = Math.floor(f), m = ease(f - j);
-      const k = LEVELS - j, [w, h] = dims(k), vert = k % 2 === 1, fill = mix("#a9cbe8", DEEP, f/LEVELS);
+      const k = LEVELS - j, [w, h] = dims(k), vert = k % 2 === 1, fill = mix("#a9bfd6", DEEP, f/LEVELS);
       for (let r = 0; r < N; r++) for (let c = 0; c < N; c++) cell(ctx, c*cs, r*cs, cs, cs, MIST);
       for (let r = 0; r < h; r++) for (let c = 0; c < w; c++)
         cell(ctx, (vert ? lerp(c, c/2, m) : c)*cs, (vert ? r : lerp(r, r/2, m))*cs, cs, cs, fill);
@@ -376,18 +376,18 @@ function play(cv, draw) {
   const ACTS = [
     { far: false, route: up(8, 5, 1).concat([[7, 1], [6, 1], [5, 1], [4, 1]]), bump: [-1, "3,1"] },
     { far: false, route: up(8, 5, 1).concat([[9, 1], [10, 1], [11, 1], [12, 1], [-1, 1], [0, 1], [1, 1]]), win: true,
-      pop: ["YOU WON !?", "#fbe7e3", "#e9a39c", "#dc322f"] },
+      pop: ["YOU WON !?", "#f8e7e3", "#e0a8a0", "#c46a60"] },
     { far: true, route: up(8, 5, 1).concat([[9, 1], [10, 1]]), bump: [1, "11,1"] },
   ];
   for (const a of ACTS) {
     a.walk = routeDur(a.route); a.tail = a.bump ? BUMP*BUMPS : 0.3; a.dur = LEAD + a.walk + a.tail + HOLD;
     a.walls = wallsOf(a.far);
   }
-  const say = (text, ink) => ({ text, ink: ink || "#073642", dur: 0.45*text.split(" ").length + 1.4 });
+  const say = (text, ink) => ({ text, ink: ink || "#4d4a44", dur: 0.45*text.split(" ").length + 1.4 });
   const SHOW = [
     say("Law: the player can't win"), ACTS[0], say("So far, it works!"),
-    say("New feature: wrap around."), say("Without LAWS.bend:"), ACTS[1], say("Laws broken.", "#dc322f"),
-    say("With LAWS.bend:"), ACTS[2], say("Laws intact!", "#859900"),
+    say("New feature: wrap around."), say("Without LAWS.bend:"), ACTS[1], say("Laws broken.", "#c46a60"),
+    say("With LAWS.bend:"), ACTS[2], say("Laws intact!", "#7e9a5e"),
   ];
   const TOTAL = SHOW.reduce((s, x) => s + x.dur, 0);
   play(document.getElementById("game"), (ctx, t, W, H) => {
@@ -420,23 +420,23 @@ function play(cv, draw) {
     } else if (v > 0) [px, py] = routeAt(a.route, v);
     for (let y = 0; y < GH; y++) for (let x = 0; x < GW; x++) {
       const key = x + "," + y, X = x*T + 1.5, Y = y*T + 1.5, S = T - 3;
-      if (!walls.has(key)) { ctx.fillStyle = (x + y) % 2 ? "#f4edd9" : "#ece5d0"; ctx.fillRect(X, Y, S, S); continue; }
+      if (!walls.has(key)) { ctx.fillStyle = (x + y) % 2 ? "#f8f5ef" : "#ebe6dd"; ctx.fillRect(X, Y, S, S); continue; }
       const lit = hit === key;
-      ctx.fillStyle = lit ? "#f0c3a6" : "#aab6b6"; ctx.fillRect(X, Y, S, S);
-      ctx.fillStyle = lit ? "#f8dccb" : "#c9d1d1"; ctx.fillRect(x*T + 7, y*T + 7, T - 14, T*0.22);
+      ctx.fillStyle = lit ? "#e9c2ad" : "#b5afa5"; ctx.fillRect(X, Y, S, S);
+      ctx.fillStyle = lit ? "#f3dccf" : "#d1ccc3"; ctx.fillRect(x*T + 7, y*T + 7, T - 14, T*0.22);
     }
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, GW*T, GH*T); ctx.clip();
     const k = T/40;
     if (flag) {
       const fx = T, fy = T;
-      ctx.strokeStyle = "#93a1a1"; ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.beginPath();
+      ctx.strokeStyle = "#a39e94"; ctx.lineWidth = 2.5; ctx.lineCap = "round"; ctx.beginPath();
       ctx.moveTo(fx + 14*k, fy + 31*k); ctx.lineTo(fx + 14*k, fy + 9*k); ctx.stroke();
-      ctx.fillStyle = "#d9a72a"; ctx.beginPath();
+      ctx.fillStyle = "#d6a64f"; ctx.beginPath();
       ctx.moveTo(fx + 15*k, fy + 9*k); ctx.lineTo(fx + 31*k, fy + 14.5*k); ctx.lineTo(fx + 15*k, fy + 20*k); ctx.closePath(); ctx.fill();
     }
     const cx = px*T + T/2, cy = py*T + T/2;
-    ctx.fillStyle = "#6fc3bc"; ctx.beginPath(); ctx.arc(cx, cy, 12.5*k, 0, Math.PI*2); ctx.fill();
-    ctx.fillStyle = "#073642"; ctx.beginPath();
+    ctx.fillStyle = "#7dbbb2"; ctx.beginPath(); ctx.arc(cx, cy, 12.5*k, 0, Math.PI*2); ctx.fill();
+    ctx.fillStyle = "#4d4a44"; ctx.beginPath();
     ctx.arc(cx - 4.5*k, cy - 2*k, 2.2*k, 0, Math.PI*2); ctx.arc(cx + 4.5*k, cy - 2*k, 2.2*k, 0, Math.PI*2); ctx.fill();
     ctx.restore();
     if (pop > 0) {
