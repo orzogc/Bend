@@ -4044,9 +4044,9 @@ typedef u32* Cursor;
 #define DENSE     8
 #define GROW      4
 
-#define ALC_WORDS  (6 * NCLS_ALL)
-#define ALC_NEAR   (2 * NCLS + 1)
-#define LIFO_WORDS (DEVICE ? PAGE_LEN : 32 * PAGE_LEN)
+#define ALC_WORDS  (5 * NCLS_ALL)
+#define ALC_NEAR   (3 * NCLS + 1)
+#define LIFO_WORDS (DEVICE ? 2 * PAGE_LEN : 32 * PAGE_LEN)
 #define RESERVE    32
 #define RING_WORDS (RING_LEN + 2)
 
@@ -4259,25 +4259,24 @@ INLINE Cls cls_fit(u32 words) {
 // lane that parked it (a lane parks at most LIFO_WORDS words per class). A
 // lane reclaims marks from its own chain of pages alone, linked through the
 // side table, a cycle at a time, and bumps once a cycle reclaimed under a
-// DENSE-th of the chain.
+// DENSE-th of the slots it probed.
 
 #define ALC_LIFO   0
 #define ALC_FRESH  1
-#define ALC_CUR    0
-#define ALC_HOPS   1
-#define ALC_HEAD   2
-#define ALC_MET    3
+#define ALC_CUR    2
+#define ALC_HEAD   0
+#define ALC_MET    1
 #define SIDE_INNER (~0u)
 
 #if DEVICE
-#define ALC_AT(e, i)      (e).alc[(i) * CUBE_SIDE]
-#define ALC_COLD(e, c, k) (*alc_word((e).mem, (u32)ALC_AT(e, 2 * NCLS), \
-  2 * NCLS_ALL + 4 * (c) + (k)))
+#define ALC_AT(e, i)   (e).alc[(i) * CUBE_SIDE]
+#define ALC_TILE(e, i) (*alc_word((e).mem, (u32)ALC_AT(e, 3 * NCLS), i))
 #else
-#define ALC_AT(e, i)      (e).alc[i]
-#define ALC_COLD(e, c, k) ALC_AT(e, 2 * NCLS_ALL + 4 * (c) + (k))
+#define ALC_AT(e, i)   (e).alc[i]
+#define ALC_TILE(e, i) ALC_AT(e, i)
 #endif
-#define ALC_HOT(e, c, k)  ALC_AT(e, 2 * (c) + (k))
+#define ALC_HOT(e, c, k)  ALC_AT(e, 3 * (c) + (k))
+#define ALC_COLD(e, c, k) ALC_TILE(e, 3 * NCLS_ALL + 2 * (c) + (k))
 
 #define alc_word(H, m, i) ((H) + ALC_OFF + ((m) & ~(LINE - 1)) * ALC_WORDS \
   + (i) * LINE + ((m) & (LINE - 1)))
@@ -4296,16 +4295,17 @@ INLINE u32 heap_grab(Corpus H, u32 pages) {
   return p;
 }
 
-OUTLINE Loc heap_alloc_miss(Env e, Cls cls, THR u64* fresh) {
-  Corpus H    = e.mem;
-  u64    mark = heap_mark(H);
-  u64    step = 1ull << cls;
-  u64    blk  = cls < PAGE_BITS ? PAGE_LEN : step;
-  u64    f    = fresh != 0 ? *fresh : ALC_COLD(e, cls, ALC_FRESH);
-  u64    cur  = ALC_COLD(e, cls, ALC_CUR);
-  u64    hops = ALC_COLD(e, cls, ALC_HOPS);
-  u64    head = ALC_COLD(e, cls, ALC_HEAD);
-  u64    met  = ALC_COLD(e, cls, ALC_MET);
+OUTLINE Loc heap_alloc_miss(Env e, Cls cls, THR u64* hot) {
+  Corpus H     = e.mem;
+  u64    mark  = heap_mark(H);
+  u64    step  = 1ull << cls;
+  u64    blk   = cls < PAGE_BITS ? PAGE_LEN : step;
+  u64    f     = hot != 0 ? hot[0] : ALC_TILE(e, 3 * cls + ALC_FRESH);
+  u64    s     = hot != 0 ? hot[1] : ALC_TILE(e, 3 * cls + ALC_CUR);
+  u64    head  = ALC_COLD(e, cls, ALC_HEAD);
+  u64    met   = ALC_COLD(e, cls, ALC_MET);
+  Loc    cur   = s & LOC_MASK;
+  u64    found = s >> 40;
   Loc    got;
   for (;;) {
     if (cur == 0) {
@@ -4355,6 +4355,7 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls, THR u64* fresh) {
     }
     if (pos == step) {
       H[got] = 0;
+      found += 1;
     } else {
       met += 1;
     }
@@ -4362,18 +4363,17 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls, THR u64* fresh) {
     if ((cur & (PAGE_LEN - 1)) == 0) {
       u32 link = *side_at(H, heap_page(cur - blk));
       if (link != 0) {
-        cur   = heap_loc(link);
-        hops += 1;
+        cur = heap_loc(link);
       } else {
-        u64 slots = (hops + 1) << (cls < PAGE_BITS ? PAGE_BITS - cls : 0);
-        u64 found = slots - met;
-        u64 quota = found == 0 ? hops + 1 : (hops + 1) / GROW;
-        cur  = heap_loc(head);
-        hops = 0;
-        met  = 0;
-        if (found == 0 || found * DENSE < slots) {
+        u64  seen   = found + met;
+        u64  pages  = (seen << cls >> PAGE_BITS) / (found == 0 ? 1 : GROW);
+        bool sparse = found == 0 || found * DENSE < seen;
+        cur   = heap_loc(head);
+        found = 0;
+        met   = 0;
+        if (sparse) {
           cur = 0;
-          met = quota > 0 ? quota : 1;
+          met = pages > 0 ? pages : 1;
         }
       }
     }
@@ -4381,14 +4381,15 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls, THR u64* fresh) {
       break;
     }
   }
-  ALC_COLD(e, cls, ALC_CUR)  = cur;
-  ALC_COLD(e, cls, ALC_HOPS) = hops;
   ALC_COLD(e, cls, ALC_HEAD) = head;
   ALC_COLD(e, cls, ALC_MET)  = met;
-  if (fresh != 0) {
-    *fresh = f;
+  s = cur | (found << 40);
+  if (hot != 0) {
+    hot[0] = f;
+    hot[1] = s;
   } else {
-    ALC_COLD(e, cls, ALC_FRESH) = f;
+    ALC_TILE(e, 3 * cls + ALC_FRESH) = f;
+    ALC_TILE(e, 3 * cls + ALC_CUR)   = s;
   }
   return got;
 }
@@ -4400,13 +4401,23 @@ HOT Loc heap_alloc(Env e, Cls cls) {
       ALC_HOT(e, cls, ALC_LIFO) = e.mem[l & LOC_MASK];
       return l & LOC_MASK;
     }
-    u64 f = ALC_HOT(e, cls, ALC_FRESH);
-    if ((f & (PAGE_LEN - 1)) != 0) {
-      ALC_HOT(e, cls, ALC_FRESH) = f + (1ull << cls);
-      return f;
+    u64 hot[2] = { ALC_HOT(e, cls, ALC_FRESH), ALC_HOT(e, cls, ALC_CUR) };
+    Loc got    = hot[1] & LOC_MASK;
+    if (hot[1] == 0) {
+      got = hot[0];
+      if ((got & (PAGE_LEN - 1)) != 0) {
+        ALC_HOT(e, cls, ALC_FRESH) = got + (1ull << cls);
+        return got;
+      }
+    } else if (DEVICE && ((got + (1ull << cls)) & (PAGE_LEN - 1)) != 0
+      && (e.mem[got] ^ heap_mark(e.mem)) == cls) {
+      e.mem[got] = 0;
+      ALC_HOT(e, cls, ALC_CUR) = hot[1] + (1ull << cls) + (1ull << 40);
+      return got;
     }
-    Loc got = heap_alloc_miss(e, cls, &f);
-    ALC_HOT(e, cls, ALC_FRESH) = f;
+    got = heap_alloc_miss(e, cls, hot);
+    ALC_HOT(e, cls, ALC_FRESH) = hot[0];
+    ALC_HOT(e, cls, ALC_CUR)   = hot[1];
     return got;
   }
   return heap_alloc_miss(e, cls, (THR u64*)0);
@@ -5142,7 +5153,7 @@ static void monk_work(Env e, Stk stk, Ring r) {
 #if DEVICE
 
 INLINE void dev_alc(Env e, Monk m, bool save) {
-  for (u32 i = 0; i < 2 * NCLS; i += 1) {
+  for (u32 i = 0; i < 3 * NCLS; i += 1) {
     DEV u64* w = alc_word(e.mem, m, i);
     if (save) {
       *w = ALC_AT(e, i);
@@ -5150,7 +5161,7 @@ INLINE void dev_alc(Env e, Monk m, bool save) {
       ALC_AT(e, i) = *w;
     }
   }
-  ALC_AT(e, 2 * NCLS) = m;
+  ALC_AT(e, 3 * NCLS) = m;
 }
 
 #ifdef __METAL_VERSION__
