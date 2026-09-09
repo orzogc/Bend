@@ -25,18 +25,16 @@ const cost = s => (s = s.replace(/[*+~#%/]/g, "").trim()) ? s.split(/\s+/)
 const co = "co", punch = "punch", quick = "quick", left = "left", red = "red", green = "green";
 const TAG = new Set([co, punch, quick, left, red, green]);
 const BEATS = [
-  ["say", "#Bend 2 is here!", "A new programming language", "- that's *FAST* like C",
-          "- that *SCALES* like CUDA", "- that *PROVES* like Lean", "- where vibe-coding *WORKS*", left],
+  ["title"],
   ["check"],
   ["bench", "gameoflife"],
   ["par", "gameoflife", co],
-  ["say", "#Parallelism is near-automatic."],
+  ["say", "#Bend can run on GPUs."],
   ["dist"],
   ["eval", co],
   ["reduce", co],
-  ["say", "*The entire language is parallelizable!*", "",
-          "Objects, arrays, allocator, collector,", "pattern-matching, closures, recursion.", "",
-          "*Everything* compiles to *kernels*!"],
+  ["say", "Objects, arrays, allocator, collector,", "pattern-matching, closures, recursion.", "",
+          "*The whole language* compiles to *kernels*!"],
   ["say", "Bend is fast on a single CPU core.", "And scales to massive GPU clusters."],
   ["say", "How about *vibe-coding*?"],
   ["say", "In Bend,", "you can *stop models*", "from *making mistakes*", "by demanding *proofs*."],
@@ -56,14 +54,12 @@ const BEATS = [
   ["block"],
   ["say", "The AI placed a wall!", "The new feature landed with *no bugs*.", green],
   ["say", "But *why*?"],
-  ["say", "Because Bend *forced* the model", "to *comply with the laws*.", green],
-  ["say", "The rules in *LAWS.bend* are enforced by the same",
-          "algorithm used in *proof assistants* like Lean.", "",
-          "If the AI makes a *mistake*, Bend asks it to *retry*.",
-          "Code is only merged once *LAWS.bend* provably holds.", "",
-          "It is *mathematically impossible* to ship a bug!"],
+  ["say", "Because the rules in *LAWS.bend* are enforced",
+          "by a *proof checking* algorithm - as in Lean!", "",
+          "If the AI makes any *mistake*,", "Bend forces it to *try again*.", "",
+          "It is *mathematically impossible* to merge a bug!"],
   ["say", "*LAWS.bend* == *AGENTS.md*", "except backed by *proof*"],
-  ["say", "With *LAWS.bend*,", "%\"make no mistakes\"", "becomes *enforceable*.", punch],
+  ["say", "With *LAWS.bend*,", "%\"make no mistakes\"", "becomes +enforceable+.", punch],
   ["say", "And that's Bend:", "a language *fast* like C", "that *scales* like CUDA",
           "that *proves* like Lean", "where vibe-coding *works*."],
   ["end"],
@@ -94,7 +90,7 @@ function T(s, x, y, size, color, align, bold) {
 }
 // centred sentence with emphasis: *bold*  +green+  /oblique/
 // (Menlo has no italic, so an oblique run is the text leaned by a skew)
-function rich(s, x, y, size, color) {
+function rich(s, x, y, size, color, plain) {
   const toks = [];
   for (let i = 0; i < s.length; ) {
     const c = s[i], j = "*+/".includes(c) ? s.indexOf(c, i + 1) : -1;
@@ -108,7 +104,7 @@ function rich(s, x, y, size, color) {
   let px = x - total/2;
   toks.forEach(([p, m]) => {
     font(size, bold(m));
-    cx.fillStyle = m === "+" ? GREEN : (color || INK);
+    cx.fillStyle = m === "+" ? GREEN : m || !plain ? (color || INK) : plain;
     if (m === "/") { cx.save(); cx.transform(1, 0, -0.2, 1, 0.2*y, 0); }
     cx.fillText(p, px, y); px += cx.measureText(p).width;
     if (m === "/") cx.restore();
@@ -175,7 +171,7 @@ law winning_is_a_bug:
   board = replay(start(), moves)
   is_won(board) == False`.split("\n");
 const LAWS_GLOSS = ["LAW: Winning Is A Bug", "\"for any sequence of moves\"",
-                    "\"replaying them from the start\"", "\"can never lead to victory\""];
+                    "\"replaying it from the start\"", "\"can never lead to victory\""];
 
 // ------------------------------------------------------------------ benches
 // Every number is a pin from bench/runtime/_pin_/apple_m4_max.txt
@@ -309,11 +305,11 @@ S.check = (u, dur) => {
 // The board is drawn from the same level main.bend prints: '#' walls, the
 // flag at (1,1), the player at (8,5). Two levels: the room sealed by two
 // walls and the map's edge (base), and the shipped one, with two more walls
-// on the far edges (far). The landing page's tiles, a title above.
+// on the far edges (far). Pastel tiles, the film's own, a title above.
 const GW = 12, GH = 8, TILE = 56, BX = W/2 - GW*TILE/2, BY = 126;
-const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#a6a3a0", cap: "#bebbb8", hit: "#d9a39c", hitcap: "#e8c4bf",
-              pole: "#87847d", cloth: "#7e9a5e", skin: "#268bd2", eye: "#073642", gold: AMBER,
-              win: "#f6e4e1", winRim: "#dfa9a2", winInk: "#c46a60" };
+const PAL = { floor: ["#f5f7fa", "#e9eef4"], wall: "#b9c6da", cap: "#d3dce9", hit: "#f3c6b2", hitcap: "#f9dccf",
+              pole: "#b39b70", cloth: "#f6c66d", skin: "#8fcfe9", eye: "#2f3b4c", gold: "#d9a441",
+              win: "#fde9e6", winRim: "#f0aaa1", winInk: "#a3302a" };
 function wallsOf(v) {
   const s = new Set(), add = (x, y) => s.add(x + "," + y);
   for (let y = 0; y <= 3; y++) add(3, y);
@@ -732,6 +728,15 @@ S.reveal = (u, dur, b) => {
   });
 };
 
+// the landing page's hero: Bend, a purple block cursor blinking after it,
+// and the pitch, its bold words in ink and the rest dim
+S.title = (u, dur) => {
+  font(72, true); const w = cx.measureText("Bend").width, cw = 36, x = W/2 - (w + 8 + cw)/2;
+  T("Bend", x, 340, 72, INK, "left", true);
+  if (Math.floor(u/0.55) % 2 === 0) box(x + w + 8, 340 - 62, cw, 66, 0, PURPLE);
+  rich("a *fast* language that *blocks AI mistakes* via *proof*", W/2, 404, 26, INK, DIM);
+};
+
 S.end = (u, dur) => {
   T("Bend", W/2, 290, 64, PURPLE, "center", true);
   cx.globalAlpha = ease((u - 0.6)/0.5);
@@ -746,7 +751,7 @@ S.end = (u, dur) => {
 // Sentence beats size themselves: line i lands once line i-1 has been read,
 // and the beat ends one breath after the last line. Picture beats get the
 // seconds their motion needs plus a hold.
-const FIXED = { check: 11.2, bench: 10.2, par: 13.8, dist: DALL + 1.5, eval: EDONE + 1.9,
+const FIXED = { title: 5.8, check: 11.2, bench: 10.2, par: 13.8, dist: DALL + 1.5, eval: EDONE + 1.9,
                 reduce: Z1 + 2.6, laws: 17.8, intro: 8.0, walk: 6.3, block: 5.8, end: 7.1 };
 for (const b of BEATS) {
   if (b[0] === "say") {

@@ -47,21 +47,21 @@ you lose. In other languages, you'd write *tests*. But you can't test infinitely
 many sequences of moves. On Bend, you state the law in `LAWS.bend`:
 
 ```python
-# LAW: for any sequence of moves, replaying them
-# from the start can never lead to victory.
+# LAW: no move sequence leads to victory.
 law winning_is_a_bug:
-  for moves: List<Game.Move>
-  board = Game.replay(Game.start(), moves)
-  {Game.is_won(board) == False{} : Bool}
+  for moves: List<Move>
+  board = replay(start(), moves)
+  is_won(board) == False
 ```
 
-Then ask your agent: "before stopping, **prove the code is correct**". It fills
-the proof:
+Then ask your agent: "before stopping, **prove the code is correct**". It writes
+the proof into `CERT.bend`, a certificate you neither write nor have to read:
 
 ```python
-# PROOF: the `winning_is_a_bug` law holds.
-def Laws.winning_is_a_bug(moves):
-  # (LONG. leave this part for the AI!)
+# PROOF: winning_is_a_bug holds.
+# The AI writes this file. You never have to read it.
+def winning_is_a_bug(moves):
+  ...
 ```
 
 Once the proof lands, your code is correct. Mathematically.
