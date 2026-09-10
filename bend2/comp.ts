@@ -1433,25 +1433,12 @@ function show_chr(st: Show): string {
         "  || U32.is_eq(c, 13) || (U32.is_ge(c, 32) && U32.is_ne(c, 127)",
         "  && (U32.is_lt(c, 55296) || U32.is_gt(c, 57343))",
         "  && U32.is_le(c, 1114111))"]);
-    show_def(st, p + ".utf8.go", "(+c: U32, n: Nat, lead: U32, t: String)"
-      + " -> String", ["match n:", "  case 0n:", "    SCon{Chr{U32.or(lead, c)}"
-      + ", t}", "  case 1n+k:", `    ${p}.utf8.go(U32.shrn(c, 6n), k, lead,`
-      + " SCon{Chr{U32.or(128, U32.and(c, 63))}, t})"]);
-    show_def(st, p + ".utf8", "(+c: U32) -> String",
-      ["match U32.is_lt(c, 128):", "  case True{}:",
-        `    ${p}.utf8.go(c, 0n, 0, SNil{})`, "  case False{}:",
-        "    match U32.is_lt(c, 2048):", "      case True{}:",
-        `        ${p}.utf8.go(c, 1n, 192, SNil{})`, "      case False{}:",
-        "        match U32.is_lt(c, 65536):", "          case True{}:",
-        `            ${p}.utf8.go(c, 2n, 224, SNil{})`,
-        "          case False{}:",
-        `            ${p}.utf8.go(c, 3n, 240, SNil{})`]);
     show_def(st, p + ".esc.go", "(+c: U32, n: Nat, q: Bool) -> String",
       ["match n:", `  case 10n:`, `    "\\\\n"`, `  case 9n:`, `    "\\\\t"`,
         `  case 13n:`, `    "\\\\r"`, `  case 0n:`, `    "\\\\0"`,
         `  case 92n:`, `    "\\\\\\\\"`, "  case k:", "    match q:",
-        "      case True{}:", `        "\\\\" ++ ${p}.utf8(c)`,
-        "      case False{}:", `        ${p}.utf8(c)`]);
+        "      case True{}:", `        "\\\\" ++ SCon{Chr{c}, SNil{}}`,
+        "      case False{}:", "        SCon{Chr{c}, SNil{}}"]);
     show_def(st, p + ".esc", "(+c: U32, q: U32) -> String",
       [`${p}.esc.go(c, U32.to_nat(c), U32.is_eq(c, q))`]);
     show_u32(st);
@@ -5912,6 +5899,7 @@ OUTLINE void io_sync(void) {
   }
 }
 
+// the edge is UTF-8
 OUTLINE char* io_cstr(Env e, Term s, u64* len) {
   u64   cap = 64;
   u64   n   = 0;
@@ -5919,12 +5907,18 @@ OUTLINE char* io_cstr(Env e, Term s, u64* len) {
   while (term_aux(s) == CID_SCON) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, s, 2, fb));
-    if (n + 2 > cap) {
+    u64 c = fb[0];
+    u64 k = c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
+    if (n + k + 1 > cap) {
       cap *= 2;
       buf = io_mem(realloc(buf, cap));
     }
-    buf[n] = (char)fb[0];
-    n += 1;
+    for (u64 i = k; i > 1; i -= 1) {
+      buf[n + i - 1] = (char)(0x80 | (c & 0x3F));
+      c >>= 6;
+    }
+    buf[n] = (char)(k == 1 ? c : (0xF00 >> k) | c);
+    n += k;
     s = fb[1];
   }
   buf[n] = 0;
@@ -5955,8 +5949,23 @@ static Term io_node(Env e, u64 cid, Term a, Term b, int hot) {
 static Term io_str(Env e, const char* p, u64 n) {
   Term s = term_pak(CID_SNIL, 0);
   while (n > 0) {
-    n -= 1;
-    s = io_node(e, CID_SCON, (uint8_t)p[n], s, IO_HOTS & 1);
+    u64 k = 0;
+    while (k < 3 && k + 1 < n && ((uint8_t)p[n - 1 - k] & 0xC0) == 0x80) {
+      k += 1;
+    }
+    u64 b   = (uint8_t)p[n - 1 - k];
+    u64 len = b < 0xC0 ? 0 : b < 0xE0 ? 2 : b < 0xF0 ? 3 : 4;
+    u64 c   = (uint8_t)p[n - 1];
+    if (len == k + 1) {
+      c = b & (0x7F >> len);
+      for (u64 i = 1; i < len; i += 1) {
+        c = (c << 6) | ((uint8_t)p[n - len + i] & 0x3F);
+      }
+    } else {
+      len = 1;
+    }
+    n -= len;
+    s = io_node(e, CID_SCON, c, s, IO_HOTS & 1);
   }
   return s;
 }
@@ -6627,11 +6636,11 @@ function io_tup(...xs) {
 }
 
 function io_bytes(text) {
-  return Uint8Array.from([...text], (c) => c.codePointAt(0) & 255);
+  return new TextEncoder().encode(text);
 }
 
 function io_text(b, n) {
-  return Array.from(b.subarray(0, n), (c) => String.fromCharCode(c)).join("");
+  return new TextDecoder().decode(b.subarray(0, n));
 }
 
 function io_row(handle, kind) {
