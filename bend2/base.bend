@@ -289,6 +289,11 @@ def UDP.recv_from(sock: Socket, max: U32) ->
   import "./effs/udp_recv_from.c"
   import "./effs/udp_recv_from.js"
 
+def UDP.poll(sock: Socket, max: U32) ->
+  IO(Socket & Result<&1, &1, U32 & String, Maybe<&1, String & U32 & String>>):
+  import "./effs/udp_poll.c"
+  import "./effs/udp_poll.js"
+
 def Socket.close(socket: Socket) -> IO(Unit):
   import "./effs/socket_close.c"
   import "./effs/socket_close.js"
