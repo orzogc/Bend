@@ -56,8 +56,7 @@
 
 - (NSPoint)at:(NSEvent*)ev {
   CGSize  size = ((CAMetalLayer*)self.layer).drawableSize;
-  NSPoint p    = [self convertPointToBacking:
-    [self convertPoint:ev.locationInWindow fromView:nil]];
+  NSPoint p    = [self convertPoint:ev.locationInWindow fromView:nil];
   return NSMakePoint(fmax(0, fmin(floor(p.x), size.width - 1)),
     fmax(0, fmin(floor(p.y), size.height - 1)));
 }
@@ -147,12 +146,11 @@ static IoFall window_make(const char* title, u32 w, u32 h, IoHand* out) {
       styleMask:NSWindowStyleMaskTitled | NSWindowStyleMaskClosable
         | NSWindowStyleMaskMiniaturizable
       backing:NSBackingStoreBuffered defer:NO];
-    CGFloat scale = win.backingScaleFactor;
     win.releasedWhenClosed = NO;
     win.acceptsMouseMovedEvents = YES;
     win.title = [NSString stringWithCString:title
       encoding:NSISOLatin1StringEncoding];
-    [win setContentSize:NSMakeSize(w / scale, h / scale)];
+    [win setContentSize:NSMakeSize(w, h)];
     BendView* view = [[BendView alloc] initWithFrame:win.contentLayoutRect];
     view->evs   = [NSMutableData new];
     view->flags = NSEvent.modifierFlags;
@@ -161,7 +159,6 @@ static IoFall window_make(const char* title, u32 w, u32 h, IoHand* out) {
     layer.device = window_dev;
     layer.pixelFormat = MTLPixelFormatBGRA8Unorm;
     layer.framebufferOnly = NO;
-    layer.contentsScale = scale;
     layer.drawableSize = CGSizeMake(w, h);
     layer.displaySyncEnabled = YES;
     layer.maximumDrawableCount = 2;

@@ -82,8 +82,8 @@ def Pong.clamp(neg: Bool, +y: U32) -> U32:
     case False{}:
       Pong.pick((y > 416 : U32), 416, y)
 
-def Pong.paddle(+y: U32, +held: U32, up: U32, down: U32) -> U32:
-  +y2 = (y - 6 * (held .&. up) + 6 * (held .&. down) : U32)
+def Pong.paddle(+y: U32, +held: U32, up: Nat, down: Nat) -> U32:
+  +y2 = (y - 6 * (held >> up .&. 1) + 6 * (held >> down .&. 1) : U32)
   Pong.clamp((y2 > 2147483647 : U32), y2)
 
 def Pong.overlap(+by: U32, +py: U32) -> Bool:
@@ -106,8 +106,8 @@ def Pong.reset(out: Bool, g: Pong) -> Pong:
 
 def Pong.step(+g: Pong) -> Pong:
   Pong{ly, ry, held, bx, by, vx, vy} = g
-  +ly2 = Pong.paddle(ly, held, 1, (held >> 1n .&. 1 : U32))
-  +ry2 = Pong.paddle(ry, held, (held >> 2n .&. 1 : U32), (held >> 3n .&. 1 : U32))
+  +ly2 = Pong.paddle(ly, held, 0n, 1n)
+  +ry2 = Pong.paddle(ry, held, 2n, 3n)
   +by2 = (by + vy : U32)
   +wall = ((by2 > 2147483647) || (by2 > 504) : U32)
   +bx2 = (bx + vx : U32)

@@ -1901,6 +1901,22 @@ def Set.has(s: Set(), key: String) -> Set() & Bool:
 def Set.del(s: Set(), key: String) -> Set():
   Map.del(&2, Unit, s, key)
 
+# Image
+# -----
+
+def Image.drop.join(a: Unit, b: Unit, c: Unit, d: Unit) -> Unit:
+  match a b c d:
+    case Unit{} Unit{} Unit{} Unit{}:
+      Unit{}
+
+def Image.drop(img: Image) -> Unit:
+  match img:
+    case Pix{c}:
+      Unit{}
+    case Qua{tl, tr, bl, br}:
+      a b c d = Image.drop(tl) Image.drop(tr) Image.drop(bl) Image.drop(br)
+      Image.drop.join(a, b, c, d)
+
 # App
 # ---
 
@@ -1919,7 +1935,9 @@ def App.turn(
   rest: Window -> S -> IO(Unit)
 ) -> IO(Unit):
   (window, image, events) = shown
-  IO.bind(Maybe<S>, Unit, tick(events, state), App.next(S, window, rest))
+  do IO<Unit>:
+    Unit <- IO.pure(Unit, Image.drop!(image))
+    IO.bind(Maybe<S>, Unit, tick(events, state), App.next(S, window, rest))
 
 def App.draw(
   -S: Type, window: Window, drawn: S & Image,
