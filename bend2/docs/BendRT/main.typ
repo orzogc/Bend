@@ -249,13 +249,13 @@ WL_CASE(FID_SUM) {
 }
 WL_CASE(FID_SUM_S_1) {  // after sum(l)
   Term r = STK(-1);
-  STK(0) = res;  STK(1) = FID_SUM_S_0;
+  STK(0) = r0;  STK(1) = FID_SUM_S_0;
   WL_PUSHN(2);
   r0 = r;  WL_JMP(FID_SUM);
 }
 WL_CASE(FID_SUM_S_0) {  // after sum(r)
   WL_POPN(2);
-  r0 = STK(1);  r1 = res;
+  r1 = r0;  r0 = STK(1);
   WL_JMP(FID_SUM_J);
 }
 WL_CASE(FID_SUM_J) {
@@ -334,11 +334,12 @@ halves in place, and joining two adjacent halves back is free.
 
 = The Machine <sec:machine>
 
-All segments live in one function: labels and a computed goto on the
-host, the cases of a switch inside an error-polling loop on the
-device. The state is a register bank `r0..rn`, a result register
-`res`, the current segment id, a value stack, and the world flag
-`seq`.
+On the host every segment is a `preserve_none` function of the
+machine's words, entered by a `musttail` call (a dynamic jump goes
+through a table of them); on the device the segments are the cases of
+one switch inside an error-polling loop. The state is a bank of words
+`r0..rn` (a segment's parameters, or the results it receives), the
+current segment id, a value stack, and the world flag `seq`.
 
 The function takes one task. Its prologue pushes the task's
 continuation, slot index and the exit segment onto the value stack,
@@ -349,10 +350,10 @@ sequential world, pushes a frame holding the continuation's captures
 and segment id and jumps to the callee; in the parallel world it mints
 a continuation task expecting one result, makes it the current
 continuation, and jumps. A fork was shown above. A return puts the
-value in `res` and pops the stack: the popped word is the segment to
+value in the bank and pops the stack: the popped word is the segment to
 enter next, a step or a minted continuation, which reads its captures
-from the stack and its result from `res`. The exit segment pops the
-task's continuation and delivers `res` into it; a marked call in the
+from the stack and its result from the bank. The exit segment pops the
+task's continuation and delivers the bank into it; a marked call in the
 parallel world returns a spawned task instead of jumping.
 
 Recursion depth is bounded by the value stack alone: a guarded 2 GB
@@ -464,10 +465,12 @@ against each other, keep light work out of forks.
 = The GPU <sec:gpu>
 
 The runtime speaks two device APIs, Metal and CUDA, and the device
-code is not a port: at launch the binary reads _its own source file_
-and compiles it as the shader library on Metal, or through NVRTC on
-CUDA with the binary cached by source hash, so host and device run the
-same functions by construction.
+code is not a port: the binary carries _its own source text_, the
+build compiles the segments a `!` can reach into a device program
+beside the binary (a Metal binary archive of the pipeline, a CUDA cubin
+behind a hash of the text), and a launch loads it, or compiles it once
+when the file is missing or stale, so host and device run the same
+functions by construction.
 
 The span is decided once, before the first dispatch: `--gpu-memory`,
 else 2 GB on Metal, where a buffer cannot grow under a running kernel,

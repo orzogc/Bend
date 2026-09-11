@@ -42,12 +42,10 @@ usage:
   bend guide                  print the Bend guide
   bend base [--types|<name>]  print Base, its types, or a name and its subnames
 
-A file with no main just checks: all terms check, or its TODOs and unsafe defs
-are counted. A main that is not IO prints as a value. -o repeats. A binary
-keeps its .c beside it (the GPU kernels compile from it at launch) and takes
---threads N, --parallel on|off, --gpu on|off, --gpu-memory 4GB: see ./<out>
---help. A --checkup binary runs one module: ./<out> <module>. --publish prints
-the package's hash and the import line others use.
+A file with no main just checks. A main that is not IO prints as a value. -o
+repeats. A binary with a ! keeps its GPU program beside it (<out>.gpu); see
+./<out> --help for its options. A --checkup binary runs one module: ./<out>
+<module>. --publish prints the package's hash and the import line others use.
 
 env:
   BEND_STORE  the package store  default ~/.bend/store
@@ -170,23 +168,17 @@ async function cli_checkup(file: string): Promise<Bend.Book> {
     try {
       const own = /^import Base$/m.test(fs.readFileSync(at, "utf8"));
       const one = await book_read(at, own ? base : undefined);
-      const n0 = book.order.length;
-      const c0 = Object.keys(book.ctrs).length;
-      const t0 = Object.keys(book.tmps).length;
+      const keep = { ...Bend.book_nil(), hols: book.hols, open: book.open };
+      Object.assign(keep.tlds, book.tlds);
+      Object.assign(keep.ctrs, book.ctrs);
+      Object.assign(keep.tmps, book.tmps);
+      keep.order.push(...book.order);
       let left = "";
       try {
         await Bend.book_load(book, at, m[2], seen);
-        Bend.book_valid(book, n0);
+        Bend.book_valid(book, keep.order.length);
       } catch (e) {
-        for (const d of book.order.splice(n0)) {
-          delete book.tlds[d];
-        }
-        for (const k of Object.keys(book.ctrs).slice(c0)) {
-          delete book.ctrs[k];
-        }
-        for (const k of Object.keys(book.tmps).slice(t0)) {
-          delete book.tmps[k];
-        }
+        Object.assign(book, keep);
         left = "Left out of the binary:\n" + book_err(e) + "\n";
       }
       code = book_run(one);
@@ -207,22 +199,23 @@ function cli_emit(book: Bend.Book, out: string): void {
   } else if (out.endsWith(".c")) {
     fs.writeFileSync(out, Comp.compile_book(book));
   } else {
-    fs.writeFileSync(out + ".c", Comp.compile_book(book));
-    cli_build(out);
+    const c = Comp.compile_book(book);
+    fs.writeFileSync(out + ".c", c);
+    cli_build(out, !/^#define BANGS\s+0$/m.test(c));
   }
 }
 
-function cli_build(bin: string): void {
+// A `!` program builds with the GPU lane and writes its GPU program too.
+function cli_build(bin: string, bangs: boolean): void {
   const cpu = ["-std=c11", "-O3", bin + ".c", "-lpthread", "-lm", "-o", bin];
   const gpu = process.platform === "darwin" ? [...METAL, ...cpu]
     : ["-DBEND_CUDA=1", "-I/usr/local/cuda/include",
       "-L/usr/local/cuda/lib64", ...cpu, "-lcuda", "-lnvrtc"];
-  const got = child.spawnSync("clang", gpu, { stdio: "pipe" });
-  if (got.status !== 0) {
-    cli_say(2, "bend: GPU build failed: " + String(got.stderr ?? got.error)
-      .split("\n")[0] + "; building CPU-only\n");
-    if (child.spawnSync("clang", cpu, { stdio: "inherit" }).status !== 0) {
-      throw "Error: clang failed to build " + bin;
+  const steps: [string, string[]][] = bangs
+    ? [["clang", gpu], [path.resolve(bin), ["--gpu-build"]]] : [["clang", cpu]];
+  for (const [cmd, args] of steps) {
+    if (child.spawnSync(cmd, args, { stdio: "inherit" }).status !== 0) {
+      throw "Error: " + path.basename(cmd) + " failed to build " + bin;
     }
   }
 }
@@ -309,20 +302,13 @@ async function cli_publish(file: string): Promise<void> {
 function pkg_files(file: string, book: Bend.Book,
   seen: Map<string, string | null>): Record<string, string> {
   const dir  = file.slice(0, file.lastIndexOf("/") + 1);
-  const raws: Array<[string, string]> = [];
-  for (const [real, ns] of seen) {
-    if (real !== BASE && ns !== null && !ns.startsWith("0x")) {
-      raws.push([ns === "" ? path.basename(file) : ns + ".bend", real]);
-    }
-  }
-  for (const [k, tld] of Object.entries(book.tlds)) {
-    if (tld.$ === "Def" && tld.i !== undefined && tld.b !== true
-      && !k.startsWith("0x")) {
-      for (const f of tld.i) {
-        raws.push([f.startsWith(dir) ? f.slice(dir.length) : f, f]);
-      }
-    }
-  }
+  const raws = [...[...seen].flatMap(([real, ns]): [string, string][] =>
+    real === BASE || ns === null || ns.startsWith("0x") ? []
+      : [[ns === "" ? path.basename(file) : ns + ".bend", real]]),
+  ...Object.entries(book.tlds).flatMap(([k, tld]): [string, string][] =>
+    tld.$ !== "Def" || tld.i === undefined || tld.b === true
+      || k.startsWith("0x") ? [] : tld.i.map((f) =>
+      [f.startsWith(dir) ? f.slice(dir.length) : f, f]))];
   const ups = raws.map(([p]) => path.posix.normalize(p).split("/")
     .filter((s) => s === "..").length);
   const anc = fs.realpathSync(path.dirname(file)).split("/")
@@ -358,19 +344,14 @@ async function pow_mine(hash: string, bytes: number): Promise<number> {
 // ======
 
 function cli_report(book: Bend.Book): void {
-  const tlds = Object.values(book.tlds);
-  const uns  = tlds.filter((t) => t.$ === "Def" && t.u === true).length;
+  const uns  = Object.values(book.tlds).filter((t) =>
+    t.$ === "Def" && t.u === true).length;
   const hols = book.hols + book.open;
-  if (hols > 0) {
-    cli_say(1, String(hols) + (hols === 1 ? " TODO" : " TODOs")
-      + " found.\nThe code is incomplete, and not a valid proof yet.\n");
-  } else if (uns > 0) {
-    cli_say(1, String(uns) + (uns === 1 ? " term" : " terms")
-      + " annotated as unsafe.\nThe code is well-typed, but may contain"
-      + " logical paradoxes.\n");
-  } else {
-    cli_say(1, "All terms check.\n");
-  }
+  const s    = (n: number): string => n === 1 ? "" : "s";
+  cli_say(1, hols > 0 ? `${hols} TODO${s(hols)} found.\nThe code is incomplete,`
+    + " and not a valid proof yet.\n" : uns > 0 ? `${uns} term${s(uns)}`
+    + " annotated as unsafe.\nThe code is well-typed, but may contain logical"
+    + " paradoxes.\n" : "All terms check.\n");
 }
 
 function cli_say(fd: number, text: string): void {

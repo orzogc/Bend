@@ -18,8 +18,8 @@ def main() -> IO(Unit):
 ```
 
 `bend hello.bend` checks the file and runs `main` on an in-memory JS backend.
-`bend hello.bend -o hello` builds a native binary (GPU-enabled when Metal or
-CUDA links; keep `hello.c` beside it, the kernels compile from it at launch).
+`bend hello.bend -o hello` builds a native binary (a program with a `!`
+builds its GPU program too: keep `hello.gpu` beside the binary).
 `-o hello.c` or `-o hello.js` emits the source instead. A `main` that is not
 `IO` prints as a value; a file with no `main` just checks. `bend --help` has
 the rest of the CLI; `bend base` prints the prelude, `bend base --types` its

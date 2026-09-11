@@ -144,7 +144,7 @@ For more examples, check:
 ### 1. Install:
 
 ```bash
-# needs Bun 1.3+ (https://bun.com) and clang; Metal or CUDA for the GPU
+# needs Bun 1.3+ (https://bun.com) and clang 19+; Metal or CUDA for the GPU
 git clone https://github.com/HigherOrderCO/bend4
 cd bend4
 ln -s "$PWD/bend2/main.ts" ~/.bun/bin/bend   # puts `bend` on the PATH
@@ -163,7 +163,7 @@ def main() -> IO(Unit):
 
 ```bash
 bend hello.bend             # check + run
-bend hello.bend -o hello    # compile to a native binary (GPU-enabled when Metal or CUDA links)
+bend hello.bend -o hello    # compile to a native binary (a ! needs Metal or CUDA)
 ./hello                     # run!
 ```
 

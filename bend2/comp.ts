@@ -189,6 +189,11 @@ const NATIVE_DIE = " does not match the native format of its type";
 
 const EXACT = " sqrt exp log log2 log10 sin cos tan pow fmod ";
 
+// A native with this many lines or more is a call on both lanes: the
+// device inlines every native into every caller (hvm5 under a bang: 32 s
+// of Metal compile, 2.6 s so); at 128 raytrace lost 31% on PAR-CPU.
+const SPIN_FAR = 256;
+
 const USE0 = Bend.Emp<number>();
 
 const EMPTY = new Map<HTerm, HTerm>();
@@ -201,33 +206,146 @@ const W64: Lay = { ks: ["w64"], arms: null };
 
 const WORDS: Record<string, Lay> = { U32: W32, F32: W32, Nat: W64 };
 
-const SHOWN: Record<string, (st: Show) => string> = {
-  Nat: (st) => show_once(st, st.pre + ".nat", () => {
-    show_def(st, st.pre + ".nat", "(x: Nat) -> String",
-      [`Nat.show(x) ++ "n"`]);
-  }),
-  U32: show_u32,
-  F32: (st) => show_once(st, st.pre + ".f32", () => {
-    show_def(st, st.pre + ".f32", "(x: F32) -> String",
-      [`"F32{" ++ ${show_word(st)}(32n, F32.bits(x)) ++ "}"`]);
-  }),
-  Char: show_chr,
-  String: show_str,
-};
+const SHOWN: Record<string, string> = { Nat: "nat", U32: "u32", F32: "f32",
+  Char: "chr", String: "str" };
 
-const ERRS = ["", "runtime fail-stop", "runtime fail-stop",
-  "runtime fail-stop", "out of memory: run again with a bigger span, as in"
-  + " --gpu-memory 8GB", "a host call on the device", "runtime fail-stop",
-  "a Nat past the largest immediate 2^48-1", "runtime fail-stop",
-  "memory fault (machine stack overflow?)",
-  "an array past the deepest block class 31"];
+// The base types' printers, minted once per main under its prefix (@).
+const SHOW_LIB = String.raw`
+def @.bit(b: Bool, t: String) -> String:
+  match b:
+    case False{}:
+      "WCon{False{}, " ++ t ++ "}"
+    case True{}:
+      "WCon{True{}, " ++ t ++ "}"
+
+def @.word(n: Nat, +x: U32) -> String:
+  match n:
+    case 0n:
+      "WNil{}"
+    case 1n+p:
+      @.bit(U32.is_eq(U32.and(x, 1), 1), @.word(p, U32.shr(x)))
+
+def @.u32(x: U32) -> String:
+  "U32{" ++ @.word(32n, x) ++ "}"
+
+def @.nat(x: Nat) -> String:
+  Nat.show(x) ++ "n"
+
+def @.f32(x: F32) -> String:
+  "F32{" ++ @.word(32n, F32.bits(x)) ++ "}"
+
+def @.ok(+c: U32) -> Bool:
+  U32.is_eq(c, 0) || U32.is_eq(c, 9) || U32.is_eq(c, 10)
+    || U32.is_eq(c, 13) || (U32.is_ge(c, 32) && U32.is_ne(c, 127)
+    && (U32.is_lt(c, 55296) || U32.is_gt(c, 57343))
+    && U32.is_le(c, 1114111))
+
+def @.esc.go(+c: U32, n: Nat, q: Bool) -> String:
+  match n:
+    case 10n:
+      "\\n"
+    case 9n:
+      "\\t"
+    case 13n:
+      "\\r"
+    case 0n:
+      "\\0"
+    case 92n:
+      "\\\\"
+    case k:
+      match q:
+        case True{}:
+          "\\" ++ SCon{Chr{c}, SNil{}}
+        case False{}:
+          SCon{Chr{c}, SNil{}}
+
+def @.esc(+c: U32, q: U32) -> String:
+  @.esc.go(c, U32.to_nat(c), U32.is_eq(c, q))
+
+def @.chr.go(+c: U32, ok: Bool) -> String:
+  match ok:
+    case True{}:
+      "'" ++ @.esc(c, 39) ++ "'"
+    case False{}:
+      "Chr{" ++ @.u32(c) ++ "}"
+
+def @.chr(x: Char) -> String:
+  match x:
+    case Chr{c}:
+      +d = c
+      @.chr.go(d, @.ok(d))
+
+def @.str.fin(h: Char, r: String & Bool) -> String & Bool:
+  match h:
+    case Chr{c}:
+      (t, ok) = r
+      +d = c
+      (SCon{Chr{d}, t}, ok && @.ok(d))
+
+def @.str.all(x: String) -> String & Bool:
+  match x:
+    case SNil{}:
+      (SNil{}, True{})
+    case SCon{h, t}:
+      @.str.fin(h, @.str.all(t))
+
+def @.str.ok(x: String) -> String & Bool:
+  match x:
+    case SNil{}:
+      (SNil{}, False{})
+    case SCon{h, t}:
+      @.str.fin(h, @.str.all(t))
+
+def @.str.esc.fin(h: Char, t: String) -> String:
+  match h:
+    case Chr{c}:
+      @.esc(c, 34) ++ t
+
+def @.str.esc(x: String) -> String:
+  match x:
+    case SNil{}:
+      SNil{}
+    case SCon{h, t}:
+      @.str.esc.fin(h, @.str.esc(t))
+
+def @.str.raw(x: String) -> String:
+  match x:
+    case SNil{}:
+      "SNil{}"
+    case SCon{h, t}:
+      "SCon{" ++ @.chr(h) ++ ", " ++ @.str.raw(t) ++ "}"
+
+def @.str.go(r: String & Bool) -> String:
+  (s, ok) = r
+  match ok:
+    case True{}:
+      "\"" ++ @.str.esc(s) ++ "\""
+    case False{}:
+      @.str.raw(s)
+
+def @.str(x: String) -> String:
+  @.str.go(@.str.ok(x))
+
+def @.chain(n: Nat) -> String:
+  match n:
+    case Zero{}:
+      ""
+    case Succ{k}:
+      Nat.show(Succ{k}) ++ "n+"
+`;
+
+const ERRS = ("|*|*|*|out of memory: run again with a bigger span, as in"
+  + " --gpu-memory 8GB|a function the device does not hold|*|a Nat past the"
+  + " largest immediate 2^48-1|*|memory fault (machine stack overflow?)|an"
+  + " array past the deepest block class 31").split("|")
+  .map((e) => e === "*" ? "runtime fail-stop" : e);
 
 // Operations
 // ----------
 
 const CMPS = "is_eq:==:=== is_ne:!=:!== is_lt:< is_le:<= is_gt:> is_ge:>=";
 
-export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
+const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   ...tpl_ops("u32_", "add:+ sub:- and:& or:| xor:^",
     "U32_BIN($0, $o, $1)", "(($0 $o $1) >>> 0)"),
   ...tpl_ops("u32_", CMPS, "U32_BIN($0, $o, $1)", "($0 $o $1)"),
@@ -245,14 +363,8 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   },
   ...tpl_ops("u32_", "inc:+ shl:<< shr:>>:>>>", "U32_BIN($0, $o, 1)",
     "(($0 $o 1) >>> 0)"),
-  u32_shln: {
-    C:  "($1 >= 32 ? 0 : U32_BIN($0, <<, $1))",
-    JS: "($1 >= 32n ? 0 : ($0 << Number($1)) >>> 0)",
-  },
-  u32_shrn: {
-    C:  "($1 >= 32 ? 0 : U32_BIN($0, >>, $1))",
-    JS: "($1 >= 32n ? 0 : $0 >>> Number($1))",
-  },
+  ...tpl_ops("u32_", "shln:<< shrn:>>:>>>", "($1 >= 32 ? 0 : U32_BIN($0, $o, $1))",
+    "($1 >= 32n ? 0 : ($0 $o Number($1)) >>> 0)"),
   u32_not: {
     C:  "((u64)~(u32)($0))",
     JS: "(~$0 >>> 0)",
@@ -286,15 +398,11 @@ export const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   ...tpl_ops("f32_", CMPS, "((u64)(f32_unbox($0) $o f32_unbox($1)))",
     "($0 $o $1)"),
   ...tpl_ops("f32_", "sqrt exp log log2 log10 sin cos tan asin acos atan"
-    + " sinh cosh tanh floor ceil trunc",
-    "f32_rewrap((f32)$k(f32_unbox($0)))", "Math.fround(Math.$k($0))"),
+    + " sinh cosh tanh floor ceil trunc abs:fabs:abs",
+    "f32_rewrap((f32)$o(f32_unbox($0)))", "Math.fround(Math.$o($0))"),
   ...tpl_ops("f32_", "pow atan2",
-    "f32_rewrap((f32)$k(f32_unbox($0), f32_unbox($1)))",
-    "Math.fround(Math.$k($0, $1))"),
-  f32_abs: {
-    C:  "f32_rewrap((f32)fabs(f32_unbox($0)))",
-    JS: "Math.abs($0)",
-  },
+    "f32_rewrap((f32)$o(f32_unbox($0), f32_unbox($1)))",
+    "Math.fround(Math.$o($0, $1))"),
   f32_mod: {
     C:  "f32_rewrap((f32)fmod(f32_unbox($0), f32_unbox($1)))",
     JS: "Math.fround($0 % $1)",
@@ -523,66 +631,35 @@ static Term f32_read(Env e, Term s);
 `.slice(1),
   IO: String.raw`
 static Term f32_show(Env e, Term x) {
-  char buf[32];
-  char out[40];
-  char dig[16];
-  f32  v  = f32_unbox(x);
-  int  p  = 1;
-  int  nd = 0;
-  int  k  = 0;
+  char buf[40];
+  f32  v = f32_unbox(x);
+  int  n = 0;
+  int  p = 0;
   if (v != v) {
     return io_str(e, "nan", 3);
   }
   for (; p < 9; p += 1) {
-    snprintf(buf, 32, "%.*e", p - 1, (double)v);
+    n = snprintf(buf, 40, "%.*e", p, (double)v);
     if (strtof(buf, NULL) == v) {
       break;
     }
   }
-  int n = snprintf(buf, 32, "%.*e", p - 1, (double)v);
-  if (!isfinite(v)) {
+  char* ep = strchr(buf, 'e');
+  if (ep == NULL) {
     return io_str(e, buf, n);
   }
-  char* m  = buf + (*buf == '-');
-  char* ep = strchr(m, 'e');
-  int   ex = atoi(ep + 1);
-  for (char* c = m; c < ep; c += 1) {
-    if (*c != '.') {
-      dig[nd++] = *c;
-    }
-  }
-  while (nd > 1 && dig[nd - 1] == '0') {
-    nd -= 1;
-  }
-  if (*buf == '-') {
-    out[k++] = '-';
-  }
+  int ex = atoi(ep + 1);
   if (ex >= 21 || ex <= -7) {
-    out[k++] = dig[0];
-    if (nd > 1) {
-      out[k++] = '.';
-      memcpy(out + k, dig + 1, nd - 1);
-      k += nd - 1;
-    }
-    k += sprintf(out + k, "e%c%d", ex < 0 ? '-' : '+', abs(ex));
-  } else if (ex < 0) {
-    k += sprintf(out + k, "0.");
-    for (int i = 1; i < -ex; i += 1) {
-      out[k++] = '0';
-    }
-    memcpy(out + k, dig, nd);
-    k += nd;
+    n = (int)(ep - buf) + sprintf(ep, "e%c%d", ex < 0 ? '-' : '+', abs(ex));
+  } else if (ex <= p) {
+    n = snprintf(buf, 40, "%.*f", p - ex, (double)v);
   } else {
-    for (int i = 0; i <= ex; i += 1) {
-      out[k++] = i < nd ? dig[i] : '0';
-    }
-    if (nd > ex + 1) {
-      out[k++] = '.';
-      memcpy(out + k, dig + ex + 1, nd - ex - 1);
-      k += nd - ex - 1;
-    }
+    int s = *buf == '-';
+    memmove(buf + s + 1, buf + s + 2, p);
+    memset(buf + s + 1 + p, '0', ex - p);
+    n = s + 1 + ex;
   }
-  return io_str(e, out, k);
+  return io_str(e, buf, n);
 }
 
 static Term f32_read(Env e, Term s) {
@@ -709,19 +786,6 @@ function name_clean(k: string): string {
   return (LOCAL.get(k) ?? k).replace(/[^A-Za-z0-9_]/g, "_");
 }
 
-function name_own(book: Bend.Book, k: Bend.Name): string {
-  const src = (book.tlds[k] as Bend.Def).T.s?.src ?? "";
-  const segs = k.split(".");
-  for (let i = 1; i < segs.length; i += 1) {
-    const own = segs.slice(i).join(".");
-    if (new RegExp("^(def|law) " + own.replace(/\./g, "\\.") + "[(:\\s]", "m")
-      .test(src)) {
-      return own;
-    }
-  }
-  return k;
-}
-
 function name_local(fl: File, k: Bend.Name): string {
   const base = name_clean(k);
   const n = fl.fresh.get(base) ?? 0;
@@ -745,10 +809,8 @@ function tpl_ops(pre: string, names: string, C: string, JS: string):
   Record<string, Intr> {
   const out: Record<string, Intr> = {};
   for (const p of names.split(" ")) {
-    const [k, o, jo = o] = p.split(":");
-    const fill = (t: string, op: string): string =>
-      t.replaceAll("$k", k).replaceAll("$o", op);
-    out[pre + k] = { C: fill(C, o), JS: fill(JS, jo) };
+    const [k, o = k, jo = o] = p.split(":");
+    out[pre + k] = { C: C.replaceAll("$o", o), JS: JS.replaceAll("$o", jo) };
   }
   return out;
 }
@@ -919,8 +981,11 @@ function live_doms(book: Bend.Book, tld: Bend.Def): Dom[] {
 // ====
 
 function intr_of(c: Carb, k: Bend.Name, js = false): Intr | undefined {
-  const it = memo(INTRS, k, () =>
-    def_own(c.book.tlds[k]) ? OPERATIONS[eff_name(k)] ?? null : null);
+  const it = memo(INTRS, k, () => {
+    const tld = c.book.tlds[k];
+    return tld?.$ === "Def" && tld.i === undefined && (tld.b || tld.v === null)
+      ? OPERATIONS[eff_name(k)] ?? null : null;
+  });
   return it !== null && (js || it.C !== undefined || it.parts !== undefined
     || it.call === true) ? it : undefined;
 }
@@ -1025,6 +1090,25 @@ function ty_adt(book: Bend.Book, A: HTerm | null): HAdt | null {
   return t?.$ === "ADT" ? t : null;
 }
 
+// A type may hold a closure: a function, a variable or a stuck type, or a
+// datatype whose live fields may (walked once per datatype); a word type,
+// a quantity (List<&2, U32>) or a kind holds none.
+function ty_clo(book: Bend.Book, A: HTerm | null,
+  seen = new Set<Bend.Name>()): boolean {
+  const t = ty_wnf(book, A);
+  switch (t?.$) {
+    case "ADT": {
+      const tld = book.tlds[t.k];
+      return WORDS[t.k] === undefined && (t.x.some((x) =>
+        ty_clo(book, x, seen)) || (tld?.$ === "ADT" && !seen.has(t.k)
+        && seen.add(t.k) && tld.c.some((c) =>
+        ctr_doms(book, c, t.x).some((f) => ty_clo(book, f, seen)))));
+    }
+    case "Typ": case "Qua": case "Min": case "Eql": return false;
+    default: return true;
+  }
+}
+
 // Lay
 // ===
 
@@ -1033,20 +1117,12 @@ function lay_of(book: Bend.Book, A: HTerm | null): Lay {
   if (t === null) {
     return BOX;
   }
-  return memo(LAYS, t, () => lay_adt(book, t));
-}
-
-function lay_adt(book: Bend.Book, t: HAdt): Lay {
-  const word = WORDS[t.k];
-  if (word !== undefined) {
-    return word;
-  }
-  const tld = book.tlds[t.k];
-  if (t.k === "Array" || tld?.$ !== "ADT" || lay_cyclic(book, t.k)) {
-    return BOX;
-  }
-  return lay_pack(tld.c.map((c): Arm =>
-    ({ k: c.k, fs: lay_fields(book, ctr_doms(book, c, t.x)) })));
+  return memo(LAYS, t, () => {
+    const tld = book.tlds[t.k];
+    return WORDS[t.k] ?? (t.k === "Array" || tld?.$ !== "ADT"
+      || lay_cyclic(book, t.k) ? BOX : lay_pack(tld.c.map((c): Arm =>
+      ({ k: c.k, fs: lay_fields(book, ctr_doms(book, c, t.x)) }))));
+  });
 }
 
 function lay_fields(book: Bend.Book, As: (HTerm | null)[]): Field[] {
@@ -1234,10 +1310,6 @@ function def_live(c: Carb, tld: Bend.Def): number {
   return live_doms(c.book, tld).length + Number(def_foreign(tld));
 }
 
-function def_own(tld: Bend.TLD | undefined): boolean {
-  return tld?.$ === "Def" && tld.i === undefined && (tld.b || tld.v === null);
-}
-
 function def_lays(cb: Carb, k: Bend.Name): Lay[] {
   if (k === CLO_APPLY) {
     return [BOX, BOX];
@@ -1331,10 +1403,12 @@ function io_ports(book: Bend.Book, ext: string,
   };
   const kept = mains.filter(([, k]) => fits(k, new Set())).filter((m) => {
     try {
-      probe(m);
+      if (names.length > 1) {
+        probe(m);
+      }
       return true;
     } catch {
-      return names.length === 1;
+      return false;
     }
   });
   if (kept.length === 0) {
@@ -1343,7 +1417,7 @@ function io_ports(book: Bend.Book, ext: string,
   return kept;
 }
 
-export function io_entry(book: Bend.Book, k: Bend.Name): Bend.Name {
+function io_entry(book: Bend.Book, k: Bend.Name): Bend.Name {
   if (io_type(book, k) !== null) {
     return k;
   }
@@ -1405,93 +1479,19 @@ function show_def(st: Show, name: string, sig: string,
   return name;
 }
 
-function show_once(st: Show, name: string, mint: () => void): string {
-  if (!st.defs.has(name)) {
-    st.defs.set(name, name);
-    mint();
+function show_lib(st: Show): string {
+  if (!st.defs.has(st.pre)) {
+    st.defs.set(st.pre, st.pre);
+    st.src.push(SHOW_LIB.replaceAll("@", st.pre));
   }
-  return name;
-}
-
-function show_word(st: Show): string {
-  const p = st.pre;
-  return show_once(st, p + ".word", () => {
-    show_def(st, p + ".bit", "(b: Bool, t: String) -> String", ["match b:",
-      "  case False{}:", `    "WCon{False{}, " ++ t ++ "}"`,
-      "  case True{}:", `    "WCon{True{}, " ++ t ++ "}"`]);
-    show_def(st, p + ".word", "(n: Nat, +x: U32) -> String", ["match n:",
-      "  case 0n:", `    "WNil{}"`, "  case 1n+p:",
-      `    ${p}.bit(U32.is_eq(U32.and(x, 1), 1), ${p}.word(p, U32.shr(x)))`]);
-  });
-}
-
-function show_chr(st: Show): string {
-  const p = st.pre;
-  return show_once(st, p + ".chr", () => {
-    show_def(st, p + ".ok", "(+c: U32) -> Bool",
-      ["U32.is_eq(c, 0) || U32.is_eq(c, 9) || U32.is_eq(c, 10)",
-        "  || U32.is_eq(c, 13) || (U32.is_ge(c, 32) && U32.is_ne(c, 127)",
-        "  && (U32.is_lt(c, 55296) || U32.is_gt(c, 57343))",
-        "  && U32.is_le(c, 1114111))"]);
-    show_def(st, p + ".esc.go", "(+c: U32, n: Nat, q: Bool) -> String",
-      ["match n:", `  case 10n:`, `    "\\\\n"`, `  case 9n:`, `    "\\\\t"`,
-        `  case 13n:`, `    "\\\\r"`, `  case 0n:`, `    "\\\\0"`,
-        `  case 92n:`, `    "\\\\\\\\"`, "  case k:", "    match q:",
-        "      case True{}:", `        "\\\\" ++ SCon{Chr{c}, SNil{}}`,
-        "      case False{}:", "        SCon{Chr{c}, SNil{}}"]);
-    show_def(st, p + ".esc", "(+c: U32, q: U32) -> String",
-      [`${p}.esc.go(c, U32.to_nat(c), U32.is_eq(c, q))`]);
-    show_u32(st);
-    show_def(st, p + ".chr.go", "(+c: U32, ok: Bool) -> String",
-      ["match ok:", "  case True{}:", `    "'" ++ ${p}.esc(c, 39) ++ "'"`,
-        "  case False{}:", `    "Chr{" ++ ${p}.u32(c) ++ "}"`]);
-    show_def(st, p + ".chr", "(x: Char) -> String", ["match x:",
-      "  case Chr{c}:", "    +d = c", `    ${p}.chr.go(d, ${p}.ok(d))`]);
-  });
-}
-
-function show_str(st: Show): string {
-  const p = st.pre;
-  return show_once(st, p + ".str", () => {
-    show_chr(st);
-    show_def(st, p + ".str.fin", "(h: Char, r: String & Bool) -> String & Bool",
-      ["match h:", "  case Chr{c}:", "    (t, ok) = r", "    +d = c",
-        `    (SCon{Chr{d}, t}, ok && ${p}.ok(d))`]);
-    show_def(st, p + ".str.all", "(x: String) -> String & Bool",
-      ["match x:", "  case SNil{}:", "    (SNil{}, True{})",
-        "  case SCon{h, t}:", `    ${p}.str.fin(h, ${p}.str.all(t))`]);
-    show_def(st, p + ".str.ok", "(x: String) -> String & Bool",
-      ["match x:", "  case SNil{}:", "    (SNil{}, False{})",
-        "  case SCon{h, t}:", `    ${p}.str.fin(h, ${p}.str.all(t))`]);
-    show_def(st, p + ".str.esc.fin", "(h: Char, t: String) -> String",
-      ["match h:", "  case Chr{c}:", `    ${p}.esc(c, 34) ++ t`]);
-    show_def(st, p + ".str.esc", "(x: String) -> String",
-      ["match x:", "  case SNil{}:", "    SNil{}", "  case SCon{h, t}:",
-        `    ${p}.str.esc.fin(h, ${p}.str.esc(t))`]);
-    show_def(st, p + ".str.raw", "(x: String) -> String",
-      ["match x:", "  case SNil{}:", `    "SNil{}"`, "  case SCon{h, t}:",
-        `    "SCon{" ++ ${p}.chr(h) ++ ", " ++ ${p}.str.raw(t) ++ "}"`]);
-    show_def(st, p + ".str.go", "(r: String & Bool) -> String",
-      ["(s, ok) = r", "match ok:", "  case True{}:",
-        `    "\\"" ++ ${p}.str.esc(s) ++ "\\""`, "  case False{}:",
-        `    ${p}.str.raw(s)`]);
-    show_def(st, p + ".str", "(x: String) -> String",
-      [`${p}.str.go(${p}.str.ok(x))`]);
-  });
-}
-
-function show_u32(st: Show): string {
-  return show_once(st, st.pre + ".u32", () => {
-    show_def(st, st.pre + ".u32", "(x: U32) -> String",
-      [`"U32{" ++ ${show_word(st)}(32n, x) ++ "}"`]);
-  });
+  return st.pre;
 }
 
 function show_of(st: Show, T: HTerm): string | null {
   const t = ty_wnf(st.book, T) as HTerm;
   const p = st.pre;
   if (t.$ === "ADT" && t.r.length === 0 && t.k in SHOWN) {
-    return SHOWN[t.k](st);
+    return show_lib(st) + "." + SHOWN[t.k];
   }
   const key = show_text(t);
   const got = st.defs.get(key);
@@ -1534,11 +1534,7 @@ function show_of(st: Show, T: HTerm): string | null {
   if (!nat) {
     return show_def(st, name, sig, body);
   }
-  show_once(st, p + ".chain", () => {
-    show_def(st, p + ".chain", "(n: Nat) -> String", ["match n:",
-      "  case Zero{}:", `    ""`, "  case Succ{k}:",
-      `    Nat.show(Succ{k}) ++ "n+"`]);
-  });
+  show_lib(st);
   show_def(st, name + ".go", `(x: ${key}, n: Nat) -> String`, body);
   return show_def(st, name, sig, [`${name}.go(x, 0n)`]);
 }
@@ -1619,7 +1615,11 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
   LOCAL.clear();
   for (const [k, tld] of Object.entries(src.tlds)) {
     if (def_foreign(tld)) {
-      LOCAL.set(k, name_own(src, k));
+      const src  = tld.T.s?.src ?? "";
+      const segs = k.split(".");
+      LOCAL.set(k, segs.map((_, i) => segs.slice(i).join(".")).find((own) =>
+        new RegExp("^(def|law) " + own.replace(/\./g, "\\.") + "[(:\\s]", "m")
+          .test(src)) ?? k);
     }
   }
   memo_gc();
@@ -1742,15 +1742,18 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     }
   }
 
+  // Opens to the source's probes and body: nothing under it is rebuilt.
   function alive(s: HLet): HLet {
     const o = term_open(s);
     const u = term_uses(cb, o.b);
     const on = s.q.map((q, j) => quant_live(q) && term_use(u, o.ps[j]) > 0);
     const pick = <T>(xs: T[]): T[] => xs.filter((_, j) => on[j]);
-    return Bend.Let(pick(s.k), pick(s.i), pick(s.v), (xs) => {
+    const l = Bend.Let(pick(s.k), pick(s.i), pick(s.v), (xs) => {
       let i = 0;
       return s.f(s.v.map((v, j) => on[j] ? xs[i++] : v));
     }, s.s, pick(s.q));
+    OPENS.set(l, { ps: pick(o.ps), b: o.b });
+    return l;
   }
 
   function leaf(caps: Capture[], t: HTerm): Open {
@@ -2112,13 +2115,6 @@ function seg_new(name: string, seq: boolean, params: string[], resw = 1,
 
 function seg_fid(k: Bend.Name): string {
   return "FID_" + name_clean(k).toUpperCase();
-}
-
-// The first BANK arguments ride named locals; the rest ride rx[].
-const BANK = 16;
-
-function reg(i: number): string {
-  return i < BANK ? "r" + i : "rx[" + (i - BANK) + "]";
 }
 
 function seg_ref(fl: File, fid: string): string {
@@ -2757,7 +2753,7 @@ function emit_held(fl: File): Set<string> {
 
 function emit_res(fl: File, ws: string[]): void {
   fl.resw = Math.max(fl.resw, ws.length);
-  ws.forEach((w, j) => file_push(fl, `res[${j}] = ${w};`));
+  ws.forEach((w, j) => file_push(fl, `r${j} = ${w};`));
 }
 
 function emit_step(fl: File, ck: Call): void {
@@ -2776,16 +2772,16 @@ function emit_bang(fl: File, ck: Call, args: string[]): void {
   file_push(fl, `return term_tsk(${fid}, ${emit_task(fl, fid, 0, args)});`);
 }
 
+// A self-jump reads its parameters back: the device's loop carries them
+// typed, not as words (raytrace GPU 1.72x otherwise).
 function emit_jump(fl: File, args: string[], k: Bend.Name): void {
+  args.forEach((a, i) => file_push(fl, `r${i} = ${a};`));
   if (fl.seg.def !== k) {
-    args.forEach((a, i) => file_push(fl, `${reg(i)} = ${a};`));
     return file_push(fl, `WL_JMP(${seg_ref(fl, seg_fid(k))});`);
   }
   fl.seg.spin = true;
-  emit_hold(fl, args, "j", fl.seg.ks).forEach((j, i) => {
-    file_push(fl, `${fl.seg.params[i]} = ${j};`);
-  });
-  file_push(fl, "WL_AGAIN;");
+  fl.seg.params.forEach((p, i) => file_push(fl, `${p} = r${i};`));
+  file_push(fl, `WL_AGAIN(${fl.seg.fid});`);
 }
 
 function emit_vals(fl: File, k: Bend.Name, args: HTerm[]): Val[] {
@@ -2919,14 +2915,16 @@ function emit_native(fl: File, ck: Call, ers: HTerm[]): string {
   const vals = emit_params(fl, ck.k);
   const seg = seg_new(ck.k, false, vals.flatMap((v) => v.ws), 1,
     vals.flatMap((v) => v.lay.ks));
+  seg.fid = name;
   fl.seg = seg;
   const dst = { ws: ret.ks.map(() => name_local(fl, "v")), lay: ret };
   emit_body(fl, tld.h as HTerm, tld.T, ers, vals, dst);
-  fl.spins.push([name, [`HOT Term ${name}(Env e, THR Term* o${
-    seg.params.map((p, i) => `, ${lay_c(seg.ks[i])} ${p}`).join("")}) {`,
+  fl.spins.push([name, [`${seg.lines.length < SPIN_FAR ? "INLINE" : "FAR"} Term ${name}(Env e, THR Term* o${
+    seg.ks.map((k, i) => `, ${lay_c(k)} r${i}`).join("")}) {`,
   "  u32 wpoll = 0;",
   ...dst.ws.map((v, j) => `  ${lay_c(ret.ks[j])} ${v} = 0;`),
-  "  WL_SPIN", ...seg.lines, "    break;", "  }",
+  ...seg.params.map((p, i) => `  ${lay_c(seg.ks[i])} ${p} = r${i};`),
+  `  WL_SPIN(${name})`, ...seg.lines, "  break;", "  }",
   ...dst.ws.map((v, j) => `  o[${j}] = ${v};`),
   "  return 1;", "}"].join("\n"), seg.refs]);
   Object.assign(fl, outer);
@@ -3374,14 +3372,8 @@ function compile_def(fl: File, k: Bend.Name, tld: Def): void {
         lay_of(fl.book, c.A).ks.map((_, j) =>
         pos.get(c.p)! + j - depth)) };
   }
-  fl.tab = 3;
-  emit_body(fl, tld.h as HTerm, tld.T, [], vals, null);
   fl.tab = 2;
-  if (fl.seg.spin) {
-    fl.seg.lines = ["    WL_SPIN", ...fl.seg.lines, "    WL_SPUN"];
-  } else {
-    fl.seg.lines = fl.seg.lines.map((l) => l.slice(2));
-  }
+  emit_body(fl, tld.h as HTerm, tld.T, [], vals, null);
 }
 
 function compile_reqs(fl: File): void {
@@ -3395,7 +3387,7 @@ function compile_reqs(fl: File): void {
     fl.seg = seg_new(k, false, qp);
     fl.segs.push(fl.seg);
     cid_reg(fl, k, qp.length);
-    file_push(fl, `res[0] = ${ctr_build(fl, k, qp)};`);
+    file_push(fl, `r0 = ${ctr_build(fl, k, qp)};`);
     file_push(fl, "WL_RETN(1);");
   }
 }
@@ -3403,23 +3395,21 @@ function compile_reqs(fl: File): void {
 function compile_tables(fl: File, entries: Seg[]): string[] {
   const defs: string[] = [];
   for (const ms of [[...fl.cids.keys()].map(cid_mac),
-    [...entries.map((s) => s.fid), "FID_EXIT"]]) {
+    [...entries.map((s) => s.fid), "FID_EXIT", "FID_ENTER"]]) {
     const dup = ms.find((m, i) => ms.indexOf(m) < i);
     if (ms.length > 65536 || dup !== undefined) {
       die(dup === undefined ? "an id over 65535"
         : "two names mangle to " + dup);
     }
-    const w = Math.max(...ms.map((m) => m.length));
-    defs.push(...ms.map((m, i) => `#define ${m.padEnd(w)} ${i}`), "");
+    defs.push(...ms.map((m, i) => `#define ${m} ${i}`));
   }
   const table = (nm: string, vals: number[]) => {
     if (vals.some((v) => v > 255)) {
       die("an arity over 255");
     }
-    defs.push(`CONSTV u8 ${nm}[] = { ${vals.join(", ")} };`, "");
+    defs.push(`CONSTV u8 ${nm}[] = { ${vals.join(", ")} };`);
   };
   table("FID_ARITY_T", entries.map((s) => s.params.length));
-  table("FID_BANGS_T", entries.map((s) => Number(fl.bangs.has(s.def))));
   const nofk = new Set(done_defs(fl).filter(([, tld]) => !term_any(fl,
     tld.h as HTerm, (s) => (s.$ === "Let" && s.k.length >= 2)
       || call_kind(fl, s)?.k === CLO_APPLY)).map(([k]) => k));
@@ -3433,38 +3423,36 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
       }
     }
   }
-  table("FID_NOFK_T", entries.map((s) => Number(nofk.has(s.def))));
-  table("FID_SEQK_T", entries.map((s) => Number(s.frame !== null)));
+  table("FID_FLAG_T", entries.map((s) => Number(fl.bangs.has(s.def))
+    | Number(nofk.has(s.def)) << 1 | Number(s.frame !== null) << 2));
   table("FID_RESW_T", entries.map((s) => s.frame?.resw ?? 0));
   table("CID_ARITY_T", [...fl.cids.values()].map((c) => c[0]));
   table("CID_BOXN_T", [...fl.cids.values()].map((c) => c[1]));
-  const bank = (segs: Seg[]): string[] => {
-    const n = Math.max(1, ...segs.filter((s) => s.frame === null)
-      .map((s) => s.params.length));
-    const ns = [...Array(Math.min(n, BANK)).keys()];
-    const load = [...ns].reverse().map((r) =>
-      `    case ${r + 1}: r${r} = e.mem[a + ${r}]; \\\n`).join("");
-    const pass = ns.map((i) =>
-      `    case ${i}: r${i} = res[0]; \\\n      break; \\\n`).join("");
-    const rx = n > BANK;
-    return [`#define WL_BANK Term ${ns.map((i) => "r" + i).join(", ")};`
-      + (rx ? ` Term rx[${n - BANK}];` : ""), "",
-      `#define WL_LOAD \\\n` + (rx ? `  for (u32 wi = ${BANK}; wi < war;`
-      + ` wi += 1) { \\\n    rx[wi - ${BANK}] = e.mem[a + wi]; \\\n  } \\\n`
-      : "") + `  switch (war < ${BANK} ? war : ${BANK}) { \\\n${load}  }`, "",
-      `#define WL_LAST \\\n` + (rx ? `  if (war >= ${BANK}) { \\\n`
-      + `    rx[war - ${BANK}] = res[0]; \\\n  } \\\n` : "")
-      + `  switch (war) { \\\n${pass}  }`, ""];
-  };
+  // One bank for both lanes, as wide as the widest segment; rp pads the
+  // host's twelfth slot so rax stays free for the tail call.
+  const n = Math.max(fl.resw, ...entries.filter((s) => s.frame === null)
+    .map((s) => s.params.length));
+  const rs = [...Array(n).keys()].map((i) => "r" + i);
+  const ws = n > 6 ? [...rs.slice(0, 6), "rp", ...rs.slice(6)] : rs;
+  const load = rs.map((r, i) =>
+    `    case ${i + 1}: ${r} = e.mem[(A) + ${i}]; \\\n`).reverse().join("");
+  const last = rs.map((r, i) =>
+    `    case ${i}: ${r} = (X); \\\n      break; \\\n`).join("");
   defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail Con Some".split(" ")
-    .reduce((m, k, i) => m | (fl.hot.has(k) ? 1 << i : 0), 0)}`, "");
-  defs.push(`#define WL_RESW ${fl.resw}`,
-    `#define BANGS   ${fl.bangs.size}`, "");
-  defs.push("#if DEVICE", ...bank(entries.filter((s) => !s.host)), "#else",
-    ...bank(entries), "#endif", "",
-    `#define WL_LABELS ${entries.map((s) =>
-      "&&L_" + (s.dead ? "FID_EXIT" : s.fid))
-      .join(", ")}, &&L_FID_EXIT`);
+    .reduce((m, k, i) => m | (fl.hot.has(k) ? 1 << i : 0), 0)}`, "",
+  `#define WL_RESW ${fl.resw}`, `#define BANGS   ${fl.bangs.size}`, "",
+  `#define WL_BANK Term ${ws.join(", ")};`, "",
+  `#define WL_LOAD(A, N) \\\n  switch (N) { \\\n${load}  }`, "",
+  `#define WL_LAST(X) \\\n  switch (war) { \\\n${last}  }`, "",
+  `#define WL_SAVE(V) ${rs.slice(0, fl.resw).map((r, j) =>
+    `(V)[${j}] = ${r};`).join(" ")}`, "",
+  `#define WL_TAKE(V) ${rs.slice(0, fl.resw).map((r, j) =>
+    `${r} = (V)[${j}];`).join(" ")}`, "",
+  `#define WL_SIG Env e, Stk sp, u32 seq, u32 rn, ${ws.map((w) =>
+    "Term " + w).join(", ")}`, "", `#define WL_ALL e, sp, seq, rn, ${ws
+    .join(", ")}`, "",
+  `#define WL_TABLE ${entries.map((s) =>
+    `WL_X(${s.dead ? "FID_EXIT" : s.fid})`).join(" ")} WL_X(FID_EXIT)`);
   return defs;
 }
 
@@ -3477,15 +3465,12 @@ function compile_segs(fl: File): string {
     }
     const n = seg.params.length;
     seg.params.forEach((p, i) => {
-      let src = reg(i);
-      if (fr !== null) {
-        src = i >= n - fr.resw ? `res[${i - (n - fr.resw)}]`
-          : `STK(${fr.at[i] + fr.pop})`;
-      }
-      out.push(`    ${lay_c(seg.ks[i])} ${p} = ${src};`);
+      const at = fr === null ? i : i - n + fr.resw;
+      out.push(`    ${lay_c(seg.ks[i])} ${p} = ${at < 0
+        ? `STK(${fr!.at[i] + fr!.pop})` : `r${at}`};`);
     });
-    out.push(...seg.lines);
-    out.push("  }");
+    out.push("    WL_OPEN", ...seg.spin ? [`    WL_SPIN(${seg.fid})`] : [],
+      ...seg.lines, ...seg.spin ? ["    WL_SPUN"] : [], "  }}");
     return (seg.host ? ["#if !DEVICE", ...out, "#endif"] : out).join("\n");
   }).join("\n\n");
 }
@@ -3514,8 +3499,12 @@ export function compile_book(book: Bend.Book,
   };
   const roots = mains.map(([, k]) => k);
   const live = reach(roots);
-  const dev = reach([...fl.bangs, ...[...fl.dyn].filter((k) =>
-    !roots.includes(k))]);
+  // The device holds what the bangs reach and, when a bang's parameter
+  // may hold a closure (a jump through its fid), every closure.
+  const wide = [...fl.bangs].some((k) => live_doms(fl.book,
+    fl.book.tlds[k] as Bend.Def).some(([, , A]) => ty_clo(fl.book, A)));
+  const dev = reach([...fl.bangs, ...wide
+    ? [...fl.dyn].filter((k) => !roots.includes(k)) : []]);
   fl.segs = fl.segs.filter((s) =>
     live.has(s.fid) || def_foreign(cb.book.tlds[s.def]));
   const clo = live.has("FID_CLO_APPLY");
@@ -3817,9 +3806,11 @@ using namespace metal;
 #if BEND_METAL
 #import <Metal/Metal.h>
 #import <Foundation/Foundation.h>
+#include <mach-o/dyld.h>
 #elif BEND_CUDA
 #include <cuda.h>
 #include <nvrtc.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #endif
 #endif
@@ -3834,7 +3825,6 @@ using namespace metal;
 #define GA32    threadgroup atomic_uint
 #define THR     thread
 #define INLINE  inline
-#define HOT     inline
 #define OUTLINE static
 #define CONSTV  constant
 #define DEVICE  1
@@ -3849,16 +3839,16 @@ using namespace metal;
 #define g32_ini(p)    atomic_store_explicit(p, 0, RLX)
 #define g32_add(p, v) atomic_fetch_add_explicit(p, v, RLX)
 #define g32_get(p)    atomic_load_explicit(p, RLX)
-#elif defined(__CUDACC_RTC__)
-#define DEV     volatile
+#else
 #define DEVL
 #define GRP
-#define GA32    __shared__ u32
 #define THR
 #define INLINE  static inline
-#define HOT     static inline
-#define OUTLINE static __attribute__((noinline))
 #define CONSTV  static const
+#ifdef __CUDACC_RTC__
+#define DEV     volatile
+#define GA32    __shared__ u32
+#define OUTLINE static __attribute__((noinline))
 #define DEVICE  1
 #define CLZ(x)  (u32)__clz((int)(x))
 #define FENCE() __threadfence()
@@ -3871,47 +3861,41 @@ using namespace metal;
 #define g32_get(p)    (*(p))
 #else
 #define DEV
-#define DEVL
-#define GRP
-#define THR
-#define INLINE  static inline
-#define HOT     static inline __attribute__((always_inline))
-#define OUTLINE static __attribute__((noinline, cold))
-#define CONSTV  static const
+#define OUTLINE static __attribute__((noinline, cold, preserve_most))
 #define DEVICE  0
 #define CLZ(x)  (u32)__builtin_clz(x)
 #define FENCE() __atomic_thread_fence(__ATOMIC_SEQ_CST)
 #endif
+#endif
+#define FAR static __attribute__((noinline))
 
+// A segment: a case of the device's switch; on the host, a preserve_none
+// function (WL_SIG) left by a musttail call, its words fresh at WL_OPEN.
 #if DEVICE
 #define LOCK(l)
 #define UNLOCK(l)
 #define WL_CASE(F) case F:
+#define WL_OPEN    {
 #define WL_JMP(F)  { fid = (F); break; }
 #define WL_DYN     WL_JMP
-#define WL_SPIN \
-  for (;;) { \
-    if (err_spun(e.mem, &wpoll)) { \
-      return 0; \
-    }
-#define WL_SPUN    } break;
 #else
 #define LOCK(l)    while (__atomic_exchange_n(&(l), 1, __ATOMIC_ACQUIRE)) {}
 #define UNLOCK(l)  __atomic_store_n(&(l), 0, __ATOMIC_RELEASE)
-#define WL_CASE(F) L_##F: ;
-#define WL_JMP(F)  goto L_##F
-#define WL_DYN(F)  { fid = (F); __asm__ volatile("" :: "i"(__LINE__)); \
-  goto *wl_lbl[fid]; }
-#define WL_SPIN    for (;;) {
-#define WL_SPUN    }
+#define WL_FN      static __attribute__((preserve_none, noinline)) Reply
+#define WL_CASE(F) WL_FN WL_##F(WL_SIG)
+#define WL_OPEN    { WL_BANK u32 rn;
+#define WL_JMP(F)  __attribute__((musttail)) return WL_##F(WL_ALL)
+#define WL_DYN(F)  __attribute__((musttail)) return wl_tab[F](WL_ALL)
 #endif
-#define WL_AGAIN   continue
-#define WL_POP()   { sp -= LANE_STEP; WL_DYN((Fid)STK(0)); }
+#define WL_SPIN(F)  for (;;) { if (err_spun(e.mem, &wpoll)) { return 0; }
+#define WL_SPUN     } break;
+#define WL_AGAIN(F) continue
+#define WL_POP()    { sp -= LANE_STEP; WL_DYN((Fid)STK(0)); }
 
 #define LANE_STEP (DEVICE ? (int64_t)CUBE : 1)
 #define STK(I)    sp[(int64_t)(I) * LANE_STEP]
 
-#define WL_RETN(N)  { resn = (N); WL_POP(); }
+#define WL_RETN(N)  { rn = (N); WL_POP(); }
 #define WL_CONT     STK(-3)
 #define WL_IDX      STK(-2)
 #define WL_POPN(N)  sp -= N * LANE_STEP
@@ -4088,18 +4072,24 @@ static _Atomic u32    pool_done;
 static lock           pool_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t pool_wake = PTHREAD_COND_INITIALIZER;
 
+// The device program compiles from the binary's own text.
+#if BEND_METAL || BEND_CUDA
+#pragma clang diagnostic ignored "-Wc23-extensions"
+static const char BEND_SRC[] = {
+#embed __FILE__
+, 0 };
+#endif
+
 #if BEND_METAL
 static id<MTLDevice>               gpu_dev;
 static id<MTLCommandQueue>         gpu_que;
 static id<MTLLibrary>              gpu_lib;
-static id<MTLComputePipelineState> gpu_grow_pso;
-static id<MTLComputePipelineState> gpu_work_pso;
+static id<MTLComputePipelineState> gpu_pso;
 static id<MTLBuffer>               gpu_buf;
 #elif BEND_CUDA
 static CUdevice   gpu_dev;
 static CUmodule   gpu_lib;
-static CUfunction gpu_grow_pso;
-static CUfunction gpu_work_pso;
+static CUfunction gpu_pso;
 #endif
 static bool io_gpu;
 static Stk  io_stk;
@@ -4110,6 +4100,7 @@ static const char* CLI_HELP =
   "  --parallel on|off  off means one thread and no GPU (default: on)\n"
   "  --gpu on|off       send ! calls to the GPU (default: on if present)\n"
   "  --gpu-memory 4GB   device span, in MB or GB (default: 2GB on Metal)\n"
+  "  --gpu-build        write the GPU program and exit\n"
   "  --help             show this text\n";
 
 #endif
@@ -4124,11 +4115,11 @@ static const char* CLI_HELP =
 
 #define fid_arity(x) ((u32)FID_ARITY_T[x])
 
-#define fid_bangs(x) ((bool)FID_BANGS_T[x])
+#define fid_bangs(x) ((bool)(FID_FLAG_T[x] & 1))
 
-#define fid_nofk(x) ((bool)FID_NOFK_T[x])
+#define fid_nofk(x) ((bool)(FID_FLAG_T[x] & 2))
 
-#define fid_seqk(x) ((bool)FID_SEQK_T[x])
+#define fid_seqk(x) ((bool)(FID_FLAG_T[x] & 4))
 
 #define fid_resw(x) ((u32)FID_RESW_T[x])
 
@@ -4148,7 +4139,6 @@ static const char* CLI_HELP =
 #define a32_store(p, v)  atomic_store_explicit(A32(p), v, RLX)
 #define a32_add(p, v)    atomic_fetch_add_explicit(A32(p), v, RLX)
 #define a32_sub(p, v)    atomic_fetch_sub_explicit(A32(p), v, RLX)
-#define a32_xor(p, v)    atomic_fetch_xor_explicit(A32(p), v, RLX)
 #define a32_swp(p, e, v) \
   atomic_compare_exchange_weak_explicit(A32(p), e, v, RLX, RLX)
 
@@ -4158,7 +4148,6 @@ static const char* CLI_HELP =
 #define a32_store(p, v) (*(p) = (v))
 #define a32_add(p, v)   atomicAdd((u32*)(p), v)
 #define a32_sub(p, v)   atomicSub((u32*)(p), v)
-#define a32_xor(p, v)   atomicXor((u32*)(p), v)
 
 INLINE bool a32_swp(DEV u32* p, u32* e, u32 v) {
   u32 x = *e;
@@ -4201,7 +4190,6 @@ INLINE bool a32_cas(DEV u32* p, THR u32* e, u32 v) {
 #define a32_store(p, v)     __atomic_store_n(p, v, __ATOMIC_RELAXED)
 #define a32_add(p, v)       __atomic_fetch_add(p, v, __ATOMIC_RELAXED)
 #define a32_sub(p, v)       __atomic_fetch_sub(p, v, __ATOMIC_RELAXED)
-#define a32_xor(p, v)       __atomic_fetch_xor(p, v, __ATOMIC_RELAXED)
 #define a32_sub_rel(p, v)   __atomic_fetch_sub(p, v, __ATOMIC_RELEASE)
 #define a32_store_rel(p, v) __atomic_store_n(p, v, __ATOMIC_RELEASE)
 #define a32_load_acq(p)     __atomic_load_n(p, __ATOMIC_ACQUIRE)
@@ -4359,7 +4347,7 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   return got;
 }
 
-HOT Loc heap_alloc(Env e, Cls cls) {
+INLINE Loc heap_alloc(Env e, Cls cls) {
   Loc h = ALC_AT(e, cls);
   if (h) {
     ALC_AT(e, cls)   = e.mem[h];
@@ -4369,7 +4357,7 @@ HOT Loc heap_alloc(Env e, Cls cls) {
   return heap_alloc_miss(e, cls);
 }
 
-HOT void heap_free(Env e, Cls cls, Loc loc) {
+INLINE void heap_free(Env e, Cls cls, Loc loc) {
   if (err_seen(e.mem)) {
     return;
   }
@@ -4384,7 +4372,7 @@ HOT void heap_free(Env e, Cls cls, Loc loc) {
 // Spare
 // =====
 
-HOT void spare_free(Env e, Cls cls, Loc loc) {
+INLINE void spare_free(Env e, Cls cls, Loc loc) {
   if (loc != 0) {
     heap_free(e, cls, loc);
   }
@@ -4453,18 +4441,6 @@ INLINE u64 rfc_view(Env e, Loc r) {
   return cell;
 }
 
-INLINE Term rfc_out(Env e, Term t) {
-  Loc      r = term_loc(t);
-  DEV u32* p = a32_at(e.mem, r);
-  if ((a32_sub_rel(p, 1) & RFC_CNT) != 1) {
-    return 0;
-  }
-  a32_acq(p);
-  Term s = (t & ~(RFC_BIT | LOC_MASK)) | (e.mem[r] >> 24);
-  heap_free(e, 0, r);
-  return s;
-}
-
 INLINE void rfc_bump(Env e, Loc r) {
   u32 c = a32_add(a32_at(e.mem, r), 1);
   if ((c & RFC_CNT) >= RFC_CNT - 1) {
@@ -4472,7 +4448,7 @@ INLINE void rfc_bump(Env e, Loc r) {
   }
 }
 
-HOT Term term_keep(Env e, Term t) {
+INLINE Term term_keep(Env e, Term t) {
   if (term_rfc(t)) {
     rfc_bump(e, term_loc(t));
     return t;
@@ -4483,7 +4459,7 @@ HOT Term term_keep(Env e, Term t) {
   return rfc_wrap(e, t, 2);
 }
 
-HOT Loc term_peek(Env e, Term t) {
+INLINE Loc term_peek(Env e, Term t) {
   if (term_rfc(t)) {
     return rfc_view(e, term_loc(t)) >> 24;
   }
@@ -4512,7 +4488,15 @@ static void term_drop(Env e, Term t) {
   u32  step = 0;
   for (;;) {
     if (!term_triv(t) && term_rfc(t)) {
-      t = rfc_out(e, t);
+      Loc      r = term_loc(t);
+      DEV u32* p = a32_at(H, r);
+      if ((a32_sub_rel(p, 1) & RFC_CNT) != 1) {
+        t = 0;
+      } else {
+        a32_acq(p);
+        t = (t & ~(RFC_BIT | LOC_MASK)) | (H[r] >> 24);
+        heap_free(e, 0, r);
+      }
     }
     if (term_tag(t) == TAG_CLO && fid_arity((u32)term_aux(t)) == 1) {
       t = 0;
@@ -4588,7 +4572,7 @@ static void term_drop(Env e, Term t) {
   }
 }
 
-HOT void term_sink(Env e, Term t) {
+INLINE void term_sink(Env e, Term t) {
   if (!term_triv(t)) {
     term_drop(e, t);
   }
@@ -4606,7 +4590,7 @@ OUTLINE void span_fade(Env e, Term t, Loc src, u32 n) {
   term_drop(e, t);
 }
 
-HOT Loc ctr_take(Env e, Term t, u32 n, THR Term* out) {
+INLINE Loc ctr_take(Env e, Term t, u32 n, THR Term* out) {
   Corpus H = e.mem;
   if (!term_rfc(t)) {
     for (u32 j = 0; j < n; j += 1) {
@@ -4797,11 +4781,6 @@ INLINE u32 ring_lap(u32 pos) {
   return ~(u32)(pos / RING_LEN) & 1;
 }
 
-INLINE void ring_skip(Corpus H, Ring r) {
-  DEV u32* get = ring_get(H, r);
-  a32_store(get, *get + 1);
-}
-
 INLINE void ring_push(Corpus H, Ring r, Term tsk) {
   u32 pos = a32_add(ring_put(H, r), 1);
   if (pos - a32_load(ring_get(H, r)) >= RING_LEN) {
@@ -4811,16 +4790,6 @@ INLINE void ring_push(Corpus H, Ring r, Term tsk) {
   DEV u32* lo = (DEV u32*)ring_slot(H, r, pos);
   a32_store(lo, (u32)tsk);
   a32_store_rel(lo + 1, (u32)(tsk >> 32) | (ring_lap(pos) << 31));
-}
-
-INLINE Term ring_head(Corpus H, Ring r) {
-  u32 get = *ring_get(H, r);
-  DEV u32* lo = (DEV u32*)ring_slot(H, r, get);
-  u32 hi = a32_load_acq(lo + 1);
-  if ((hi >> 31) != ring_lap(get)) {
-    return 0;
-  }
-  return (((u64)hi << 32) | a32_load(lo)) & ~RFC_BIT;
 }
 
 INLINE Ring ring_flip(u32 i) {
@@ -4912,30 +4881,31 @@ static u32 root_take(Corpus H, THR Term* v) {
 // Work
 // ====
 
+// A host self-jump is a tail call: as a loop, MachineLICM hoisted eleven
+// constants into symreg's entry (3.05 s against 2.51 s).
+#if !DEVICE
+#undef  WL_SPIN
+#undef  WL_SPUN
+#undef  WL_AGAIN
+#define WL_SPIN(F)
+#define WL_SPUN
+#define WL_AGAIN(F) __attribute__((musttail)) return WL_##F(WL_ALL)
+
+typedef Reply (__attribute__((preserve_none)) *WlFn)(WL_SIG);
+#define WL_X(F) WL_FN WL_##F(WL_SIG);
+WL_TABLE WL_X(FID_ENTER)
+#undef WL_X
+#define WL_X(F) WL_##F,
+static const WlFn wl_tab[] = { WL_TABLE };
+#undef WL_X
+#endif
+
 static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
-  Fid  fid;
-  Term res[WL_RESW];
-  u32  resn = 0;
   WL_BANK
-  {
-  fid = (u32)term_aux(t);
-  Loc a   = term_loc(t);
-  u32 war = fid_arity(fid);
-  WL_FRAME(t)
-  if (fid_seqk(fid)) {
-    u32 rw = fid_resw(fid);
-    for (u32 j = 0; j < WL_RESW; j += 1) {
-      if (j < rw) {
-        res[j] = e.mem[a + war - rw + j];
-      }
-    }
-    WL_ARGS(a, war - rw + 1)
-  } else {
-    WL_LOAD
-  }
-  heap_free(e, cls_fit(war + 2), a);
-  }
+  u32 rn = 0;
+  r0 = t;
 #if DEVICE
+  Fid fid   = FID_ENTER;
   u32 wpoll = 0;
   for (;;) {
   if (err_spun(e.mem, &wpoll)) {
@@ -4943,44 +4913,66 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
   }
   switch (fid) {
 #else
-  static const void* wl_lbl[] = {
-    WL_LABELS
-  };
-  goto *wl_lbl[fid];
+  return WL_FID_ENTER(WL_ALL);
+}
 #endif
 
 // Segments
 // ========
 
+// A task enters through its words: a continuation's results ride r0.. and
+// its parameters the stack; any other segment's parameters ride r0...
+  WL_CASE(FID_ENTER)
+  {
+    Term t = r0;
+    WL_OPEN
+    Fid f   = (u32)term_aux(t);
+    Loc a   = term_loc(t);
+    u32 war = fid_arity(f);
+    WL_FRAME(t)
+    if (fid_seqk(f)) {
+      u32 rw = fid_resw(f);
+      WL_LOAD(a + war - rw, rw)
+      WL_ARGS(a, war - rw + 1)
+    } else {
+      WL_LOAD(a, war)
+    }
+    heap_free(e, cls_fit(war + 2), a);
+    WL_DYN(f);
+  }}
+
 #ifdef FID_CLO_APPLY
   WL_CASE(FID_IO_EMIT)
   {
+    Term x = r0;
+    WL_OPEN
     Loc l = heap_alloc(e, 0);
-    e.mem[l] = r0;
-    res[0] = term_ctr(CID_EMIT, l);
+    e.mem[l] = x;
+    r0 = term_ctr(CID_EMIT, l);
     WL_RETN(1);
-  }
-#endif
+  }}
 
-#ifdef FID_CLO_APPLY
   WL_CASE(FID_CLO_APPLY)
   {
     Term fun = r0;
-    res[0]   = r1;
-    fid      = (Fid)term_aux(fun);
-    u32 war  = fid_arity(fid) - 1;
+    Term arg = r1;
+    WL_OPEN
+    Fid f    = (Fid)term_aux(fun);
+    u32 war  = fid_arity(f) - 1;
     Loc a    = term_loc(fun);
-    WL_LOAD
-    if (war > 0) {
-      heap_free(e, cls_fit(war), a);
-    }
-    WL_LAST
-    WL_DYN(fid);
-  }
+    WL_LOAD(a, war)
+    spare_free(e, cls_fit(war), a);
+    WL_LAST(arg)
+    WL_DYN(f);
+  }}
 #endif
 
   WL_CASE(FID_EXIT)
   {
+    u32  n = rn;
+    Term rv[WL_RESW];
+    WL_SAVE(rv)
+    WL_OPEN
     if (err_seen(e.mem)) {
       return 0;
     }
@@ -4992,16 +4984,13 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
       Loc wa = term_loc(cont);
       u32 wn = fid_arity(wf);
       WL_FRAME(cont)
-      WL_ARGS(wa, wn - resn + 1)
+      WL_ARGS(wa, wn - n + 1)
       heap_free(e, cls_fit(wn + 2), wa);
+      WL_TAKE(rv)
       WL_DYN(wf);
     }
-    Term rv[WL_RESW];
-    for (u32 j = 0; j < WL_RESW; j += 1) {
-      rv[j] = res[j];
-    }
-    return task_deliver(e.mem, cont, idx, rv, resn);
-  }
+    return task_deliver(e.mem, cont, idx, rv, n);
+  }}
 
 #if DEVICE
   default: {
@@ -5010,87 +4999,62 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
   }
   }
   }
-#else
-  err_post(e.mem, ERR_FIDS);
-  return 0;
-#endif
 }
+#endif
 
 // Monk
 // ====
 
-INLINE u32 monk_run(Env e, Stk stk, Term t, bool seq, u32 base,
+// One turn on a ring: its head task below put0 runs (a growing lane skips
+// a fork-free one). The host grows a row ring by ring and works a ring
+// until it drains; a device lane does both.
+INLINE u32 monk_step(Env e, Stk stk, Ring rg, u32 put0, bool seq, u32 base,
   u32 stride, Cursor cur) {
+  Corpus   H   = e.mem;
+  DEV u32* get = ring_get(H, rg);
+  if (*get == put0) {
+    return 0;
+  }
+  DEV u32* lo = (DEV u32*)ring_slot(H, rg, *get);
+  u32      hi = a32_load_acq(lo + 1);
+  Term     t  = (((u64)hi << 32) | a32_load(lo)) & ~RFC_BIT;
+  if ((hi >> 31) != ring_lap(*get) || (!seq && fid_nofk((u32)term_aux(t)))) {
+    return 0;
+  }
+  a32_store(get, *get + 1);
   u32 spin = 0;
   for (;;) {
     Reply r = work_loop(e, stk, t, seq);
     if (r == 0) {
       return 2;
     }
-    if ((u32)e.mem[task_tail(r) + 1] == 0) {
-      if (err_spun(e.mem, &spin)) {
+    if ((u32)H[task_tail(r) + 1] == 0) {
+      if (err_spun(H, &spin)) {
         return 2;
       }
       if (stride != 0) {
-        ring_push(e.mem, ring_pick(base, stride, cur), r);
+        ring_push(H, ring_pick(base, stride, cur), r);
         return 2;
       }
       t   = r;
       seq = false;
       continue;
     }
-    task_deal(e.mem, r, base, stride, cur);
+    task_deal(H, r, base, stride, cur);
     return 1;
-  }
-}
-
-INLINE u32 monk_grow(Env e, Stk stk, Ring rg, u32 put0, u32 base, u32 stride,
-  Cursor cur) {
-  Corpus H = e.mem;
-  if (*ring_get(H, rg) == put0) {
-    return 0;
-  }
-  Term t = ring_head(H, rg);
-  if (t == 0 || fid_nofk((u32)term_aux(t))) {
-    return 0;
-  }
-  ring_skip(H, rg);
-  return monk_run(e, stk, t, false, base, stride, cur);
-}
-
-static void monk_work(Env e, Stk stk, Ring r) {
-  Corpus H = e.mem;
-  u32 put0 = a32_load(ring_put(H, r));
-  while (*ring_get(H, r) != put0) {
-    if (err_seen(H)) {
-      return;
-    }
-    Term t = ring_head(H, r);
-    if (t == 0) {
-      continue;
-    }
-    ring_skip(H, r);
-    monk_run(e, stk, t, true, r, 0, (Cursor)0);
   }
 }
 
 // Dev
 // ===
 
-// A kernel reserves TG_HOLD words of threadgroup memory, a length the
-// host sets at each dispatch: one resident threadgroup per Apple core,
-// the occupancy the pins were measured under (bitonic PAR-GPU 2.81 s
-// -> 1.87 s; 2.85 s again with no threadgroup argument, lane 0's write
-// keeps it). grow_dev runs at most CUBE_SIDE rounds, so a program that
-// never fills a group still cuts at a kernel end.
+// A kernel reserves TG_HOLD words of threadgroup memory (lane 0's write
+// keeps it): one resident threadgroup per Apple core; without it bitonic
+// runs 1.35x, kmeans 1.19x, matmul 1.13x. A grow pass runs at most
+// CUBE_SIDE rounds, so a program that never fills a group still cuts at
+// a kernel end.
 
 #if DEVICE
-
-INLINE void dev_hold(GRP volatile u64* hold, u32 lane) {
-  if (lane == 0) {
-    hold[0] = 0;
-  }
-}
 
 INLINE void dev_cut(Env e) {
   if (err_seen(e.mem)) {
@@ -5112,23 +5076,30 @@ INLINE void dev_cut(Env e) {
   }
 }
 
+// One kernel, one pipeline: pass 0 grows the frontier (a task a lane a
+// turn, votes between barriers), pass 1 works it (a lane drains its
+// ring); one call of monk_step, so the program compiles once.
 #ifdef __METAL_VERSION__
-kernel void grow_dev(Corpus H [[buffer(0)]],
+kernel void bend_dev(Corpus H [[buffer(0)]], constant u32& pass [[buffer(1)]],
   GRP volatile u64* hold [[threadgroup(0)]],
   u32 grids [[threadgroups_per_grid]],
   u32 row [[threadgroup_position_in_grid]],
   u32 lane [[thread_position_in_threadgroup]]) {
 #else
-extern "C" __global__ void grow_dev(Corpus H) {
+extern "C" __global__ void bend_dev(Corpus H, u32 pass) {
   extern __shared__ volatile u64 hold[];
   u32 grids = gridDim.x;
   u32 row   = blockIdx.x;
   u32 lane  = threadIdx.x;
 #endif
   u32  stride = grids == 1 ? CUBE_SIDE : 1;
-  Ring rg  = row * CUBE_SIDE + stride * lane;
-  Env  e   = { H, H + ALC_OFF + rg };
-  dev_hold(hold, lane);
+  u32  me     = row * CUBE_SIDE + stride * lane;
+  Ring rg     = pass ? ring_flip(me) : me;
+  Env  e      = { H, H + ALC_OFF + me };
+  Stk  stk    = (Stk)(H + STAK_OFF + me);
+  if (lane == 0) {
+    hold[0] = 0;
+  }
   GA32 tg_cur;
   GA32 tg_grew;
   GA32 tg_has;
@@ -5136,49 +5107,42 @@ extern "C" __global__ void grow_dev(Corpus H) {
   g32_ini(&tg_grew);
   g32_ini(&tg_has);
   BAR();
+  u32 put0      = a32_load(ring_put(H, rg));
   u32 seen_has  = 0;
   u32 seen_grew = 0;
-  for (u32 turn = 0; turn < CUBE_SIDE; turn += 1) {
-    u32 put0 = a32_load(ring_put(H, rg));
-    u32 vote = put0 != a32_load(ring_get(H, rg));
-    if (lane == 0 && (err_seen(H) || root_done(H))) {
-      vote = CUBE_SIDE;
+  for (u32 turn = 0; pass || turn < CUBE_SIDE; turn += 1) {
+    if (pass) {
+      if (*ring_get(H, rg) == put0 || err_seen(H)) {
+        break;
+      }
+    } else {
+      put0 = a32_load(ring_put(H, rg));
+      u32 vote = put0 != a32_load(ring_get(H, rg));
+      if (lane == 0 && (err_seen(H) || root_done(H))) {
+        vote = CUBE_SIDE;
+      }
+      g32_add(&tg_has, vote);
+      BAR();
+      u32 has = g32_get(&tg_has);
+      if (has - seen_has >= CUBE_SIDE) {
+        break;
+      }
+      seen_has = has;
     }
-    g32_add(&tg_has, vote);
-    BAR();
-    u32 has = g32_get(&tg_has);
-    if (has - seen_has >= CUBE_SIDE) {
-      break;
+    u32 ran = monk_step(e, stk, rg, put0, pass, pass ? rg : row * CUBE_SIDE,
+      pass ? 0 : stride, &tg_cur);
+    if (!pass) {
+      if (ran == 1) {
+        g32_add(&tg_grew, 1);
+      }
+      BARD();
+      u32 grew = g32_get(&tg_grew);
+      if (grew == seen_grew) {
+        break;
+      }
+      seen_grew = grew;
     }
-    seen_has = has;
-    if (monk_grow(e, (Stk)(H + STAK_OFF + rg), rg, put0, row * CUBE_SIDE,
-      stride, &tg_cur) == 1) {
-      g32_add(&tg_grew, 1);
-    }
-    BARD();
-    u32 grew = g32_get(&tg_grew);
-    if (grew == seen_grew) {
-      break;
-    }
-    seen_grew = grew;
   }
-  dev_cut(e);
-}
-
-#ifdef __METAL_VERSION__
-kernel void work_dev(Corpus H [[buffer(0)]],
-  GRP volatile u64* hold [[threadgroup(0)]],
-  u32 tid [[thread_position_in_grid]],
-  u32 lane [[thread_position_in_threadgroup]]) {
-#else
-extern "C" __global__ void work_dev(Corpus H) {
-  extern __shared__ volatile u64 hold[];
-  u32 lane = threadIdx.x;
-  u32 tid  = blockIdx.x * CUBE_SIDE + lane;
-#endif
-  Env e = { H, H + ALC_OFF + tid };
-  dev_hold(hold, lane);
-  monk_work(e, (Stk)(H + STAK_OFF + tid), ring_flip(tid));
   dev_cut(e);
 }
 
@@ -5205,7 +5169,7 @@ static void row_grow(Env e, Stk stk, u32 base) {
     u32 grew = 0;
     u32 ran  = 0;
     for (u32 i = 0; i < CUBE_SIDE && ran != 2; i += 1) {
-      ran   = monk_grow(e, stk, base + i, put0[i], base, 1, &cur);
+      ran   = monk_step(e, stk, base + i, put0[i], false, base, 1, &cur);
       grew += ran == 1;
     }
     if (grew == 0) {
@@ -5260,7 +5224,11 @@ static void* pool_work(void* arg) {
         row_grow(e, stk, r * CUBE_SIDE);
       } else {
         for (u32 i = 0; i < LINE; i += 1) {
-          monk_work(e, stk, r * LINE + i);
+          Ring rg   = r * LINE + i;
+          u32  put0 = a32_load(ring_put(e.mem, rg));
+          while (*ring_get(e.mem, rg) != put0 && !err_seen(e.mem)) {
+            monk_step(e, stk, rg, put0, true, rg, 0, NULL);
+          }
         }
       }
     }
@@ -5313,6 +5281,29 @@ OUTLINE void pool_turn(bool grow) {
 // Gpu
 // ===
 
+// gpu_make compiles the device program and, given a path, writes it as
+// <binary>.gpu (--gpu-build, run by bend -o): Metal's binary archive
+// of the pipeline (keyed by the compiled function, so a wrong file
+// misses), CUDA's cubin behind a hash of the text. A launch loads it,
+// else notes and compiles (Metal's OS cache keeps that pipeline; CUDA
+// writes the file).
+
+static const char* gpu_path(void) {
+  static char path[4096];
+  u32 n = sizeof path - 8;
+#if BEND_METAL
+  _NSGetExecutablePath(path, &n);
+#else
+  path[readlink("/proc/self/exe", path, n)] = 0;
+#endif
+  return strcat(path, ".gpu");
+}
+
+static void gpu_note(const char* path) {
+  fprintf(stderr, "bend: compiling the GPU program (%s is missing or"
+    " stale)\n", path);
+}
+
 #if !BEND_CUDA
 #define gpu_map pool_mmap
 #endif
@@ -5323,22 +5314,36 @@ static bool gpu_probe(void) {
   return (gpu_dev = MTLCreateSystemDefaultDevice()) != nil;
 }
 
-static id<MTLComputePipelineState> gpu_pipe(const char* name) {
+static MTLComputePipelineDescriptor* gpu_desc(void) {
   NSError* err = nil;
-  id<MTLFunction> fn =
-    [gpu_lib newFunctionWithName:[NSString stringWithUTF8String:name]];
-  if (!fn) {
-    err_fail(ERR_FAIL, name);
-  }
-  id<MTLComputePipelineState> pso =
-    [gpu_dev newComputePipelineStateWithFunction:fn error:&err];
-  if (!pso) {
+  MTLCompileOptions* opts = [MTLCompileOptions new];
+  opts.mathMode = MTLMathModeSafe;
+  gpu_lib = [gpu_dev newLibraryWithSource:@(BEND_SRC) options:opts error:&err];
+  if (!gpu_lib) {
     err_fail(ERR_FAIL, [[err localizedDescription] UTF8String]);
   }
-  if ([pso maxTotalThreadsPerThreadgroup] < CUBE_SIDE) {
-    err_fail(ERR_FAIL, "threadgroup too small");
+  MTLComputePipelineDescriptor* d = [MTLComputePipelineDescriptor new];
+  d.computeFunction = [gpu_lib newFunctionWithName:@"bend_dev"];
+  return d;
+}
+
+static bool gpu_make(const char* path) {
+  NSError* err = nil;
+  id<MTLBinaryArchive> ar = [gpu_dev
+    newBinaryArchiveWithDescriptor:[MTLBinaryArchiveDescriptor new] error:&err];
+  if (![ar addComputePipelineFunctionsWithDescriptor:gpu_desc() error:&err]) {
+    err_fail(ERR_FAIL, [[err localizedDescription] UTF8String]);
   }
-  return pso;
+  return [ar serializeToURL:[NSURL fileURLWithPath:@(path)] error:&err];
+}
+
+static id<MTLComputePipelineState> gpu_pipe(MTLComputePipelineDescriptor* d,
+  id<MTLBinaryArchive> ar) {
+  NSError* err = nil;
+  d.binaryArchives = ar ? @[ar] : @[];
+  return [gpu_dev newComputePipelineStateWithDescriptor:d
+    options:ar ? MTLPipelineOptionFailOnBinaryArchiveMiss : 0 reflection:nil
+    error:&err];
 }
 
 static u64 gpu_span(void) {
@@ -5357,27 +5362,28 @@ static void gpu_load(u64 bytes) {
   }
   @autoreleasepool {
     gpu_que = [gpu_dev newCommandQueue];
-    NSError* err = nil;
-    NSString* text = [NSString stringWithContentsOfFile:@__FILE__
-      encoding:NSUTF8StringEncoding error:nil];
-    if (!text) {
-      err_fail(ERR_FAIL, "cannot read own source");
+    const char* path = gpu_path();
+    MTLBinaryArchiveDescriptor* ad = [MTLBinaryArchiveDescriptor new];
+    ad.url = [NSURL fileURLWithPath:@(path)];
+    MTLComputePipelineDescriptor* d = gpu_desc();
+    id<MTLBinaryArchive> ar = [gpu_dev newBinaryArchiveWithDescriptor:ad
+      error:nil];
+    gpu_pso = ar ? gpu_pipe(d, ar) : nil;
+    if (!gpu_pso) {
+      gpu_note(path);
+      gpu_pso = gpu_pipe(d, nil);
     }
-    MTLCompileOptions* opts = [MTLCompileOptions new];
-    opts.mathMode = MTLMathModeSafe;
-    gpu_lib = [gpu_dev newLibraryWithSource:text options:opts error:&err];
-    if (!gpu_lib) {
-      err_fail(ERR_FAIL, [[err localizedDescription] UTF8String]);
+    if (!gpu_pso) {
+      err_fail(ERR_FAIL, "cannot load the GPU program");
     }
-    gpu_grow_pso = gpu_pipe("grow_dev");
-    gpu_work_pso = gpu_pipe("work_dev");
   }
 }
 
-static void gpu_kernel(id<MTLComputeCommandEncoder> enc,
-  id<MTLComputePipelineState> pso, u32 groups) {
-  [enc setComputePipelineState:pso];
+static void gpu_kernel(id<MTLComputeCommandEncoder> enc, u32 pass,
+  u32 groups) {
+  [enc setComputePipelineState:gpu_pso];
   [enc setBuffer:gpu_buf offset:0 atIndex:0];
+  [enc setBytes:&pass length:sizeof pass atIndex:1];
   [enc setThreadgroupMemoryLength:TG_HOLD * 8 atIndex:0];
   [enc dispatchThreadgroups:MTLSizeMake(groups, 1, 1)
     threadsPerThreadgroup:MTLSizeMake(CUBE_SIDE, 1, 1)];
@@ -5389,12 +5395,12 @@ static void gpu_pass(u32 f) {
     id<MTLCommandBuffer> cb = [gpu_que commandBuffer];
     id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
     if (f < CUBE_SIDE) {
-      gpu_kernel(enc, gpu_grow_pso, 1);
+      gpu_kernel(enc, 0, 1);
     }
     if (f < CUBE) {
-      gpu_kernel(enc, gpu_grow_pso, CUBE_SIDE);
+      gpu_kernel(enc, 0, CUBE_SIDE);
     }
-    gpu_kernel(enc, gpu_work_pso, CUBE_SIDE);
+    gpu_kernel(enc, 1, CUBE_SIDE);
     [enc endEncoding];
     [cb commit];
     [cb waitUntilCompleted];
@@ -5418,14 +5424,6 @@ static bool gpu_probe(void) {
     && cuCtxSetCurrent(ctx) == CUDA_SUCCESS;
 }
 
-static CUfunction gpu_pipe(const char* name) {
-  CUfunction pso;
-  if (cuModuleGetFunction(&pso, gpu_lib, name) != CUDA_SUCCESS) {
-    err_fail(ERR_FAIL, name);
-  }
-  return pso;
-}
-
 static Corpus gpu_map(u64 bytes) {
   CUdeviceptr p = 0;
   if (cuMemAllocManaged(&p, bytes, CU_MEM_ATTACH_GLOBAL) != CUDA_SUCCESS) {
@@ -5435,33 +5433,25 @@ static Corpus gpu_map(u64 bytes) {
   return (Corpus)(uintptr_t)p;
 }
 
-static char* gpu_slurp(const char* path, long* len) {
-  FILE* f = fopen(path, "rb");
-  *len = f != NULL && fseek(f, 0, SEEK_END) == 0 ? ftell(f) : -1;
-  char* buf = *len > 0 ? calloc((u64)*len + 1, 1) : NULL;
-  bool  ok = buf != NULL && fseek(f, 0, SEEK_SET) == 0
-    && fread(buf, 1, (u64)*len, f) == (u64)*len;
-  if (f != NULL) {
-    fclose(f);
+static u64 gpu_hash(void) {
+  u64 key = 14695981039346656037ull;
+  for (const char* p = BEND_SRC; *p != 0; p += 1) {
+    key = (key ^ (u8)*p) * 1099511628211ull;
   }
-  if (!ok) {
-    free(buf);
-  }
-  return ok ? buf : NULL;
+  return key;
 }
 
-static void gpu_stash(const char* path, const char* bin, size_t len) {
-  FILE* out = fopen(path, "wb");
-  if (out != NULL) {
-    fwrite(bin, 1, len, out);
-    fclose(out);
-  }
-}
-
-static char* gpu_nvrtc(const char* text, const char* arch, size_t* len) {
+static bool gpu_make(const char* path) {
+  int cc[2] = {0, 0};
+  cuDeviceGetAttribute(cc,
+    CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, gpu_dev);
+  cuDeviceGetAttribute(cc + 1,
+    CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, gpu_dev);
+  char arch[40];
+  snprintf(arch, sizeof arch, "--gpu-architecture=sm_%d%d", cc[0], cc[1]);
   const char* opts[] = { arch, "--fmad=false", "-default-device" };
   nvrtcProgram prog;
-  if (nvrtcCreateProgram(&prog, text, "bend.cu", 0, NULL, NULL)
+  if (nvrtcCreateProgram(&prog, BEND_SRC, "bend.cu", 0, NULL, NULL)
     != NVRTC_SUCCESS) {
     err_fail(ERR_FAIL, "cannot compile the CUDA library");
   }
@@ -5474,13 +5464,22 @@ static char* gpu_nvrtc(const char* text, const char* arch, size_t* len) {
     }
     err_fail(ERR_FAIL, "cannot compile the CUDA library");
   }
-  nvrtcGetCUBINSize(prog, len);
-  char* bin = malloc(*len);
+  size_t len = 0;
+  nvrtcGetCUBINSize(prog, &len);
+  char* bin = malloc(len);
   if (bin == NULL || nvrtcGetCUBIN(prog, bin) != NVRTC_SUCCESS) {
     err_fail(ERR_FAIL, "cannot load the CUDA library");
   }
   nvrtcDestroyProgram(&prog);
-  return bin;
+  u64   key = gpu_hash();
+  FILE* out = path == NULL ? NULL : fopen(path, "wb");
+  bool  ok  = out != NULL && fwrite(&key, 8, 1, out) == 1
+    && fwrite(bin, 1, len, out) == len && fclose(out) == 0;
+  if (cuModuleLoadData(&gpu_lib, bin) != CUDA_SUCCESS) {
+    err_fail(ERR_FAIL, "cannot load the CUDA library");
+  }
+  free(bin);
+  return path == NULL || ok;
 }
 
 static u64 gpu_span(void) {
@@ -5490,53 +5489,28 @@ static u64 gpu_span(void) {
 }
 
 static void gpu_load(u64 bytes) {
-  (void)bytes;
-  long  len = 0;
-  char* text = gpu_slurp(__FILE__, &len);
-  if (text == NULL) {
-    err_fail(ERR_FAIL, "cannot read own source");
+  const char* path = gpu_path();
+  int         fd   = open(path, O_RDONLY);
+  struct stat st   = { 0 };
+  u64         key  = 0;
+  char*       bin  = fd < 0 || fstat(fd, &st) != 0 || st.st_size <= 8 ? NULL
+    : mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
+  if (bin != NULL && bin != MAP_FAILED) {
+    memcpy(&key, bin, 8);
   }
-  int cc[2] = {0, 0};
-  cuDeviceGetAttribute(cc,
-    CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MAJOR, gpu_dev);
-  cuDeviceGetAttribute(cc + 1,
-    CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, gpu_dev);
-  char arch[40];
-  snprintf(arch, sizeof arch, "--gpu-architecture=sm_%d%d", cc[0], cc[1]);
-  u64 key = 14695981039346656037ull;
-  for (long i = 0; i < len; i += 1) {
-    key = (key ^ (u8)text[i]) * 1099511628211ull;
+  if (key != gpu_hash()
+    || cuModuleLoadData(&gpu_lib, bin + 8) != CUDA_SUCCESS) {
+    gpu_note(path);
+    gpu_make(path);
   }
-  const char* home = getenv("HOME") != NULL ? getenv("HOME") : ".";
-  char path[4096];
-  snprintf(path, sizeof path, "%s/.cache", home);
-  mkdir(path, 0755);
-  snprintf(path, sizeof path, "%s/.cache/bend", home);
-  mkdir(path, 0755);
-  snprintf(path, sizeof path, "%s/.cache/bend/%016llx_sm_%d%d.cubin",
-    home, (unsigned long long)key, cc[0], cc[1]);
-  long  bin_len = 0;
-  char* bin = gpu_slurp(path, &bin_len);
-  bool  hit = bin != NULL
-    && cuModuleLoadDataEx(&gpu_lib, bin, 0, NULL, NULL) == CUDA_SUCCESS;
-  if (!hit) {
-    free(bin);
-    size_t made = 0;
-    bin = gpu_nvrtc(text, arch, &made);
-    gpu_stash(path, bin, made);
-    if (cuModuleLoadDataEx(&gpu_lib, bin, 0, NULL, NULL) != CUDA_SUCCESS) {
-      err_fail(ERR_FAIL, "cannot load the CUDA library");
-    }
+  if (cuModuleGetFunction(&gpu_pso, gpu_lib, "bend_dev") != CUDA_SUCCESS) {
+    err_fail(ERR_FAIL, "cannot load the GPU program");
   }
-  free(text);
-  free(bin);
-  gpu_grow_pso = gpu_pipe("grow_dev");
-  gpu_work_pso = gpu_pipe("work_dev");
 }
 
-static void gpu_kernel(CUfunction pso, u32 groups) {
-  void* args[] = { &CORPUS };
-  if (cuLaunchKernel(pso, groups, 1, 1, CUBE_SIDE, 1, 1, TG_HOLD * 8, NULL,
+static void gpu_kernel(u32 pass, u32 groups) {
+  void* args[] = { &CORPUS, &pass };
+  if (cuLaunchKernel(gpu_pso, groups, 1, 1, CUBE_SIDE, 1, 1, TG_HOLD * 8, NULL,
     args, NULL) != CUDA_SUCCESS) {
     err_fail(ERR_FAIL, "device launch failed");
   }
@@ -5544,12 +5518,12 @@ static void gpu_kernel(CUfunction pso, u32 groups) {
 
 static void gpu_pass(u32 f) {
   if (f < CUBE_SIDE) {
-    gpu_kernel(gpu_grow_pso, 1);
+    gpu_kernel(0, 1);
   }
   if (f < CUBE) {
-    gpu_kernel(gpu_grow_pso, CUBE_SIDE);
+    gpu_kernel(0, CUBE_SIDE);
   }
-  gpu_kernel(gpu_work_pso, CUBE_SIDE);
+  gpu_kernel(1, CUBE_SIDE);
   if (cuCtxSynchronize() != CUDA_SUCCESS) {
     err_fail(ERR_FAIL, "device fault");
   }
@@ -5558,6 +5532,7 @@ static void gpu_pass(u32 f) {
 #else
 
 #define gpu_probe() false
+#define gpu_make(p) true
 #define gpu_span()  0
 #define gpu_load(b)
 #define gpu_pass(f)
@@ -5832,16 +5807,6 @@ static void io_eff(u32 fid, u32 cid, Effect run, u32 need) {
   io_eff_len += 1;
 }
 
-static IoEff* io_eff_at(bool clo, u32 key) {
-  for (u32 i = 0; i < io_eff_len; i += 1) {
-    IoEff* row = &io_eff_rows[i];
-    if ((clo ? row->fid : row->cid) == key) {
-      return row;
-    }
-  }
-  return NULL;
-}
-
 static Term io_work(IoWork* w, IoCall call, IoPack pack) {
   w->call = call;
   w->pack = pack;
@@ -6066,18 +6031,6 @@ static void io_send(IoJob* job) {
   pthread_mutex_unlock(&io_gate);
 }
 
-static void io_fire(Env e, IoJob* job) {
-  Term x = job->what->run(e, job->args, &job->work);
-  if (x == IO_WORK) {
-    io_send(job);
-    return;
-  }
-  if (x != IO_PARK) {
-    io_push(job->cont, x, false);
-  }
-  free(job);
-}
-
 static void io_wait(Env e) {
   struct pollfd fds[IO_ROWS + 1];
   u32 n    = 1;
@@ -6120,7 +6073,15 @@ static void io_wait(Env e) {
     i += j->time == 0;
     if (due) {
       *at = nx;
-      io_fire(e, j);
+      Term x = j->what->run(e, j->args, &j->work);
+      if (x == IO_WORK) {
+        io_send(j);
+      } else {
+        if (x != IO_PARK) {
+          io_push(j->cont, x, false);
+        }
+        free(j);
+      }
     } else {
       at = &j->next;
     }
@@ -6138,7 +6099,11 @@ static int io_step(Env e, Term op, Term x) {
       op = corpus_eval(e.mem, op);
       continue;
     }
-    IoEff* eff = io_eff_at(clo, c);
+    IoEff* eff = NULL;
+    for (u32 i = 0; i < io_eff_len && eff == NULL; i += 1) {
+      IoEff* row = &io_eff_rows[i];
+      eff = (clo ? row->fid : row->cid) == c ? row : NULL;
+    }
     spare_free(e, cls_fit(n), ctr_take(e, op, n, fs));
     if (c == (clo ? FID_IO_EMIT : CID_EMIT)) {
       term_drop(e, clo ? x : fs[0]);
@@ -6316,18 +6281,6 @@ static void cli_fail(const char* msg, const char* arg) {
   exit(1);
 }
 
-static u64 cli_size(const char* val) {
-  char*  end = NULL;
-  double n   = val != NULL ? strtod(val, &end) : 0;
-  u64    mul = end == NULL ? 0
-    : strcmp(end, "GB") == 0 ? 1ull << 30
-    : strcmp(end, "MB") == 0 ? 1ull << 20 : 0;
-  if (mul == 0 || n <= 0) {
-    cli_fail("expected a size like 4GB or 512MB after ", "--gpu-memory");
-  }
-  return (u64)(n * (double)mul);
-}
-
 static bool cli_flag(const char* name, const char* val) {
   bool on = val != NULL && strcmp(val, "on") == 0;
   if (!on && (val == NULL || strcmp(val, "off") != 0)) {
@@ -6356,6 +6309,11 @@ int main(int argc, char** argv) {
     if (strcmp(a, "--help") == 0) {
       printf(CLI_HELP, argv[0]);
       return 0;
+    } else if (strcmp(a, "--gpu-build") == 0) {
+      if (gpu_probe() && !gpu_make(gpu_path())) {
+        cli_fail("cannot write ", gpu_path());
+      }
+      return 0;
     } else if (strcmp(a, "--threads") == 0) {
       char* end = NULL;
       thr = v != NULL ? strtol(v, &end, 10) : 0;
@@ -6367,7 +6325,14 @@ int main(int argc, char** argv) {
     } else if (strcmp(a, "--gpu") == 0) {
       gpu = cli_flag("--gpu", v);
     } else if (strcmp(a, "--gpu-memory") == 0) {
-      mem = cli_size(v);
+      char*  end = NULL;
+      double n   = v != NULL ? strtod(v, &end) : 0;
+      u64    mul = end == NULL ? 0 : strcmp(end, "GB") == 0 ? 1ull << 30
+        : strcmp(end, "MB") == 0 ? 1ull << 20 : 0;
+      if (mul == 0 || n <= 0) {
+        cli_fail("expected a size like 4GB or 512MB after ", "--gpu-memory");
+      }
+      mem = (u64)(n * (double)mul);
     } else {
       cli_fail("unknown option ", a);
     }
@@ -6379,8 +6344,8 @@ int main(int argc, char** argv) {
     thr = 1;
     gpu = 0;
   }
-  bool dev = gpu != 0 && BANGS && gpu_probe();
-  if (gpu == 1 && BANGS && !dev) {
+  bool dev = gpu != 0 && BANGS != 0 && gpu_probe();
+  if (gpu == 1 && BANGS != 0 && !dev) {
     cli_fail("--gpu on, but this binary found no GPU device", NULL);
   }
   u32 at = 0;
@@ -6502,65 +6467,18 @@ function cli_fail(msg) {
   process.exit(1);
 }
 
-function cli_flag(name, val) {
-  if (val !== "on" && val !== "off") {
-    cli_fail("expected 'on' or 'off' after " + name);
-  }
-  return val === "on";
-}
-
+// A JS program runs one thread and no GPU: it takes the program name.
 function cli(argv) {
-  let thr = 0;
-  let par = -1;
-  let gpu = -1;
-  let prog = "";
-  for (let i = 0; i < argv.length; i += 1) {
-    const a = argv[i];
-    const v = argv[i + 1] ?? "";
-    if (!a.startsWith("-")) {
-      prog = a;
-      continue;
-    }
-    i += 1;
-    if (a === "--help") {
-      io_out(1, io_bytes([
-        "usage: " + process.argv[1] + " [program] [options]",
-        "  --threads N        worker threads: a JS program runs one",
-        "  --parallel on|off  off means one thread and no GPU (default: on)",
-        "  --gpu on|off       send ! calls to the GPU (default: on if present)",
-        "  --gpu-memory 4GB   device span: a JS program uses the JS heap",
-        "  --help             show this text",
-        "",
-      ].join("\n")));
-      process.exit(0);
-    } else if (a === "--threads") {
-      thr = /^[ \t\n\v\f\r]*\+?\d+$/.test(v) ? Number(v) : 0;
-      if (thr < 1) {
-        cli_fail("expected a thread count of 1 or more after --threads");
-      }
-    } else if (a === "--parallel") {
-      par = cli_flag("--parallel", v) ? 1 : 0;
-    } else if (a === "--gpu") {
-      gpu = cli_flag("--gpu", v) ? 1 : 0;
-    } else if (a === "--gpu-memory") {
-      if (!/^[ \t\n\v\f\r]*\+?(\d+\.?\d*|\.\d+)(GB|MB)$/.test(v)
-        || Number.parseFloat(v) <= 0) {
-        cli_fail("expected a size like 4GB or 512MB after --gpu-memory");
-      }
-    } else {
-      cli_fail("unknown option " + a);
-    }
+  const opt = argv.find((a) => a.startsWith("-"));
+  if (opt === "--help") {
+    io_out(1, io_bytes("usage: " + process.argv[1] + " [program]\n"));
+    process.exit(0);
   }
-  if (par === 0 && (gpu === 1 || thr > 1)) {
-    cli_fail("--parallel off means --threads 1 with --gpu off");
+  if (opt !== undefined) {
+    cli_fail("unknown option " + opt + " (a JS program runs one thread and"
+      + " no GPU)");
   }
-  if (gpu === 1) {
-    cli_fail("--gpu on, but this binary found no GPU device");
-  }
-  if (thr > 1) {
-    cli_fail("--threads over 1, but a JS program runs one thread");
-  }
-  return prog;
+  return argv[0] ?? "";
 }
 
 // Io

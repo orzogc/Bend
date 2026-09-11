@@ -2,10 +2,13 @@
 // Runs the benchmarks on the cluster: every runtime bench in each of its
 // three modes on its own mini (48 cells), plus the five checker benches,
 // and draws one fixed screen with each measure beside its ratio to the
-// pin. A runtime cell times `bend main.bend -o main` for the COMPILER
-// column, then builds the main.c it wrote with the cc line and runs it
-// with the flags the pins were measured with (.devs/check/perf.ts at
-// e913e65: no -lm, no -fmodules, PAR on the power of two under the core
+// pin. A runtime cell runs `bend main.bend -o main` twice and times the
+// second for the COMPILER column (the first build on a node after a
+// pause pays the cold compiler service and module cache: 0.95 s against
+// 0.62 for bfs), then builds the main.c it wrote with the cc line (the
+// -O3 of bend -o: no -lm, no -fmodules, no -fno-slp-vectorize, so the
+// gate grades the binary bend builds) and runs it with the flags the
+// pins were measured with (PAR on the power of two under the core
 // count, GPU with the bench's --gpu-memory), one warm run and one timed
 // by a microsecond clock around /usr/bin/time -l, whose own 10 ms tick
 // cannot grade a 50 ms GPU cell (its RSS is the space). A cell passes at
@@ -51,7 +54,7 @@ const HW = "apple_m4";
 
 export const MODES = ["SEQ-CPU", "PAR-CPU", "PAR-GPU"];
 
-export const CC = "cc -std=c11 -O3 -fno-slp-vectorize";
+export const CC = "cc -std=c11 -O3";
 
 export const BUILD = [CC + " main.c -lpthread", CC + " main.c -lpthread",
   CC + " -DBEND_METAL=1 -x objective-c -fobjc-arc main.c -lpthread"
@@ -231,7 +234,8 @@ function cell_script(c: Cell): string {
     ? " --gpu-memory " + MEMORY[c.bench] : "";
   const run = "./cell " + FLAGS[c.mode] + mem;
   return `d=$HOME/bend-perf/${c.bench}-${String(c.mode)}; rm -rf $d;`
-    + ` mkdir -p $d; cd $d; tar -xzf -; ${THREADS} t0=$(${CLOCK}); ${lib.BUN}`
+    + ` mkdir -p $d; cd $d; tar -xzf -; ${THREADS} ${lib.BUN} bend2/main.ts`
+    + ` main.bend -o main > /dev/null 2>&1; t0=$(${CLOCK}); ${lib.BUN}`
     + ` bend2/main.ts main.bend -o main > build.txt 2>&1; b=$?;`
     + ` t1=$(${CLOCK}); [ $b = 0 ] && { ${BUILD[c.mode]} -o cell >> build.txt`
     + ` 2>&1; b=$?; }; echo "${MARK} built $b $t0 $t1"; cat build.txt;`
