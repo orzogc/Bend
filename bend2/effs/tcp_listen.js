@@ -20,10 +20,5 @@ function tcp_listen(port) {
     sys.close(fd);
     return io_fail(code);
   }
-  const h = io_mint("Listener", "lsn", fd);
-  if (h === null) {
-    sys.close(fd);
-    return io_fail(24);
-  }
-  return io_done(h);
+  return io_done(fd);
 }

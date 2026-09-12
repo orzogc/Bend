@@ -19,12 +19,17 @@ const kids = ["repo", "test", "perf"].map((gate) => [gate, child.spawn(
   process.execPath, [path.join(import.meta.dirname, gate + ".ts"), "--gate"],
   { stdio: ["ignore", "pipe", "pipe"] })] as const);
 
+// A gate that passes speaks in one line (its verdict); a gate that fails
+// speaks in full, so a crash (a node pool run dry, an uncaught error) shows
+// its message and not Bun's version banner, which is the last line it prints.
 const runs = kids.map(([gate, kid]) => new Promise<boolean>((done) => {
   let out = "";
+  let err = "";
   kid.stdout.on("data", (d: Buffer) => { out += d.toString(); });
-  kid.stderr.on("data", (d: Buffer) => { out += d.toString(); });
+  kid.stderr.on("data", (d: Buffer) => { err += d.toString(); });
   kid.on("close", (code) => {
-    console.log(gate.padEnd(5) + " " + (out.trim().split("\n").pop() ?? ""));
+    const last = out.trim().split("\n").pop() ?? "";
+    console.log(gate.padEnd(5) + " " + (code === 0 ? last : (last + "\n" + err).trim()));
     done(code === 0);
   });
 }));

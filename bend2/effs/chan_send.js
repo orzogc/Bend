@@ -2,8 +2,8 @@
 // ====
 
 function chan_send(handle, value, k) {
-  const row = io_read(handle, "chan");
-  if (row === null || row.shut) {
+  const row = handle;
+  if (row.shut) {
     return false;
   }
   if (row.wait.length > 0 && row.wait[0].item === null) {

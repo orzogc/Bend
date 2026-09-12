@@ -1,8 +1,6 @@
 // Window
 // ======
 
-#define IO_WIND 5
-
 #if BEND_METAL
 
 #import <AppKit/AppKit.h>
@@ -61,12 +59,12 @@ static void window_pipe(id<MTLDevice> dev) {
     newLibraryWithSource:[NSString stringWithUTF8String:window_msl]
     options:nil error:&err];
   if (lib == nil) {
-    err_fail(ERR_FAIL, err.localizedDescription.UTF8String);
+    err_fail(err.localizedDescription.UTF8String);
   }
   window_pso = [dev newComputePipelineStateWithFunction:
     [lib newFunctionWithName:@"window_dev"] error:&err];
   if (window_pso == nil) {
-    err_fail(ERR_FAIL, err.localizedDescription.UTF8String);
+    err_fail(err.localizedDescription.UTF8String);
   }
 }
 
@@ -92,7 +90,7 @@ static id<MTLBuffer> window_corpus(Env e, id<MTLDevice> dev) {
   if (need > window_len) {
     u64 most = [dev maxBufferLength] & ~16383ull;
     if (need > most) {
-      err_fail(ERR_HEAP, "the frame's memory is past the Metal buffer limit");
+      err_fail("the frame's memory is past the Metal buffer limit");
     }
     u64 len = window_len * 2 > need ? window_len * 2 : need;
     len = len < most ? len : most;
@@ -100,7 +98,7 @@ static id<MTLBuffer> window_corpus(Env e, id<MTLDevice> dev) {
       options:MTLResourceStorageModeShared
         | MTLResourceHazardTrackingModeUntracked deallocator:nil];
     if (window_buf == nil) {
-      err_fail(ERR_HEAP, "the corpus prefix does not map as a Metal buffer");
+      err_fail("the corpus prefix does not map as a Metal buffer");
     }
     window_len = len;
   }
@@ -137,7 +135,7 @@ static void window_show(Env e, CAMetalLayer* layer, Term image) {
     [cb commit];
     [cb waitUntilCompleted];
     if (cb.error != nil) {
-      err_fail(ERR_FAIL, cb.error.localizedDescription.UTF8String);
+      err_fail(cb.error.localizedDescription.UTF8String);
     }
   }
 }
@@ -169,11 +167,7 @@ static Term window_events(Env e, NSMutableData* evs) {
   return list;
 }
 
-static Term window_frame(Env e, IoHand hand, Term image) {
-  intptr_t at = io_sys_read(hand, IO_WIND);
-  if (at < 0) {
-    return term_pak(CID_NIL, 0);
-  }
+static Term window_frame(Env e, intptr_t at, Term image) {
   NSView* view = ((__bridge NSWindow*)(void*)at).contentView;
   io_sync();
   window_show(e, (CAMetalLayer*)view.layer, image);
@@ -182,18 +176,17 @@ static Term window_frame(Env e, IoHand hand, Term image) {
 
 #else
 
-static Term window_frame(Env e, IoHand hand, Term image) {
+static Term window_frame(Env e, intptr_t at, Term image) {
   return term_pak(CID_NIL, 0);
 }
 
 #endif
 
 Term window_frame_run(Env e, Term* f, IoWork* w) {
-  IoHand hand = io_hand_c(e, f[0]);
-  Term events = window_frame(e, hand, f[1]);
-  return io_tup(e, io_hand(e, CID_WINDOW, hand), io_tup(e, f[1], events));
+  Term events = window_frame(e, (intptr_t)io_hand_v(f[0]), f[1]);
+  return io_tup(e, f[0], io_tup(e, f[1], events));
 }
 
 static void __attribute__((constructor)) window_frame_use(void) {
-  io_eff(FID_WINDOW_FRAME, CID_WINDOW_FRAME, window_frame_run, 0);
+  io_eff(CID_WINDOW_FRAME, window_frame_run, 0);
 }

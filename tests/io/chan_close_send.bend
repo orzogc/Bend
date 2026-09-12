@@ -15,7 +15,7 @@ def show(b):
       "True"
 
 law main.go:
-  for c: Chan<U32>
+  for c: Chan(U32)
   IO(U32)
 
 def main.go(c):
@@ -31,6 +31,6 @@ law main:
   IO(U32)
 
 def main():
-  IO.bind(Chan<U32>, U32, Chan.new(U32, 2), main.go)
+  IO.bind(Chan(U32), U32, Chan.new(U32, 2), main.go)
 
 #|TrueFalse

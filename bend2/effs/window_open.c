@@ -1,8 +1,6 @@
 // Window
 // ======
 
-#define IO_WIND 5
-
 #if BEND_METAL
 
 #import <AppKit/AppKit.h>
@@ -120,20 +118,21 @@
 
 static id<MTLDevice> window_dev;
 
-static IoFall window_make(const char* title, u32 w, u32 h, IoHand* out) {
+static u32 window_make(const char* title, u32 w, u32 h, intptr_t* out,
+  const char** why) {
   if (w < 1 || h < 1 || w > 16384 || h > 16384) {
-    return io_sys_fall(EINVAL);
+    return EINVAL;
   }
   if (NSScreen.screens.count == 0) {
-    IoFall q = { ENOTSUP, "Window.open: no display" };
-    return q;
+    *why = "Window.open: no display";
+    return ENOTSUP;
   }
   if (window_dev == nil) {
     window_dev = gpu_buf != nil ? gpu_dev : MTLCreateSystemDefaultDevice();
   }
   if (window_dev == nil) {
-    IoFall q = { ENXIO, "Window.open: no Metal device" };
-    return q;
+    *why = "Window.open: no Metal device";
+    return ENXIO;
   }
   if (NSApp == nil) {
     [NSApplication sharedApplication];
@@ -168,20 +167,17 @@ static IoFall window_make(const char* title, u32 w, u32 h, IoHand* out) {
     [win center];
     [win makeKeyAndOrderFront:nil];
     [NSApp activateIgnoringOtherApps:YES];
-    if (io_sys_mint(IO_WIND, (intptr_t)(__bridge void*)win, out) < 0) {
-      [win close];
-      return io_sys_fall(EMFILE);
-    }
-    (void)CFBridgingRetain(win);
+    *out = (intptr_t)CFBridgingRetain(win);
   }
-  return io_sys_fall(0);
+  return 0;
 }
 
 #else
 
-static IoFall window_make(const char* title, u32 w, u32 h, IoHand* out) {
-  IoFall q = { ENOTSUP, "Window.open: no display" };
-  return q;
+static u32 window_make(const char* title, u32 w, u32 h, intptr_t* out,
+  const char** why) {
+  *why = "Window.open: no display";
+  return ENOTSUP;
 }
 
 #endif
@@ -189,16 +185,17 @@ static IoFall window_make(const char* title, u32 w, u32 h, IoHand* out) {
 Term window_open_run(Env e, Term* f, IoWork* w) {
   uint64_t n = 0;
   char* title = io_cstr(e, f[0], &n);
-  IoHand out;
-  IoFall q = io_nul(title, n) ? io_sys_fall(EILSEQ)
-    : window_make(title, (u32)f[1], (u32)f[2], &out);
+  intptr_t out;
+  const char* why = NULL;
+  u32 q = io_nul(title, n) ? EILSEQ
+    : window_make(title, (u32)f[1], (u32)f[2], &out, &why);
   free(title);
-  if (q.code != 0) {
-    return io_fail(e, q);
+  if (q != 0) {
+    return io_fail(e, q, why);
   }
-  return io_done(e, io_hand(e, CID_WINDOW, out));
+  return io_done(e, io_hand(out));
 }
 
 static void __attribute__((constructor)) window_open_use(void) {
-  io_eff(FID_WINDOW_OPEN, CID_WINDOW_OPEN, window_open_run, 0);
+  io_eff(CID_WINDOW_OPEN, window_open_run, 0);
 }

@@ -9,7 +9,7 @@ law main:
 
 def main():
   do IO<U32>:
-    c : Chan<U32> <- Chan.new(U32, 0)
+    c : Chan(U32) <- Chan.new(U32, 0)
     Unit <- IO.print("waiting")
     got : Maybe<&1, U32> <- Chan.recv(U32, c)
     return 0

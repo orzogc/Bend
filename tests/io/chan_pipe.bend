@@ -6,7 +6,7 @@
 import Base
 
 law produce:
-  for c: Chan<Nat>
+  for c: Chan(Nat)
   for n: Nat
   IO(Unit)
 
@@ -34,7 +34,7 @@ def consume.got(rest, got):
       IO.bind(Unit, Unit, IO.print(Nat.show(value)), u => rest)
 
 law consume:
-  for c: Chan<Nat>
+  for c: Chan(Nat)
   for f: Nat
   IO(Unit)
 
@@ -48,7 +48,7 @@ def consume(c, f):
       IO.bind(Maybe<&1, Nat>, Unit, Chan.recv(Nat, ch), consume.got(rest))
 
 law main.go:
-  for c: Chan<Nat>
+  for c: Chan(Nat)
   IO(U32)
 
 def main.go(c):
@@ -62,7 +62,7 @@ law main:
   IO(U32)
 
 def main():
-  IO.bind(Chan<Nat>, U32, Chan.new(Nat, 2), main.go)
+  IO.bind(Chan(Nat), U32, Chan.new(Nat, 2), main.go)
 
 #|4
 #|3

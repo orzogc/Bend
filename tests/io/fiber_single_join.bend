@@ -7,7 +7,7 @@
 import Base
 
 law main.go:
-  for t: Chan<U32>
+  for t: Chan(U32)
   IO(U32)
 
 def main.go(t):
@@ -21,7 +21,7 @@ law main:
   IO(U32)
 
 def main():
-  IO.bind(Chan<U32>, U32, IO.fork(U32, IO.pure(U32, 1)), main.go)
+  IO.bind(Chan(U32), U32, IO.fork(U32, IO.pure(U32, 1)), main.go)
 
 #|IO.join: the channel was closed
 #|exit 1

@@ -3,7 +3,7 @@
 # display (the JS backend, a CPU-only binary, a node with no session)
 # Window.open Fails with one line and ENOTSUP on every lane and the frames
 # fold unshown; on a display it frames each image (the shared one twice: a
-# frame answers it unconsumed), closes, and frames the dead handle.
+# frame answers it unconsumed), then closes.
 import Base
 
 def count(xs: List<Event>) -> U32:
@@ -52,14 +52,7 @@ def frames(n: Nat, p: Window & Image) -> IO(Window):
         frames(k, r)
 
 def close(w: Window) -> IO(Unit):
-  Window{slot, gen} = w
-  +s = slot
-  +g = gen
-  do IO<Unit>:
-    u : Unit <- Window.close(Window{s, g})
-    q : Window & Image & List<Event> <- Window.frame(Window{s, g}, Pix{0})
-    p : Window & Image <- seen(q)
-    IO.pure(Unit, Unit{})
+  Window.close(w)
 
 def shown(w: Window) -> IO(Unit):
   +q = build(2n, 0, 0)

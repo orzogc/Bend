@@ -3,10 +3,7 @@
 
 function udp_poll(socket, max) {
   const sys = io_sys();
-  const fd = io_read(socket, "udp");
-  if (fd === null) {
-    return io_tup(socket, io_fail(9));
-  }
+  const fd = socket;
   const b = new Uint8Array(Math.max(Number(max), 1));
   const peer = new Uint8Array(16);
   const len = new Uint32Array([16]);

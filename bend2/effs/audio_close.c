@@ -1,8 +1,6 @@
 // Audio
 // =====
 
-#define IO_AUDI 7
-
 // The ring: 4096 float32 stereo frames. The effects fill it on the
 // evaluator's thread; the device's callback drains it and pads the
 // rest of its buffer with silence. The same block sits in
@@ -22,11 +20,6 @@ typedef struct {
   AudioUnit    unit;
 #endif
 } IoRing;
-
-static IoRing* io_ring_get(IoHand hand) {
-  intptr_t at = io_sys_read(hand, IO_AUDI);
-  return at < 0 ? NULL : (IoRing*)at;
-}
 
 // n frames queued after the write; a write past the ring's room is
 // dropped and the queue answered as it is.
@@ -120,13 +113,10 @@ static void io_ring_free(IoRing* p) {
 #endif
 
 Term audio_close_run(Env e, Term* f, IoWork* w) {
-  IoHand hand = io_hand_c(e, f[0]);
-  if (io_ring_get(hand) != NULL) {
-    io_ring_free((IoRing*)io_sys_kill(hand));
-  }
+  io_ring_free((IoRing*)(uintptr_t)io_hand_v(f[0]));
   return term_pak(CID_UNIT, 0);
 }
 
 static void __attribute__((constructor)) audio_close_use(void) {
-  io_eff(FID_AUDIO_CLOSE, CID_AUDIO_CLOSE, audio_close_run, 0);
+  io_eff(CID_AUDIO_CLOSE, audio_close_run, 0);
 }

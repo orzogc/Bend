@@ -1,8 +1,6 @@
 // Audio
 // =====
 
-#define IO_AUDI 7
-
 // The ring: 4096 float32 stereo frames. The effects fill it on the
 // evaluator's thread; the device's callback drains it and pads the
 // rest of its buffer with silence. The same block sits in
@@ -22,11 +20,6 @@ typedef struct {
   AudioUnit    unit;
 #endif
 } IoRing;
-
-static IoRing* io_ring_get(IoHand hand) {
-  intptr_t at = io_sys_read(hand, IO_AUDI);
-  return at < 0 ? NULL : (IoRing*)at;
-}
 
 // n frames queued after the write; a write past the ring's room is
 // dropped and the queue answered as it is.
@@ -120,14 +113,13 @@ static void io_ring_free(IoRing* p) {
 #endif
 
 // The samples (interleaved L R ...) into the ring; the frames queued
-// after the write. Past the ring's room, or on a dead handle, the
-// samples are dropped and the queue answered as it is.
+// after the write. Past the ring's room, the samples are dropped and
+// the queue answered as it is.
 Term audio_write_run(Env e, Term* f, IoWork* w) {
-  IoHand  hand = io_hand_c(e, f[0]);
-  IoRing* p    = io_ring_get(hand);
+  IoRing* p   = (IoRing*)(uintptr_t)io_hand_v(f[0]);
   float   pcm[IO_RING * 2];
-  u32     n    = 0;
-  Term    s    = f[1];
+  u32     n   = 0;
+  Term    s   = f[1];
   while (term_aux(s) == CID_CON) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, s, 2, fb));
@@ -137,11 +129,11 @@ Term audio_write_run(Env e, Term* f, IoWork* w) {
     n += 1;
     s  = fb[1];
   }
-  u64 q = p == NULL ? 0 : n > IO_RING * 2 ? io_ring_write(p, pcm, 0)
+  u64 q = n > IO_RING * 2 ? io_ring_write(p, pcm, 0)
     : io_ring_write(p, pcm, n / 2);
-  return io_tup(e, io_hand(e, CID_AUDIO, hand), q);
+  return io_tup(e, f[0], q);
 }
 
 static void __attribute__((constructor)) audio_write_use(void) {
-  io_eff(FID_AUDIO_WRITE, CID_AUDIO_WRITE, audio_write_run, 0);
+  io_eff(CID_AUDIO_WRITE, audio_write_run, 0);
 }

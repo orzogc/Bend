@@ -11,7 +11,7 @@ def Flood.tick(n: U32) -> IO(U32):
   import "./help_flood.js"
 
 law one:
-  for c: Chan<U32>
+  for c: Chan(U32)
   IO(Unit)
 
 def one(c):
@@ -22,7 +22,7 @@ def one(c):
 
 law spawn_all:
   for n: Nat
-  for c: Chan<U32>
+  for c: Chan(U32)
   IO(Unit)
 
 def spawn_all(n, c):
@@ -48,7 +48,7 @@ def got(m):
 
 law drain:
   for n: Nat
-  for c: Chan<U32>
+  for c: Chan(U32)
   for +acc: U32
   IO(U32)
 
@@ -63,7 +63,7 @@ def drain(n, c, acc):
         drain(p, ch, (acc + got(m) : U32))
 
 law main.go:
-  for c: Chan<U32>
+  for c: Chan(U32)
   IO(U32)
 
 def main.go(c):
@@ -78,6 +78,6 @@ law main:
   IO(U32)
 
 def main():
-  IO.bind(Chan<U32>, U32, Chan.new(U32, 0), main.go)
+  IO.bind(Chan(U32), U32, Chan.new(U32, 0), main.go)
 
 #|20000

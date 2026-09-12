@@ -12,12 +12,7 @@ function file_open(path, mode) {
   try {
     const fd = require("fs")
       .openSync(name.length > 0 ? Buffer.from(name) : "", mode, 0o644);
-    const h = io_mint("File", "file", fd);
-  if (h === null) {
-    require("fs").closeSync(fd);
-    return io_fail(24);
-  }
-  return io_done(h);
+    return io_done(fd);
   } catch (e) {
     return io_fail(-e.errno);
   }

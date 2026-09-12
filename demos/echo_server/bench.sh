@@ -22,5 +22,5 @@ run() {
   kill $pid 2> /dev/null || true
   wait $pid 2> /dev/null || true
 }
-run bend 7777 /tmp/echo_bend --parallel off
+run bend 7777 /tmp/echo_bend --threads 1
 run c 7778 /tmp/echo_c 7778

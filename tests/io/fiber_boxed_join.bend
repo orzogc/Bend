@@ -14,7 +14,7 @@ law main:
 
 def main():
   do IO<U32>:
-    t : Chan<String> <- IO.fork(String, child())
+    t : Chan(String) <- IO.fork(String, child())
     s : String <- IO.join(String, t)
     x : Unit <- IO.print(s)
     return 0

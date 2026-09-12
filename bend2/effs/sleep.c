@@ -6,5 +6,5 @@ Term io_sleep_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) io_sleep_use(void) {
-  io_eff(FID_IO_SLEEP, CID_IO_SLEEP, io_sleep_run, IO_TIME);
+  io_eff(CID_IO_SLEEP, io_sleep_run, IO_TIME);
 }

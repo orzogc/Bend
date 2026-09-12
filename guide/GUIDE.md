@@ -82,7 +82,7 @@ def pow2(+d: Nat) -> U32:      # +d: used twice below, so d is marked reusable
 `a b = f(x) g(y)` is Bend's only parallelism primitive. To the checker it is
 two ordinary lets; to the compiler a fork: each call becomes a task, the rest
 of the body runs when all are done, and a recursive fork is a tree of tasks
-that fills every core (`./pow2 --parallel off` uses one thread). No locks are
+that fills every core (`./pow2 --threads 1` uses one thread). No locks are
 needed: values are affine, so siblings share nothing, and a pure fork has no
 order to keep. Tasks are dealt once and never stolen, so keep siblings
 balanced; an unbalanced fork is correct, only slower. Mark a call with `!`,
@@ -90,8 +90,8 @@ balanced; an unbalanced fork is correct, only slower. Mark a call with `!`,
 and device share one address space); the checker ignores the mark and a binary
 with no device runs it on the CPU. Balanced trees of uniform scalar work win on
 the GPU (mandelbrot, nbody); divergent work (n-queens) stays faster on the CPU.
-A binary takes `--threads N`, `--parallel on|off`, `--gpu on|off`,
-`--gpu-memory 4GB`.
+A binary takes `--threads N` and `--gpu on|off|4GB` (a size is how much of
+the device's memory it may use).
 
 ## Proofs
 
@@ -199,7 +199,8 @@ in. The kit covers stdout, stderr, the environment, files, TCP and UDP
 (`bend base IO`, `File`, `TCP`, `UDP`). A fallible effect answers `Result<&1,
 &1, U32 & String, A>`: `IO.try` unwraps it or dies, `IO.pass` lifts one.
 Handles are affine and come back beside the `Result`, so even a failure hands
-them back. `do` works for `Maybe` and `Result` too. `demos/http_server` is a
+them back; a handle is opaque (a law of `Base`, no constructor), so the type
+system, not a table, keeps it from being forged or reused. `do` works for `Maybe` and `Result` too. `demos/http_server` is a
 complete server.
 
 **Concurrency.** One event loop runs many computations, as Node runs

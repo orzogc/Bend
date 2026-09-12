@@ -3,10 +3,7 @@
 
 function file_read_bytes(file, max) {
   const sys = io_sys();
-  const fd = io_read(file, "file");
-  if (fd === null) {
-    return io_tup(file, io_fail(9));
-  }
+  const fd = file;
   const len = Math.min(max, 2147483647);
   const b = new Uint8Array(Math.max(len, 1));
   const n = Number(sys.read(fd, sys.ptr(b), len));

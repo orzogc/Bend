@@ -16,10 +16,5 @@ function tcp_connect(host, port) {
     sys.close(fd);
     return io_fail(code);
   }
-  const h = io_mint("Socket", "tcp", fd);
-  if (h === null) {
-    sys.close(fd);
-    return io_fail(24);
-  }
-  return io_done(h);
+  return io_done(fd);
 }

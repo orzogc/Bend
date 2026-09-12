@@ -3,10 +3,7 @@
 
 function udp_send_to(socket, host, port, data) {
   const sys = io_sys();
-  const fd = io_read(socket, "udp");
-  if (fd === null) {
-    return io_tup(socket, io_fail(9));
-  }
+  const fd = socket;
   const at = io_addr(host, Number(port));
   if (at === null) {
     return io_tup(socket, io_fail(22));

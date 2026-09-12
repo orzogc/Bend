@@ -15,5 +15,5 @@ Term flood_tick_run(Env e, Term* f, IoWork* w) {
 }
 
 static void __attribute__((constructor)) flood_tick_use(void) {
-  io_eff(FID_FLOOD_TICK, CID_FLOOD_TICK, flood_tick_run, 0);
+  io_eff(CID_FLOOD_TICK, flood_tick_run, 0);
 }

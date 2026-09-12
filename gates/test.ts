@@ -50,8 +50,10 @@ function test_read(dir: string, file: string): Test {
     .map((l) => l.slice(2)).join("\n");
   const effs = [...src.matchAll(/^\s*import "\.\/[a-z0-9_]+\.(c|js)"$/gm)]
     .map((m) => m[1]);
-  const lanes = ["js", "c"].filter((l) =>
-    effs.length === 0 || effs.includes(l));
+  // A program compiles only over Base (its IO runs main): a test without
+  // it checks and interprets alone.
+  const lanes = ["js", "c"].filter((l) => /^import Base$/m.test(src)
+    && (effs.length === 0 || effs.includes(l)));
   return { name: dir + "_" + path.basename(file, ".bend"), src,
     want: tidy(want), main: /^(def|law) main(\(|:)/m.test(src), lanes };
 }
@@ -73,13 +75,13 @@ function test_probes(t: Test, got: Got): string[] {
   if (!t.main || t.want.startsWith("Error:")) {
     return ["check"];
   }
-  return ["check", "interp", ...("left" in got ? [] : t.lanes)];
+  return ["check", "interp", ...t.lanes];
 }
 
 function test_judge(t: Test, got: Got): Fail[] {
   const fails: Fail[] = [];
   for (const probe of test_probes(t, got)) {
-    const seen = got[probe === "interp" ? "check" : probe]
+    const seen = got[probe === "interp" ? "check" : probe] ?? got.left
       ?? "(no answer from the node)";
     const ok = probe === "check" && t.main && !t.want.startsWith("Error:")
       ? !seen.startsWith("Error:") : seen === t.want;
@@ -130,7 +132,9 @@ function shard_pack(shard: Test[]): Buffer {
   return tar.stdout;
 }
 
-// A build that fails leaves its message in <name>.left.
+// A build that fails leaves its message in <name>.left: the test's lanes
+// then read it as their answer, so a program the compiler cannot build
+// fails the gate.
 function shard_script(shard: Test[], tag: number): string {
   const runs = test_runs(shard);
   const bangs = runs.filter((t) => /!\(/.test(t.src)).map((t) => t.name);

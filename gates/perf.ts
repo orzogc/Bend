@@ -9,7 +9,7 @@
 // -O3 of bend -o: no -lm, no -fmodules, no -fno-slp-vectorize, so the
 // gate grades the binary bend builds) and runs it with the flags the
 // pins were measured with (PAR on the power of two under the core
-// count, GPU with the bench's --gpu-memory), one warm run and one timed
+// count, GPU over the bench's span), one warm run and one timed
 // by a microsecond clock around /usr/bin/time -l, whose own 10 ms tick
 // cannot grade a 50 ms GPU cell (its RSS is the space). A cell passes at
 // 1.15x or under; --pin runs every
@@ -63,7 +63,8 @@ export const BUILD = [CC + " main.c -lpthread", CC + " main.c -lpthread",
 const THREADS = "nt=1; while [ $nt -lt $(getconf _NPROCESSORS_ONLN) ] &&"
   + " [ $nt -lt 256 ]; do nt=$((nt*2)); done;";
 
-export const FLAGS = ["--parallel off", "--threads $nt --gpu off", "--gpu on"];
+export const FLAGS = ["--threads 1 --gpu off", "--threads $nt --gpu off",
+  "--gpu $gm"];
 
 export const MEMORY: Record<string, string> = {
   bitonic: "768MB", gameoflife: "512MB", kmeans: "768MB",
@@ -228,9 +229,7 @@ function cell_pack(dir: string): Buffer {
 }
 
 function cell_script(c: Cell): string {
-  const mem = c.mode === 2 && MEMORY[c.bench] !== undefined
-    ? " --gpu-memory " + MEMORY[c.bench] : "";
-  const run = "./cell " + FLAGS[c.mode] + mem;
+  const run = "./cell " + FLAGS[c.mode].replace("$gm", MEMORY[c.bench] ?? "on");
   return `d=$HOME/bend-perf/${c.bench}-${String(c.mode)}; rm -rf $d;`
     + ` mkdir -p $d; cd $d; tar -xzf -; ${THREADS} ${lib.BUN} bend2/main.ts`
     + ` main.bend -o main > /dev/null 2>&1; t0=$(${CLOCK}); ${lib.BUN}`

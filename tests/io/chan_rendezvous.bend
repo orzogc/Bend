@@ -7,7 +7,7 @@
 import Base
 
 law sender:
-  for c: Chan<U32>
+  for c: Chan(U32)
   IO(Unit)
 
 def sender(c):
@@ -20,7 +20,7 @@ def sender(c):
     IO.print("s2")
 
 law main.go:
-  for c: Chan<U32>
+  for c: Chan(U32)
   IO(U32)
 
 def main.go(c):
@@ -38,7 +38,7 @@ law main:
   IO(U32)
 
 def main():
-  IO.bind(Chan<U32>, U32, Chan.new(U32, 0), main.go)
+  IO.bind(Chan(U32), U32, Chan.new(U32, 0), main.go)
 
 #|m0
 #|s0

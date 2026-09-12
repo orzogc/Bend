@@ -232,13 +232,12 @@ function runtime_check(b: Built, what: string, got: Ran): Ran {
 async function runtime_cell(b: Built, mode: number): Promise<Ran> {
   const bin = mode === 2 ? b.gpu : b.cpu;
   const dir = path.dirname(bin);
-  const mem = mode === 2 && MEMORY[b.bench] !== undefined
-    ? ["--gpu-memory", MEMORY[b.bench]] : [];
   let nt = 1;
   while (nt * 2 <= os.cpus().length && nt < 256) {
     nt *= 2;
   }
-  const args = [...FLAGS[mode].replace("$nt", String(nt)).split(" "), ...mem];
+  const args = FLAGS[mode].replace("$nt", String(nt))
+    .replace("$gm", MEMORY[b.bench] ?? "on").split(" ");
   await exec_run([bin, ...args], dir, RUN_TIMEOUT);
   return runtime_check(b, MODES[mode],
     await exec_run(["/usr/bin/time", "-l", bin, ...args], dir, RUN_TIMEOUT));
