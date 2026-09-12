@@ -28,9 +28,9 @@ def unwrap(r):
       x
 
 law main:
-  Nat
+  IO(Unit)
 
 def main():
-  U32.to_nat(unwrap(run()))
+  IO.print(Nat.show(U32.to_nat(unwrap(run()))))
 
-#|42n
+#|42

@@ -62,10 +62,17 @@ law cm:
 def cm():
   {==}
 
+def N7.text(n: N7) -> String:
+  match n:
+    case Z7{}:
+      "Z7{}"
+    case S7{p}:
+      "S7{" ++ N7.text(p) ++ "}"
+
 law main:
-  N7
+  IO(Unit)
 
 def main():
-  Z7{}
+  IO.print(N7.text(Z7{}))
 
 #|Z7{}

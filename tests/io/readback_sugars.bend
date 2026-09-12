@@ -1,8 +1,7 @@
 # readback with the language's sugars: nat/tuple/list/string/char
-# spellings and a lambda in a list, on the interpreter (quoted chars,
-# an empty string as bare SNil{}, open lambdas spelled) and the JS
-# backend (chars as strings, closures as <closure>); the C lane
-# refuses the List (not showable) loud.
+# spellings and a lambda in a list (quoted chars, an empty string as
+# "", open lambdas spelled). A pure main's value is its normal form,
+# taken at compile time, so the C and JS lanes print the same text.
 # ported from bend3: numbers become Nats for readable goldens, Nat.min
 # replaces the local min, the deep-chain half lives in
 # eval_deep_list_print (the interpreter's show overflows past ~100k)
@@ -57,4 +56,4 @@ law main:
 def main():
   (Nat.pow2(12n), Nat.min(4n, 3n), small(), sugars(), funs())
 
-#|Tuple{4096n, Tuple{3n, Tuple{Tuple{7n, Some{9n}}, Tuple{Con{Tuple{"a\n", 'x'}, Con{Tuple{SNil{}, 'y'}, Nil{}}}, Con{x => 1n+x, Nil{}}}}}}
+#|Tuple{4096n, Tuple{3n, Tuple{Tuple{7n, Some{9n}}, Tuple{Con{Tuple{"a\n", 'x'}, Con{Tuple{"", 'y'}, Nil{}}}, Con{x => 1n+x, Nil{}}}}}}

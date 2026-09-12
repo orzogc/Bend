@@ -13,9 +13,9 @@ def pa3(a, b, c):
   (a + b - c - 65536 % 2147483648 : U32)
 
 law main:
-  U32
+  IO(Unit)
 
 def main():
-  pa3(4, 7, 1)
+  IO.print(U32.show(pa3(4, 7, 1)))
 
-#|U32{WCon{False{}, WCon{True{}, WCon{False{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+#|4294901770

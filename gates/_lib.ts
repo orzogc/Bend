@@ -89,14 +89,21 @@ function sleep(ms: number): Promise<void> {
 // Node
 // ====
 
-// Locks a slot of 48 minis and answers the ones that answer ssh, after
-// one session to the bastion opens the mux the rest share.
+// Locks a slot of 48 minis, after one session to the bastion opens the
+// mux the rest share. A dead node is found by its first job (node_pool
+// requeues the job and drops the node), not by a probe.
 export async function node_lock(): Promise<number[]> {
   const nodes = slot_lock();
   await exec("ssh", [...MUX, "cluster", "true"]);
-  const live = await Promise.all(nodes.map(async (node) =>
-    (await ssh(node, "true")).code === 0 ? [node] : []));
-  return live.flat();
+  return nodes;
+}
+
+// Copies what a node needs to build a program: the compiler, Base and
+// the effect kit (not bend.lean, docs or pack).
+export function bend2_copy(to: string): void {
+  fs.cpSync(path.join(ROOT, "bend2"), to, { recursive: true,
+    filter: (p) => fs.statSync(p).isDirectory() ? !/\/(docs|pack)$/.test(p)
+      : /\.(ts|bend|c|js)$/.test(p) });
 }
 
 function slot_lock(): number[] {

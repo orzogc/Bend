@@ -17,9 +17,9 @@ def NEQ():
   {1n != 2n : Nat}
 
 law main:
-  Nat
+  IO(Unit)
 
 def main():
-  3n
+  IO.print(Nat.show(3n))
 
-#|3n
+#|3

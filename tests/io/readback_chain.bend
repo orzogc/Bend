@@ -1,19 +1,22 @@
-# the C showable wall: a user constructor is not a C result -- SPEC
-# 1.8 prints one result String, and tocl refuses a main whose answer
-# it cannot show, loud. The interpreter and the JS backend print the
-# ctor spine.
+# a user constructor with Nat fields, built at runtime and printed by
+# a local show: the interpreter, JS and C print the same spine.
 # ported from bend3: bend3's tag-punned improper-chain readback
-# (1<>2) is bend3-only; the pin here is bend4's refusal on the same
-# shape, plus the interp/js spellings (Nat fields for readability)
+# (1<>2) is bend3-only; the pin here is the same shape's spelled ctor
+# (Nat fields for readability)
 import Base
 
 type Chain is Data:
   ChCons{h: Nat, t: Nat}
 
+def Chain.show(c: Chain) -> String:
+  match c:
+    case ChCons{h, t}:
+      "ChCons{" ++ Nat.show(h) ++ ", " ++ Nat.show(t) ++ "}"
+
 law main:
-  Chain
+  IO(Unit)
 
 def main():
-  ChCons{1n, 2n}
+  IO.print(Chain.show(ChCons{1n, 2n}))
 
-#|ChCons{1n, 2n}
+#|ChCons{1, 2}

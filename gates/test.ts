@@ -1,14 +1,15 @@
 #!/usr/bin/env bun
 // Runs every test under tests/ on the cluster. The tests split into one
 // shard per live mini; each shard is an aggregator that imports its tests,
-// sent to its mini, which checks and runs every module through `bend main.bend
-// --checkup -o main.js -o main` (the production build: clang -O3, Metal), runs
-// one program untimed (the first launch compiles the shard's Metal shader,
-// which the node then caches by source) and then runs each program once
-// natively and once under bun, each under a 5 s alarm. A test passes when
-// its check, its interpreted run, its JS run and its C run all print its
-// `#|` lines; a module the combined book refuses (a name its own file
-// binds and Base's sugar also names) is checked and interpreted only.
+// sent to its mini, which checks and interprets every module through `bend
+// main.bend --checkup`, builds each runnable test alone (`bend t.bend -o t.js
+// -o t`: clang -O3, Metal; ten at a time), runs each binary with a `!` once
+// untimed (the first launch compiles its Metal shader, which the node then
+// caches by source), then runs each program once natively and once under
+// bun, each under a 5 s alarm. A test passes when its check, its interpreted
+// run, its JS run and its C run all print its `#|` lines; a test whose build
+// fails (a law main with no def, a foreign def with no twin for a lane) is
+// checked and interpreted only.
 
 import * as child from "node:child_process";
 import * as fs from "node:fs";
@@ -38,8 +39,6 @@ const TESTS = path.join(lib.ROOT, "tests");
 
 const MARK = "@@B4";
 
-const LEFT = "Left out of the binary:\n";
-
 const BUN = lib.BUN;
 
 // Test
@@ -63,6 +62,11 @@ function tidy(text: string): string {
 
 function test_path(t: Test): string {
   return t.name.replace("_", "/") + ".bend";
+}
+
+function test_runs(shard: Test[]): Test[] {
+  return shard.filter((t) => t.main && t.lanes.length > 0
+    && !t.want.startsWith("Error:"));
 }
 
 function test_probes(t: Test, got: Got): string[] {
@@ -102,9 +106,7 @@ function shard_split(tests: Test[], count: number): Test[][] {
 
 function shard_pack(shard: Test[]): Buffer {
   const dir = fs.mkdtempSync("/tmp/bend-shard-");
-  fs.cpSync(path.join(lib.ROOT, "bend2"), path.join(dir, "bend2"),
-    { recursive: true, filter: (p) =>
-      !p.includes("/pack") && !p.includes("/docs") });
+  lib.bend2_copy(path.join(dir, "bend2"));
   for (const sub of fs.readdirSync(TESTS)) {
     fs.mkdirSync(path.join(dir, "tests", sub), { recursive: true });
     for (const f of fs.readdirSync(path.join(TESTS, sub))) {
@@ -119,25 +121,32 @@ function shard_pack(shard: Test[]): Buffer {
   }
   fs.writeFileSync(path.join(dir, "main.bend"), shard.map((t) =>
     "import ./tests/" + test_path(t) + " as " + t.name).join("\n") + "\n");
+  fs.writeFileSync(path.join(dir, "build.txt"), test_runs(shard).map((t) =>
+    [t.name, "tests/" + test_path(t), ...t.lanes.map((l) =>
+      "-o " + t.name + (l === "js" ? ".js" : ""))].join(" ") + "\n").join(""));
   const tar = child.spawnSync("tar", ["-czf", "-", "-C", dir, "."],
     { maxBuffer: 1 << 28 });
   fs.rmSync(dir, { recursive: true, force: true });
   return tar.stdout;
 }
 
+// A build that fails leaves its message in <name>.left.
 function shard_script(shard: Test[], tag: number): string {
-  const runs = shard.filter((t) => t.main && t.lanes.length > 0
-    && !t.want.startsWith("Error:")).map((t) => t.name);
+  const runs = test_runs(shard);
+  const bangs = runs.filter((t) => /!\(/.test(t.src)).map((t) => t.name);
   const probe = (kind: string, cmd: string): string =>
-    `echo "${MARK} ${kind} $m"; perl -e 'alarm 5; exec @ARGV' ${cmd} $m 2>&1;`
+    `echo "${MARK} ${kind} $m"; perl -e 'alarm 5; exec @ARGV' ${cmd} 2>&1;`
     + ` echo "${MARK} exit $?";`;
   return `export BUN_JSC_maxPerThreadStackUsage=33554432;`
     + ` d=$HOME/bend-test/${tag}; rm -rf $d; mkdir -p $d; cd $d; tar -xzf -;`
-    + ` echo "${MARK} checkup"; ${BUN} bend2/main.ts main.bend --checkup`
-    + ` -o main.js -o main 2>&1; echo "${MARK} built $?";`
-    + ` perl -e 'alarm 60; exec @ARGV' ./main ${runs[0] ?? ""} >/dev/null 2>&1;`
-    + ` for m in ${runs.join(" ")}; do ${probe("c", "./main")}`
-    + ` ${probe("js", BUN + " main.js")} done; cd; rm -rf $d`;
+    + ` echo "${MARK} checkup"; ${BUN} bend2/main.ts main.bend --checkup 2>&1;`
+    + ` xargs -P 10 -L 1 sh -c 'm=$1; shift; ${BUN} bend2/main.ts "$@"`
+    + ` > $m.left 2>&1 && rm $m.left' -- < build.txt; echo "${MARK} built";`
+    + ` for m in ${bangs.join(" ")}; do perl -e 'alarm 60; exec @ARGV' ./$m`
+    + ` >/dev/null 2>&1; done; for m in ${runs.map((t) => t.name).join(" ")};`
+    + ` do if [ -f $m.left ]; then echo "${MARK} left $m"; cat $m.left;`
+    + ` else ${probe("c", "./$m")} ${probe("js", BUN + " $m.js")} fi; done;`
+    + ` cd; rm -rf $d`;
 }
 
 function shard_parse(shard: Test[], out: string): Map<string, Got> {
@@ -152,17 +161,13 @@ function shard_parse(shard: Test[], out: string): Map<string, Got> {
       const secs = body.split(/^--- \.\/tests\/([a-z0-9_/]+)\.bend ---\n/m);
       for (let i = 1; i + 1 < secs.length; i += 2) {
         const got = gots.get(secs[i].replace("/", "_"));
-        const at = secs[i + 1].indexOf(LEFT);
         if (got !== undefined) {
-          got.check = tidy(at < 0 ? secs[i + 1] : secs[i + 1].slice(0, at));
-          if (at >= 0) {
-            got.left = tidy(secs[i + 1].slice(at + LEFT.length));
-          }
+          got.check = tidy(secs[i + 1]);
         }
       }
-    } else if (head[0] === "c" || head[0] === "js") {
+    } else if (head[0] === "c" || head[0] === "js" || head[0] === "left") {
       const got = gots.get(head[1]);
-      last = got === undefined ? null : [got, head[0]];
+      last = got === undefined || head[0] === "left" ? null : [got, head[0]];
       if (got !== undefined) {
         got[head[0]] = tidy(body);
       }

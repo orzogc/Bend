@@ -10,7 +10,8 @@ def sum(xs: List<Nat>) -> Nat:
     case Con{h, t}:
       Nat.add(h, sum(t))
 
-def main() -> Nat:
-  sum(List.map(~Nat, ~Nat, ~(h => Nat.mul(h, 2n)), [1n, 2n, 3n]))
+def main() -> IO(Unit):
+  n = sum(List.map(~Nat, ~Nat, ~(h => Nat.mul(h, 2n)), [1n, 2n, 3n]))
+  IO.print(Nat.show(n))
 
-#|12n
+#|12

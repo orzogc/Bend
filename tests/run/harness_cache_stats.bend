@@ -17,10 +17,19 @@ def flip(c):
     case GT{}:
       LT{}
 
+def Cmp.text(c: Cmp) -> String:
+  match c:
+    case LT{}:
+      "LT{}"
+    case EQ{}:
+      "EQ{}"
+    case GT{}:
+      "GT{}"
+
 law main:
-  Cmp
+  IO(Unit)
 
 def main():
-  flip(flip(LT{}))
+  IO.print(Cmp.text(flip(flip(LT{}))))
 
 #|LT{}

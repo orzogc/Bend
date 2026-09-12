@@ -1,15 +1,20 @@
-# a compiled F32 inside a constructor: a bare F32 main is no IO, so
-# the compiled lanes refuse it and the interpreter shows the fields as
-# the binary32 words they are
+# a compiled F32 inside a constructor: the record is built at runtime
+# and an IO main prints its fields through F32.show, the same on every
+# lane (2.0 prints as 2, 0.1 as the shortest digits that read back)
 import Base
 
 type FV is Data:
   FV{a: F32, b: F32, c: F32}
 
+def FV.show(v: FV) -> String:
+  match v:
+    case FV{a, b, c}:
+      "FV{" ++ F32.show(a) ++ ", " ++ F32.show(b) ++ ", " ++ F32.show(c) ++ "}"
+
 law main:
-  FV
+  IO(Unit)
 
 def main():
-  FV{2.0, 0.5, 0.1}
+  IO.print(FV.show(FV{2.0, 0.5, 0.1}))
 
-#|FV{F32{WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, F32{WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}, F32{WCon{True{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+#|FV{2, 0.5, 0.1}

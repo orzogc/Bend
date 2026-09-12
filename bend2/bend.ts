@@ -1288,14 +1288,14 @@ const ESCAPES: Record<string, U32> = {
   "n": 10, "t": 9, "r": 13, "0": 0, "\\": 92, "'": 39, '"': 34,
 };
 
-export function char_show(n: U32, quote: string): string | null {
+export function char_show(n: U32, quote: string): string {
   for (const [k, c] of Object.entries(ESCAPES)) {
     if (c === n && ((k !== "'" && k !== '"') || k === quote)) {
       return "\\" + k;
     }
   }
   if (n < 32 || n === 127 || (n >= 0xd800 && n <= 0xdfff) || n > 0x10ffff) {
-    return null;
+    return "\\u{" + n.toString(16) + "}";
   }
   return String.fromCodePoint(n);
 }
@@ -1338,14 +1338,9 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
     return prc > 1 ? "(" + s + ")" : s;
   }
   function term_show_sugar_chr(tm: LTerm, quote: string): string | null {
-    if (tm.$ !== "Ctr" || tm.k !== "Chr" || tm.x.length !== 1) {
-      return null;
-    }
-    const n = u32_from_term(tm.x[0]);
-    if (n === null || n > 0x10ffff) {
-      return null;
-    }
-    return char_show(n, quote);
+    const n = tm.$ === "Ctr" && tm.k === "Chr" && tm.x.length === 1
+      ? u32_from_term(tm.x[0]) : null;
+    return n === null ? null : char_show(n, quote);
   }
   function term_show_sugar_str(tm: LTerm): string | null {
     let out = "";
@@ -1358,10 +1353,8 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
       out += c;
       t = t.x[1];
     }
-    if (out === "" || t.$ !== "Ctr" || t.k !== "SNil" || t.x.length !== 0) {
-      return null;
-    }
-    return "\"" + out + "\"";
+    return t.$ === "Ctr" && t.k === "SNil" && t.x.length === 0
+      ? "\"" + out + "\"" : null;
   }
   function go(tm: LTerm, prc: number): string {
     switch (tm.$) {
@@ -1671,9 +1664,14 @@ export function parse_name(p: Parse): Name {
 
 export function parse_char(p: Parse): U32 {
   if (parse_take(p, "\\")) {
+    const u = /^u\{([0-9a-f]+)\}/i.exec(p.str.slice(p.pos, p.pos + 11));
+    if (u !== null) {
+      p.pos += u[0].length;
+      return parseInt(u[1], 16);
+    }
     const c = ESCAPES[parse_bump(p)];
     if (c === undefined) {
-      parse_fail(p, "an escape (\\n \\t \\r \\0 \\\\ \\' \\\")");
+      parse_fail(p, "an escape (\\n \\t \\r \\0 \\\\ \\' \\\" \\u{1F600})");
     }
     return c;
   }
@@ -1681,10 +1679,7 @@ export function parse_char(p: Parse): U32 {
   if (n === undefined) {
     parse_fail(p, "a character");
   }
-  parse_bump(p);
-  if (n > 0xffff) {
-    parse_bump(p);
-  }
+  p.pos += n > 0xffff ? 2 : 1;
   return n;
 }
 
@@ -2324,10 +2319,9 @@ export function parse_term_chr(p: Parse): LTerm {
   const beg = p.pos;
   parse_bump(p);
   const n = parse_char(p);
-  if (parse_peek(p) !== "'") {
+  if (!parse_take(p, "'")) {
     parse_fail(p, "a closing '");
   }
-  parse_bump(p);
   const spn = parse_span(p, beg);
   return Ctr("Chr", [u32_to_term(n, spn)], spn);
 }
@@ -2336,19 +2330,16 @@ export function parse_term_str(p: Parse): LTerm {
   const beg = p.pos;
   parse_bump(p);
   const cs: U32[] = [];
-  while (parse_peek(p) !== '"') {
+  while (!parse_take(p, '"')) {
     if (p.pos >= p.str.length) {
       parse_fail(p, "a closing \"");
     }
     cs.push(parse_char(p));
   }
-  parse_bump(p);
   const spn = parse_span(p, beg);
-  let out: LTerm = Ctr("SNil", [], spn);
-  for (let i = cs.length - 1; i >= 0; i--) {
-    out = Ctr("SCon", [Ctr("Chr", [u32_to_term(cs[i], spn)], spn), out], spn);
-  }
-  return out;
+  return cs.reduceRight<LTerm>((out, c) =>
+    Ctr("SCon", [Ctr("Chr", [u32_to_term(c, spn)], spn), out], spn),
+    Ctr("SNil", [], spn));
 }
 
 export function parse_term_do(p: Parse): LTerm {

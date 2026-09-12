@@ -13,9 +13,10 @@ def pipe(f, g):
   x => g(f(x))
 
 law main:
-  Nat
+  IO(Unit)
 
 def main():
-  U32.to_nat(pipe(a => (a + 1 : U32), b => (b * 2 : U32))(5))
+  n = U32.to_nat(pipe(a => (a + 1 : U32), b => (b * 2 : U32))(5))
+  IO.print(Nat.show(n))
 
-#|12n
+#|12

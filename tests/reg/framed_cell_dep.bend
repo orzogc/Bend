@@ -21,9 +21,9 @@ def dup_eq(m):
   dup_eq.go(m, {==})
 
 law main:
-  Nat
+  IO(Unit)
 
 def main():
-  dup_eq(3n)
+  IO.print(Nat.show(dup_eq(3n)))
 
-#|3n
+#|3

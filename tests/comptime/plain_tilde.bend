@@ -5,7 +5,7 @@ import Base
 def keep(x: Nat, ~k: Nat) -> Nat:
   x
 
-def main() -> Nat:
-  keep(3n, 5n)
+def main() -> IO(Unit):
+  IO.print(Nat.show(keep(3n, 5n)))
 
-#|3n
+#|3

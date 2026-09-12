@@ -51,10 +51,17 @@ law ap_delta:
 def ap_delta(b):
   {==}
 
+def Bool.text(b: Bool) -> String:
+  match b:
+    case True{}:
+      "True"
+    case False{}:
+      "False"
+
 law main:
-  Bool
+  IO(Unit)
 
 def main():
-  True{}
+  IO.print(Bool.text(True{}))
 
-#|True{}
+#|True

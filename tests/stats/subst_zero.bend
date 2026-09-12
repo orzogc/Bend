@@ -50,10 +50,17 @@ law cm:
 def cm():
   {==}
 
+def N8.text(n: N8) -> String:
+  match n:
+    case Z8{}:
+      "Z8{}"
+    case S8{p}:
+      "S8{" ++ N8.text(p) ++ "}"
+
 law main:
-  N8
+  IO(Unit)
 
 def main():
-  Z8{}
+  IO.print(N8.text(Z8{}))
 
 #|Z8{}

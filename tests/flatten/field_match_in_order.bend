@@ -24,7 +24,7 @@ def g(p: Nat & Nat) -> Nat:
     case 1n+q:
       Nat.add(q, b)
 
-def main() -> Nat:
-  Nat.add(f([0n, 3n, 2n]), g((2n, 5n)))
+def main() -> IO(Unit):
+  IO.print(Nat.show(Nat.add(f([0n, 3n, 2n]), g((2n, 5n)))))
 
-#|9n
+#|9

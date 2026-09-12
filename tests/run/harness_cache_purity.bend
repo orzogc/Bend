@@ -27,9 +27,9 @@ def shrink(n):
       k
 
 law main:
-  Nat
+  IO(Unit)
 
 def main():
-  shrink(grow(5n))
+  IO.print(Nat.show(shrink(grow(5n))))
 
-#|10n
+#|10

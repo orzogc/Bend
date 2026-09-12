@@ -17,9 +17,9 @@ def double(n):
       Succ{Succ{double(k)}}
 
 law main:
-  Nat
+  IO(Unit)
 
 def main():
-  double(3n)
+  IO.print(Nat.show(double(3n)))
 
-#|6n
+#|6

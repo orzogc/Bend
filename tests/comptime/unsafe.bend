@@ -10,7 +10,7 @@ def loop(~f: Nat -> Nat, x: Nat) -> Nat:
     case 1n+p:
       f(loop(~f, p))
 
-def main() -> Nat:
-  loop(~(n => 1n+n), 3n)
+def main() -> IO(Unit):
+  IO.print(Nat.show(loop(~(n => 1n+n), 3n)))
 
-#|3n
+#|3

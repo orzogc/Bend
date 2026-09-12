@@ -23,9 +23,10 @@ def pack():
   ((1n, 0n), 0n)
 
 law main:
-  U32
+  IO(Unit)
 
 def main():
-  U32.add(U32.mul(classify(pack()), 10), classify(((0n, 0n), 3n)))
+  n = U32.add(U32.mul(classify(pack()), 10), classify(((0n, 0n), 3n)))
+  IO.print(U32.show(n))
 
-#|U32{WCon{True{}, WCon{False{}, WCon{True{}, WCon{False{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+#|21

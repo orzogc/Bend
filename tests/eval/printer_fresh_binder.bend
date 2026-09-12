@@ -15,9 +15,9 @@ def pick(n):
       0n
 
 law main:
-  Nat
+  IO(Unit)
 
 def main():
-  pick(3n)
+  IO.print(Nat.show(pick(3n)))
 
-#|2n
+#|2

@@ -36,16 +36,16 @@ const HELP = `Bend: check, run, build and publish Bend programs.
 usage:
   bend <file.bend>            check the file, then run main
   bend <file.bend> -o <out>   build a binary; <out>.c emits C, <out>.js JS
-  bend <file.bend> --checkup  check and run each import alone; -o builds all
+  bend <file.bend> --checkup  check and run each import alone
   bend <file.bend> --publish  publish the file and its imports to the hub
   bend <page.html> -o <dir>   bundle a page that imports .bend files
   bend guide                  print the Bend guide
   bend base [--types|<name>]  print Base, its types, or a name and its subnames
 
 A file with no main just checks. A main that is not IO prints as a value. -o
-repeats. A binary with a ! keeps its GPU program beside it (<out>.gpu); see
-./<out> --help for its options. A --checkup binary runs one module: ./<out>
-<module>. --publish prints the package's hash and the import line others use.
+repeats. A binary holds one main, and with a ! keeps its GPU program beside
+it (<out>.gpu); see ./<out> --help for its options. --publish prints the
+package's hash and the import line others use.
 
 env:
   BEND_STORE  the package store  default ~/.bend/store
@@ -135,12 +135,19 @@ async function cli(): Promise<void> {
   if (publish && (outs.length !== 0 || checkup)) {
     cli_fail("--publish takes no other option");
   }
+  if (checkup && outs.length !== 0) {
+    cli_fail("--checkup takes no -o: a binary holds one main, so build each"
+      + " import alone");
+  }
   try {
     if (publish) {
       return await cli_publish(file);
     }
-    const book = checkup ? await cli_checkup(file) : await book_read(file);
-    if (outs.length === 0 && !checkup) {
+    if (checkup) {
+      return await cli_checkup(file);
+    }
+    const book = await book_read(file);
+    if (outs.length === 0) {
       process.exit(book_run(book));
     }
     for (const out of outs) {
@@ -152,12 +159,12 @@ async function cli(): Promise<void> {
   }
 }
 
-async function cli_checkup(file: string): Promise<Bend.Book> {
+// cli_checkup checks and runs each import of the file alone (Base read
+// once, seeded into every module that imports it).
+async function cli_checkup(file: string): Promise<void> {
   const base = await book_read(BASE);
-  const book = book_seed(base);
-  const seen = new Map<string, string | null>([[BASE, ""]]);
   for (const raw of fs.readFileSync(file, "utf8").split("\n")) {
-    const m = /^import\s+(\S+)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*$/
+    const m = /^import\s+(\S+)\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*$/
       .exec(raw.trim());
     if (m === null) {
       continue;
@@ -167,22 +174,7 @@ async function cli_checkup(file: string): Promise<Bend.Book> {
     let code = 1;
     try {
       const own = /^import Base$/m.test(fs.readFileSync(at, "utf8"));
-      const one = await book_read(at, own ? base : undefined);
-      const keep = { ...Bend.book_nil(), hols: book.hols, open: book.open };
-      Object.assign(keep.tlds, book.tlds);
-      Object.assign(keep.ctrs, book.ctrs);
-      Object.assign(keep.tmps, book.tmps);
-      keep.order.push(...book.order);
-      let left = "";
-      try {
-        await Bend.book_load(book, at, m[2], seen);
-        Bend.book_valid(book, keep.order.length);
-      } catch (e) {
-        Object.assign(book, keep);
-        left = "Left out of the binary:\n" + book_err(e) + "\n";
-      }
-      code = book_run(one);
-      cli_say(2, left);
+      code = book_run(await book_read(at, own ? base : undefined));
     } catch (e) {
       cli_say(2, book_err(e) + "\n");
     }
@@ -190,7 +182,6 @@ async function cli_checkup(file: string): Promise<Bend.Book> {
       cli_say(1, "exit " + String(code) + "\n");
     }
   }
-  return book;
 }
 
 function cli_emit(book: Bend.Book, out: string): void {

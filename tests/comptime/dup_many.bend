@@ -5,7 +5,7 @@ import Base
 def app(~f: Nat -> Nat, +x: Nat) -> Nat:
   f(x)
 
-def main() -> Nat:
-  app(~(y => Nat.add(y, y)), 3n)
+def main() -> IO(Unit):
+  IO.print(Nat.show(app(~(y => Nat.add(y, y)), 3n)))
 
-#|6n
+#|6
