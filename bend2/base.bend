@@ -98,6 +98,9 @@ type Listener is Type:
 type Window is Type:
   Window{slot: U32, gen: U32}
 
+type Audio is Type:
+  Audio{slot: U32, gen: U32}
+
 type Chan<-A: Type> is Data:
   Chan{slot: U32, gen: U32}
 
@@ -242,6 +245,11 @@ def File.read(file: File, max: U32) ->
   import "./effs/file_read.c"
   import "./effs/file_read.js"
 
+def File.read_bytes(file: File, max: U32) ->
+  IO(File & Result<&1, &1, U32 & String, List<&2, U32>>):
+  import "./effs/file_read_bytes.c"
+  import "./effs/file_read_bytes.js"
+
 def File.write(file: File, data: String) ->
   IO(File & Result<&1, &1, U32 & String, Unit>):
   import "./effs/file_write.c"
@@ -312,9 +320,25 @@ def Window.frame(window: Window, image: Image) ->
   import "./effs/window_frame.c"
   import "./effs/window_frame.js"
 
+def Window.set_title(window: Window, title: String) -> IO(Window):
+  import "./effs/window_set_title.c"
+  import "./effs/window_set_title.js"
+
 def Window.close(window: Window) -> IO(Unit):
   import "./effs/window_close.c"
   import "./effs/window_close.js"
+
+def Audio.open(rate: U32) -> IO(Result<&1, &1, U32 & String, Audio>):
+  import "./effs/audio_open.c"
+  import "./effs/audio_open.js"
+
+def Audio.write(audio: Audio, samples: List<&2, F32>) -> IO(Audio & U32):
+  import "./effs/audio_write.c"
+  import "./effs/audio_write.js"
+
+def Audio.close(audio: Audio) -> IO(Unit):
+  import "./effs/audio_close.c"
+  import "./effs/audio_close.js"
 
 # Equal
 # -----
@@ -1909,18 +1933,30 @@ def Set.del(s: Set(), key: String) -> Set():
 # Image
 # -----
 
+def Image.sink(img: Image) -> Unit:
+  Unit{}
+
 def Image.drop.join(a: Unit, b: Unit, c: Unit, d: Unit) -> Unit:
   match a b c d:
     case Unit{} Unit{} Unit{} Unit{}:
       Unit{}
 
+# Forks k levels, then a dead parameter sinks the rest in one loop.
+def Image.free(+k: Nat, img: Image) -> Unit:
+  match k:
+    case 0n:
+      Image.sink(img)
+    case 1n+e:
+      match img:
+        case Pix{c}:
+          Unit{}
+        case Qua{tl, tr, bl, br}:
+          a b c d = Image.free(e, tl) Image.free(e, tr) Image.free(e, bl)
+            Image.free(e, br)
+          Image.drop.join(a, b, c, d)
+
 def Image.drop(img: Image) -> Unit:
-  match img:
-    case Pix{c}:
-      Unit{}
-    case Qua{tl, tr, bl, br}:
-      a b c d = Image.drop(tl) Image.drop(tr) Image.drop(bl) Image.drop(br)
-      Image.drop.join(a, b, c, d)
+  Image.free(7n, img)
 
 # App
 # ---

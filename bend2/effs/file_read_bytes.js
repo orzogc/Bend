@@ -1,0 +1,21 @@
+// File
+// ====
+
+function file_read_bytes(file, max) {
+  const sys = io_sys();
+  const fd = io_read(file, "file");
+  if (fd === null) {
+    return io_tup(file, io_fail(9));
+  }
+  const len = Math.min(max, 2147483647);
+  const b = new Uint8Array(Math.max(len, 1));
+  const n = Number(sys.read(fd, sys.ptr(b), len));
+  if (n < 0) {
+    return io_tup(file, io_fail(sys.errno()));
+  }
+  let xs = { $: "Nil" };
+  for (let i = n; i > 0; i -= 1) {
+    xs = { $: "Con", head: b[i - 1], tail: xs };
+  }
+  return io_tup(file, io_done(xs));
+}

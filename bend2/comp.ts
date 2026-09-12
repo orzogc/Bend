@@ -41,7 +41,7 @@ type Field = { at: number; lay: Lay };
 
 type Val = { ws: string[]; lay: Lay };
 
-type Bind = { val: Val; n: number };
+type Bind = { val: Val; n: number; A: HTerm | null };
 
 type Dst = Val | null;
 
@@ -84,6 +84,7 @@ type Carb = {
   hot: Set<Bend.Name>;
   poly: Set<string>;
   own: Map<string, string>;
+  lend: Set<string>;
 };
 
 type File = Carb & {
@@ -92,7 +93,7 @@ type File = Carb & {
   uses: Map<Probe, Bind>;
   local: Set<string>;
   brwl: Map<string, Root>;
-  rest: HTerm | null;
+  rest: HTerm[];
   def: Bend.Name;
   pi: number;
   segs: Seg[];
@@ -608,8 +609,6 @@ const OPENS: Map<Of<"Lam"> | HLet, { ps: Probe[]; b: HTerm }> = new Map();
 
 const USES: Map<HTerm, UMap> = new Map();
 
-const RAWS: Map<HTerm, UMap> = new Map();
-
 const TELES: Map<HTerm, ReturnType<typeof Bend.tele_unbind>> = new Map();
 
 const REFS: Map<Bend.Name, Set<Bend.Name>> = new Map();
@@ -692,7 +691,7 @@ function memo<K, V>(m: Map<K, V>, k: K, f: () => V): V {
 }
 
 function memo_gc(): void {
-  [OPENS, USES, RAWS, FOLDS, SPINES, CONSTS, LAYS].forEach((m) => m.clear());
+  [OPENS, USES, FOLDS, SPINES, CONSTS, LAYS].forEach((m) => m.clear());
 }
 
 // Probe
@@ -729,7 +728,7 @@ function let_open(ps: Probe[], vs: HTerm[], b: HTerm): HLet {
 // A let's live binders: an erased or unused one dies with its value.
 function let_live(cb: Carb, t: HLet): boolean[] {
   const o = term_open(t);
-  const u = term_uses(cb, o.b, true);
+  const u = term_uses(cb, o.b);
   return t.q.map((q, j) => quant_live(q) && term_use(u, o.ps[j]) > 0);
 }
 
@@ -806,28 +805,25 @@ function term_use(u: UMap, p: Probe): number {
   return Bend.pmap_get(u, p.i) ?? 0;
 }
 
-// The uses of each probe in a term: those that consume (a variable lent
-// to a call does not), or all (raw).
-function term_uses(cb: Carb, tm: HTerm, raw = false): UMap {
-  return memo(raw ? RAWS : USES, tm, () => {
+// The uses of each probe in a term.
+function term_uses(cb: Carb, tm: HTerm): UMap {
+  return memo(USES, tm, () => {
     const t = Bend.term_force(tm);
     switch (t.$) {
       case "Var": {
         const p = probe_of(t);
         return p === DUMMY ? USE0 : Bend.pmap_set(USE0, p.i, 1);
       }
-      case "Mat": return Bend.pmap_union(term_uses(cb, t.h, raw),
-        term_uses(cb, t.m, raw), Math.max);
-      default: {
-        const ck = raw ? null : call_kind(cb, t);
-        const lent = ck && cb.brw.get(ck.k);
-        return term_kids(cb, t).reduce((u, x, j) =>
-          lent?.[j - 1] && Bend.term_strip(x).$ === "Var" ? u
-            : Bend.pmap_union(u, term_uses(cb, x, raw), (a, b) => a + b),
-          USE0);
-      }
+      case "Mat": return Bend.pmap_union(term_uses(cb, t.h),
+        term_uses(cb, t.m), Math.max);
+      default: return term_kids(cb, t).reduce((u, x) =>
+        Bend.pmap_union(u, term_uses(cb, x), (a, b) => a + b), USE0);
     }
   });
+}
+
+function rest_use(cb: Carb, rest: HTerm[], p: Probe): number {
+  return rest.reduce((n, r) => n + term_use(term_uses(cb, r), p), 0);
 }
 
 // Live
@@ -1396,6 +1392,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     hot: new Set(),
     poly: new Set(),
     own: new Map(),
+    lend: new Set(),
   };
   for (const queue = roots.slice(); queue.length > 0;) {
     const d = queue.shift() as Bend.Name;
@@ -1510,7 +1507,7 @@ function file_new(cb: Carb, decl: string): File {
   return { ...cb, decl, segs: [], seg: seg_new("", BOX, []), tab: 2,
     cids: new Map(), tabs: new Map(), spins: [], spun: new Map(), clos: new Set(),
     reqs: "", resw: 1, fuel: 0, fresh: new Map(), spares: [], uses: new Map(),
-    local: new Set(), brwl: new Map(), rest: null, def: "", pi: 0 };
+    local: new Set(), brwl: new Map(), rest: [], def: "", pi: 0 };
 }
 
 function file_push(fl: File, line: string): void {
@@ -1582,19 +1579,19 @@ function seg_name(fl: File, stem: string): string {
 
 // Opens `name`: takes `live` (per `frame`, else in r0..), then `ks` words.
 function seg_open(fl: File, name: string, ret: Lay, frame: Seg["frame"],
-  live: [Probe, Val][], k: string, ks: Kind[], rest: HTerm): string[] {
-  const olds = live.flatMap(([, v]) => v.ws);
+  live: [Probe, Bind][], k: string, ks: Kind[], rest: HTerm[]): string[] {
+  const olds = live.flatMap(([, b]) => b.val.ws);
   const news = olds.map((w) => name_local(fl, w.replace(/_\d+$/, "")));
   const ts = ks.map(() => name_local(fl, k));
   const seg = seg_new(name, ret, [...news, ...ts],
-    [...live.flatMap(([, v]) => v.lay.ks), ...ks], frame);
+    [...live.flatMap(([, b]) => b.val.lay.ks), ...ks], frame);
   fl.segs.push(seg);
   Object.assign(fl, { seg, spares: [], tab: 2, uses: new Map() });
   olds.forEach((w, i) =>
     fl.brwl.has(w) && fl.brwl.set(news[i], fl.brwl.get(w)!));
   let i = 0;
-  live.forEach(([p, v]) =>
-    bind_uses(fl, p, val_new(news.slice(i, i += v.ws.length), v.lay), rest));
+  live.forEach(([p, b]) => bind_uses(fl, p,
+    val_new(news.slice(i, i += b.val.ws.length), b.val.lay), rest, b.A));
   return ts;
 }
 
@@ -1659,10 +1656,14 @@ function node_fields(fl: File, t: string, node: Lay,
 // =====
 // The emitter is the analysis. A def's boxed parameters start borrowed
 // (brw); a borrowed word (brwl, with the parameter it descends from) used
-// as owned flips that parameter; a binding used twice heats its type
-// (hot); a tail jump between disagreeing returns boxes both defs (dyn);
-// a shared value of an erased parameter's type marks the parameter
-// (poly). compile_book emits the book until a pass changes nothing.
+// as owned flips that parameter; a call site asks its callee to lend a
+// parameter when the argument is used later (lend), and a pass ends by
+// turning owned every parameter no site asked to lend, so a request wins
+// and a dying site keeps its value bound and drops it after the call; an
+// owned use of a value used later shares it and heats its type (hot); a
+// tail jump between disagreeing returns boxes both defs (dyn); a shared
+// value of an erased parameter's type marks the parameter (poly).
+// compile_book emits the book until a pass changes nothing.
 
 function facts_hot(cb: Carb, B: HTerm | null, force: boolean): void {
   const w = ty_wnf(cb.book, B);
@@ -1902,15 +1903,10 @@ function arr_leaf(fl: File, s: string, el: Lay): Val {
 // Bind
 // ====
 
+// An owned use: the last takes the value, an earlier one shares it.
 function bind_pop(fl: File, x: HTerm): Val {
   const p = probe_of(x);
-  const b = fl.uses.get(p);
-  if (b === undefined) {
-    die("an unbound binder: " + p.k);
-  }
-  if (!b.val.lay.ks.includes("box")) {
-    return b.val;
-  }
+  const b = fl.uses.get(p) ?? die("an unbound binder: " + p.k);
   if (b.n <= 1) {
     fl.uses.delete(p);
     return b.val;
@@ -1919,21 +1915,15 @@ function bind_pop(fl: File, x: HTerm): Val {
   return val_new(b.val.ws.map((w, j) => {
     if (b.val.lay.ks[j] === "box" && !fl.brwl.has(w)) {
       file_push(fl, `${w} = term_keep(e, ${w});`);
+      facts_hot(fl, b.A, true);
     }
     return w;
   }), b.val.lay);
 }
 
-// A binding's owned uses in `b`, one when it has only lent uses (its
-// last site flips, or a later one owns it).
-function bind_n(fl: File, b: HTerm, p: Probe): number {
-  return term_use(term_uses(fl, b), p)
-    || Math.min(1, term_use(term_uses(fl, b, true), p));
-}
-
-function bind_uses(fl: File, p: Probe, v: Val, b: HTerm,
-  A: HTerm | null = null): HTerm {
-  const n = bind_n(fl, b, p);
+function bind_uses(fl: File, p: Probe, v: Val, rest: HTerm[],
+  A: HTerm | null = null): void {
+  const n = rest_use(fl, rest, p);
   if (A !== null) {
     const lay = lay_of(fl.book, A);
     // A shared box of a flat type (a closure's or a dyn def's result)
@@ -1942,27 +1932,27 @@ function bind_uses(fl: File, p: Probe, v: Val, b: HTerm,
       && !v.ws.some((w) => fl.brwl.has(w))) {
       v = val_unbox(fl, v, lay);
     }
-    facts_hot(fl, A, fl.hot.has("*") || (n > 1 && lay.ks.includes("box")));
+    facts_hot(fl, A, fl.hot.has("*"));
   }
-  if (n === 0 && v.ws.length > 0 && !v.ws.some((w) => fl.brwl.has(w))) {
+  if (n > 0) {
+    fl.uses.set(p, { val: v, n, A });
+  } else if (!v.ws.some((w) => fl.brwl.has(w))) {
     val_sink(fl, v);
-  } else {
-    fl.uses.set(p, { val: v, n: Math.max(n, 1) });
   }
-  return b;
 }
 
-function bind_arm(fl: File, h: HTerm, hs: HTerm[]): void {
+// A binding with no use in `rest` dies here: a borrow is let go, an
+// owned value sunk.
+function bind_dead(fl: File, rest: HTerm[]): void {
   for (const [p, b] of [...fl.uses]) {
-    const use = bind_n(fl, h, p);
-    const mx = hs.reduce((m, h2) => Math.max(m, bind_n(fl, h2, p)), 0);
-    if (mx > use) {
-      if (use === 0) {
+    const n = rest_use(fl, rest, p);
+    if (n === 0) {
+      fl.uses.delete(p);
+      if (!b.val.ws.some((w) => fl.brwl.has(w))) {
         val_sink(fl, b.val);
-        fl.uses.delete(p);
-      } else {
-        fl.uses.set(p, { ...b, n: use });
       }
+    } else if (n < b.n) {
+      fl.uses.set(p, { ...b, n });
     }
   }
 }
@@ -2014,31 +2004,65 @@ function emit_jump(fl: File, args: string[], k: Bend.Name): void {
   file_push(fl, `WL_AGAIN(${fl.seg.fid});`);
 }
 
-// A call's arguments: a lent one stays bound and is read in place; it
-// flips when it is owned here and nothing in `rest` holds it, when an
-// earlier use took it, or when it is a temporary with a heap (nobody
-// would drop it after the call).
-function emit_vals(fl: File, ck: Call): Val[] {
+// A call's arguments: a nested one is evaluated first, the Var ones among
+// its later uses; a Var lent to the callee is read in place and asks it to
+// lend when the value is used later (by the rest, another argument, or
+// its owner: a borrow of this def, unless the callee is the def itself,
+// whose own request would keep it), else to own. A call nothing follows
+// (a jump, an inlined tail) gives a dying value, as does a temporary with
+// a heap (nobody would drop it after the call); a fork's reads are at
+// once, so none precedes an owned use.
+function emit_vals(fl: File, ck: Call, own = false, fork = false): Val[] {
   const lent = fl.brw.get(ck.k) ?? [];
   ck.all.forEach((a, q) =>
     fl.poly.has(ck.k + "~" + q) && facts_hot(fl, a, true));
-  return ck.args.map((a, i) => {
-    const x = Bend.term_strip(a);
-    const b = lent[i] === true && x.$ === "Var"
-      ? fl.uses.get(probe_of(x)) : undefined;
-    if (b !== undefined) {
-      const held = fl.rest !== null
-        && term_use(term_uses(fl, fl.rest, true), probe_of(x)) > 0;
-      if (!held && !b.val.ws.some((w) => fl.brwl.has(w))) {
-        facts_flip(fl, [ck.k, i]);
-      }
-      return b.val;
+  const xs = ck.args.map((a) => Bend.term_strip(a));
+  const vars = xs.filter((x) => x.$ === "Var");
+  const rest = fl.rest;
+  const read = (x: HTerm, i: number): Val => {
+    if (lent[i] !== true) {
+      return bind_pop(fl, x);
     }
-    if (lent[i] === true && (x.$ === "Var" || !facts_packed(fl, x))) {
+    const p = probe_of(x);
+    const b = fl.uses.get(p) ?? die("an unbound binder: " + p.k);
+    const r = b.val.ws.map((w) => fl.brwl.get(w)).find((z) => z !== undefined)
+      ?? null;
+    const held = !own && (vars.filter((y) => probe_of(y) === p).length > 1
+      || rest_use(fl, rest, p) > 0);
+    if (held || (r !== null && r[0] !== ck.k)) {
+      fl.lend.add(ck.k + "~" + i);
+    } else if (own && r === null) {
+      facts_flip(fl, [ck.k, i]);
+    }
+    if (!fork) {
+      fl.uses.set(p, { ...b, n: Math.max(b.n - 1, 1) });
+    }
+    return b.val;
+  };
+  const vs = ck.args.map((a, i): Val | null => {
+    if (xs[i].$ === "Var") {
+      return null;
+    }
+    fl.rest = [...xs.slice(i + 1).filter((x) => x.$ !== "Var"), ...vars,
+      ...rest];
+    if (lent[i] === true && !facts_packed(fl, xs[i])) {
       facts_flip(fl, [ck.k, i]);
     }
     return emit_expr(fl, a, null);
   });
+  fl.rest = rest;
+  return xs.map((x, i) => vs[i] ?? read(x, i));
+}
+
+// Expressions in order, each seeing the later ones as its rest.
+function emit_each(fl: File, xs: HTerm[]): Val[] {
+  const rest = fl.rest;
+  const vs = xs.map((x, i) => {
+    fl.rest = [...xs.slice(i + 1), ...rest];
+    return emit_expr(fl, x, null);
+  });
+  fl.rest = rest;
+  return vs;
 }
 
 function emit_args(fl: File, k: Bend.Name, vs: Val[]): string[] {
@@ -2050,23 +2074,21 @@ function emit_args(fl: File, k: Bend.Name, vs: Val[]): string[] {
   });
 }
 
-// The bindings alive in `rest`, their words owned (a borrow stays one).
-function seg_live(fl: File, rest: HTerm): [Probe, Val][] {
-  const u = term_uses(fl, rest, true);
-  return [...fl.uses.keys()].filter((p) => term_use(u, p) > 0).map((p) => {
-    const v = (fl.uses.get(p) as Bind).val;
-    return [p, v.ws.some((w) => fl.brwl.has(w)) ? v
-      : val_new(val_own(fl, v), v.lay)];
-  });
+// The bindings a continuation holds: every one still bound (a dying
+// borrow among them, sunk at its entry), but a borrow of this def's
+// caller with no use in `rest`.
+function seg_live(fl: File, rest: HTerm[]): [Probe, Bind][] {
+  return [...fl.uses].filter(([p, b]) =>
+    !b.val.ws.some((w) => fl.brwl.has(w)) || rest_use(fl, rest, p) > 0);
 }
 
 // A cut: the call, the live bindings as its continuation's frame or task.
 function emit_cut(fl: File, ck: Call, p: Probe, rest: HTerm,
   A: HTerm | null): void {
-  fl.rest = rest;
+  fl.rest = [rest];
   const cargs = emit_args(fl, ck.k, emit_vals(fl, ck));
-  const live = seg_live(fl, rest);
-  const ws = live.flatMap(([, v]) => v.ws);
+  const live = seg_live(fl, [rest]);
+  const ws = live.flatMap(([, b]) => b.val.ws);
   const name = seg_name(fl, "k");
   const kf = seg_fid(name);
   spare_flush(fl);
@@ -2081,8 +2103,8 @@ function emit_cut(fl: File, ck: Call, p: Probe, rest: HTerm,
   emit_jump(fl, cargs, ck.k);
   const ret = def_ret(fl, ck.k);
   const rs = seg_open(fl, name, fl.seg.ret, { pop: ws.length,
-    at: ws.map((_, i) => i) }, live, p.k, ret.ks, rest);
-  bind_uses(fl, p, val_new(rs, ret), rest, A);
+    at: ws.map((_, i) => i) }, live, p.k, ret.ks, [rest]);
+  bind_uses(fl, p, val_new(rs, ret), [rest], A);
 }
 
 function emit_put(fl: File, dst: Dst, v: Val): void {
@@ -2098,13 +2120,14 @@ function emit_put(fl: File, dst: Dst, v: Val): void {
   }
 }
 
-function emit_fuse(fl: File, ck: Call, dst: Dst): void {
+function emit_fuse(fl: File, ck: Call, dst: Dst, tail = false): void {
   const tld = fl.book.tlds[ck.k] as Def;
   const doms = def_get_params(fl.book, tld);
   const ers = ck.all.filter((_, i) =>
     i < doms.length && !quant_live(doms[i][0]));
-  const ws = emit_args(fl, ck.k, emit_vals(fl, ck));
-  if (!flat_of(fl, ck.k)) {
+  const flat = flat_of(fl, ck.k);
+  const ws = emit_args(fl, ck.k, emit_vals(fl, ck, tail && !flat));
+  if (!flat) {
     const vs = def_lays(fl, ck.k).map((lay) =>
       val_new(ws.splice(0, lay.ks.length), lay));
     const outer = { def: fl.def, pi: fl.pi };
@@ -2121,6 +2144,9 @@ function emit_fuse(fl: File, ck: Call, dst: Dst): void {
     file_push(fl, "return 0;");
   });
   out.ws.forEach((v, j) => file_push(fl, `${v} = ${o}[${j}];`));
+  if (tail) {
+    bind_dead(fl, []);
+  }
   emit_put(fl, dst, out);
 }
 
@@ -2182,7 +2208,7 @@ function emit_intr(fl: File, it: Intr, x: HTerm,
   ty: HTerm | null): Val {
   const m = term_spine(fl, x);
   const k = (m.t as Of<"Ref">).k;
-  const args = m.args.map((a) => emit_expr(fl, a, null));
+  const args = emit_each(fl, m.args);
   if (arr_call(fl, k, m.all)) {
     const op = eff_name(k);
     const el = lay_of(fl.book, m.all[0]);
@@ -2208,17 +2234,22 @@ function emit_intr(fl: File, it: Intr, x: HTerm,
   return val_new([out], lay.ks.length === 1 ? lay : BOX);
 }
 
-// A closure: its captures move into a node; its segment takes them, then x.
+// A closure: its captures move into a node (a capture is one use of the
+// binding, whatever the closure does with it); its segment takes them,
+// then x.
 function emit_clo(fl: File, x: HTerm, ty: HTerm | null): Val {
-  const u = term_uses(fl, x, true);
-  const live = [...fl.uses.keys()].filter((p) => term_use(u, p) > 0)
-    .map((p): [Probe, Val] => [p, bind_pop(fl, p)]);
-  const words = live.flatMap(([, v]) => val_own(fl, v));
+  const u = term_uses(fl, x);
+  const live = [...fl.uses].filter(([p]) => term_use(u, p) > 0)
+    .map(([p, b]): [Probe, Bind] => {
+      fl.uses.set(p, { ...b, n: b.n - term_use(u, p) + 1 });
+      return [p, { ...b, val: bind_pop(fl, p) }];
+    });
+  const words = live.flatMap(([, b]) => val_own(fl, b.val));
   const name = seg_name(fl, "c");
   const clo = seg_clo(fl, seg_fid(name), words);
   const outer = { seg: fl.seg, uses: fl.uses, spares: fl.spares,
     tab: fl.tab, rest: fl.rest };
-  const [arg] = seg_open(fl, name, CLO_RET, null, live, "x", ["w64"], x);
+  const [arg] = seg_open(fl, name, CLO_RET, null, live, "x", ["w64"], [x]);
   emit_body(fl, x, ty, [], [val_new([arg], BOX)], null);
   Object.assign(fl, outer);
   return val_new([clo], BOX);
@@ -2234,27 +2265,27 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null): Val {
   const native = OPTIMIZED[adt.k]?.C;
   if (native !== undefined) {
     const fn = native.intr[x.k] ?? die("no native intro: " + x.k);
-    const vs = flds.map((f) => emit_expr(fl, f, null));
+    const vs = emit_each(fl, flds);
     return val_new([vs.length === 1 && vs[0].ws.length > 1
       ? `(${vs[0].ws.map((w, i) => `((u64)${w} << ${i})`).join(" | ")})`
       : tpl(fn, vs.map(val_word))], lay);
   }
   if (adt.k === "Array") {
     const el = lay_of(fl.book, adt.x[0]);
-    const vs = flds.map((f) => emit_expr(fl, f, null));
+    const vs = emit_each(fl, flds);
     return val_new([x.k === "ALeaf" ? arr_new(fl, "0", vs[0], el)
       : `blk_node(e, ${val_own(fl, vs[0])[0]}, ${val_own(fl, vs[1])[0]})`],
     BOX);
   }
+  const vs = emit_each(fl, flds);
   if (lay_box(lay)) {
-    return val_new([node_build(fl, x.k, (j) =>
-      emit_expr(fl, flds[j], null))], BOX);
+    return val_new([node_build(fl, x.k, (j) => vs[j])], BOX);
   }
   const arm = lay_arm(lay, x.k);
   const ws = lay.ks.map((_, j) => j === 0 && lay.arms!.length > 1
     ? String(lay.arms!.indexOf(arm)) : "0");
-  flds.forEach((f, j) => {
-    val_to(fl, emit_expr(fl, f, null), arm.fs[j].lay).ws.forEach((w, n) => {
+  vs.forEach((v, j) => {
+    val_to(fl, v, arm.fs[j].lay).ws.forEach((w, n) => {
       ws[arm.fs[j].at + n] = w;
     });
   });
@@ -2380,15 +2411,20 @@ function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): Val {
       }
       const lays = def_lays(fl, g.k);
       fl.brw.get(g.k)?.forEach((_, j) => facts_flip(fl, [g.k, j]));
-      return val_new([seg_clo(fl, seg_fid(g.k), m.args.flatMap((a, i) =>
-        val_own(fl, val_to(fl, emit_expr(fl, a, null), lays[i]))))], BOX);
+      return val_new([seg_clo(fl, seg_fid(g.k), emit_each(fl, m.args)
+        .flatMap((v, i) => val_own(fl, val_to(fl, v, lays[i]))))], BOX);
     }
     case "Ctr": return emit_ctr(fl, x, ty);
     case "Let": {
       const o = term_open(x);
-      return emit_expr(fl, !let_live(fl, x)[0] ? o.b : bind_uses(fl, o.ps[0],
-        val_hold(fl, emit_expr(fl, x.v[0], null), x.k[0]), o.b,
-        ty_ann(x.v[0])), null);
+      if (let_live(fl, x)[0]) {
+        const rest = fl.rest;
+        fl.rest = [o.b, ...rest];
+        const v = val_hold(fl, emit_expr(fl, x.v[0], null), x.k[0]);
+        fl.rest = rest;
+        bind_uses(fl, o.ps[0], v, [o.b], ty_ann(x.v[0]));
+      }
+      return emit_expr(fl, o.b, null);
     }
     case "Lam": case "Mat": case "Efq": return fun_live(fl.book, x, ty)
       ? emit_clo(fl, x, ty) : emit_expr(fl, (x as Of<"Lam">).f(DUMMY),
@@ -2424,8 +2460,8 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
       }
       const o = term_open(x);
       const v = val_hold(fl, val_to(fl, args[0], lay_of(fl.book, all.A)), x.k);
-      return emit_body(fl, bind_uses(fl, o.ps[0], v, o.b, all.A), all.B(DUMMY),
-        ers, args.slice(1), dst);
+      bind_uses(fl, o.ps[0], v, [o.b], all.A);
+      return emit_body(fl, o.b, all.B(DUMMY), ers, args.slice(1), dst);
     }
     case "Mat":
     case "Efq": return emit_match(fl, x, ty, ers, args, dst);
@@ -2436,28 +2472,32 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
       const o = term_open(x);
       const vc = call_kind(fl, x.v[0]);
       const A = ty_ann(x.v[0]);
-      if (vc === null || flat_call(fl, x.v[0])) {
-        fl.rest = o.b;
-        return emit_body(fl, bind_uses(fl, o.ps[0], val_hold(fl,
-          emit_expr(fl, x.v[0], null), x.k[0]), o.b, A), null, ers, [], dst);
+      if (vc !== null && !flat_call(fl, x.v[0])) {
+        emit_cut(fl, vc, o.ps[0], o.b, A);
+        return emit_body(fl, o.b, null, ers, [], null);
       }
-      emit_cut(fl, vc, o.ps[0], o.b, A);
-      return emit_body(fl, o.b, null, ers, [], null);
+      fl.rest = [o.b];
+      const v = val_hold(fl, emit_expr(fl, x.v[0], null), x.k[0]);
+      bind_uses(fl, o.ps[0], v, [o.b], A);
+      bind_dead(fl, [o.b]);
+      return emit_body(fl, o.b, null, ers, [], dst);
     }
     default: {
       if (args.length > 0) {
         return emit_body(fl, term_eta(fl.book, x,
           ty ?? die("an untyped arm"), 1), ty, ers, args, dst);
       }
-      fl.rest = null;
+      fl.rest = [];
       const ck = call_kind(fl, x);
       if (ck === null) {
-        return emit_put(fl, dst, emit_expr(fl, x, ty));
+        const v = emit_expr(fl, x, ty);
+        bind_dead(fl, []);
+        return emit_put(fl, dst, v);
       }
       const once = fl.sites.get(ck.k) === 1 && !fl.dyn.has(ck.k)
         && !ck.bang && !def_foreign(fl.book.tlds[ck.k]);
       if (fl.seg.def !== ck.k && (flat_call(fl, x) || (dst === null && once))) {
-        return emit_fuse(fl, ck, dst);
+        return emit_fuse(fl, ck, dst, true);
       }
       // A jump's returns must agree: the callee and this segment's def box
       // theirs (a closure's segment returns a box owned by no def).
@@ -2466,7 +2506,7 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
           || fl.dyn.add(ck.k);
         fl.seg.ret === CLO_RET || fl.dyn.add(fl.seg.def.split("$")[0]);
       }
-      const cargs = emit_args(fl, ck.k, emit_vals(fl, ck));
+      const cargs = emit_args(fl, ck.k, emit_vals(fl, ck, true));
       spare_flush(fl);
       if (ck.bang) {
         block(fl, "if (!seq) {", () => file_push(fl, `return term_tsk(${
@@ -2479,18 +2519,24 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
 
 // A fork: in parallel a join task and a kid per call; in sequence (the
 // emitter wound back) one frame read in place by every step, each pushing
-// its result, the last jumping into the joiner.
+// its result, the last jumping into the joiner. What the parallel join
+// holds (hold) every step holds too, so both paths open one joiner.
 function emit_fork(fl: File, x: HLet): void {
   const o = term_open(x);
   const calls = x.v.map((v) => call_kind(fl, v) as Call);
   const name = seg_name(fl, "j");
   spare_flush(fl);
   fl.seg.fork = true;
-  fl.rest = o.b;
   const uses = new Map(fl.uses);
+  let hold: Probe[] = [];
   block(fl, "if (!seq) {", () => {
-    const margs = calls.map((c) => emit_args(fl, c.k, emit_vals(fl, c)));
-    const caps = seg_live(fl, o.b).flatMap(([, v]) => v.ws);
+    const margs = calls.map((c, j) => {
+      fl.rest = [...x.v.filter((_, i) => i !== j), o.b];
+      return emit_args(fl, c.k, emit_vals(fl, c, false, true));
+    });
+    const live = seg_live(fl, [o.b]);
+    hold = live.map(([p]) => p);
+    const caps = live.flatMap(([, b]) => b.val.ws);
     spare_flush(fl);
     const jn = emit_task(fl, seg_fid(name), calls.length, caps);
     const jt = `term_tsk(${seg_fid(name)}, ${jn})`;
@@ -2504,34 +2550,39 @@ function emit_fork(fl: File, x: HLet): void {
     file_push(fl, `return ${jt};`);
   });
   fl.uses = uses;
-  const rests = calls.map(() => o.b);
+  const chain = calls.map(() => o.b);
   for (let j = calls.length - 2; j >= 0; j -= 1) {
-    rests[j] = let_open([o.ps[j + 1]], [x.v[j + 1]], rests[j + 1]);
+    chain[j] = let_open([o.ps[j + 1]], [x.v[j + 1]], chain[j + 1]);
   }
+  const rests = chain.map((c) => [...hold, c]);
   const pos = new Map<Probe, number>();
   let depth = 0;
   calls.forEach((c, i) => {
-    const cargs = emit_args(fl, c.k, emit_vals(fl, c));
+    fl.rest = [chain[i]];
+    const cargs = emit_args(fl, c.k, emit_vals(fl, c, false, true));
     const vs = i === 0 ? seg_live(fl, rests[0])
-      : [[o.ps[i - 1], (fl.uses.get(o.ps[i - 1]) as Bind).val] as const];
+      : [[o.ps[i - 1], fl.uses.get(o.ps[i - 1]) as Bind] as [Probe, Bind]];
     const kn = seg_name(fl, "k");
     spare_flush(fl);
-    emit_frame(fl, vs.flatMap(([p, v]) =>
-      (pos.set(p, depth), depth += v.ws.length, v.ws)), seg_fid(kn));
+    emit_frame(fl, vs.flatMap(([p, b]) =>
+      (pos.set(p, depth), depth += b.val.ws.length, b.val.ws)), seg_fid(kn));
     emit_jump(fl, cargs, c.k);
     const last = i === calls.length - 1;
-    const held = [...fl.uses].filter(([p]) => pos.has(p))
-      .map(([p, b]): [Probe, Val] => [p, b.val]);
-    const at = held.flatMap(([p, v]) => v.ws.map((_, j) =>
+    const held = [...fl.uses].filter(([p]) => pos.has(p));
+    const at = held.flatMap(([p, b]) => b.val.ws.map((_, j) =>
       (pos.get(p) as number) + j - (last ? 0 : depth)));
     const ret = def_ret(fl, c.k);
     const rs = seg_open(fl, kn, fl.seg.ret, { pop: last ? depth : 0, at },
       held, o.ps[i].k, ret.ks, rests[i]);
     bind_uses(fl, o.ps[i], val_new(rs, ret), rests[i], ty_ann(x.v[i]));
   });
-  const live = seg_live(fl, o.b);
-  emit_jump(fl, live.flatMap(([, v]) => v.ws), name);
-  seg_open(fl, name, fl.seg.ret, null, live, "", [], o.b);
+  const live = seg_live(fl, [o.b]);
+  if (live.map(([p]) => p.i).join() !== [...hold, ...o.ps].map((p) => p.i)
+    .join()) {
+    die("a fork's paths hold different values");
+  }
+  emit_jump(fl, live.flatMap(([, b]) => b.val.ws), name);
+  seg_open(fl, name, fl.seg.ret, null, live, "", [], [o.b]);
   emit_body(fl, o.b, null, [], [], null);
 }
 
@@ -2601,6 +2652,7 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
   const ls = adt.k === "Nat" ? emit_nat(x) : null;
   const id = emit_tab(fl, ls, all.B(DUMMY));
   if (id !== null) {
+    bind_dead(fl, []);
     return emit_put(fl, dst, val_new(
       [`TAB_AT(TAB_${id}, ${sw}, ${ls!.length - 1})`], ret));
   }
@@ -2626,12 +2678,11 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
     || Bend.term_strip(end).$ !== "Efq")) {
     lv.push(["", end, () => [s]]);
   }
-  const hs = lv.map(([, h]) => h);
   const spares = fl.spares;
   const arms2 = lv.map(([, h, fs]) => () => {
     fl.spares = spares.slice();
     const outer = { seg: fl.seg, tab: fl.tab, uses: new Map(fl.uses) };
-    bind_arm(fl, h, hs);
+    bind_dead(fl, [h]);
     emit_body(fl, h, null, ers, [...fs(), ...rest], dst);
     if (dst !== null) {
       spare_flush(fl);
@@ -2672,7 +2723,7 @@ function compile_def(fl: File, k: Bend.Name, tld: Def): void {
   const undo = { ...fl, segs: fl.segs.slice(), spins: fl.spins.slice(),
     spun: new Map(fl.spun) };
   Object.assign(fl, { fresh: new Map(), spares: [], uses: new Map(),
-    local: new Set(), brwl: new Map(), tab: 2 });
+    local: new Set(), brwl: new Map(), rest: [], tab: 2 });
   memo_gc();
   fl.own.clear();
   const vals = emit_params(fl, k);
@@ -2797,6 +2848,7 @@ export function compile_book(book: Bend.Book): string {
   const facts = () => JSON.stringify([[...cb.brw], [...cb.hot], [...cb.dyn],
     [...cb.poly]]);
   const pass = (defs: [Bend.Name, Def][]): File => {
+    cb.lend.clear();
     const fl = file_new(cb, "Term");
     for (const k of ("Tuple SNil SCon Chr Unit WCon Emit Halt Fail Done File"
       + " Socket Listener None Some Window Nil Con Key Mouse Move Close Chan"
@@ -2808,6 +2860,13 @@ export function compile_book(book: Bend.Book): string {
       compile_def(fl, k, tld);
     }
     compile_reqs(fl);
+    for (const [k, bs] of cb.brw) {
+      bs.forEach((b, i) => {
+        if (b && !cb.lend.has(k + "~" + i)) {
+          bs[i] = false;
+        }
+      });
+    }
     return fl;
   };
   // Emitted callees first until the facts settle (a borrow only turns
