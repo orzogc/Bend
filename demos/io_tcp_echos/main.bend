@@ -10,6 +10,7 @@
 # kqueue/epoll) and the load generator (load.c: N
 # connections, M round trips of 64 bytes) measure it. Try it:
 #
+#   bend demos/io_tcp_echos/main.bend -o echos && ./echos
 #   nc 127.0.0.1 7777
 import Base
 
@@ -23,6 +24,34 @@ def send_go(m):
     u : Unit <- IO.pass(Unit, r)
     return s
 
+law echo_data:
+  for r: Result<&1, &1, U32 & String, String>
+  String
+
+def echo_data(r):
+  match r:
+    case Done{data}:
+      data
+    case Fail{e}:
+      SNil{}
+
+law echo_send:
+  for s    : Socket
+  for d    : String
+  for next : Socket -> IO(Unit)
+  IO(Unit)
+
+def echo_send(s, d, next):
+  match d:
+    case SNil{}:
+      Socket.close(s)
+    case SCon{h, t}:
+      do IO<Unit>:
+        sm : Socket & Result<&1, &1, U32 & String, Unit> <-
+          TCP.send(s, SCon{h, t})
+        s2 : Socket <- send_go(sm)
+        next(s2)
+
 law echo_back:
   for m    : Socket & Result<&1, &1, U32 & String, String>
   for next : Socket -> IO(Unit)
@@ -30,19 +59,7 @@ law echo_back:
 
 def echo_back(m, next):
   (s, r) = m
-  match r:
-    case Done{data}:
-      match data:
-        case SNil{}:
-          Socket.close(s)
-        case SCon{h, t}:
-          do IO<Unit>:
-            sm : Socket & Result<&1, &1, U32 & String, Unit> <-
-              TCP.send(s, SCon{h, t})
-            s2 : Socket <- send_go(sm)
-            next(s2)
-    case Fail{e}:
-      Socket.close(s)
+  echo_send(s, echo_data(r), next)
 
 law echo_conn:
   for s: Socket

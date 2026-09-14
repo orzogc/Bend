@@ -8,8 +8,34 @@
 # OUTSIDE the Result, and each tuple destructures in its own helper.
 # Try it:
 #
+#   bend demos/io_http_server/main.bend -o http_server && ./http_server
 #   curl http://127.0.0.1:8080
 import Base
+
+law http_page:
+  String
+
+def http_page():
+  "<h1>Hello, world!</h1>"
+
+law http_length:
+  for s: String
+  Nat
+
+def http_length(s):
+  match s:
+    case SNil{}:
+      0n
+    case SCon{h, t}:
+      1n + http_length(t)
+
+law http_response:
+  String
+
+def http_response():
+  ha = {"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n" : String}
+  hb = {"Connection: close\r\nContent-Length: 22\r\n\r\n" : String}
+  ha ++ hb ++ http_page()
 
 law http_sent:
   for sent: Socket & Result<&1, &1, U32 & String, Unit>
@@ -27,13 +53,10 @@ law http_reply:
 
 def http_reply(read):
   (s, r) = read
-  ha = {"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n" : String}
-  hb = {"Connection: close\r\nContent-Length: 22\r\n\r\n" : String}
-  hc = {"<h1>Hello, world!</h1>" : String}
   do IO<Unit>:
     req  : String <- IO.pass(String, r)
     sent : Socket & Result<&1, &1, U32 & String, Unit> <-
-      TCP.send(s, ha ++ hb ++ hc)
+      TCP.send(s, http_response())
     http_sent(sent)
 
 law http_talk:

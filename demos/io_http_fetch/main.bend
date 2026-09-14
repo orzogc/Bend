@@ -9,7 +9,9 @@
 # window walks the bytes until it equals "\r\n\r\n" as a big-endian
 # word (218762506), and answers the rest. Handles are affine: every
 # op threads its handle back OUTSIDE the Result, and each tuple
-# destructures in its own helper.
+# destructures in its own helper. Try it:
+#
+#   bend demos/io_http_fetch/main.bend
 import Base
 
 law http_body.go:
