@@ -7,7 +7,7 @@ def sum(xs: List<Nat>) -> Nat:
   match xs:
     case Nil{}:
       0n
-    case Con{h, t}:
+    case h <> t:
       Nat.add(h, sum(t))
 
 def main() -> IO(Unit):

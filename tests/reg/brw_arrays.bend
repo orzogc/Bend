@@ -19,6 +19,6 @@ def Arr.first(arr: Array<U32>) -> U32:
   Box.fin(0, Array.get(U32, arr, 0))
 
 def main() -> IO(Unit):
-  IO.print(U32.show((Box.peek(Box{Array.new(U32, 2n, 7), 3}) + Arr.first(Array.new(U32, 1n, 5)) : U32)))
+  IO.print(U32.show((Box.peek(Box{[7 : U32 * 2n], 3}) + Arr.first([5 : U32 * 1n]) : U32)))
 
 #|15

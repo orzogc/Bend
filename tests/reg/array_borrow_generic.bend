@@ -18,14 +18,14 @@ def sum(l):
   match l:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       U32.add(h, sum(t))
 
 law mk:
   Array<Ent<U32>>
 
 def mk():
-  ANode{ALeaf{E{1, Con{10, Con{20, Nil{}}}}}, ALeaf{E{2, Con{30, Nil{}}}}}
+  ANode{ALeaf{E{1, [10, 20]}}, ALeaf{E{2, [30]}}}
 
 law poly.fin:
   for -A: Data
@@ -49,7 +49,7 @@ def poly(A, r):
   match p:
     case E{x, l}:
       +s = sum(l)
-      t = sum(Con{s, Con{s, Nil{}}})
+      t = sum([s, s])
       poly.fin(A, U32.add(s, t), Array.get(Ent<A>, arr, 0))
 
 law go:

@@ -15,7 +15,7 @@ def zeros(n):
     case 0n:
       Nil{}
     case 1n+k:
-      Con{0.0, Con{0.0, zeros(k)}}
+      0.0 <> 0.0 <> zeros(k)
 
 law Math.word:
   for c: Bool

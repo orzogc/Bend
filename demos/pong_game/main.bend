@@ -72,7 +72,7 @@ def Pong.events(events: List<Event>, g: Pong) -> Maybe<Pong>:
   match events:
     case Nil{}:
       Some{g}
-    case Con{e, rest}:
+    case e <> rest:
       Maybe.bind(&1, Pong, Pong, Pong.event(e, g), g2 => Pong.events(rest, g2))
 
 def Pong.clamp(neg: Bool, +y: U32) -> U32:

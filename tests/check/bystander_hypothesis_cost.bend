@@ -18,7 +18,7 @@ def build(n):
     case Zero{}:
       Nil{}
     case Succ{k}:
-      Con{0, build(k)}
+      0 <> build(k)
 
 law isz:
   for n: N9

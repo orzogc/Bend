@@ -10,7 +10,7 @@ law mk:
 
 def mk():
   Array.set(U32, Array.set(U32, Array.set(U32,
-    Array.set(U32, Array.new(U32, 2n, 0), 0, 10), 1, 11), 2, 12), 3, 13)
+    Array.set(U32, [0 : U32 * 2n], 0, 10), 1, 11), 2, 12), 3, 13)
 
 law rd:
   for r: Array<U32> & U32

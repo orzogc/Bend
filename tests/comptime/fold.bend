@@ -8,7 +8,7 @@ def fold(~f: Nat -> Nat -> Nat, xs: List<Nat>, acc: Nat) -> Nat:
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
+    case h <> t:
       fold(~f, t, f(h, acc))
 
 def main() -> IO(Unit):

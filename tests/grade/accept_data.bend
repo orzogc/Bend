@@ -66,7 +66,7 @@ law fns:
   List<&1, Nat -> Nat>
 
 def fns():
-  Con{x => x, Con{x => Succ{x}, Nil{}}}
+  [x => x, x => Succ{x}]
 
 law mixed:
   Sigma<&2, &1, Nat, _ => (Nat -> Nat)>
@@ -80,7 +80,7 @@ law weak:
   List<&1, A>
 
 def weak(A, x):
-  Con{x, Nil{}}
+  [x]
 
 law main:
   Sigma<&2, &2, Nat, _ => Nat>

@@ -109,7 +109,7 @@ def Tri.events(events: List<Event>, n: U32) -> Maybe<U32>:
   match events:
     case Nil{}:
       Some{n}
-    case Con{e, rest}:
+    case e <> rest:
       Maybe.bind(&1, U32, U32, Tri.event(e, n), m => Tri.events(rest, m))
 
 def Tri.tick(events: List<Event>, n: U32) -> IO(Maybe<U32>):

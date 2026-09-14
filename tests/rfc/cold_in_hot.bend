@@ -23,7 +23,7 @@ def count(xs):
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       U32.add(1, count(t))
 
 law keep:
@@ -42,7 +42,7 @@ def pairs(n):
     case 0n:
       Nil{}
     case 1n+p:
-      Con{Dd{1n, 2n}, pairs(p)}
+      Dd{1n, 2n} <> pairs(p)
 
 law total:
   for ds: List<&2, Duo>
@@ -52,14 +52,14 @@ def total(ds):
   match ds:
     case Nil{}:
       0n
-    case Con{Dd{a, b}, r}:
+    case Dd{a, b} <> r:
       Nat.add(Nat.add(a, b), total(r))
 
 law main.out:
   Nat
 
 def main.out():
-  Nat.add(total(pairs(4n)), U32.to_nat(keep(Con{1, Con{2, Nil{}}})))
+  Nat.add(total(pairs(4n)), U32.to_nat(keep([1, 2])))
 
 law main:
   IO(Unit)

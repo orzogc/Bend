@@ -24,7 +24,7 @@ law len:
 
 def len(s):
   match s:
-    case Con{h, t}:
+    case h <> t:
       (1 + len(t) : U32)
     case Nil{}:
       0

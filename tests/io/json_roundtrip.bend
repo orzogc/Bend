@@ -15,7 +15,7 @@ def List.length(a, A, xs):
   match xs:
     case Nil{}:
       0n
-    case Con{h, t}:
+    case h <> t:
       1n+List.length(a, A, t)
 
 law Nat.is_eq:
@@ -51,11 +51,11 @@ def List.get(a, A, n, xs):
   match n xs:
     case 0n Nil{}:
       None{}
-    case 0n Con{h, t}:
+    case 0n h <> t:
       Some{h}
     case 1n+p Nil{}:
       None{}
-    case 1n+p Con{h, t}:
+    case 1n+p h <> t:
       List.get(a, A, p, t)
 
 law b2u:

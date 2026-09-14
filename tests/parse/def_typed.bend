@@ -13,7 +13,7 @@ def len(a, xs: List<a, U32>) -> U32:
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       (1 + len(a, t) : U32)
 
 def add(a: U32, b: U32) -> U32:

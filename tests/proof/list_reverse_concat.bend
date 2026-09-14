@@ -21,8 +21,8 @@ def List.append(A, xs, ys):
   match xs:
     case Nil{}:
       ys
-    case Con{h, t}:
-      Con{h, List.append(A, t, ys)}
+    case h <> t:
+      h <> List.append(A, t, ys)
 
 law List.reverse.go:
   for -A  : Data
@@ -34,8 +34,8 @@ def List.reverse.go(A, xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
-      List.reverse.go(A, t, Con{h, acc})
+    case h <> t:
+      List.reverse.go(A, t, h <> acc)
 
 law List.reverse:
   for -A : Data
@@ -54,8 +54,8 @@ def cat_nil(A, xs):
   match xs:
     case Nil{}:
       {==}
-    case Con{h, t}:
-      %cat_nil(A, t) : {Con{h, t} == Con{h, _} : List<&2, A>}
+    case h <> t:
+      %cat_nil(A, t) : {h <> t == h <> _ : List<&2, A>}
       {==}
 
 law cat_assoc:
@@ -69,8 +69,8 @@ def cat_assoc(A, a, b, c):
   match a:
     case Nil{}:
       {==}
-    case Con{h, t}:
-      %cat_assoc(A, t, b, c) : {Con{h, List.append(A, List.append(A, t, b), c)} == Con{h, _} : List<&2, A>}
+    case h <> t:
+      %cat_assoc(A, t, b, c) : {h <> List.append(A, List.append(A, t, b), c) == h <> _ : List<&2, A>}
       {==}
 
 law rgo_cat:
@@ -83,10 +83,10 @@ def rgo_cat(A, xs, acc):
   match xs:
     case Nil{}:
       {==}
-    case Con{h, t}:
-      %rgo_cat(A, t, Con{h, acc}) : {List.append(A, List.reverse.go(A, t, Con{h, Nil{}}), acc) == _ : List<&2, A>}
-      %rgo_cat(A, t, Con{h, Nil{}}) : {List.append(A, _, acc) == List.append(A, List.reverse.go(A, t, Nil{}), Con{h, acc}) : List<&2, A>}
-      %cat_assoc(A, List.reverse.go(A, t, Nil{}), Con{h, Nil{}}, acc) : {List.append(A, List.append(A, List.reverse.go(A, t, Nil{}), Con{h, Nil{}}), acc) == _ : List<&2, A>}
+    case h <> t:
+      %rgo_cat(A, t, h <> acc) : {List.append(A, List.reverse.go(A, t, [h]), acc) == _ : List<&2, A>}
+      %rgo_cat(A, t, [h]) : {List.append(A, _, acc) == List.append(A, List.reverse.go(A, t, Nil{}), h <> acc) : List<&2, A>}
+      %cat_assoc(A, List.reverse.go(A, t, Nil{}), [h], acc) : {List.append(A, List.append(A, List.reverse.go(A, t, Nil{}), [h]), acc) == _ : List<&2, A>}
       {==}
 
 law rev_cat_go:
@@ -99,11 +99,11 @@ def rev_cat_go(A, a, b):
   match a:
     case Nil{}:
       rgo_cat(A, b, Nil{})
-    case Con{h, t}:
-      %rgo_cat(A, List.append(A, t, b), Con{h, Nil{}}) : {List.append(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, Con{h, Nil{}})) == _ : List<&2, A>}
-      %rev_cat_go(A, t, b) : {List.append(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, Con{h, Nil{}})) == List.append(A, _, Con{h, Nil{}}) : List<&2, A>}
-      %rgo_cat(A, t, Con{h, Nil{}}) : {List.append(A, List.reverse.go(A, b, Nil{}), _) == List.append(A, List.append(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, Nil{})), Con{h, Nil{}}) : List<&2, A>}
-      %cat_assoc(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, Nil{}), Con{h, Nil{}}) : {_ == List.append(A, List.append(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, Nil{})), Con{h, Nil{}}) : List<&2, A>}
+    case h <> t:
+      %rgo_cat(A, List.append(A, t, b), [h]) : {List.append(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, [h])) == _ : List<&2, A>}
+      %rev_cat_go(A, t, b) : {List.append(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, [h])) == List.append(A, _, [h]) : List<&2, A>}
+      %rgo_cat(A, t, [h]) : {List.append(A, List.reverse.go(A, b, Nil{}), _) == List.append(A, List.append(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, Nil{})), [h]) : List<&2, A>}
+      %cat_assoc(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, Nil{}), [h]) : {_ == List.append(A, List.append(A, List.reverse.go(A, b, Nil{}), List.reverse.go(A, t, Nil{})), [h]) : List<&2, A>}
       {==}
 
 law rev_cat:
@@ -124,10 +124,10 @@ def rev_rev(A, a):
   match a:
     case Nil{}:
       {==}
-    case Con{h, t}:
-      %rgo_cat(A, t, Con{h, Nil{}}) : {List.reverse.go(A, _, Nil{}) == Con{h, t} : List<&2, A>}
-      %rev_cat_go(A, List.reverse.go(A, t, Nil{}), Con{h, Nil{}}) : {_ == Con{h, t} : List<&2, A>}
-      %rev_rev(A, t) : {List.append(A, Con{h, Nil{}}, List.reverse.go(A, List.reverse.go(A, t, Nil{}), Nil{})) == Con{h, _} : List<&2, A>}
+    case h <> t:
+      %rgo_cat(A, t, [h]) : {List.reverse.go(A, _, Nil{}) == h <> t : List<&2, A>}
+      %rev_cat_go(A, List.reverse.go(A, t, Nil{}), [h]) : {_ == h <> t : List<&2, A>}
+      %rev_rev(A, t) : {List.append(A, [h], List.reverse.go(A, List.reverse.go(A, t, Nil{}), Nil{})) == h <> _ : List<&2, A>}
       {==}
 
 law inc:
@@ -145,8 +145,8 @@ def map_inc(xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{inc(h), map_inc(t)}
+    case h <> t:
+      inc(h) <> map_inc(t)
 
 law map_cat:
   for +a: List<&2, U32>
@@ -157,17 +157,17 @@ def map_cat(a, b):
   match a:
     case Nil{}:
       {==}
-    case Con{h, t}:
-      %map_cat(t, b) : {Con{inc(h), map_inc(List.append(U32, t, b))} == Con{inc(h), _} : List<&2, U32>}
+    case h <> t:
+      %map_cat(t, b) : {inc(h) <> map_inc(List.append(U32, t, b)) == inc(h) <> _ : List<&2, U32>}
       {==}
 
 law check:
-  {List.reverse(U32, List.reverse(U32, Con{1, Con{2, Con{3, Nil{}}}})) == Con{1, Con{2, Con{3, Nil{}}}} : List<&2, U32>}
+  {List.reverse(U32, List.reverse(U32, [1, 2, 3])) == [1, 2, 3] : List<&2, U32>}
 
-def check(): rev_rev(U32, Con{1, Con{2, Con{3, Nil{}}}})
+def check(): rev_rev(U32, [1, 2, 3])
 
 law main:
-  {List.reverse(U32, List.reverse(U32, Con{1, Con{2, Con{3, Nil{}}}})) == Con{1, Con{2, Con{3, Nil{}}}} : List<&2, U32>}
+  {List.reverse(U32, List.reverse(U32, [1, 2, 3])) == [1, 2, 3] : List<&2, U32>}
 
 def main(): check()
 

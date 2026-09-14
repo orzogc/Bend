@@ -36,8 +36,8 @@ def dbl(xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{U32.mul(h, 2), dbl(t)}
+    case h <> t:
+      U32.mul(h, 2) <> dbl(t)
 
 law keep_gt1:
   for xs: List<&2, U32>
@@ -52,7 +52,7 @@ law keep_gt1.at:
 def keep_gt1.at(h, r, z):
   match z:
     case True{}:
-      Con{h, r}
+      h <> r
     case False{}:
       r
 
@@ -60,7 +60,7 @@ def keep_gt1(xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h0, t}:
+    case h0 <> t:
       +h = {h0 : U32}
       keep_gt1.at(h, keep_gt1(t), U32.is_gt(h, 1))
 
@@ -73,7 +73,7 @@ def suma(xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
+    case h <> t:
       suma(t, U32.add(acc, h))
 
 law anyeq2:
@@ -96,7 +96,7 @@ def anyeq2(xs):
   match xs:
     case Nil{}:
       False{}
-    case Con{h, t}:
+    case h <> t:
       anyeq2.at(anyeq2(t), U32.is_eq(h, 2))
 
 law allpos:
@@ -119,7 +119,7 @@ def allpos(xs):
   match xs:
     case Nil{}:
       True{}
-    case Con{h, t}:
+    case h <> t:
       allpos.at(allpos(t), U32.is_gt(h, 0))
 
 law mmul10:

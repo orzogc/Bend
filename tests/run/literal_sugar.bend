@@ -9,7 +9,7 @@ def nats(xs: List<&2, Nat>) -> String:
   match xs:
     case Nil{}:
       "Nil{}"
-    case Con{h, t}:
+    case h <> t:
       "Con{" ++ Nat.show(h) ++ ", " ++ nats(t) ++ "}"
 
 law main.value:

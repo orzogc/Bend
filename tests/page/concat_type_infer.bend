@@ -13,8 +13,8 @@ def List.append(A, xs, ys):
   match xs:
     case Nil{}:
       ys
-    case Con{h, t}:
-      Con{h, List.append(A, t, ys)}
+    case h <> t:
+      h <> List.append(A, t, ys)
 
 law main:
   List<&1, U32>

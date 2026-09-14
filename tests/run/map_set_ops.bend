@@ -17,7 +17,7 @@ def String.join.go(xs, h):
   match xs:
     case Nil{}:
       h
-    case Con{h2, t2}:
+    case h2 <> t2:
       String.append(h, String.append(",", String.join.go(t2, h2)))
 
 law String.join:
@@ -28,7 +28,7 @@ def String.join(xs):
   match xs:
     case Nil{}:
       SNil{}
-    case Con{h, t}:
+    case h <> t:
       String.join.go(t, h)
 
 law Map.values.go:
@@ -43,7 +43,7 @@ def Map.values.go(a, V, m, acc):
     case MTip{}:
       acc
     case MLeaf{k, v}:
-      Con{v, acc}
+      v <> acc
     case MNode{pos, lo, hi}:
       Map.values.go(a, V, lo, Map.values.go(a, V, hi, acc))
 
@@ -106,7 +106,7 @@ def digits(vs, acc):
   match vs:
     case Nil{}:
       acc
-    case Con{h, t}:
+    case h <> t:
       digits(t, U32.add(U32.mul(acc, 10), h))
 
 law m3:

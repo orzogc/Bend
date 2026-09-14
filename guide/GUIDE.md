@@ -44,7 +44,7 @@ def len(-A: Type, xs: List<A>) -> U32:   # -A: erased type parameter
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       (1 + len(A, t) : U32)    # every argument is written: len(U32, xs)
 
 def main() -> U32:
@@ -63,8 +63,9 @@ scrutinees; patterns nest; `_` catches the rest. There is no match on a word:
 count on `Nat`, compute on `U32`. `x => body` is a lambda, `A -> B` its type;
 a closure is used once, a top-level def as often as you like. Operators are
 `Base` defs (`+` is `T.add`); the untyped default is `Nat`; `h <> t` conses,
-`++` appends strings, `a[i]` reads an `Array<T>` (a flat, one-owner tree of
-`2^d` slots; `m2 = m[i] <- v` writes in place, O(1)). `Base`'s list kit is
+`++` appends strings, `[x : T * d]` builds an `Array<T>` (a flat, one-owner
+tree of `2^d` slots, every one `x`), `a[i]` reads it, `m2 = m[i] <- v` writes
+in place, O(1). `Base`'s list kit is
 `List.map`: write the recursion you need.
 
 ## Parallelism
@@ -253,8 +254,8 @@ def List.map(~A: Type, ~B: Type, ~f: A -> B, xs: List<A>) -> List<B>:
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{f(h), List.map(~A, ~B, ~f, t)}
+    case h <> t:
+      f(h) <> List.map(~A, ~B, ~f, t)
 ```
 
 A `~` argument must be closed (no local of the caller: pass it at run time),

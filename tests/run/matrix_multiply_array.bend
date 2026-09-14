@@ -1,6 +1,6 @@
 # 3x3 matrix multiply over flat word arrays: dot-product loops threading
 # TWO linear arrays through nested tuples; digest weighs all 9 cells
-# ported from bend3: the 16-slot slabs become Array.new(U32, 4n, 0) + swap
+# ported from bend3: the 16-slot slabs become [0 : U32 * 4n] + swap
 # writes, loop counters become Nat with U32 images via U32.from_nat;
 # strict -- the read defs folded into the counter matches, shared
 # words +U32, walked Nats +Nat
@@ -73,13 +73,13 @@ law builda:
   Array<U32>
 
 def builda():
-  wr(wr(wr(wr(wr(wr(wr(wr(wr(Array.new(U32, 4n, 0), 0, 1), 1, 2), 2, 3), 3, 4), 4, 5), 5, 6), 6, 7), 7, 8), 8, 9)
+  wr(wr(wr(wr(wr(wr(wr(wr(wr([0 : U32 * 4n], 0, 1), 1, 2), 2, 3), 3, 4), 4, 5), 5, 6), 6, 7), 7, 8), 8, 9)
 
 law buildb:
   Array<U32>
 
 def buildb():
-  wr(wr(wr(wr(wr(wr(wr(wr(wr(Array.new(U32, 4n, 0), 0, 9), 1, 8), 2, 7), 3, 6), 4, 5), 5, 4), 6, 3), 7, 2), 8, 1)
+  wr(wr(wr(wr(wr(wr(wr(wr(wr([0 : U32 * 4n], 0, 9), 1, 8), 2, 7), 3, 6), 4, 5), 5, 4), 6, 3), 7, 2), 8, 1)
 
 law main.out:
   U32

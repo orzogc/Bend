@@ -8,20 +8,20 @@ def range(n: Nat, +i: U32, acc: List<U32>) -> List<U32>:
     case 0n:
       acc
     case 1n+p:
-      range(p, (i + 1 : U32), Con{i, acc})
+      range(p, (i + 1 : U32), i <> acc)
 
 def incs(xs: List<U32>) -> List<U32>:
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{U32.inc(h), incs(t)}
+    case h <> t:
+      U32.inc(h) <> incs(t)
 
 def total(xs: List<U32>, acc: U32) -> U32:
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
+    case h <> t:
       total(t, (h + acc : U32))
 
 def main() -> IO(Unit):

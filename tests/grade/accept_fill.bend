@@ -42,7 +42,7 @@ def len(a, xs):
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       (1 + len(a, t) : U32)
 
 law main.go:

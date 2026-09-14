@@ -22,7 +22,7 @@ import Base
 # - `h[i]` reads become Array.get(U32, h, i), `h[i] <- v` writes become
 #   Array.swap(U32, h, i, v); both hand the array back.
 # - Bend3's flat literal `![4095:0, _:0; 4096]` becomes
-#   Array.new(U32, 12n, 0) (the C backend lays it flat in one block).
+#   [0 : U32 * 12n] (the C backend lays it flat in one block).
 # - Cell, sweep and depth counters are Nats (no U32 match in Bend4);
 #   the pass salt `1+p` reads back as U32.inc(U32.from_nat(p)).
 # - `(xc > 0)` as a 0/1 word becomes b2u(U32.is_gt(xc, 0)).
@@ -513,10 +513,10 @@ law tile:
   U32
 
 def tile(t, e):
-  a = Array.new(U32, 12n, 0)
+  a = [0 : U32 * 12n]
   h0 = fill(4096n, U32.shln(U32.and(t, 255), 6n), U32.shln(U32.shrn(t, 8n), 6n), (a, 0))
   h1 = smooth(e, h0)
-  b = Array.new(U32, 6n, 0)
+  b = [0 : U32 * 6n]
   hist(4096n, Array.get(U32, h1, 0), (b, 0), U32.inc(t))
 
 law batch:

@@ -33,8 +33,8 @@ def tf7(x: List<Nat>) -> List<Nat>:
   match x:
     case Nil{}:
       Nil{}
-    case Con{x0, x1}:
-      Con{Nat.add(x0, 2n), tf7(x1)}
+    case x0 <> x1:
+      Nat.add(x0, 2n) <> tf7(x1)
 
 def rd8(f: Unit -> @-zq: U32 -> U32) -> U32:
   f(Unit{})(3)

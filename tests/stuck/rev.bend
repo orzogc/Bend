@@ -12,13 +12,13 @@ def rev(l, acc):
   match l:
     case Nil{}:
       acc
-    case Con{h, t}:
-      rev(t, Con{h, acc})
+    case h <> t:
+      rev(t, h <> acc)
 
 law main:
   @x:Nat -> @xs:List<Nat> -> List<Nat>
 
 def main():
-  x => xs => rev(Con{1n, Con{x, xs}}, Nil{})
+  x => xs => rev(1n <> x <> xs, Nil{})
 
 #|x => xs => rev(xs, Con{x, Con{1n, Nil{}}})

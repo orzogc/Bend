@@ -18,15 +18,15 @@ def sum(l):
   match l:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       U32.add(h, sum(t))
 
 law mk:
   Array<Tg<U32>>
 
 def mk():
-  ANode{ALeaf{One{1, Con{10, Con{20, Nil{}}}}},
-    ALeaf{Two{Con{30, Con{40, Nil{}}}, 2}}}
+  ANode{ALeaf{One{1, [10, 20]}},
+    ALeaf{Two{[30, 40], 2}}}
 
 law poly.fin:
   for -A: Data
@@ -52,11 +52,11 @@ def poly(A, r):
   match p:
     case One{x, l}:
       +s = sum(l)
-      t = sum(Con{s, Con{s, Nil{}}})
+      t = sum([s, s])
       (x, poly.fin(A, U32.add(s, t), Array.get(Tg<A>, arr, 1)))
     case Two{l, y}:
       +s = sum(l)
-      t = sum(Con{s, Con{s, Nil{}}})
+      t = sum([s, s])
       (y, poly.fin(A, U32.add(s, t), Array.get(Tg<A>, arr, 0)))
 
 law go2:

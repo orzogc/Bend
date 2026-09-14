@@ -95,7 +95,7 @@ law main.out:
   U32
 
 def main.out():
-  halves(fill8(Array.new(U32, 3n, 0)))
+  halves(fill8([0 : U32 * 3n]))
 
 law main:
   IO(Unit)

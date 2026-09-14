@@ -114,7 +114,7 @@ law build:
   Array<U32>
 
 def build():
-  wr(wr(wr(wr(wr(wr(wr(wr(Array.new(U32, 3n, 0), 0, 1), 1, 3), 2, 4), 3, 5), 4, 9), 5, 12), 6, 20), 7, 31)
+  wr(wr(wr(wr(wr(wr(wr(wr([0 : U32 * 3n], 0, 1), 1, 3), 2, 4), 3, 5), 4, 9), 5, 12), 6, 20), 7, 31)
 
 law bs:
   for  m: Array<U32>

@@ -10,7 +10,7 @@ law main.go:
 
 def main.go(z):
   match z:
-    case Con{h, t}:
+    case h <> t:
       h
     case Nil{}:
       0
@@ -26,6 +26,6 @@ def main():
 #|- observed : \{Con: (h => t => h); Nil: 0}
 #|Location: main.go
 #|12 |   match z:
-#|13>|     case Con{h, t}:
+#|13>|     case h <> t:
 #|14 |       h
 #|exit 1

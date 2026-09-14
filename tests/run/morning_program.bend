@@ -30,9 +30,9 @@ law String.split.push:
 def String.split.push(c, ps):
   match ps:
     case Nil{}:
-      Con{SCon{c, SNil{}}, Nil{}}
-    case Con{h, t}:
-      Con{SCon{c, h}, t}
+      [SCon{c, SNil{}}]
+    case h <> t:
+      SCon{c, h} <> t
 
 law String.split.fin:
   for rec : (Char -> List<&2, String>)
@@ -43,7 +43,7 @@ def String.split.fin(rec, w):
   ((h2, sep2), e) = w
   match e:
     case True{}:
-      Con{SNil{}, rec(sep2)}
+      SNil{} <> rec(sep2)
     case False{}:
       String.split.push(h2, rec(sep2))
 
@@ -54,7 +54,7 @@ law String.split:
 def String.split(s):
   match s:
     case SNil{}:
-      sep => Con{SNil{}, Nil{}}
+      sep => [SNil{}]
     case SCon{h, t}:
       sep => String.split.fin(String.split(t), Char.eq(h, sep))
 
@@ -76,7 +76,7 @@ def String.join.go(xs, h):
   match xs:
     case Nil{}:
       sep => h
-    case Con{h2, t2}:
+    case h2 <> t2:
       sep => String.join.fin(h, String.join.go(t2, h2), sep)
 
 law String.join:
@@ -88,7 +88,7 @@ def String.join(xs, sep):
   match xs:
     case Nil{}:
       SNil{}
-    case Con{h, t}:
+    case h <> t:
       String.join.go(t, h, sep)
 
 law List.length:
@@ -100,7 +100,7 @@ def List.length(A, xs):
   match xs:
     case Nil{}:
       0n
-    case Con{h, t}:
+    case h <> t:
       1n+List.length(A, t)
 
 law String.length:

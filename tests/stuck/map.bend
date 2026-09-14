@@ -21,13 +21,13 @@ def map(~f: Nat -> Nat, l: List<Nat>) -> List<Nat>:
   match l:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{f(h), map(~f, t)}
+    case h <> t:
+      f(h) <> map(~f, t)
 
 law main:
   @x:Nat -> @xs:List<Nat> -> List<Nat>
 
 def main():
-  x => xs => map(~dbl, Con{1n, Con{x, xs}})
+  x => xs => map(~dbl, 1n <> x <> xs)
 
 #|x => xs => Con{2n, Con{dbl(x), map~0(dbl, xs)}}

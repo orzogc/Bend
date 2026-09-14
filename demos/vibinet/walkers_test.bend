@@ -26,7 +26,7 @@ def World.hash.go(w: Game.World(), h: U32) -> U32:
   match w:
     case Nil{}:
       h
-    case Con{s, t}:
+    case s <> t:
       Game.Sq{pid, x, y, held} = s
       World.hash.go(t,
         World.mix(World.mix(World.mix(World.mix(h, pid), x), y), held))
@@ -95,7 +95,7 @@ def Bot.report(ks: List<&2, Nat>, c: Net.Client<Game.Input, Game.World()>) ->
   match ks:
     case Nil{}:
       Net.Client.close(Game.Input, Game.World(), c)
-    case Con{+k, t}:
+    case +k <> t:
       do IO<Unit>:
         c2 : Net.Client<Game.Input, Game.World()> <- Bot.line(k,
           Net.Client.at(~Game.Input, ~Game.World(), ~Game.Walkers.game(), c, k))

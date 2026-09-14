@@ -17,8 +17,8 @@ def List.reverse.go(a, A, xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
-      List.reverse.go(a, A, t, Con{h, acc})
+    case h <> t:
+      List.reverse.go(a, A, t, h <> acc)
 
 law List.reverse:
   for -a : Quant
@@ -33,13 +33,13 @@ law l123:
   List<&2, U32>
 
 def l123():
-  Con{1, Con{2, Con{3, Nil{}}}}
+  [1, 2, 3]
 
 law l321:
   List<&2, U32>
 
 def l321():
-  Con{3, Con{2, Con{1, Nil{}}}}
+  [3, 2, 1]
 
 law insert.put:
   for +x: U32
@@ -52,9 +52,9 @@ law insert.put:
 def insert.put(x, h, t, r, f):
   match f:
     case True{}:
-      Con{x, Con{h, t}}
+      x <> h <> t
     case False{}:
-      Con{h, r}
+      h <> r
 
 law insert:
   for +x  : U32
@@ -64,8 +64,8 @@ law insert:
 def insert(x, xs):
   match xs:
     case Nil{}:
-      Con{x, Nil{}}
-    case Con{h, t}:
+      [x]
+    case h <> t:
       insert.put(x, h, t, insert(x, t), U32.is_le(x, h))
 
 law sort:
@@ -76,7 +76,7 @@ def sort(xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
+    case h <> t:
       insert(h, sort(t))
 
 law rev:
@@ -92,7 +92,7 @@ def rev2():
   {==}
 
 law srt:
-  {sort(Con{3, Con{1, Con{2, Con{3, Nil{}}}}}) == Con{1, Con{2, Con{3, Con{3, Nil{}}}}} : List<&2, U32>}
+  {sort([3, 1, 2, 3]) == [1, 2, 3, 3] : List<&2, U32>}
 
 def srt():
   {==}

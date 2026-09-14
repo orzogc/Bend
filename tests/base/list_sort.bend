@@ -25,8 +25,8 @@ def lconcat(xs, ys):
   match xs:
     case Nil{}:
       ys
-    case Con{h, t}:
-      Con{h, lconcat(t, ys)}
+    case h <> t:
+      h <> lconcat(t, ys)
 
 law lrev.go:
   for xs  : List<&2, U32>
@@ -37,8 +37,8 @@ def lrev.go(xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
-      lrev.go(t, Con{h, acc})
+    case h <> t:
+      lrev.go(t, h <> acc)
 
 law lrev:
   for xs: List<&2, U32>
@@ -58,14 +58,14 @@ law spass.go:
 
 def spass.go(b, xs, h, f, zs, os):
   match xs f:
-    case Con{+h0, t} True{}:
-      spass.go(b, t, h0, U32.is_zero(U32.and(U32.shrn(h0, b), 1)), Con{h, zs}, os)
-    case Con{+h0, t} False{}:
-      spass.go(b, t, h0, U32.is_zero(U32.and(U32.shrn(h0, b), 1)), zs, Con{h, os})
+    case +h0 <> t True{}:
+      spass.go(b, t, h0, U32.is_zero(U32.and(U32.shrn(h0, b), 1)), h <> zs, os)
+    case +h0 <> t False{}:
+      spass.go(b, t, h0, U32.is_zero(U32.and(U32.shrn(h0, b), 1)), zs, h <> os)
     case Nil{} True{}:
-      lconcat(lrev(Con{h, zs}), lrev(os))
+      lconcat(lrev(h <> zs), lrev(os))
     case Nil{} False{}:
-      lconcat(lrev(zs), lrev(Con{h, os}))
+      lconcat(lrev(zs), lrev(h <> os))
 
 law spass:
   for +b : Nat
@@ -76,7 +76,7 @@ law spass:
 
 def spass(b, xs, zs, os):
   match xs:
-    case Con{+h0, t}:
+    case +h0 <> t:
       spass.go(b, t, h0, U32.is_zero(U32.and(U32.shrn(h0, b), 1)), zs, os)
     case Nil{}:
       lconcat(lrev(zs), lrev(os))
@@ -110,7 +110,7 @@ def digest.go(xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
+    case h <> t:
       digest.go(t, U32.add(U32.mul(acc, 10), h))
 
 law digest:
@@ -127,7 +127,7 @@ law lget.put:
 
 def lget.put(h, r):
   (t2, x) = r
-  (Con{h, t2}, x)
+  (h <> t2, x)
 
 law lget:
   for d  : U32
@@ -139,11 +139,11 @@ def lget(d, i, xs):
   match i xs:
     case 0n Nil{}:
       (Nil{}, d)
-    case 0n Con{+h0, t}:
-      (Con{h0, t}, h0)
+    case 0n +h0 <> t:
+      (h0 <> t, h0)
     case 1n+p Nil{}:
       (Nil{}, d)
-    case 1n+p Con{h, t}:
+    case 1n+p h <> t:
       lget.put(h, lget(d, p, t))
 
 law big.c:
@@ -187,10 +187,10 @@ law main.out:
   U32
 
 def main.out():
-  b0 = bu(U32.is_eq(digest(lsort(Con{5, Con{3, Con{9, Con{1, Con{4, Nil{}}}}}})), 13459))
+  b0 = bu(U32.is_eq(digest(lsort([5, 3, 9, 1, 4])), 13459))
   b1 = bu(U32.is_eq(digest(lsort(Nil{})), 0))
-  b2 = bu(U32.is_eq(digest(lsort(Con{1, Con{2, Con{3, Nil{}}}})), 123))
-  U32.add(U32.add(U32.add(b0, b1), b2), big.x(lsort(Con{4294967295, Con{0, Con{2147483648, Nil{}}}})))
+  b2 = bu(U32.is_eq(digest(lsort([1, 2, 3])), 123))
+  U32.add(U32.add(U32.add(b0, b1), b2), big.x(lsort([4294967295, 0, 2147483648])))
 
 law main:
   IO(Unit)

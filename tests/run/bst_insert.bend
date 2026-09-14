@@ -24,9 +24,9 @@ law bst.pick:
 def bst.pick(l, v, r, path, z):
   match z:
     case True{}:
-      (l, Con{BF{v, r, True{}}, path})
+      (l, BF{v, r, True{}} <> path)
     case False{}:
-      (r, Con{BF{v, l, False{}}, path})
+      (r, BF{v, l, False{}} <> path)
 
 law bst.step:
   for +x : U32
@@ -63,9 +63,9 @@ def bst.up(path, acc):
   match path:
     case Nil{}:
       acc
-    case Con{BF{v, other, True{}}, rest}:
+    case BF{v, other, True{}} <> rest:
       bst.up(rest, BNode{acc, v, other})
-    case Con{BF{v, other, False{}}, rest}:
+    case BF{v, other, False{}} <> rest:
       bst.up(rest, BNode{other, v, acc})
 
 law insert.fin:

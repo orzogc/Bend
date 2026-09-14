@@ -31,8 +31,8 @@ def lconcat(xs, ys):
   match xs:
     case Nil{}:
       ys
-    case Con{h, t}:
-      Con{h, lconcat(t, ys)}
+    case h <> t:
+      h <> lconcat(t, ys)
 
 law lrepeat:
   for  n: Nat
@@ -44,7 +44,7 @@ def lrepeat(n, v):
     case 0n:
       Nil{}
     case 1n+p:
-      Con{v, lrepeat(p, v)}
+      v <> lrepeat(p, v)
 
 law lrevp.go:
   for xs  : List<&2, P2()>
@@ -55,8 +55,8 @@ def lrevp.go(xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
-      lrevp.go(t, Con{h, acc})
+    case h <> t:
+      lrevp.go(t, h <> acc)
 
 law lrevp:
   for xs: List<&2, P2()>
@@ -73,7 +73,7 @@ def llenp(xs):
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       U32.add(1, llenp(t))
 
 law rle.step:
@@ -87,7 +87,7 @@ law rle.step:
 def rle.step(cur, h, n, acc, e):
   match e:
     case False{}:
-      (h, 1, Con{(n, cur), acc})
+      (h, 1, (n, cur) <> acc)
     case True{}:
       (cur, U32.add(n, 1), acc)
 
@@ -100,8 +100,8 @@ def rle(xs, st):
   match xs:
     case Nil{}:
       (cur, n, acc) = st
-      lrevp(Con{(n, cur), acc})
-    case Con{h0, t}:
+      lrevp((n, cur) <> acc)
+    case h0 <> t:
       (cur0, n, acc) = st
       +h = {h0 : U32}
       +cur = {cur0 : U32}
@@ -115,7 +115,7 @@ def expand(ps):
   match ps:
     case Nil{}:
       Nil{}
-    case Con{(n, v), t}:
+    case (n, v) <> t:
       lconcat(lrepeat(U32.to_nat(n), v), expand(t))
 
 law digest.go:
@@ -127,7 +127,7 @@ def digest.go(xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
+    case h <> t:
       digest.go(t, U32.add(U32.mul(acc, 10), h))
 
 law digest:
@@ -143,7 +143,7 @@ law go:
 
 def go(xs):
   match xs:
-    case Con{h, t}:
+    case h <> t:
       +code = {rle(t, (h, 1, Nil{})) : List<&2, P2()>}
       U32.add(U32.mul(bu(U32.is_eq(llenp(code), 3)), 10), bu(U32.is_eq(digest(expand(code)), 777299)))
     case Nil{}:
@@ -153,7 +153,7 @@ law main.out:
   U32
 
 def main.out():
-  go(Con{7, Con{7, Con{7, Con{2, Con{9, Con{9, Nil{}}}}}}})
+  go([7, 7, 7, 2, 9, 9])
 
 law main:
   IO(Unit)

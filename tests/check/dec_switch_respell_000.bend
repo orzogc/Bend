@@ -14,7 +14,7 @@ def nth(d, i, xs):
   match xs:
     case Nil{}:
       d
-    case Con{h, t}:
+    case h <> t:
       match i:
         case 0:
           h

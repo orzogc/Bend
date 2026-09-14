@@ -43,7 +43,7 @@ def lsum(xs):
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       (h + lsum(t) : U32)
 
 law main:

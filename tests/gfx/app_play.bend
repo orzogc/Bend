@@ -19,7 +19,7 @@ def count_events(events: List<Event>, s: Counter) -> Maybe<Counter>:
   match events:
     case Nil{}:
       Some{s}
-    case Con{e, rest}:
+    case e <> rest:
       Maybe.bind(&1, Counter, Counter, count_event(e, s),
         s2 => count_events(rest, s2))
 

@@ -9,7 +9,7 @@ def main(xs: List<Nat>) -> Nat:
   match xs:
     case Nil{}:
       0n
-    case Con{h, t}:
+    case h <> t:
       match h:
         case 0n:
           main(t)

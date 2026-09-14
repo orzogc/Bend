@@ -105,7 +105,7 @@ def Fly.events(events: List<Event>, s: Fly) -> Maybe<Fly>:
   match events:
     case Nil{}:
       Some{s}
-    case Con{e, rest}:
+    case e <> rest:
       Maybe.bind(&1, Fly, Fly, Fly.event(e, s), s2 => Fly.events(rest, s2))
 
 def Fly.step(+s: Fly) -> Fly:

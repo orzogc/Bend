@@ -251,10 +251,10 @@ law pair:
 
 def pair(p):
   +s = U32.mul(U32.inc(p), 2654435761)
-  a = gen(256n, 0, s, Array.new(U32, 8n, 0))
-  b = gen(256n, 0, U32.mul(s, 340573321), Array.new(U32, 8n, 0))
-  prev = init(257n, 0, Array.new(U32, 9n, 0))
-  d = dist(dp(256n, 0, Dp{a, b, prev, Array.new(U32, 9n, 0)}))
+  a = gen(256n, 0, s, [0 : U32 * 8n])
+  b = gen(256n, 0, U32.mul(s, 340573321), [0 : U32 * 8n])
+  prev = init(257n, 0, [0 : U32 * 9n])
+  d = dist(dp(256n, 0, Dp{a, b, prev, [0 : U32 * 9n]}))
   U32.xor(U32.mul(d, 2654435761), U32.inc(p))
 
 # batch tree over the pair index space

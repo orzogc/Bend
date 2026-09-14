@@ -143,9 +143,9 @@ law ssplit.push:
 def ssplit.push(c, ps):
   match ps:
     case Nil{}:
-      Con{SCon{c, SNil{}}, Nil{}}
-    case Con{h, t}:
-      Con{SCon{c, h}, t}
+      [SCon{c, SNil{}}]
+    case h <> t:
+      SCon{c, h} <> t
 
 law ssplit:
   for +sep : U32
@@ -161,14 +161,14 @@ law ssplit.pick:
 def ssplit.pick(x, rec, z):
   match z:
     case True{}:
-      Con{SNil{}, rec}
+      SNil{} <> rec
     case False{}:
       ssplit.push(Chr{x}, rec)
 
 def ssplit(sep, s):
   match s:
     case SNil{}:
-      Con{SNil{}, Nil{}}
+      [SNil{}]
     case SCon{Chr{x0}, t}:
       +x = {x0 : U32}
       ssplit.pick(x, ssplit(sep, t), U32.is_eq(x, sep))
@@ -183,7 +183,7 @@ def sjoin.go(sep, t, h):
   match t:
     case Nil{}:
       h
-    case Con{h2, t2}:
+    case h2 <> t2:
       String.append(h, String.append(sep, sjoin.go(sep, t2, h2)))
 
 law sjoin:
@@ -195,7 +195,7 @@ def sjoin(sep, xs):
   match xs:
     case Nil{}:
       SNil{}
-    case Con{h, t}:
+    case h <> t:
       sjoin.go(sep, t, h)
 
 law replace1:

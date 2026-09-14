@@ -1,6 +1,6 @@
 # sieve of Eratosthenes over a word array: mark multiples in place,
 # count survivors -- 11 primes at or below 31
-# ported from bend3: the 32-slot slab becomes Array.new(U32, 5n, 0), fuel
+# ported from bend3: the 32-slot slab becomes [0 : U32 * 5n], fuel
 # and walk counters become Nat, U32 dispatches nested Bool matches
 # (j >= 2 is spelled U32.is_le(2, j): tocl lacks u32_is_ge, see
 # run_word_compare's yellow); strict -- the continuation defs folded
@@ -112,7 +112,7 @@ law main.out:
   U32
 
 def main.out():
-  survivors(32n, Array.get(U32, sieve(4n, 2, Array.get(U32, Array.new(U32, 5n, 0), 2)), 31), 0)
+  survivors(32n, Array.get(U32, sieve(4n, 2, Array.get(U32, [0 : U32 * 5n], 2)), 31), 0)
 
 law main:
   IO(Unit)

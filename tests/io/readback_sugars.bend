@@ -42,13 +42,13 @@ law sugars:
   List<&1, Pair(String, Char)>
 
 def sugars():
-  Con{("a\n", 'x'), Con{("", 'y'), Nil{}}}
+  [("a\n", 'x'), ("", 'y')]
 
 law funs:
   List<&1, @x:Nat -> Nat>
 
 def funs():
-  Con{x => Succ{x}, Nil{}}
+  [x => Succ{x}]
 
 law main:
   Pair(Nat, Pair(Nat, Pair(Pair(Nat, Maybe<&2, Nat>), Pair(List<&1, Pair(String, Char)>, List<&1, @x:Nat -> Nat>))))

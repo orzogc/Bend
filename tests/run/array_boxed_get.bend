@@ -70,7 +70,7 @@ law main.out:
   U32
 
 def main.out():
-  U32.add(U32.mul(s0(Array.new(Pt, 2n, MkPt{3, 4})), 10), leafp(Array.get(Pt, ALeaf{MkPt{1, 2}}, 0)))
+  U32.add(U32.mul(s0([MkPt{3, 4} : Pt * 2n]), 10), leafp(Array.get(Pt, ALeaf{MkPt{1, 2}}, 0)))
 
 law main:
   IO(Unit)

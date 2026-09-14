@@ -38,7 +38,7 @@ def digest.go(xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
+    case h <> t:
       digest.go(t, U32.add(U32.mul(acc, 10), h))
 
 law digest:
@@ -56,8 +56,8 @@ def lmsq(xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{sqr(h), lmsq(t)}
+    case h <> t:
+      sqr(h) <> lmsq(t)
 
 law lminc:
   for xs: List<&2, U32>
@@ -67,8 +67,8 @@ def lminc(xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{U32.add(h, 1), lminc(t)}
+    case h <> t:
+      U32.add(h, 1) <> lminc(t)
 
 law lfodd.put:
   for h2 : U32
@@ -79,7 +79,7 @@ law lfodd.put:
 def lfodd.put(h2, r, f):
   match f:
     case True{}:
-      Con{h2, r}
+      h2 <> r
     case False{}:
       r
 
@@ -91,7 +91,7 @@ def lfodd(xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{+h, t}:
+    case +h <> t:
       lfodd.put(h, lfodd(t), Bool.not(U32.is_eq(U32.mod(h, 2), 0)))
 
 law lrange.go:
@@ -104,7 +104,7 @@ def lrange.go(n, acc):
     case 0n:
       acc
     case 1n+p:
-      lrange.go(p, Con{U32.from_nat(p), acc})
+      lrange.go(p, U32.from_nat(p) <> acc)
 
 law lrange:
   for n: Nat
@@ -121,7 +121,7 @@ def lsum(xs):
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       U32.add(h, lsum(t))
 
 law lrev.go:
@@ -135,8 +135,8 @@ def lrev.go(a, A, xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
-      lrev.go(a, A, t, Con{h, acc})
+    case h <> t:
+      lrev.go(a, A, t, h <> acc)
 
 law lrev:
   for -a : Quant
@@ -160,12 +160,12 @@ def lzip(a, A, b, B, xs, ys):
   match xs ys:
     case Nil{} Nil{}:
       Nil{}
-    case Nil{} Con{h, t}:
+    case Nil{} h <> t:
       Nil{}
-    case Con{h, t} Nil{}:
+    case h <> t Nil{}:
       Nil{}
-    case Con{h1, t1} Con{h2, t2}:
-      Con{(h1, h2), lzip(a, A, b, B, t1, t2)}
+    case h1 <> t1 h2 <> t2:
+      (h1, h2) <> lzip(a, A, b, B, t1, t2)
 
 law llen:
   for -a : Quant
@@ -177,7 +177,7 @@ def llen(a, A, xs):
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       U32.add(1, llen(a, A, t))
 
 law lhead:
@@ -191,7 +191,7 @@ def lhead(a, A, d, xs):
   match xs:
     case Nil{}:
       d
-    case Con{h, t}:
+    case h <> t:
       h
 
 law ltail:
@@ -204,7 +204,7 @@ def ltail(a, A, xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
+    case h <> t:
       t
 
 law lset.z:
@@ -218,8 +218,8 @@ def lset.z(a, A, v, xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{v, t}
+    case h <> t:
+      v <> t
 
 law lset:
   for -a : Quant
@@ -237,8 +237,8 @@ def lset(a, A, i, v, xs):
       match xs:
         case Nil{}:
           Nil{}
-        case Con{h, t}:
-          Con{h, lset(a, A, p, v, t)}
+        case h <> t:
+          h <> lset(a, A, p, v, t)
 
 law lcount:
   for +x : U32
@@ -249,7 +249,7 @@ def lcount(x, xs):
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       U32.add(bu(U32.is_eq(h, x)), lcount(x, t))
 
 law lany4.put:
@@ -272,7 +272,7 @@ def lany4(xs):
   match xs:
     case Nil{}:
       False{}
-    case Con{h, t}:
+    case h <> t:
       lany4.put(U32.is_gt(h, 4), lany4(t))
 
 law lall0.put:
@@ -295,7 +295,7 @@ def lall0(xs):
   match xs:
     case Nil{}:
       True{}
-    case Con{h, t}:
+    case h <> t:
       lall0.put(U32.is_gt(h, 0), lall0(t))
 
 law main.out:
@@ -303,17 +303,17 @@ law main.out:
 
 def main.out():
   b0 = bu(U32.is_eq(digest(lrange(5n)), 1234))
-  b1 = bu(U32.is_eq(digest(lmsq(Con{1, Con{2, Con{3, Nil{}}}})), 149))
-  b2 = bu(U32.is_eq(digest(lfodd(Con{1, Con{2, Con{3, Con{4, Con{5, Nil{}}}}}})), 135))
+  b1 = bu(U32.is_eq(digest(lmsq([1, 2, 3])), 149))
+  b2 = bu(U32.is_eq(digest(lfodd([1, 2, 3, 4, 5])), 135))
   b3 = bu(U32.is_eq(lsum(lminc(lrange(4n))), 10))
-  b4 = bu(U32.is_eq(digest(lrev(&2, U32, Con{1, Con{2, Con{3, Nil{}}}})), 321))
-  b5 = bu(U32.is_eq(llen(&1, (U32 & U32), lzip(&2, U32, &2, U32, Con{1, Con{2, Con{3, Nil{}}}}, Con{4, Con{5, Nil{}}})), 2))
-  b6 = bu(U32.is_eq(lhead(&2, U32, 99, Con{7, Con{8, Nil{}}}), 7))
-  b7 = bu(U32.is_eq(digest(ltail(&2, U32, Con{7, Con{8, Con{9, Nil{}}}})), 89))
-  b8 = bu(U32.is_eq(digest(lset(&2, U32, 1n, 5, Con{1, Con{2, Con{3, Nil{}}}})), 153))
-  b9 = bu(U32.is_eq(lcount(2, Con{2, Con{1, Con{2, Con{2, Nil{}}}}}), 3))
-  b10 = bu(lany4(Con{1, Con{5, Nil{}}}))
-  b11 = bu(lall0(Con{1, Con{5, Nil{}}}))
+  b4 = bu(U32.is_eq(digest(lrev(&2, U32, [1, 2, 3])), 321))
+  b5 = bu(U32.is_eq(llen(&1, (U32 & U32), lzip(&2, U32, &2, U32, [1, 2, 3], [4, 5])), 2))
+  b6 = bu(U32.is_eq(lhead(&2, U32, 99, [7, 8]), 7))
+  b7 = bu(U32.is_eq(digest(ltail(&2, U32, [7, 8, 9])), 89))
+  b8 = bu(U32.is_eq(digest(lset(&2, U32, 1n, 5, [1, 2, 3])), 153))
+  b9 = bu(U32.is_eq(lcount(2, [2, 1, 2, 2]), 3))
+  b10 = bu(lany4([1, 5]))
+  b11 = bu(lall0([1, 5]))
   U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(b0, b1), b2), b3), b4), b5), b6), b7), b8), b9), b10), b11)
 
 law main:

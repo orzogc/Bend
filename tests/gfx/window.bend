@@ -10,7 +10,7 @@ def count(xs: List<Event>) -> U32:
   match xs:
     case Nil{}:
       0
-    case Con{e, rest}:
+    case e <> rest:
       U32.inc(count(rest))
 
 def build(+d: Nat, +x: U32, +y: U32) -> Image:

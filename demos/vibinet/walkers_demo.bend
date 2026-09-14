@@ -98,23 +98,23 @@ def World.input.go(hit: Bool, s: Sq, t: World(), held: U32, rest: Unit -> World(
   -> World():
   match hit:
     case True{}:
-      Con{Sq.hold(s, held), t}
+      Sq.hold(s, held) <> t
     case False{}:
-      Con{s, rest(Unit{})}
+      s <> rest(Unit{})
 
 # An input reaches its player's square, or spawns it.
 def World.input(+w: World(), +pid: U32, +held: U32) -> World():
   match w:
     case Nil{}:
       [Sq.spawn(pid, held)]
-    case Con{+s, t}:
+    case +s <> t:
       World.input.go(Sq.of(s, pid), s, t, held, u => World.input(t, pid, held))
 
 def World.inputs(ins: List<&2, Input>, w: World()) -> World():
   match ins:
     case Nil{}:
       w
-    case Con{i, t}:
+    case i <> t:
       Input{pid, held} = i
       World.inputs(t, World.input(w, pid, held))
 
@@ -122,8 +122,8 @@ def World.move(w: World()) -> World():
   match w:
     case Nil{}:
       []
-    case Con{s, t}:
-      Con{Sq.move(s), World.move(t)}
+    case s <> t:
+      Sq.move(s) <> World.move(t)
 
 # The whole game: apply the tick's inputs, then move every square.
 def World.step(w: World(), ins: List<&2, Input>) -> World():
@@ -140,13 +140,13 @@ def World.mine(w: World(), +pid: U32) -> Maybe<&2, Sq>:
   match w:
     case Nil{}:
       None{}
-    case Con{+s, t}:
+    case +s <> t:
       World.mine.go(Sq.of(s, pid), s, World.mine(t, pid))
 
 def World.keep(hit: Bool, s: Sq, rest: World()) -> World():
   match hit:
     case True{}:
-      Con{s, rest}
+      s <> rest
     case False{}:
       rest
 
@@ -154,7 +154,7 @@ def World.others(w: World(), +pid: U32) -> World():
   match w:
     case Nil{}:
       []
-    case Con{+s, t}:
+    case +s <> t:
       World.keep(Bool.not(Sq.of(s, pid)), s, World.others(t, pid))
 
 def World.blend.go(mine: Maybe<&2, Sq>, rest: World()) -> World():
@@ -162,7 +162,7 @@ def World.blend.go(mine: Maybe<&2, Sq>, rest: World()) -> World():
     case None{}:
       rest
     case Some{s}:
-      Con{s, rest}
+      s <> rest
 
 # What to draw: this player as predicted, the others as confirmed.
 def World.blend(+pid: U32, local: World(), remote: World()) -> World():
@@ -182,7 +182,7 @@ def World.code(+x0: U32, +y0: U32, +s: U32, w: World()) -> Nat:
   match w:
     case Nil{}:
       0n
-    case Con{sq, t}:
+    case sq <> t:
       Sq{+pid, x, y, held} = sq
       World.code.go(Sq.hit(x0, y0, s, Sq{pid, x, y, held}), pid,
         World.code(x0, y0, s, t))
@@ -310,7 +310,7 @@ def Play.events(events: List<Event>, play: Play) -> IO(Maybe<Play>):
   match events:
     case Nil{}:
       IO.pure(Maybe<Play>, Some{play})
-    case Con{e, rest}:
+    case e <> rest:
       IO.bind(Maybe<Play>, Maybe<Play>, Play.event(e, play),
         App.more(Play, p => Play.events(rest, p)))
 

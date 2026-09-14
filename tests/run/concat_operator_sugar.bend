@@ -15,8 +15,8 @@ def List.append(a, A, xs, ys):
   match xs:
     case Nil{}:
       ys
-    case Con{h, t}:
-      Con{h, List.append(a, A, t, ys)}
+    case h <> t:
+      h <> List.append(a, A, t, ys)
 
 law digits:
   for s: String
@@ -35,7 +35,7 @@ law lsum:
 
 def lsum(xs):
   match xs:
-    case Con{h, t}:
+    case h <> t:
       (h + lsum(t) : U32)
     case Nil{}:
       0

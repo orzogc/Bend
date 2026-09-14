@@ -150,7 +150,7 @@ def run(moves: List<Move>, g: Game) -> Game:
   match moves:
     case Nil{}:
       g
-    case Con{m, ms}:
+    case m <> ms:
       run(ms, step(m, g))
 
 def replay(g: Game, moves: List<Move>) -> Game:

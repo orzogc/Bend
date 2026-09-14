@@ -14,7 +14,7 @@ def List.length(A, xs):
   match xs:
     case Nil{}:
       0n
-    case Con{h, t}:
+    case h <> t:
       1n+List.length(A, t)
 
 law lmap:
@@ -26,8 +26,8 @@ def lmap(f, xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{f(h), lmap(f, t)}
+    case h <> t:
+      f(h) <> lmap(f, t)
 
 law thm:
   {List.length(lmap(x => (x + 1 : U32), [1, 2])) = 2n : Nat}

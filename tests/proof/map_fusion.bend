@@ -37,8 +37,8 @@ def map(f, xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{app(f, h), map(f, t)}
+    case h <> t:
+      app(f, h) <> map(f, t)
 
 law fuse:
   for xs: List<&2, U32>
@@ -48,8 +48,8 @@ def fuse(xs):
   match xs:
     case Nil{}:
       {==}
-    case Con{h, t}:
-      %fuse(t) : {Con{U32.add(U32.mul(h, 2), 1), map(AddOne{}, map(MulTwo{}, t))} == Con{U32.add(U32.mul(h, 2), 1), _} : List<&2, U32>}
+    case h <> t:
+      %fuse(t) : {U32.add(U32.mul(h, 2), 1) <> map(AddOne{}, map(MulTwo{}, t)) == U32.add(U32.mul(h, 2), 1) <> _ : List<&2, U32>}
       {==}
 
 #|All terms check.

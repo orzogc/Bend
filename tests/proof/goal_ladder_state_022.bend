@@ -14,8 +14,8 @@ def List.append(A, xs, ys):
   match xs:
     case Nil{}:
       ys
-    case Con{h, t}:
-      Con{h, List.append(A, t, ys)}
+    case h <> t:
+      h <> List.append(A, t, ys)
 
 law List.reverse.go:
   for -A: Data
@@ -27,8 +27,8 @@ def List.reverse.go(A, xs, acc):
   match xs:
     case Nil{}:
       acc
-    case Con{h, t}:
-      List.reverse.go(A, t, Con{h, acc})
+    case h <> t:
+      List.reverse.go(A, t, h <> acc)
 
 law cat_assoc:
   for -A: Data
@@ -41,8 +41,8 @@ def cat_assoc(A, a, b, c):
   match a:
     case Nil{}:
       {==}
-    case Con{h, t}:
-      %cat_assoc(A, t, b, c) : {Con{h, List.append(A, List.append(A, t, b), c)} == Con{h, _} : List<&2, A>}
+    case h <> t:
+      %cat_assoc(A, t, b, c) : {h <> List.append(A, List.append(A, t, b), c) == h <> _ : List<&2, A>}
       {==}
 
 law rgo_cat:
@@ -55,10 +55,10 @@ def rgo_cat(A, xs, acc):
   match xs:
     case Nil{}:
       {==}
-    case Con{h, t}:
-      %rgo_cat(A, t, Con{h, acc}) : {List.append(A, List.reverse.go(A, t, Con{h, Nil{}}), acc) == _ : List<&2, A>}
-      %rgo_cat(A, t, Con{h, Nil{}}) : {List.append(A, _, acc) == List.append(A, List.reverse.go(A, t, Nil{}), Con{h, acc}) : List<&2, A>}
-      %cat_assoc(A, List.reverse.go(A, t, Nil{}), Con{h, Nil{}}, acc) : {List.append(A, List.append(A, List.reverse.go(A, t, Nil{}), Con{h, Nil{}}), acc) == _ : List<&2, A>}
+    case h <> t:
+      %rgo_cat(A, t, h <> acc) : {List.append(A, List.reverse.go(A, t, [h]), acc) == _ : List<&2, A>}
+      %rgo_cat(A, t, [h]) : {List.append(A, _, acc) == List.append(A, List.reverse.go(A, t, Nil{}), h <> acc) : List<&2, A>}
+      %cat_assoc(A, List.reverse.go(A, t, Nil{}), [h], acc) : {List.append(A, List.append(A, List.reverse.go(A, t, Nil{}), [h]), acc) == _ : List<&2, A>}
       Type
 
 #|Error:
@@ -70,7 +70,7 @@ def rgo_cat(A, xs, acc):
 #|- t   : List<&2, A>
 #|- acc : List<&2, A>
 #|Location: rgo_cat
-#|61 |       %cat_assoc(A, List.reverse.go(A, t, Nil{}), Con{h, Nil{}}, acc) : {List.append(A, List.append(A, List.reverse.go(A, t, Nil{}), Con{h, Nil{}}), acc) == _ : List<&2, A>}
+#|61 |       %cat_assoc(A, List.reverse.go(A, t, Nil{}), [h], acc) : {List.append(A, List.append(A, List.reverse.go(A, t, Nil{}), [h]), acc) == _ : List<&2, A>}
 #|62>|       Type
 #|63 |
 #|exit 1

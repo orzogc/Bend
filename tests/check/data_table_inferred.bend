@@ -14,7 +14,7 @@ law sum:
 
 def sum(xs):
   match xs:
-    case Con{h, tl}:
+    case h <> tl:
       (h + sum(tl) : U32)
     case Nil{}:
       0

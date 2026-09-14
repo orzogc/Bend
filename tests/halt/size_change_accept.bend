@@ -12,8 +12,8 @@ def interleave(xs, ys):
   match xs:
     case Nil{}:
       ys
-    case Con{h, t}:
-      Con{h, interleave(ys, t)}
+    case h <> t:
+      h <> interleave(ys, t)
 
 law main:
   U32
@@ -29,7 +29,7 @@ def main():
 #|- t  : List<&2, U32>
 #|- ys : List<&2, U32>
 #|Location: interleave
-#|15 |     case Con{h, t}:
-#|16>|       Con{h, interleave(ys, t)}
+#|15 |     case h <> t:
+#|16>|       h <> interleave(ys, t)
 #|17 |
 #|exit 1

@@ -7,7 +7,7 @@ def kvs(xs: List<&2, Sigma<&2, &2, String, _ => U32>>) -> String:
   match xs:
     case Nil{}:
       "."
-    case Con{(k, v), t}:
+    case (k, v) <> t:
       k ++ "=" ++ U32.show(v) ++ "," ++ kvs(t)
 
 def cs(r: (String & String) & Cmp) -> String:

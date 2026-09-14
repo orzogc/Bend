@@ -25,7 +25,7 @@ law main.out:
   U32
 
 def main.out():
-  g = foo(Array.new(U32, 4n, 7))
+  g = foo([7 : U32 * 4n])
   5
 
 law main:

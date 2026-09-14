@@ -2753,7 +2753,7 @@ def Fx.draw(fx: List<&2, Fx>, +cam: Cam) -> Cells:
   match fx:
     case Nil{}:
       CNil{}
-    case Con{f, rest}:
+    case f <> rest:
       Cells.merge(Fx.one(f, cam), Fx.draw(rest, cam))
 
 # Text
@@ -3689,14 +3689,14 @@ def Synth.all(+n: Nat, pcm: Array<F32>) -> Array<F32>:
 # The little-endian words at the head of the bytes (0 past the end).
 def Wav.u16(+b: List<&2, U32>) -> U32:
   match b:
-    case Con{x, Con{y, _}}:
+    case x <> y <> _:
       (x .|. (y << 8n) : U32)
     case _:
       0
 
 def Wav.u32(+b: List<&2, U32>) -> U32:
   match b:
-    case Con{x, Con{y, Con{z, Con{w, _}}}}:
+    case x <> y <> z <> w <> _:
       (x .|. (y << 8n) .|. (z << 16n) .|. (w << 24n) : U32)
     case _:
       0
@@ -3707,7 +3707,7 @@ def Wav.skip(n: Nat, b: List<&2, U32>) -> List<&2, U32>:
       b
     case 1n+k Nil{}:
       Nil{}
-    case 1n+k Con{_, rest}:
+    case 1n+k _ <> rest:
       Wav.skip(k, rest)
 
 # A float from its bits (a denormal keeps its scale; NaN and inf are
@@ -3727,7 +3727,7 @@ def Wav.s16(n: Nat, b: List<&2, U32>, +at: U32, pcm: Array<F32>) -> Array<F32>:
   match n b:
     case 0n _:
       pcm
-    case 1n+k Con{lo, Con{hi, rest}}:
+    case 1n+k lo <> hi <> rest:
       Wav.s16(k, rest, (at + 1 : U32), Array.set(F32, pcm, at, Wav.signed((lo .|. (hi << 8n) : U32))))
     case 1n+k _:
       pcm
@@ -3737,7 +3737,7 @@ def Wav.f32(n: Nat, b: List<&2, U32>, +at: U32, pcm: Array<F32>) -> Array<F32>:
   match n b:
     case 0n _:
       pcm
-    case 1n+k Con{x, Con{y, Con{z, Con{w, rest}}}}:
+    case 1n+k x <> y <> z <> w <> rest:
       Wav.f32(k, rest, (at + 1 : U32), Array.set(F32, pcm, at,
         Wav.float((x .|. (y << 8n) .|. (z << 16n) .|. (w << 24n) : U32))))
     case 1n+k _:
@@ -3869,13 +3869,13 @@ def Asset.each(
   match names:
     case Nil{}:
       (pcm, clip) = r
-      IO.pure(Array<F32> & List<&2, Clip>, (pcm, Con{clip, clips}))
-    case Con{name, rest}:
+      IO.pure(Array<F32> & List<&2, Clip>, (pcm, clip <> clips))
+    case name <> rest:
       (pcm, +clip) = r
       +at2 = (at + Clip.size(clip) : U32)
       do IO<Array<F32> & List<&2, Clip>>:
         r2 : Array<F32> & Clip <- Asset.wav(name, at2, pcm)
-        Asset.each(rest, at2, Con{clip, clips}, r2)
+        Asset.each(rest, at2, clip <> clips, r2)
 
 # The synthesized clips 0 to n - 1 before the rest.
 def Bank.synth(+n: Nat, rest: List<&2, Clip>) -> List<&2, Clip>:
@@ -3883,14 +3883,14 @@ def Bank.synth(+n: Nat, rest: List<&2, Clip>) -> List<&2, Clip>:
     case 0n:
       rest
     case 1n+k:
-      Bank.synth(k, Con{Clip{(U32.from_nat(k) * 65536 : U32), 65536, 48000, 1}, rest})
+      Bank.synth(k, Clip{(U32.from_nat(k) * 65536 : U32), 65536, 48000, 1} <> rest)
 
 # The bank by kind from the files loaded (last first, after the
 # synthesized region's stand-in): the three guaraná parts are one
 # gapless clip (they sit end to end in the store).
 def Bank.build(files: List<&2, Clip>) -> List<&2, Clip>:
   match files:
-    case Con{parry, Con{dash, Con{needle, Con{sha, Con{c, Con{b, Con{a, _}}}}}}}:
+    case parry <> dash <> needle <> sha <> c <> b <> a <> _:
       Clip{start, fa, rate, ch} = a
       Bank.synth(14n, [Clip{start, (fa + Clip.frames(b) + Clip.frames(c) : U32), rate, ch}, sha,
         needle, dash, parry])
@@ -3901,9 +3901,9 @@ def Bank.at(n: Nat, +bank: List<&2, Clip>) -> Clip:
   match n bank:
     case _ Nil{}:
       Clip{0, 0, 48000, 1}
-    case 0n Con{c, _}:
+    case 0n c <> _:
       c
-    case 1n+k Con{_, rest}:
+    case 1n+k _ <> rest:
       Bank.at(k, rest)
 
 # A voice of a clip: its step a frame is the clip's rate over the
@@ -3918,24 +3918,24 @@ def Voices.count(+vs: List<&2, Voice>) -> U32:
   match vs:
     case Nil{}:
       0
-    case Con{_, rest}:
+    case _ <> rest:
       (1 + Voices.count(rest) : U32)
 
 def Voices.snoc(vs: List<&2, Voice>, v: Voice) -> List<&2, Voice>:
   match vs:
     case Nil{}:
       [v]
-    case Con{x, rest}:
-      Con{x, Voices.snoc(rest, v)}
+    case x <> rest:
+      x <> Voices.snoc(rest, v)
 
 # The oldest voice that does not loop, stolen.
 def Voices.steal(vs: List<&2, Voice>) -> List<&2, Voice>:
   match vs:
     case Nil{}:
       Nil{}
-    case Con{Voice{clip, pos, step, gl, gr, True{}}, rest}:
-      Con{Voice{clip, pos, step, gl, gr, True{}}, Voices.steal(rest)}
-    case Con{Voice{clip, pos, step, gl, gr, False{}}, rest}:
+    case Voice{clip, pos, step, gl, gr, True{}} <> rest:
+      Voice{clip, pos, step, gl, gr, True{}} <> Voices.steal(rest)
+    case Voice{clip, pos, step, gl, gr, False{}} <> rest:
       rest
 
 # A voice added (none for an empty clip), the oldest stolen at 24.
@@ -3953,7 +3953,7 @@ def Voices.keep(gone: Bool, v: Voice, rest: List<&2, Voice>) -> List<&2, Voice>:
     case True{}:
       rest
     case False{}:
-      Con{v, rest}
+      v <> rest
 
 # The voices a block (512 frames) later: a looping one wraps, one past
 # its clip's end is gone.
@@ -3961,7 +3961,7 @@ def Voices.step(+vs: List<&2, Voice>) -> List<&2, Voice>:
   match vs:
     case Nil{}:
       Nil{}
-    case Con{Voice{clip, pos, step, gl, gr, loop}, rest}:
+    case Voice{clip, pos, step, gl, gr, loop} <> rest:
       Clip{start, frames, rate, ch} = clip
       +fr = U32.to_f32(frames)
       +next = (pos + step * 512.0 : F32)
@@ -4062,7 +4062,7 @@ def Mix.voices(+vs: List<&2, Voice>, ro: Array<F32> & Array<F32>) -> Array<F32> 
   match vs:
     case Nil{}:
       ro
-    case Con{Voice{clip, pos, step, gl, gr, loop}, rest}:
+    case Voice{clip, pos, step, gl, gr, loop} <> rest:
       Clip{start, frames, _, ch} = clip
       Mix.voices(rest, Mix.run(U32.to_nat(512), 0, pos, step, start, frames, loop, gl, gr, ch, ro))
 
@@ -4071,10 +4071,10 @@ def Mix.list(k: Nat, +i: U32, acc: List<&2, F32>, r: Array<F32> & F32) -> List<&
   match k:
     case 0n:
       (out, x) = r
-      Con{Math.clamp(x, (0.0 - 1.0 : F32), 1.0), acc}
+      Math.clamp(x, (0.0 - 1.0 : F32), 1.0) <> acc
     case 1n+j:
       (out, x) = r
-      Mix.list(j, (i - 1 : U32), Con{Math.clamp(x, (0.0 - 1.0 : F32), 1.0), acc},
+      Mix.list(j, (i - 1 : U32), Math.clamp(x, (0.0 - 1.0 : F32), 1.0) <> acc,
         Array.get(F32, out, (i - 1 : U32)))
 
 def Mix.fin(
@@ -4089,7 +4089,7 @@ def Mix.fin(
 # block of 1024 samples, listed; the voices stepped, the old ones kept.
 def Mix.render(s: Sound) -> Sound:
   Sound{dev, pcm, bank, voices, _, _, queued, stamp} = s
-  Mix.fin(dev, bank, voices, queued, stamp, Mix.voices(voices, (pcm, Array.new(F32, 10n, 0.0))))
+  Mix.fin(dev, bank, voices, queued, stamp, Mix.voices(voices, (pcm, [0.0 : F32 * 10n])))
 
 # A cue started: its voice joins the voices (the oldest that does not
 # loop stolen at 24; an empty clip is nothing).
@@ -4104,7 +4104,7 @@ def Sound.cues(cues: List<&2, Cue>, s: Sound) -> Sound:
   match cues:
     case Nil{}:
       s
-    case Con{c, rest}:
+    case c <> rest:
       Sound.cues(rest, Sound.play(s, c))
 
 # The write's answer taken: the frames queued now, at this clock; a
@@ -4188,7 +4188,7 @@ def Sound.open() -> IO(Sound):
     dev : Maybe<Audio> <- Sound.device(r)
     loaded : Array<F32> & List<&2, Clip> <- Asset.each(["guarana_a.wav", "guarana_b.wav",
         "guarana_c.wav", "sha_pcm.wav", "needle.wav", "dash.wav", "parry.wav"], 0, Nil{},
-      (Synth.all(14n, Array.new(F32, 21n, 0.0)), Clip{0, 917504, 48000, 1}))
+      (Synth.all(14n, [0.0 : F32 * 21n]), Clip{0, 917504, 48000, 1}))
     IO.pure(Sound, Sound.made(dev, loaded))
 
 def Cue.add(
@@ -4196,7 +4196,7 @@ def Cue.add(
 ) -> List<&2, Cue>:
   match on:
     case True{}:
-      Con{Cue{kind, gain, pan, rate, loop}, acc}
+      Cue{kind, gain, pan, rate, loop} <> acc
     case False{}:
       acc
 
@@ -4284,7 +4284,7 @@ def Game.events(events: List<Event>, g: Game) -> Maybe<Game>:
   match events:
     case Nil{}:
       Some{g}
-    case Con{e, rest}:
+    case e <> rest:
       Maybe.bind(&1, Game, Game, Game.event(e, g), g2 => Game.events(rest, g2))
 
 # n ticks, the last two kept, their cues gathered.
@@ -4577,8 +4577,8 @@ def Probe.push(block: List<&2, F32>, acc: List<&2, List<&2, F32>>) -> List<&2, L
   match block:
     case Nil{}:
       acc
-    case Con{x, rest}:
-      Con{Con{x, rest}, acc}
+    case x <> rest:
+      (x <> rest) <> acc
 
 def Probe.render(
   n: Nat, s: Sound, acc: List<&2, List<&2, F32>>
@@ -4597,7 +4597,7 @@ def Probe.text(b: List<&2, F32>) -> String:
   match b:
     case Nil{}:
       "\n"
-    case Con{x, rest}:
+    case x <> rest:
       U32.show(F32.bits(x)) ++ " " ++ Probe.text(rest)
 
 def Probe.wrote(w: File & Result<&1, &1, U32 & String, Unit>) -> IO(Maybe<File>):
@@ -4618,7 +4618,7 @@ def Probe.wav(blocks: List<&2, List<&2, F32>>, f: Maybe<File>) -> IO(Maybe<File>
   match blocks:
     case Nil{}:
       IO.pure(Maybe<File>, f)
-    case Con{b, rest}:
+    case b <> rest:
       do IO<Maybe<File>>:
         f2 : Maybe<File> <- Probe.wav(rest, f)
         Probe.put(b, f2)
@@ -4648,7 +4648,7 @@ def Probe.cues(cues: List<&2, Cue>, +t: U32) -> IO(Unit):
   match cues:
     case Nil{}:
       IO.pure(Unit, Unit{})
-    case Con{Cue{kind, gain, pan, rate, _}, rest}:
+    case Cue{kind, gain, pan, rate, _} <> rest:
       do IO<Unit>:
         Unit <- IO.print("cue t " ++ U32.show(t) ++ " kind " ++ U32.show(kind) ++ " gain "
           ++ F32.show(gain) ++ " pan " ++ F32.show(pan) ++ " rate " ++ F32.show(rate))

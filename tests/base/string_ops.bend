@@ -213,9 +213,9 @@ law ssplit.push:
 def ssplit.push(c, ps):
   match ps:
     case Nil{}:
-      Con{SCon{c, SNil{}}, Nil{}}
-    case Con{h, t}:
-      Con{SCon{c, h}, t}
+      [SCon{c, SNil{}}]
+    case h <> t:
+      SCon{c, h} <> t
 
 law ssplit.put:
   for +x: U32
@@ -226,7 +226,7 @@ law ssplit.put:
 def ssplit.put(x, r, f):
   match f:
     case True{}:
-      Con{SNil{}, r}
+      SNil{} <> r
     case False{}:
       ssplit.push(Chr{x}, r)
 
@@ -238,7 +238,7 @@ law ssplit:
 def ssplit(sep, s):
   match s:
     case SNil{}:
-      Con{SNil{}, Nil{}}
+      [SNil{}]
     case SCon{Chr{+x0}, t}:
       ssplit.put(x0, ssplit(sep, t), U32.is_eq(x0, sep))
 
@@ -252,7 +252,7 @@ def sjoin.go(sep, t, h):
   match t:
     case Nil{}:
       h
-    case Con{h2, t2}:
+    case h2 <> t2:
       String.append(h, String.append(sep, sjoin.go(sep, t2, h2)))
 
 law sjoin:
@@ -264,7 +264,7 @@ def sjoin(sep, xs):
   match xs:
     case Nil{}:
       SNil{}
-    case Con{h, t}:
+    case h <> t:
       sjoin.go(sep, t, h)
 
 law stake:
@@ -303,7 +303,7 @@ def llens(xs):
   match xs:
     case Nil{}:
       0
-    case Con{h, t}:
+    case h <> t:
       U32.add(1, llens(t))
 
 law main.out:
@@ -319,7 +319,7 @@ def main.out():
   b6 = bu(U32.is_eq(llens(ssplit(44, "a,bb,c")), 3))
   b7 = bu(seq_(stake(2n, "abcd"), "ab"))
   b8 = bu(seq_(sdrop(2n, "abcd"), "cd"))
-  b9 = bu(seq_(sjoin(",", Con{"a", Con{"b", Nil{}}}), "a,b"))
+  b9 = bu(seq_(sjoin(",", ["a", "b"]), "a,b"))
   b10 = bu(U32.is_eq(Maybe.default(&2, U32, sfind("an", "banana"), 99), 1))
   U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(U32.add(b0, b1), b2), b3), b4), b5), b6), b7), b8), b9), b10)
 

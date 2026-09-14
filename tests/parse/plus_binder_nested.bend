@@ -9,7 +9,7 @@ def sum2(xs: List<(U32 & U32)>) -> U32:
   match xs:
     case Nil{}:
       0
-    case Con{Tuple{+a, b}, t}:
+    case Tuple{+a, b} <> t:
       (a * a + b + sum2(t) : U32)
 
 def two(xs: List<U32>) -> U32:

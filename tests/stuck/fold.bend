@@ -20,13 +20,13 @@ def foldr(~f: Nat -> Nat -> Nat, z: Nat, l: List<Nat>) -> Nat:
   match l:
     case Nil{}:
       z
-    case Con{h, t}:
+    case h <> t:
       f(h, foldr(~f, z, t))
 
 law main:
   @x:Nat -> @xs:List<Nat> -> Nat
 
 def main():
-  x => xs => foldr(~add, 0n, Con{2n, Con{x, xs}})
+  x => xs => foldr(~add, 0n, 2n <> x <> xs)
 
 #|x => xs => 2n+add(x, foldr~0(add, 0n, xs))

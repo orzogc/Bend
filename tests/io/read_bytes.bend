@@ -19,9 +19,9 @@ def bytes_line(xs):
   match xs:
     case Nil{}:
       ""
-    case Con{x, Nil{}}:
+    case [x]:
       U32.show(x)
-    case Con{x, rest}:
+    case x <> rest:
       U32.show(x) ++ " " ++ bytes_line(rest)
 
 law write_go:

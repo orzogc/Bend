@@ -603,8 +603,8 @@ def List.map(~A: Type, ~B: Type, ~f: A -> B, xs: List<A>) -> List<B>:
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      Con{f(h), List.map(~A, ~B, ~f, t)}
+    case h <> t:
+      f(h) <> List.map(~A, ~B, ~f, t)
 
 # Word
 # ----
@@ -1433,7 +1433,7 @@ def Array.new(-T: Data, +d: Nat, +v: T) -> Array<T>:
     case 0n:
       ALeaf{v}
     case 1n+p:
-      ANode{Array.new(T, p, v), Array.new(T, p, v)}
+      ANode{[v : T * p], [v : T * p]}
 
 def Array.set.fin(-T: Type, r: Array<T> & T) -> Array<T>:
   (na, old) = r
@@ -1855,7 +1855,7 @@ def Map.to_list.go(
     case MTip{}:
       acc
     case MLeaf{k, v}:
-      Con{(k, v), acc}
+      (k, v) <> acc
     case MNode{pos, lo, hi}:
       Map.to_list.go(a, V, lo, Map.to_list.go(a, V, hi, acc))
 
@@ -1869,7 +1869,7 @@ def Map.keys.go(a, -V: Kind(a), m: Map<a, V>, acc: List<&2, String>) ->
     case MTip{}:
       acc
     case MLeaf{k, v}:
-      Con{k, acc}
+      k <> acc
     case MNode{pos, lo, hi}:
       Map.keys.go(a, V, lo, Map.keys.go(a, V, hi, acc))
 
@@ -1882,7 +1882,7 @@ def Map.from_list.go(
   match kvs:
     case Nil{}:
       m
-    case Con{(k, v), t}:
+    case (k, v) <> t:
       Map.from_list.go(a, V, t, Map.set(a, V, m, k, v))
 
 def Map.from_list(a, -V: Kind(a), kvs: List<a, Sigma<&2, a, String, _ => V>>) ->
@@ -2011,5 +2011,5 @@ def App.play(~S: Type, ~app: App<S>, frames: List<List<Event>>, state: S) ->
   match frames:
     case Nil{}:
       IO.pure(Maybe<S>, Some{state})
-    case Con{events, rest}:
+    case events <> rest:
       App.fold(S, app, events, state, s => App.play(~S, ~app, rest, s))

@@ -48,11 +48,11 @@ def List.get(a, A, n, xs):
   match n xs:
     case 0n Nil{}:
       None{}
-    case 0n Con{h, t}:
+    case 0n h <> t:
       Some{h}
     case 1n+p Nil{}:
       None{}
-    case 1n+p Con{h, t}:
+    case 1n+p h <> t:
       List.get(a, A, p, t)
 
 law List.set:
@@ -67,12 +67,12 @@ def List.set(a, A, n, x, xs):
   match n xs:
     case 0n Nil{}:
       Nil{}
-    case 0n Con{h, t}:
-      Con{x, t}
+    case 0n h <> t:
+      x <> t
     case 1n+p Nil{}:
       Nil{}
-    case 1n+p Con{h, t}:
-      Con{h, List.set(a, A, p, x, t)}
+    case 1n+p h <> t:
+      h <> List.set(a, A, p, x, t)
 
 law bu:
   for b: Bool
@@ -96,7 +96,7 @@ law l4:
   List<&2, U32>
 
 def l4():
-  Con{10, Con{20, Con{30, Con{40, Nil{}}}}}
+  [10, 20, 30, 40]
 
 law code:
   for c: Char

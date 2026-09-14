@@ -13,15 +13,15 @@ type AuditPayload is Data:
   WithPayload{value: PayloadChain}
 
 def payload_make(v: U32) -> +List<AuditPayload>:
-  Con{WithPayload{PayloadCell{v, PayloadEnd{}}}, Nil{}}
+  [WithPayload{PayloadCell{v, PayloadEnd{}}}]
 
 def payload_probe(xs: +List<AuditPayload>) -> U32:
   match xs:
     case Nil{}:
       0
-    case Con{WithoutPayload{}, tail}:
+    case WithoutPayload{} <> tail:
       0
-    case Con{WithPayload{value}, tail}:
+    case WithPayload{value} <> tail:
       1
 
 def main() -> IO(Unit):

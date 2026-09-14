@@ -27,9 +27,9 @@ law String.split.push:
 def String.split.push(c, ps):
   match ps:
     case Nil{}:
-      Con{SCon{c, SNil{}}, Nil{}}
-    case Con{h, t}:
-      Con{SCon{c, h}, t}
+      [SCon{c, SNil{}}]
+    case h <> t:
+      SCon{c, h} <> t
 
 law ceq:
   for a: Char
@@ -50,7 +50,7 @@ law String.split.fin:
 def String.split.fin(h2, r, e):
   match e:
     case True{}:
-      Con{SNil{}, r}
+      SNil{} <> r
     case False{}:
       String.split.push(h2, r)
 
@@ -62,7 +62,7 @@ law String.split:
 def String.split(s, sep):
   match s:
     case SNil{}:
-      Con{SNil{}, Nil{}}
+      [SNil{}]
     case SCon{+h, t}:
       String.split.fin(h, String.split(t, sep), ceq(h, sep))
 
@@ -76,7 +76,7 @@ def String.join.go(xs, h, sep):
   match xs:
     case Nil{}:
       h
-    case Con{h2, t2}:
+    case h2 <> t2:
       String.append(h, String.append(sep, String.join.go(t2, h2, sep)))
 
 law String.join:
@@ -88,7 +88,7 @@ def String.join(xs, sep):
   match xs:
     case Nil{}:
       SNil{}
-    case Con{h, t}:
+    case h <> t:
       String.join.go(t, h, sep)
 
 law List.length:
@@ -101,7 +101,7 @@ def List.length(a, A, xs):
   match xs:
     case Nil{}:
       0n
-    case Con{h, t}:
+    case h <> t:
       1n+List.length(a, A, t)
 
 law String.length:

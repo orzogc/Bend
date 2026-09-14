@@ -618,7 +618,7 @@ def pop.go(ok: Bool, nm: String, u: U32) -> P(Unit):
 def pop(k: Unit -> St -> IO(Unit), s: St) -> IO(Unit):
   St{h, src, sc, vc, ns} = s
   match sc:
-    case Con{Bind{nm, oc, u}, r}:
+    case Bind{nm, oc, u} <> r:
       pop.go(U32.is_eq(u, 1), nm, u)(k, St{h, src, r, vc, ns})
     case Nil{}:
       k(Unit{}, St{h, src, Nil{}, vc, ns})
@@ -635,7 +635,7 @@ def sc_find.go(+n: String, +oc: Occ, +u: U32, hit: Bool, p: List<&2, Bind> & May
 # the nearest binder named nm, its use counted; done: one was found
 def sc_find(sc: List<&2, Bind>, +nm: String, +done: Bool) -> List<&2, Bind> & Maybe<&2, Occ>:
   match sc:
-    case Con{Bind{n, oc, u}, r}:
+    case Bind{n, oc, u} <> r:
       +hit = Bool.not(done) && String.eq(n, nm)
       sc_find.go(n, oc, u, hit, sc_find(r, nm, done || hit))
     case Nil{}:
@@ -1832,7 +1832,7 @@ def term_show(t: Term) -> String:
 # the env: 2^16 cells, the free list keeps the live set small (cell 0
 # holds the display-name counter)
 def env_new() -> Array<Cell>:
-  Array.new(Cell, 16n, Nul{})
+  [Nul{} : Cell * 16n]
 
 def out(o: Out) -> IO(Unit):
   match o:
@@ -1852,7 +1852,7 @@ def book_depth(f: Nat, +n: U32, +d: Nat) -> Nat:
 # the definitions written into the book
 def book_load(es: List<&2, Ent>, a: Array<Tpl>) -> Array<Tpl>:
   match es:
-    case Con{Ent{ix, t}, r}:
+    case Ent{ix, t} <> r:
       book_load(r, book_put(a, ix, t))
     case Nil{}:
       a
@@ -1864,7 +1864,7 @@ def ents_has.go(eq: Bool, e: Ent, p: List<&2, Ent> & Bool) -> List<&2, Ent> & Bo
 # is definition ix among the parsed ones
 def ents_has(es: List<&2, Ent>, +ix: U32) -> List<&2, Ent> & Bool:
   match es:
-    case Con{Ent{+i, t}, r}:
+    case Ent{+i, t} <> r:
       ents_has.go(U32.is_eq(i, ix), Ent{i, t}, ents_has(r, ix))
     case Nil{}:
       (Nil{}, False{})
@@ -1874,7 +1874,7 @@ def book_run.fin(+ix: U32, +n: U32, +vc: U32, p: List<&2, Ent> & Bool) -> IO(Uni
   (es, ok) = p
   match ok:
     case True{}:
-      out(drive(run(S{env_new(), book_load(es, Array.new(Tpl, book_depth(32n, n, 0n), TEra{})),
+      out(drive(run(S{env_new(), book_load(es, [TEra{} : Tpl * book_depth(32n, n, 0n)]),
         Go{Ref{ix}}, NfK{End{}}, 0, 0, vc})))
     case False{}:
       IO.print("undefined function @main")

@@ -1,5 +1,5 @@
 # u32 array: gaps + default, set (swap), get, fold
-# ported from bend3: the ![..] literal becomes Array.new(U32, 3n, 7) plus
+# ported from bend3: the ![..] literal becomes [7 : U32 * 3n] plus
 # swaps; the fold counter walks a +Nat with its U32 index rebuilt
 # from the twice-read predecessor a +let licenses (Nat is Data), strict
 import Base
@@ -78,7 +78,7 @@ law main.out:
   U32
 
 def main.out():
-  main.go(Array.swap(U32, wr(wr(wr(Array.new(U32, 3n, 7), 0, 11), 2, 22), 5, 33), 1, 99))
+  main.go(Array.swap(U32, wr(wr(wr([7 : U32 * 3n], 0, 11), 2, 22), 5, 33), 1, 99))
 
 law main:
   IO(Unit)

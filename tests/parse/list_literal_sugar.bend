@@ -11,7 +11,7 @@ law rev:
 
 def rev(xs, acc):
   match xs:
-    case Con{h, t}:
+    case h <> t:
       rev(t, h <> acc)
     case Nil{}:
       acc
@@ -23,7 +23,7 @@ law csum:
 
 def csum(xs, acc):
   match xs:
-    case Con{h, t}:
+    case h <> t:
       csum(t, (10 * acc + h : U32))
     case Nil{}:
       acc

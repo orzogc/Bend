@@ -71,7 +71,7 @@ law csum:
 
 def csum(xs, acc):
   match xs:
-    case Con{h, t}:
+    case h <> t:
       csum(t, (10 * acc + h : U32))
     case Nil{}:
       acc
@@ -91,7 +91,7 @@ law main.out:
   U32
 
 def main.out():
-  arr = Array.new(U32, 2n, 0);
+  arr = [0 : U32 * 2n];
   x y = cmp(1) cmp(9)
   a = (2 + 3 * 4 : U32)
   b = (1 << 3n : U32)

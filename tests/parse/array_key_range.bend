@@ -11,8 +11,8 @@ def main():
   0
 
 #|Error:
-#|- expected : a term
-#|- observed : ':'
+#|- expected : '*'
+#|- observed : ','
 #|Location:
 #| 9 | def main():
 #|10>|   m = [0:5, _:0; 1]

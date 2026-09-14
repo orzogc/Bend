@@ -21,7 +21,7 @@ def List.length(A, xs):
   match xs:
     case Nil{}:
       0n
-    case Con{h, t}:
+    case h <> t:
       1n+List.length(A, t)
 
 law LE:
@@ -84,9 +84,9 @@ law dec:
 def dec(x, h, t, r, c):
   match c:
     case OL{e}:
-      Con{x, Con{h, t}}
+      x <> h <> t
     case OG{e}:
-      Con{h, r}
+      h <> r
 
 law insert:
   for +x  : Nat
@@ -96,8 +96,8 @@ law insert:
 def insert(x, xs):
   match xs:
     case Nil{}:
-      Con{x, Nil{}}
-    case Con{h, t}:
+      [x]
+    case h <> t:
       dec(x, h, t, insert(x, t), le_case(x, h))
 
 law isort:
@@ -108,7 +108,7 @@ def isort(xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
+    case h <> t:
       insert(h, isort(t))
 
 law SortedB:
@@ -120,7 +120,7 @@ def SortedB(xs, lo):
   match xs:
     case Nil{}:
       Unit
-    case Con{h, t}:
+    case h <> t:
       (LE(lo, h) & SortedB(t, h))
 
 law sorted_ins.fin:
@@ -128,7 +128,7 @@ law sorted_ins.fin:
   for -x  : Nat
   for -h  : Nat
   for -t  : List<&2, Nat>
-  for sx  : SortedB(Con{h, t}, lo)
+  for sx  : SortedB(h <> t, lo)
   for lx  : LE(lo, x)
   for rec : (SortedB(t, h) -> LE(h, x) -> SortedB(insert(x, t), h))
   for c   : LEOr<x, h>
@@ -152,7 +152,7 @@ def sorted_ins(xs, lo, x):
   match xs:
     case Nil{}:
       sx => lx => (lx, Unit{})
-    case Con{h, t}:
+    case h <> t:
       sx => lx => sorted_ins.fin(lo, x, h, t, sx, lx,
         sorted_ins(t, h, x), le_case(x, h))
 
@@ -164,7 +164,7 @@ def sorted_isort(xs):
   match xs:
     case Nil{}:
       Unit{}
-    case Con{h, t}:
+    case h <> t:
       sorted_ins(isort(t), 0n, h)(sorted_isort(t), Unit{})
 
 law len_ins:
@@ -178,7 +178,7 @@ law len_ins.fin:
   for -t  : List<&2, Nat>
   for rec : {1n+List.length(Nat, t) == List.length(Nat, insert(x, t)) : Nat}
   for c   : LEOr<x, h>
-  {1n+List.length(Nat, Con{h, t}) == List.length(Nat, dec(x, h, t, insert(x, t), c)) : Nat}
+  {1n+List.length(Nat, h <> t) == List.length(Nat, dec(x, h, t, insert(x, t), c)) : Nat}
 
 def len_ins.fin(x, h, t, rec, c):
   match c:
@@ -192,7 +192,7 @@ def len_ins(x, xs):
   match xs:
     case Nil{}:
       {==}
-    case Con{h, t}:
+    case h <> t:
       len_ins.fin(x, h, t, len_ins(x, t), le_case(x, h))
 
 law len_isort:
@@ -203,7 +203,7 @@ def len_isort(xs):
   match xs:
     case Nil{}:
       {==}
-    case Con{h, t}:
+    case h <> t:
       %len_ins(h, isort(t)) : {_ == 1n+List.length(Nat, t) : Nat}
       %len_isort(t) : {1n+List.length(Nat, isort(t)) == 1n+_ : Nat}
       {==}
@@ -211,7 +211,7 @@ def len_isort(xs):
 law s:
   List<&2, Nat>
 
-def s(): isort(Con{2n, Con{0n, Con{1n, Nil{}}}})
+def s(): isort([2n, 0n, 1n])
 
 law main:
   List<&2, Nat>

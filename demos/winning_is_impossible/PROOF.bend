@@ -410,7 +410,7 @@ def run_safe(t: List<Game.Move>, +x: Nat, +y: Nat, hp: T(okpos(x, y)))
   match t:
     case Nil{}:
       (x, (y, (hp, {==})))
-    case Con{Game.Up{}, as0}:
+    case Game.Up{} <> as0:
       use4(Game.Up{}, x, y, go_pos(Game.Up{}, x, y, hp, Unit{}),
         &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
          & {Game.run(as0, Game.move(tx(Game.Up{}, x, y), ty(Game.Up{}, x, y),
@@ -419,7 +419,7 @@ def run_safe(t: List<Game.Move>, +x: Nat, +y: Nat, hp: T(okpos(x, y)))
           %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
               & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
           run_safe(as0, mx, my, hq))
-    case Con{Game.Down{}, as0}:
+    case Game.Down{} <> as0:
       use4(Game.Down{}, x, y, go_pos(Game.Down{}, x, y, hp, Unit{}),
         &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
          & {Game.run(as0, Game.move(tx(Game.Down{}, x, y), ty(Game.Down{}, x, y),
@@ -428,7 +428,7 @@ def run_safe(t: List<Game.Move>, +x: Nat, +y: Nat, hp: T(okpos(x, y)))
           %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
               & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
           run_safe(as0, mx, my, hq))
-    case Con{Game.Left{}, as0}:
+    case Game.Left{} <> as0:
       use4(Game.Left{}, x, y, go_pos(Game.Left{}, x, y, hp, Unit{}),
         &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
          & {Game.run(as0, Game.move(tx(Game.Left{}, x, y), ty(Game.Left{}, x, y),
@@ -437,7 +437,7 @@ def run_safe(t: List<Game.Move>, +x: Nat, +y: Nat, hp: T(okpos(x, y)))
           %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
               & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
           run_safe(as0, mx, my, hq))
-    case Con{Game.Right{}, as0}:
+    case Game.Right{} <> as0:
       use4(Game.Right{}, x, y, go_pos(Game.Right{}, x, y, hp, Unit{}),
         &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
          & {Game.run(as0, Game.move(tx(Game.Right{}, x, y), ty(Game.Right{}, x, y),

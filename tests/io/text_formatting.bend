@@ -17,7 +17,7 @@ def String.join.go(xs, h, sep):
   match xs:
     case Nil{}:
       h
-    case Con{h2, t2}:
+    case h2 <> t2:
       String.append(h, String.append(sep, String.join.go(t2, h2, sep)))
 
 law String.join:
@@ -29,14 +29,14 @@ def String.join(xs, sep):
   match xs:
     case Nil{}:
       SNil{}
-    case Con{h, t}:
+    case h <> t:
       String.join.go(t, h, sep)
 
 law main.out:
   String
 
 def main.out():
-  line = String.join(Con{U32.show(4294967295), Con{U32.show(42), Nil{}}}, ",")
+  line = String.join([U32.show(4294967295), U32.show(42)], ",")
   String.append(line, String.append(",", String.append("ab", "cd")))
 
 law main:

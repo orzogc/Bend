@@ -151,11 +151,11 @@ def Post.insert.go(
 ) -> List<&2, Post<P>>:
   match c:
     case LT{}:
-      Con{p, Con{q, t}}
+      p <> q <> t
     case EQ{}:
-      Con{q, t}
+      q <> t
     case GT{}:
-      Con{q, rest(Unit{})}
+      q <> rest(Unit{})
 
 # Insert by index; a post already held is dropped.
 def Post.insert(-P: Data, +p: Post<P>, +ps: List<&2, Post<P>>) ->
@@ -163,7 +163,7 @@ def Post.insert(-P: Data, +p: Post<P>, +ps: List<&2, Post<P>>) ->
   match ps:
     case Nil{}:
       [p]
-    case Con{q, t}:
+    case q <> t:
       Post.insert.go(P, Nat.cmp(Post.index(P, p), Post.index(P, q)), p, q, t,
         u => Post.insert(P, p, t))
 
@@ -181,21 +181,21 @@ def Post.next(-P: Data, ps: List<&2, Post<P>>, +n: Nat) -> Nat:
   match ps:
     case Nil{}:
       n
-    case Con{p, t}:
+    case p <> t:
       Post.next.go(Nat.cmp(Post.index(P, p), n), n, m => Post.next(P, t, m))
 
 def Post.push(-P: Data, ps: List<&2, Post<P>>, p: Post<P>) -> List<&2, Post<P>>:
   match ps:
     case Nil{}:
       [p]
-    case Con{q, t}:
-      Con{q, Post.push(P, t, p)}
+    case q <> t:
+      q <> Post.push(P, t, p)
 
 def Post.put(-P: Data, hit: Bool, d: Maybe<&2, P>, acc: List<&2, P>) ->
   List<&2, P>:
   match hit d:
     case True{} Some{x}:
-      Con{x, acc}
+      x <> acc
     case _ _:
       acc
 
@@ -205,7 +205,7 @@ def Post.at(-P: Data, ps: List<&2, Post<P>>, +t: Nat, acc: List<&2, P>) ->
   match ps:
     case Nil{}:
       acc
-    case Con{p, rest}:
+    case p <> rest:
       Post{index, tick, name, data} = p
       Post.put(P, Cmp.is_eq(Nat.cmp(tick, t)), data, Post.at(P, rest, t, acc))
 
@@ -213,7 +213,7 @@ def Post.keep(-P: Data, hit: Bool, p: Post<P>, rest: List<&2, Post<P>>) ->
   List<&2, Post<P>>:
   match hit:
     case True{}:
-      Con{p, rest}
+      p <> rest
     case False{}:
       rest
 
@@ -222,7 +222,7 @@ def Post.from(-P: Data, ps: List<&2, Post<P>>, +t: Nat) -> List<&2, Post<P>>:
   match ps:
     case Nil{}:
       []
-    case Con{+p, rest}:
+    case +p <> rest:
       Post.keep(P, Bool.not(Nat.is_lt(Post.tick(P, p), t)), p,
         Post.from(P, rest, t))
 
@@ -231,7 +231,7 @@ def Post.drop(-P: Data, ps: List<&2, Post<P>>, +name: String) -> List<&2, Post<P
   match ps:
     case Nil{}:
       []
-    case Con{+p, rest}:
+    case +p <> rest:
       Post.keep(P, Bool.not(String.eq(Post.name(P, p), name)), p,
         Post.drop(P, rest, name))
 
@@ -783,7 +783,7 @@ def Peer.has(ps: List<&2, Peer>, +p: Peer) -> Bool:
   match ps:
     case Nil{}:
       False{}
-    case Con{q, t}:
+    case q <> t:
       Bool.or(Peer.eq(q, p), Peer.has(t, p))
 
 def Peer.add(known: Bool, ps: List<&2, Peer>, p: Peer) -> List<&2, Peer>:
@@ -791,7 +791,7 @@ def Peer.add(known: Bool, ps: List<&2, Peer>, p: Peer) -> List<&2, Peer>:
     case True{}:
       ps
     case False{}:
-      Con{p, ps}
+      p <> ps
 
 def Server.sent(sr: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Socket):
   (s, r) = sr
@@ -809,7 +809,7 @@ def Server.cast(peers: List<&2, Peer>, sock: Socket, +line: String) -> IO(Socket
   match peers:
     case Nil{}:
       IO.pure(Socket, sock)
-    case Con{p, t}:
+    case p <> t:
       do IO<Socket>:
         s2 : Socket <- Server.send(sock, p, line)
         Server.cast(t, s2, line)
@@ -820,9 +820,9 @@ def Server.resend(lines: List<&2, String>, n: Nat, sock: Socket, +p: Peer) ->
   match lines n:
     case Nil{} _:
       IO.pure(Socket, sock)
-    case Con{l, t} 0n:
+    case l <> t 0n:
       IO.pure(Socket, sock)
-    case Con{l, t} 1n+k:
+    case l <> t 1n+k:
       do IO<Socket>:
         s2 : Socket <- Server.send(sock, p, l)
         Server.resend(t, k, s2, p)
@@ -853,7 +853,7 @@ def Server.post.go(
   do IO<Socket & Map<&2, Room>>:
     s2 : Socket <- Server.cast(peers, sock, line)
     return (s2, Map.set(&2, Room, rooms, room,
-      Room{born, Nat.add(count, 1n), Con{line, posts}, peers}))
+      Room{born, Nat.add(count, 1n), line <> posts, peers}))
 
 def Server.post(
   sock: Socket, room: String, ctime: Nat, name: String, data: String, now: Nat,

@@ -29,7 +29,7 @@ def run_all(fs, x):
   match fs:
     case Nil{}:
       x
-    case Con{f, r}:
+    case f <> r:
       run_all(r, f(x))
 
 law main.out:
