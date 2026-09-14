@@ -130,11 +130,14 @@
 //   | DoLet  ::= Name ":" Term "=" Term ";"? DoStmt
 //   | DoExec ::= Term "<-" Term ";"? DoStmt
 //   | DoBind ::= Name ":" Term "<-" Term ";"? DoStmt
+//   | DoStep ::= Term (";" | NEWLINE) DoStmt
 //   | DoPure ::= "return" Term
 //   | DoRetr ::= Term
 //
 // do M<ls.., R>: desugars onto M.bind(ls.., A, R, v, x => ..) and
-// M.pure(ls.., R, e); an empty list (do M<>:) drops R from both.
+// M.pure(ls.., R, e); an empty list (do M<>:) drops R from both. A
+// step is Unit <- Term: a term is a step when a ";" or a line at the
+// block's column (its first statement's) follows it, else the value.
 //
 // THEORY
 // ------
@@ -2335,10 +2338,12 @@ export function parse_term_do(p: Parse): LTerm {
   parse_eat(p, "<");
   const ts = parse_term_args(p, ">");
   parse_eat(p, ":");
-  return parse_term_do_stmt(p, m, ts.slice(0, -1), ts.length === 0 ? null : ts[ts.length - 1]);
+  parse_skip(p);
+  const col = parse_col(p.str, p.pos);
+  return parse_term_do_stmt(p, m, ts.slice(0, -1), ts.length === 0 ? null : ts[ts.length - 1], col);
 }
 
-export function parse_term_do_stmt(p: Parse, m: Name, ls: LTerm[], R: LTerm | null): LTerm {
+export function parse_term_do_stmt(p: Parse, m: Name, ls: LTerm[], R: LTerm | null, col: number): LTerm {
   function parse_term_do_call(op: Name, xs: LTerm[], ys: LTerm[], s: Span): LTerm {
     let fn: LTerm = Ref(parse_reso(p, m + "." + op), s);
     for (const x of ls.concat(xs, R === null ? [] : [R], ys)) {
@@ -2355,24 +2360,25 @@ export function parse_term_do_stmt(p: Parse, m: Name, ls: LTerm[], R: LTerm | nu
   const t = parse_term(p);
   parse_skip(p);
   const typed = t.$ === "Var" && parse_take(p, ":");
-  const A     = typed ? parse_term(p, 1) : t;
+  const step  = !typed && (parse_at(p, ";") || p.pos < p.str.length && parse_col(p.str, p.pos) === col);
+  const A     = typed ? parse_term(p, 1) : step ? parse_var(p, "Unit", t.s) : t;
   parse_skip(p);
   const asg = typed && parse_at(p, "=") && !parse_at(p, "==");
   if (asg) {
     parse_bump(p);
   } else if (typed) {
     parse_eat(p, "<-");
-  } else if (!parse_take(p, "<-")) {
+  } else if (!step && !parse_take(p, "<-")) {
     return t;
   }
-  const v = parse_term(p);
+  const v = step ? t : parse_term(p);
   parse_skip(p);
   parse_take(p, ";");
   const s  = parse_span(p, beg);
   const k  = typed && t.$ === "Var" ? t.k : "_";
   const n0 = p.sc.stk.length;
   const i  = parse_open(p, k);
-  const f  = parse_term_do_stmt(p, m, ls, R);
+  const f  = parse_term_do_stmt(p, m, ls, R, col);
   parse_close(p, n0);
   if (asg) {
     return Let([k], [i], [Ann(v, A, s)], f, s);

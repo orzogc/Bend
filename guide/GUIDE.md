@@ -188,7 +188,7 @@ errors: `expected : Data, observed : Type`, or `x (consumed more than once)`.
 ```python
 def main() -> IO(Unit):
   do IO<Unit>:                                        # sugar over bind, pure
-    Unit <- IO.write("Hello, ")                       # discard
+    IO.write("Hello, ")                               # step; or Unit <- ..
     name : String <- IO.try(String, IO.get_env("USER"))   # bind
     k : U32 = 2                                       # let
     IO.die(Unit, k, name)                             # the value; or return v
