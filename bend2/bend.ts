@@ -85,7 +85,8 @@
 // "->" return type. a def after its law takes bare names, no "->".
 // a bare Bind name is -Name: Quant. Fill and Plus omit a datatype's
 // leading Quant parameters as a block; Plus alone fills a quant-only D.
-// a literal expands to one node per unit, unbounded by design. Arrow is
+// a literal expands to one node per unit, unbounded by design, and a
+// full U32 or F32 word prints back as its literal. Arrow is
 // right-associative; the domain of a written @ or & binder stops at the
 // first bare "->", so an arrow (or a nested binder) there needs parens.
 // infix "&" and "|" are right-associative, share one precedence, and
@@ -1153,12 +1154,7 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
 // ====
 
 export function tele_bind(tele: Array<[Quant, Name, number, LTerm, Span]>, end: LTerm): LTerm {
-  let out = end;
-  for (let j = tele.length - 1; j >= 0; j--) {
-    const [q, k, i, T, s] = tele[j];
-    out = All(q, k, i, T, out, s);
-  }
-  return out;
+  return tele.reduceRight((out, [q, k, i, T, s]) => All(q, k, i, T, out, s), end);
 }
 
 export function tele_open(book: Book, tel: HTerm): Extract<HTerm, { $: "All" }> | null {
@@ -1192,25 +1188,13 @@ export function tele_unbind(book: Book, T: HTerm): { doms: Array<[Quant, Name, H
   return { doms, ret: term_wnf(book, tel) };
 }
 
-// Nat
-// ===
-
-export function nat_to_term(n: U32, end: LTerm, s?: Span): LTerm {
-  let out = end;
-  for (let i = 0; i < n; i++) {
-    out = Ctr("Succ", [out], s);
-  }
-  return out;
-}
-
 // Word
 // ====
 
 export function word_to_term(n: U32, s?: Span): LTerm {
   let out: LTerm = Ctr("WNil", [], s);
   for (let i = 31; i >= 0; i--) {
-    const bit = (n >>> i) & 1;
-    out = Ctr("WCon", [Ctr(bit === 1 ? "True" : "False", [], s), out], s);
+    out = Ctr("WCon", [Ctr((n >>> i) & 1 ? "True" : "False", [], s), out], s);
   }
   return out;
 }
@@ -1235,9 +1219,7 @@ export function u32_from_term<X>(tm: TermOf<X>, k: Name = "U32"): number | null 
     if (b.$ !== "Ctr" || b.x.length !== 0 || (b.k !== "True" && b.k !== "False")) {
       return null;
     }
-    if (b.k === "True") {
-      n += 2 ** i;
-    }
+    n += b.k === "True" ? 2 ** i : 0;
     i += 1;
     w = term_strip(w.x[1]);
   }
@@ -1262,19 +1244,21 @@ export function f32_from_bits(n: U32): number {
   return F32_VIEW.getFloat32(0);
 }
 
-export function f32_to_term(v: number, s?: Span): LTerm {
-  return Ctr("F32", [word_to_term(f32_to_bits(v), s)], s);
+// The shortest decimal that reads back to the same f32, as a literal (a
+// point before an e); nan, inf and -inf have none and print as such.
+function f32_show(x: number): string {
+  let s = "nan";
+  for (let p = 1; x === x && p <= 9 && Math.fround(Number(s)) !== x; p += 1) {
+    s = String(Number(x.toExponential(p - 1)));
+  }
+  return (Object.is(x, -0) ? "-0" : s).replace(/^-?\d+(?=e|$)/, "$&.0").replace("Infinity", "inf");
 }
 
 // Show
 // ====
 
 export function quant_show(q: Quant): string {
-  switch (q.$) {
-    case "None": return "-";
-    case "Lone": return "";
-    case "Many": return "+";
-  }
+  return { None: "-", Lone: "", Many: "+" }[q.$];
 }
 
 const ESCAPES: Record<string, U32> = {
@@ -1282,10 +1266,9 @@ const ESCAPES: Record<string, U32> = {
 };
 
 export function char_show(n: U32, quote: string): string {
-  for (const [k, c] of Object.entries(ESCAPES)) {
-    if (c === n && ((k !== "'" && k !== '"') || k === quote)) {
-      return "\\" + k;
-    }
+  const k = Object.keys(ESCAPES).find((k) => ESCAPES[k] === n && ((k !== "'" && k !== '"') || k === quote));
+  if (k !== undefined) {
+    return "\\" + k;
   }
   if (n < 32 || n === 127 || (n >= 0xd800 && n <= 0xdfff) || n > 0x10ffff) {
     return "\\u{" + n.toString(16) + "}";
@@ -1423,8 +1406,11 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
         return rs !== "" && prc > 1 ? "(" + s + ")" : s;
       }
       case "Ctr": {
+        const u32 = u32_from_term(tm);
+        const f32 = u32_from_term(tm, "F32");
         const chr = term_show_sugar_chr(tm, "'");
-        const sug = term_show_sugar_nat(tm, prc)
+        const sug = u32 !== null ? String(u32) : f32 !== null ? f32_show(f32_from_bits(f32))
+                 : term_show_sugar_nat(tm, prc)
                  ?? (chr !== null ? "'" + chr + "'" : null)
                  ?? term_show_sugar_str(tm);
         if (sug !== null) {
@@ -1496,10 +1482,7 @@ export function ctx_show(book: Book, ctx: Ctx): string {
   const anns = pmap_to_array(ctx);
   anns.sort((a, b) => a[0] - b[0]);
   const bnd = ctx_scope(ctx);
-  let wid = 0;
-  for (const [, a] of anns) {
-    wid = Math.max(wid, a.k.length);
-  }
+  const wid = Math.max(0, ...anns.map(([, a]) => a.k.length));
   let out = anns.length === 0 ? "" : "\nContext:";
   for (const [i, a] of anns) {
     const T = term_show(term_lower(term_snf(book, a.T), i), -1, bnd.slice(0, i));
@@ -1513,12 +1496,8 @@ export function span_show(s: Span): string {
   const at  = s.src.slice(0, s.beg).split("\n").length;
   const beg = Math.max(1, at - 1);
   const end = Math.min(lns.length, at + 1);
-  const out: string[] = [];
-  for (let lin = beg; lin <= end; lin++) {
-    const bar = lin === at ? ">| " : " | ";
-    out.push(String(lin).padStart(String(end).length) + bar + (lns[lin - 1] ?? ""));
-  }
-  return out.join("\n");
+  return lns.slice(beg - 1, end).map((l, j) =>
+    String(beg + j).padStart(String(end).length) + (beg + j === at ? ">| " : " | ") + l).join("\n");
 }
 
 export function typeless_show(book: Book, ctx: Ctx, tm: HTerm): string {
@@ -2278,7 +2257,8 @@ export function parse_term_num(p: Parse): LTerm {
       if (!isFinite(v)) {
         parse_fail(p, "a float literal with a finite f32 value (got " + txt + ")");
       }
-      return f32_to_term(v, parse_span(p, beg));
+      const spn = parse_span(p, beg);
+      return Ctr("F32", [word_to_term(f32_to_bits(v), spn)], spn);
     }
     if (char_is_name(parse_peek(p))) {
       parse_fail(p, "a numeric literal (NUMBER is U32, NUMBER n is Nat)");
@@ -2303,7 +2283,10 @@ export function parse_term_num(p: Parse): LTerm {
     out = Ctr("Zero", [], parse_span(p, beg));
   }
   const spn = parse_span(p, beg);
-  return nat_to_term(n, out, spn);
+  for (let i = 0; i < n; i++) {
+    out = Ctr("Succ", [out], spn);
+  }
+  return out;
 }
 
 export function parse_term_chr(p: Parse): LTerm {

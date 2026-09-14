@@ -23,7 +23,7 @@ def main():
 
 #|Error:
 #|- expected : a constructor of Bool (missing, or already matched)
-#|- observed : \{Con: (h => t => h); Nil: U32{WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+#|- observed : \{Con: (h => t => h); Nil: 0}
 #|Location: main.go
 #|12 |   match z:
 #|13>|     case Con{h, t}:

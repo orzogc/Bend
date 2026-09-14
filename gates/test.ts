@@ -7,9 +7,10 @@
 // untimed (the first launch compiles its Metal shader, which the node then
 // caches by source), then runs each program once natively and once under
 // bun, each under a 5 s alarm. A test passes when its check, its interpreted
-// run, its JS run and its C run all print its `#|` lines; a test whose build
-// fails (a law main with no def, a foreign def with no twin for a lane) is
-// checked and interpreted only.
+// run, its JS run and its C run all print its `#|` lines; a test whose main
+// the compiler refuses to print (a function, a Type, an erased or dependent
+// field) is checked and interpreted only; a foreign def with no twin for a
+// lane drops that lane; any other build failure fails its lanes.
 
 import * as child from "node:child_process";
 import * as fs from "node:fs";
@@ -75,7 +76,8 @@ function test_probes(t: Test, got: Got): string[] {
   if (!t.main || t.want.startsWith("Error:")) {
     return ["check"];
   }
-  return ["check", "interp", ...t.lanes];
+  const shown = !/^Error: main's type .* cannot be printed/.test(got.left ?? "");
+  return ["check", "interp", ...shown ? t.lanes : []];
 }
 
 function test_judge(t: Test, got: Got): Fail[] {

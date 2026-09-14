@@ -11,9 +11,9 @@ def main(): %5 : U32; 1
 
 #|Error:
 #|- expected : an annotated term (cannot infer)
-#|- observed : U32{WCon{True{}, WCon{False{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+#|- observed : 5
 #|Location: main
-#| 9 | 
+#| 9 |
 #|10>| def main(): %5 : U32; 1
 #|11 |
 #|exit 1

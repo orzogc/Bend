@@ -8,9 +8,9 @@ def main(): \{Qux: 3}
 
 #|Error:
 #|- expected : a constructor of U32 (missing, or already matched)
-#|- observed : \{Qux: U32{WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+#|- observed : \{Qux: 3}
 #|Location: main
-#|6 | 
+#|6 |
 #|7>| def main(): \{Qux: 3}
 #|8 |
 #|exit 1

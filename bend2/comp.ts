@@ -125,6 +125,8 @@ type Dom = [Bend.Quant, Bend.Name, HTerm];
 
 type Sig = { live: Dom[]; lays: Lay[]; ret: Lay };
 
+type Show = { cells: (number | Bend.Name)[]; names: string[] };
+
 // Constants
 // =========
 
@@ -438,13 +440,11 @@ static Term f32_read(Env e, Term s);
 #endif
 `.slice(1),
   IO: String.raw`
-static Term f32_show(Env e, Term x) {
-  char buf[40];
-  f32  v = f32_unbox(x);
-  int  n = 0;
-  int  p = 0;
+static int f32_text(char* buf, f32 v) {
+  int n = 0;
+  int p = 0;
   if (v != v) {
-    return io_str(e, "nan", 3);
+    return sprintf(buf, "nan");
   }
   for (; p < 9; p += 1) {
     n = snprintf(buf, 40, "%.*e", p, (double)v);
@@ -454,7 +454,7 @@ static Term f32_show(Env e, Term x) {
   }
   char* ep = strchr(buf, 'e');
   if (ep == NULL) {
-    return io_str(e, buf, n);
+    return n;
   }
   int ex = atoi(ep + 1);
   if (ex >= 21 || ex <= -7) {
@@ -467,7 +467,12 @@ static Term f32_show(Env e, Term x) {
     memset(buf + s + 1 + p, '0', ex - p);
     n = s + 1 + ex;
   }
-  return io_str(e, buf, n);
+  return n;
+}
+
+static Term f32_show(Env e, Term x) {
+  char buf[40];
+  return io_str(e, buf, f32_text(buf, f32_unbox(x)));
 }
 
 static Term f32_read(Env e, Term s) {
@@ -1160,27 +1165,72 @@ export function io_type(book: Bend.Book): HTerm | null {
   return xs?.length === 1 ? xs[0] : null;
 }
 
-// The program's entry: main when it is IO, else main.io, minted once to
-// print main's normal form, taken here: a pure main is a constant.
-function io_entry(book: Bend.Book): Bend.Name {
+// A pure main's value prints through a descriptor of its type, one node
+// per (type, boxed?) pair in cells: a word (0 U32, 1 F32, 2 Nat), 3 a
+// Char (boxed?), 4 a String, 5 an Eql, 6 an Array (element node, lgs), 7
+// a Data (boxed?, arms, then per arm its name, cid, field count and
+// (word offset, node) per field: offsets in the node for a boxed value,
+// inline for a flat one). A cell that is a name is the constructor's cid
+// on the C lane. Null for an IO main; a type the printer cannot walk (a
+// function, a Type, an erased or dependent field) refuses the build.
+function show_main(book: Bend.Book): Show | null {
   const main = book.tlds["main"];
   if (main?.$ !== "Def" || (main.v === null && main.i === undefined)
     || book.tlds["IO"] === undefined) {
     die("no main to run");
   }
   if (io_type(book) !== null) {
-    return "main";
+    return null;
   }
-  if (book.tlds["main.io"] === undefined) {
-    const snf = Bend.term_lower(Bend.term_snf(book, main.v as HTerm));
-    const text = [...Bend.term_show(snf)].map((c) =>
-      Bend.char_show(c.codePointAt(0) as number, '"')).join("");
-    const n0 = book.order.length;
-    Bend.parse_book(book, "", ["def main.io() -> IO(Unit):",
-      `  IO.print("${text}")`, ""].join("\n"));
-    Bend.book_valid(book, n0);
-  }
-  return "main.io";
+  const show: Show = { cells: [], names: [] };
+  const ids = new Map<string, number>();
+  const refuse = (): never => die("main's type " + Bend.term_show(
+    Bend.term_lower(main.T)) + " cannot be printed (a function, a Type, an"
+    + " erased or dependent field)");
+  const node = (T: HTerm, lay: Lay): number => {
+    const t = ty_wnf(book, T) as HTerm;
+    const box = lay_box(lay);
+    const key = String(box) + Bend.term_show(Bend.term_lower(t));
+    const got = ids.get(key);
+    if (got !== undefined) {
+      return got;
+    }
+    const adt = ty_adt(book, t);
+    const tld = adt === null ? undefined : book.tlds[adt.k];
+    const kind = t.$ === "Eql" ? 5 : tld?.$ !== "ADT" || adt!.k === "IO.OP"
+      ? refuse()
+      : { U32: 0, F32: 1, Nat: 2, Char: 3, String: 4, Array: 6 }[adt!.k]
+      ?? 7;
+    const id = show.cells.push(kind) - 1;
+    ids.set(key, id);
+    const refs: [number, HTerm, Lay][] = [];
+    if (kind === 3) {
+      show.cells.push(Number(box));
+    } else if (kind === 6) {
+      const el = lay_of(book, adt!.x[0]);
+      refs.push([show.cells.push(0, lay_arr(el).lgs) - 2, adt!.x[0], el]);
+    } else if (kind === 7) {
+      show.cells.push(Number(box), tld.c.length);
+      for (const [j, c] of tld.c.entries()) {
+        const fs = box ? lay_node(book, c.k).arms![0].fs : lay.arms![j].fs;
+        const doms = ctr_tail(book, c, adt!.x);
+        show.cells.push(show.names.push(c.k) - 1, c.k, doms.length);
+        for (const [f, d] of doms.entries()) {
+          if (!live_dom(d)) {
+            refuse();
+          }
+          refs.push([show.cells.push(fs[f].at, 0) - 1, d[2], fs[f].lay]);
+        }
+      }
+    }
+    for (const [at, T2, l] of refs) {
+      show.cells[at] = node(T2, l);
+    }
+    return id;
+  };
+  const lay = lay_of(book, main.T);
+  node(main.T, lay.ks.length === 0 ? BOX : lay);
+  return show;
 }
 
 export function io_run(book: Bend.Book): number {
@@ -2693,8 +2743,8 @@ function compile_segs(fl: File): string {
 }
 
 export function compile_book(book: Bend.Book): string {
-  const entry = io_entry(book);
-  const cb = carb_book(book, [entry]);
+  const show = show_main(book);
+  const cb = carb_book(book, ["main"]);
   const facts = () => JSON.stringify([[...cb.own], [...cb.hot]]);
   const pass = (defs: [Bend.Name, Def][]): File => {
     [cb.lend, BRWS].forEach((m) => m.clear());
@@ -2725,7 +2775,7 @@ export function compile_book(book: Bend.Book): string {
     from.forEach(grab);
     return set;
   };
-  const live = reach([seg_fid(entry)]);
+  const live = reach([seg_fid("main")]);
   // The device holds what the bangs reach and, when a bang's parameter
   // may hold a closure (a jump through its fid), every closure.
   const wide = [...fl.bangs].some((k) =>
@@ -2738,8 +2788,14 @@ export function compile_book(book: Bend.Book): string {
   fl.spins = fl.spins.filter(([n]) => live.has(n));
   const entries = [...fl.segs, seg_new("io_emit", BOX, [""]),
     seg_new("clo_apply", BOX, ["", ""])];
+  const desc = show === null ? [] : ["#if !DEVICE",
+    `static const u32 SHOW_DESC[] = { ${show.cells.map((c) =>
+      typeof c === "string" ? cid_reg(fl, c) : c).join(", ")} };`,
+    `static const char* SHOW_NAMES[] = { ${show.names.map((n) =>
+      JSON.stringify(n)).join(", ")} };`, "#endif"];
   const defs = compile_tables(fl, entries);
-  defs.push(`#define MAIN_FID ${seg_fid(entry)}`);
+  defs.push(`#define MAIN_FID ${seg_fid("main")}`, `#define MAIN_PURE ${
+    Number(show !== null)}`, ...desc);
   const fills: [string, string[]][] = [
     ["Tables", [defs.join("\n"), ...[...fl.tabs].map(([r, i]) =>
       `CONSTV u64 TAB_${i}[] = { ${r} };`)]],
@@ -3001,9 +3057,11 @@ export function js_lib(book: Bend.Book, roots: Bend.Name[],
 }
 
 export function js_book(book: Bend.Book): string {
-  const entry = io_entry(book);
-  return js_lib(book, [entry], null) + "\n" + RUNTIME_MAIN
-    + "\ncli(process.argv.slice(2));\nio_exit(" + js_sat(entry) + ");";
+  const show = show_main(book);
+  return js_lib(book, ["main"], null) + "\n" + RUNTIME_MAIN
+    + "\ncli(process.argv.slice(2));\nio_exit(" + js_sat("main") + ", "
+    + JSON.stringify(show && [show.cells.map((c) => typeof c === "string"
+      ? 0 : c), show.names]) + ");";
 }
 
 // RuntimeC
@@ -4994,6 +5052,16 @@ OUTLINE void io_sync(void) {
 }
 
 // the edge is UTF-8
+static u64 io_utf8(char* buf, u64 c) {
+  u64 k = c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
+  for (u64 i = k; i > 1; i -= 1) {
+    buf[i - 1] = (char)(0x80 | (c & 0x3F));
+    c >>= 6;
+  }
+  buf[0] = (char)(k == 1 ? c : (0xF00 >> k) | c);
+  return k;
+}
+
 OUTLINE char* io_cstr(Env e, Term s, u64* len) {
   u64   cap = 64;
   u64   n   = 0;
@@ -5001,18 +5069,11 @@ OUTLINE char* io_cstr(Env e, Term s, u64* len) {
   while (term_aux(s) == CID_SCON) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, s, 2, fb));
-    u64 c = fb[0];
-    u64 k = c < 0x80 ? 1 : c < 0x800 ? 2 : c < 0x10000 ? 3 : 4;
-    if (n + k + 1 > cap) {
+    if (n + 5 > cap) {
       cap *= 2;
       buf = io_mem(realloc(buf, cap));
     }
-    for (u64 i = k; i > 1; i -= 1) {
-      buf[n + i - 1] = (char)(0x80 | (c & 0x3F));
-      c >>= 6;
-    }
-    buf[n] = (char)(k == 1 ? c : (0xF00 >> k) | c);
-    n += k;
+    n += io_utf8(buf + n, fb[0]);
     s = fb[1];
   }
   buf[n] = 0;
@@ -5196,6 +5257,112 @@ static void io_wait(Env e) {
   free(fds);
 }
 
+${NATIVE.IO}
+// Show
+// ====
+
+#if MAIN_PURE
+
+// A pure main's value, spelled as term_show spells it: d is a node of
+// SHOW_DESC (see show_main), w the value's words. A boxed Data reads its
+// arm by cid off a Term (packed, or a node), an inline one by tag off
+// its words.
+static void show_val(Env e, u32 d, const Term* w);
+
+// char_show: an escape, a \u{hex}, else the code point in UTF-8
+static void show_chr(u64 c, char q) {
+  char b[4];
+  int  k = c == 10 ? 'n' : c == 9 ? 't' : c == 13 ? 'r' : c == 0 ? '0'
+    : c == 92 || c == (u64)q ? (int)c : 0;
+  if (k != 0) {
+    printf("\\%c", k);
+  } else if (c < 32 || c == 127 || (c >= 0xD800 && c <= 0xDFFF)
+    || c > 0x10FFFF) {
+    printf("\\u{%llx}", (unsigned long long)c);
+  } else {
+    fwrite(b, 1, io_utf8(b, c), stdout);
+  }
+}
+
+// The shortest text that reads back, as a literal: a point before an e
+static void show_f32(u32 x) {
+  char  buf[40];
+  int   n  = f32_text(buf, f32_unbox(x));
+  char* ep = memchr(buf, 'e', n);
+  int   m  = ep == NULL ? n : (int)(ep - buf);
+  buf[n] = 0;
+  if (strpbrk(buf, ".ni") == NULL) {
+    printf("%.*s.0%s", m, buf, buf + m);
+  } else {
+    fputs(buf, stdout);
+  }
+}
+
+static void show_arr(Env e, u32 d, Term t, u32 lo, u32 c) {
+  if (c > SHOW_DESC[d + 2]) {
+    c -= 1;
+    fputs("ANode{", stdout);
+    show_arr(e, d, t, lo, c);
+    fputs(", ", stdout);
+    show_arr(e, d, t, lo + (1u << c), c);
+  } else {
+    Term v[1u << c];
+    for (u32 j = 0; j < 1u << c; j += 1) {
+      v[j] = blk_read(e.mem, term_tag(t) == TAG_ARR, term_peek(e, t), lo + j);
+    }
+    fputs("ALeaf{", stdout);
+    show_val(e, SHOW_DESC[d + 1], v);
+  }
+  putchar('}');
+}
+
+static void show_val(Env e, u32 d, const Term* w) {
+  const u32* D = SHOW_DESC;
+  Term one;
+  switch (D[d]) {
+    case 0: printf("%u", (u32)w[0]); break;
+    case 1: show_f32((u32)w[0]); break;
+    case 2: printf("%llun", (unsigned long long)w[0]); break;
+    case 3:
+      putchar('\'');
+      show_chr(D[d + 1] != 0 ? term_loc(w[0]) : w[0], '\'');
+      putchar('\'');
+      break;
+    case 4:
+      putchar('"');
+      for (Term s = w[0]; term_aux(s) == CID_SCON;) {
+        Loc l = term_peek(e, s);
+        show_chr(e.mem[l], '"');
+        s = e.mem[l + 1];
+      }
+      putchar('"');
+      break;
+    case 5: fputs("{==}", stdout); break;
+    case 6: show_arr(e, d, w[0], 0, blk_cls(w[0])); break;
+    default: {
+      Term t   = w[0];
+      bool box = D[d + 1] != 0;
+      u32  key = box ? (u32)term_aux(t) : D[d + 2] > 1 ? (u32)t : 0;
+      u32  a   = d + 3;
+      for (u32 i = 0; box ? D[a + 1] != key : i != key; i += 1) {
+        a += 3 + 2 * D[a + 2];
+      }
+      if (box) {
+        one = term_loc(t);
+        w   = term_tag(t) == TAG_PAK ? &one : e.mem + term_peek(e, t);
+      }
+      printf("%s{", SHOW_NAMES[D[a]]);
+      for (u32 j = 0; j < D[a + 2]; j += 1) {
+        fputs(j == 0 ? "" : ", ", stdout);
+        show_val(e, D[a + 4 + 2 * j], w + D[a + 3 + 2 * j]);
+      }
+      putchar('}');
+    }
+  }
+}
+
+#endif
+
 // The continuation applied to the item is the next request.
 static int io_step(Env e, IoAct* a) {
   for (;;) {
@@ -5240,8 +5407,14 @@ OUTLINE int io_loop(Corpus H) {
   if (pipe(io_wake_fd) | fcntl(io_wake_fd[0], F_SETFL, O_NONBLOCK)) {
     err_fail("the event loop failed to open");
   }
-  io_spawn(corpus_eval(H, term_tsk(MAIN_FID, task_node(e, MAIN_FID, TERM_HOLE,
-    0, 0))));
+  Term m = corpus_eval(H, term_tsk(MAIN_FID, task_node(e, MAIN_FID,
+    TERM_HOLE, 0, 0)));
+#if MAIN_PURE
+  show_val(e, 0, H + H_ROOT_WORD);
+  putchar('\n');
+  return 0;
+#endif
+  io_spawn(m);
   for (u32 n = 0;; n += 1) {
     if (io_runs.head == NULL) {
       if (io_live == 0) {
@@ -5266,7 +5439,6 @@ OUTLINE int io_loop(Corpus H) {
   }
 }
 
-${NATIVE.IO}
 // Chan
 // ====
 
@@ -5519,11 +5691,49 @@ function cli(argv) {
   }
 }
 
+// Show
+// ====
+
+// char_show: an escape, a \u{hex}, else the code point
+function show_chr(c, q) {
+  const k = { 10: "n", 9: "t", 13: "r", 0: "0", 92: "\\" }[c]
+    ?? (c === q.codePointAt(0) ? q : null);
+  return k !== null ? "\\" + k : c < 32 || c === 127
+    ? "\\u{" + c.toString(16) + "}" : String.fromCodePoint(c);
+}
+
+// A pure main's value, spelled as term_show spells it: d is a node of
+// the descriptor D over the names N (see show_main), v the value.
+function show_val(D, N, d, v) {
+  if (D[d] === 7) {
+    const fs = Object.values(typeof v === "boolean"
+      ? { $: v ? "True" : "False" } : v);
+    let a = d + 3;
+    for (; N[D[a]] !== fs[0]; a += 3 + 2 * D[a + 2]) {}
+    return fs[0] + "{" + fs.slice(1).map((f, j) =>
+      show_val(D, N, D[a + 4 + 2 * j], f)).join(", ") + "}";
+  }
+  return D[d] === 0 ? String(v)
+    : D[d] === 1 ? f32_show(v).replace(/^-?\d+(?=e|$)/, "$&.0")
+    : D[d] === 2 ? v + "n"
+    : D[d] === 3 ? "'" + show_chr(v.codePointAt(0), "'") + "'"
+    : D[d] === 4 ? "\"" + [...v].map((c) =>
+      show_chr(c.codePointAt(0), "\"")).join("") + "\""
+    : D[d] === 5 ? "{==}"
+    : v.length === 1 ? "ALeaf{" + show_val(D, N, D[d + 1], v[0]) + "}"
+    : "ANode{" + show_val(D, N, d, v.slice(0, v.length >> 1)) + ", "
+      + show_val(D, N, d, v.slice(v.length >> 1)) + "}";
+}
+
 // Io
 // ==
 
-function io_exit(main) {
+function io_exit(main, show) {
   try {
+    if (show !== null) {
+      io_out(1, io_bytes(show_val(...show, 0, run_loop(main())) + "\n"));
+      process.exit(0);
+    }
     process.exit(io_run(main));
   } catch (e) {
     io_errs(String(e));

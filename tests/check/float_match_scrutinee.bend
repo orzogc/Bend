@@ -21,7 +21,7 @@ def main():
 
 #|Error:
 #|- expected : a constructor of F32 (missing, or already matched)
-#|- observed : \{Chr: (c => U32{WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}})}
+#|- observed : \{Chr: (c => 0)}
 #|Location: f
 #|12 |   match x:
 #|13>|     case Chr{c}:

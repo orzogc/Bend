@@ -10,9 +10,9 @@ def main(): (x => x)(3)
 
 #|Error:
 #|- expected : an annotated term (cannot infer)
-#|- observed : U32{WCon{True{}, WCon{True{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}
+#|- observed : 3
 #|Location: main
-#| 8 | 
+#| 8 |
 #| 9>| def main(): (x => x)(3)
 #|10 |
 #|exit 1
