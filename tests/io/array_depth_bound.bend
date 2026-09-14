@@ -2,7 +2,7 @@
 # backend stores a word Array as a flat block whose cell class ends
 # at 31, so buf_new refuses a deeper build loud (error 10) - but the
 # JS lanes built the same Array as a structurally shared ANode tree
-# in O(depth) and RAN: [7 : U32 * 32n] printed 7 and exited 0 on
+# in O(depth) and RAN: [7 : U32^32n] printed 7 and exited 0 on
 # the interpreter and --js while every C binary fail-stopped, a
 # backend acceptance divergence of the launch-blocker class (SPEC
 # 1.8; natives behave identically in every lane, SPEC 1.7). The C
@@ -30,7 +30,7 @@ def main.go(r):
     return 0
 
 def main():
-  main.go(Array.get(U32, [7 : U32 * 32n], 5))
+  main.go(Array.get(U32, [7 : U32^32n], 5))
 
 #|bend: an array past the deepest block class 31
 #|exit 1

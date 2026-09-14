@@ -89,7 +89,7 @@ def main() -> IO(Unit):
     r : Result<&1, &1, U32 & String, Window> <- Window.open("gfx", 64, 48)
     opened(r)
 
-#|Window.open: no display
+#|Window.open: no display (build a native binary with bend <file> -o <out> and run it from a macOS desktop session)
 #|ENOTSUP
 #|7
 #|8386560

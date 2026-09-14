@@ -95,7 +95,7 @@ law main.out:
   U32
 
 def main.out():
-  halves(fill8([0 : U32 * 3n]))
+  halves(fill8([0 : U32*8n]))
 
 law main:
   IO(Unit)

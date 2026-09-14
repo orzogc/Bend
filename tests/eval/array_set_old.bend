@@ -26,7 +26,7 @@ law main.out:
   U32
 
 def main.out():
-  main.a(Array.swap(U32, [5 : U32 * 1n], 0, 1))
+  main.a(Array.swap(U32, [5 : U32*2n], 0, 1))
 
 law main:
   IO(Unit)

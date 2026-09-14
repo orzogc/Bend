@@ -274,9 +274,9 @@ law maze:
 
 def maze(m):
   s = U32.mul(U32.inc(m), 2654435761)
-  g = fill(1024n, s, [0 : U32 * 10n])
-  q = [0 : U32 * 10n]
-  d = [4294967295 : U32 * 10n]
+  g = fill(1024n, s, [0 : U32*1024n])
+  q = [0 : U32*1024n]
+  d = [4294967295 : U32*1024n]
   finish(bfs(1024n, (St{g, q, d[0] <- 0, 0, 1}, True{})))
 
 # batch tree over the maze index space: leaf i searches maze i

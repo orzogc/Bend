@@ -35,4 +35,4 @@ law main:
 
 def main(): make(Sk{Sk{Zk{}}})
 
-#|Tuple{1, Tuple{1, 7}}
+#|(1, 1, 7)

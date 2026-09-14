@@ -22,4 +22,4 @@ law main:
 
 def main(): w
 
-#|Tuple{0n, {==}}
+#|(0n, {==})

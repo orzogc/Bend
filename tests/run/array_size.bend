@@ -25,8 +25,8 @@ law main.out:
   U32
 
 def main.out():
-  s16 = sz(Array.size(U32, [7 : U32 * 4n]))
-  s8 = half([7 : U32 * 4n])
+  s16 = sz(Array.size(U32, [7 : U32*16n]))
+  s8 = half([7 : U32*16n])
   s1 = sz(Array.size(U32, ALeaf{9}))
   U32.add(U32.mul(U32.add(U32.mul(s16, 100), s8), 10), s1)
 

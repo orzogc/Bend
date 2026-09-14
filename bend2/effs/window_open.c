@@ -124,7 +124,7 @@ static u32 window_make(const char* title, u32 w, u32 h, intptr_t* out,
     return EINVAL;
   }
   if (NSScreen.screens.count == 0) {
-    *why = "Window.open: no display";
+    *why = "Window.open: no display (build a native binary with bend <file> -o <out> and run it from a macOS desktop session)";
     return ENOTSUP;
   }
   if (window_dev == nil) {
@@ -176,7 +176,7 @@ static u32 window_make(const char* title, u32 w, u32 h, intptr_t* out,
 
 static u32 window_make(const char* title, u32 w, u32 h, intptr_t* out,
   const char** why) {
-  *why = "Window.open: no display";
+  *why = "Window.open: no display (build a native binary with bend <file> -o <out> and run it from a macOS desktop session)";
   return ENOTSUP;
 }
 

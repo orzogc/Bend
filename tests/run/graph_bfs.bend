@@ -95,7 +95,7 @@ law build:
   Array<U32>
 
 def build():
-  wr(wr(wr(wr(wr(wr([0 : U32 * 3n], 0, 6), 1, 8), 2, 24), 3, 32), 5, 2), 6, 128)
+  wr(wr(wr(wr(wr(wr([0 : U32*8n], 0, 6), 1, 8), 2, 24), 3, 32), 5, 2), 6, 128)
 
 law go:
   for m: Array<U32>

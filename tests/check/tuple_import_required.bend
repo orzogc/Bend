@@ -12,7 +12,7 @@ def main():
 
 #|Error:
 #|- expected : a declared constructor
-#|- observed : Tuple{1, 2}
+#|- observed : (1, 2)
 #|Location: main
 #| 9 | def main():
 #|10>|   x = (1, 2)

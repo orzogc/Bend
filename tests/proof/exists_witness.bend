@@ -80,4 +80,4 @@ law main:
 
 def main(): sample()
 
-#|Tuple{S{S{Z{}}}, {==}}
+#|(S{S{Z{}}}, {==})

@@ -18,4 +18,4 @@ def k(a: U32, b: U32, c: U32) -> Bool:
 def m(xs: Array<U32>, i: U32, j: U32) -> Array<U32> & U32:
   xs[i + j]
 
-#|a => b => c => Con{U32.add(a, b), Con{U32.shl(c), Nil{}}}
+#|a => b => c => [U32.add(a, b), U32.shl(c)]

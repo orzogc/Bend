@@ -40,7 +40,7 @@ law main.out:
   U32
 
 def main.out():
-  main.pick(Array.get(U32, app(poke, [1 : U32 * 0n]), 0))
+  main.pick(Array.get(U32, app(poke, [1 : U32*1n]), 0))
 
 law main:
   IO(Unit)

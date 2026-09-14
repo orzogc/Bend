@@ -16,4 +16,4 @@ law main:
 def main():
   ("a\u{1}b\u{7f}\t\"q\"", ("", ('\u{1b}', ("\u{1F600}", ('\u{7}', "it's")))))
 
-#|Tuple{"a\u{1}b\u{7f}\t\"q\"", Tuple{"", Tuple{'\u{1b}', Tuple{"😀", Tuple{'\u{7}', "it's"}}}}}
+#|("a\u{1}b\u{7f}\t\"q\"", "", '\u{1b}', "😀", '\u{7}', "it's")

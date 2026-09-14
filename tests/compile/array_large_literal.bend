@@ -1,7 +1,7 @@
 # a large array: 1024 slots default-filled, three slots written, strided
 # reads at 0, 100, .., 1000
 # ported from bend3: the ![..] literal with a default becomes
-# [3 : U32 * 10n] plus swaps; the read counter walks a +Nat whose
+# [3 : U32*1024n] plus swaps; the read counter walks a +Nat whose
 # twice-read predecessor a +let licenses (Nat is Data), strict
 import Base
 
@@ -63,7 +63,7 @@ law main.out:
   U32
 
 def main.out():
-  rd(10n, wr(wr(wr([3 : U32 * 10n], 0, 7), 500, 20), 1000, 9), 0)
+  rd(10n, wr(wr(wr([3 : U32*1024n], 0, 7), 500, 20), 1000, 9), 0)
 
 law main:
   IO(Unit)

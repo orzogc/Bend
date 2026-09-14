@@ -93,11 +93,11 @@ law main.out:
   U32
 
 def main.out():
-  b1 = rdb(Array.get(Bool, Array.set(Bool, [False{} : Bool * 2n], 1, True{}), 1))
-  b0 = rdb(Array.get(Bool, [False{} : Bool * 1n], 0))
-  dd = rdd(Array.get(Dir, Array.set(Dir, [N{} : Dir * 2n], 2, S{}), 2))
-  sw = swc(Array.swap(Cmp, [EQ{} : Cmp * 1n], 0, GT{}))
-  ff = rdf(Array.get(F32, [F32.div(U32.to_f32(5), U32.to_f32(2)) : F32 * 1n], 1))
+  b1 = rdb(Array.get(Bool, Array.set(Bool, [False{} : Bool*4n], 1, True{}), 1))
+  b0 = rdb(Array.get(Bool, [False{} : Bool*2n], 0))
+  dd = rdd(Array.get(Dir, Array.set(Dir, [N{} : Dir*4n], 2, S{}), 2))
+  sw = swc(Array.swap(Cmp, [EQ{} : Cmp*2n], 0, GT{}))
+  ff = rdf(Array.get(F32, [F32.div(U32.to_f32(5), U32.to_f32(2)) : F32*2n], 1))
   U32.add(U32.mul(U32.add(U32.mul(U32.add(U32.mul(U32.add(U32.mul(b1, 10), b0), 10), dd), 100), sw), 10), ff)
 
 law main:

@@ -19,4 +19,4 @@ law main:
 
 def main(): pick()
 
-#|Tuple{2n, Tuple{{==}, {==}}}
+#|(2n, {==}, {==})

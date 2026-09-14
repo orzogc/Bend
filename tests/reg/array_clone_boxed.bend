@@ -62,7 +62,7 @@ law main.out:
   String
 
 def main.out():
-  p = both(Array.clone(String, ["ab" : String * 2n]))
+  p = both(Array.clone(String, ["ab" : String*4n]))
   q = one(Array.clone(String, ANode{ALeaf{"hello"}, ALeaf{"world"}}))
   r = swap.go(Array.clone(String,
     ANode{ANode{ALeaf{"a"}, ALeaf{"b"}}, ANode{ALeaf{"c"}, ALeaf{"d"}}}))

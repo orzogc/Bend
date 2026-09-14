@@ -169,15 +169,18 @@ Arrays give Bend in-place mutation without giving up purity:
 import Base
 
 def main() -> Array<U32> & U32:
-  a = [0 : U32 * 3n] # 2^3 slots, all 0
-  b = a[5] <- 42     # in-place write
-  b[5]               # a read returns the array too
+  a = [0 : U32*8n] # new array with 8 copies of 0
+  a[5] <- 42       # performs an in-place rewrite
+  a[5]             # reads the 5th element
 ```
 
 An `Array<T>` is a `Type`, so it has exactly one owner at all times. That is
 what lets `a[5] <- 42` overwrite the slot and hand back the same array, with no
 copy. A read hands the array back next to the element for the same reason: if
-it returned only the element, the array would be gone. Indexes wrap around.
+it returned only the element, the array would be gone. Indexes wrap around. A
+write followed by another statement re-binds its array: `a[5] <- 42` on its own
+line is `a = a[5] <- 42`. As the last statement it is the written array. The
+slot count after `*` is a power of two; `[0 : U32^3n]` names the depth instead.
 
 For now, the `a[i]` sugar assumes `Array<U32>`. For other element types, call
 `Array.get` and `Array.set` directly, and `Array.clone` when you need two
@@ -522,11 +525,11 @@ D<A>  +D<A>  D<&2, A>                    # a datatype; + makes it reusable
 ```python
 # Terms
 42  1.5  3n  'c'  "s"                    # U32, F32, Nat, Char, String
-[a, b]  h <> t  (a, b)  [v : T * d]      # list, cons, tuple, array of 2^d slots
+[a, b]  h <> t  (a, b)  [v : T*n]  [v : T^d]  # list, cons, tuple, array of n or 2^d slots
 K{a, b}  x => e  +x => e                 # a constructor, a lambda
 f(a, b)  f!(a)  t(~g, a)                 # a call, on the GPU, of a template
 (a + b * c : T)  {x : T}                 # operators over T; an annotation
-a[i]  a[i] <- v                          # array read and write
+a[i]  a[i] <- v                          # array read and write (a statement re-binds a)
 {==}  %e : P; e2  %e@E : P; e2           # reflexivity, a rewrite, a named one
 ?name  ?TODO                             # print the goal; leave it open
 ```

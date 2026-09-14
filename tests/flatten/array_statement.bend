@@ -34,6 +34,6 @@ def main.rd1(j, k, w, r):
   main.rd2(x, (m2[j] <- w)[k])
 
 def main(i, j, k, v, w):
-  main.rd1(j, k, w, [v : U32 * 2n][i])
+  main.rd1(j, k, w, [v : U32*4n][i])
 
-#|i => j => k => v => w => main.rd1(j, k, w, Array.get.if(U32, ANode{ALeaf{v}, ALeaf{v}}, ANode{ALeaf{v}, ALeaf{v}}, 2, U32.and(i, 3), Cmp.is_lt(U32.cmp(U32.and(i, 3), 2))))
+#|i => j => k => v => w => main.rd1(j, k, w, Array.get.if(U32, [v, v], [v, v], 2, U32.and(i, 3), Cmp.is_lt(U32.cmp(U32.and(i, 3), 2))))

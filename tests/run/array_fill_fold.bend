@@ -1,6 +1,6 @@
 # read-modify-write loops over a word array: fill 8 slots with squares,
 # then fold them back; F32 arrays store exact f32 cells
-# ported from bend3: the slab becomes [0 : U32 * 3n], counters Nat;
+# ported from bend3: the slab becomes [0 : U32*8n], counters Nat;
 # f32 literals are rebuilt exactly via F32.div of small integers, so
 # there is no interpreter lane (Base's F32 axioms are stuck there);
 # strict -- the index defs folded in, walked Nats +Nat, indexes +U32
@@ -71,7 +71,7 @@ law main.out:
   U32
 
 def main.out():
-  U32.add(U32.mul(total(8n, (fill(8n, [0 : U32 * 3n]), 0), 0), 1000), fsum())
+  U32.add(U32.mul(total(8n, (fill(8n, [0 : U32*8n]), 0), 0), 1000), fsum())
 
 law main:
   IO(Unit)

@@ -49,7 +49,7 @@ def words(n, acc):
     case 0n:
       acc
     case 1n+p:
-      words(p, U32.add(acc, rd([1 : U32 * 6n])))
+      words(p, U32.add(acc, rd([1 : U32*64n])))
 
 law boxes:
   for +n: Nat
@@ -61,7 +61,7 @@ def boxes(n, acc):
     case 0n:
       acc
     case 1n+p:
-      boxes(p, U32.add(acc, rl(["a" : String * 3n])))
+      boxes(p, U32.add(acc, rl(["a" : String*8n])))
 
 law halves:
   for +n: Nat
@@ -73,7 +73,7 @@ def halves(n, acc):
     case 0n:
       acc
     case 1n+p:
-      halves(p, U32.add(acc, half([1 : U32 * 6n])))
+      halves(p, U32.add(acc, half([1 : U32*64n])))
 
 law main:
   IO(Unit)

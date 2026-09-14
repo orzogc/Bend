@@ -57,4 +57,4 @@ law main:
 
 def main(): cat()
 
-#|Tuple{1n, Tuple{2n, Tuple{3n, Unit{}}}}
+#|(1n, 2n, 3n, Unit{})

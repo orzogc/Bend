@@ -248,4 +248,4 @@ law main:
 
 def main(): five_by_two()
 
-#|Tuple{2n, Tuple{1n, Tuple{Unit{}, {==}}}}
+#|(2n, 1n, Unit{}, {==})

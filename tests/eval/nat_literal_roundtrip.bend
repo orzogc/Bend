@@ -23,4 +23,4 @@ law main:
 def main():
   (dbl(2n), 0n, [3n, dbl(1n)], n => Succ{n})
 
-#|Tuple{4n, Tuple{0n, Tuple{Con{3n, Con{2n, Nil{}}}, n => 1n+n}}}
+#|(4n, 0n, [3n, 2n], n => 1n+n)

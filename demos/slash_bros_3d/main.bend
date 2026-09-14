@@ -4089,7 +4089,7 @@ def Mix.fin(
 # block of 1024 samples, listed; the voices stepped, the old ones kept.
 def Mix.render(s: Sound) -> Sound:
   Sound{dev, pcm, bank, voices, _, _, queued, stamp} = s
-  Mix.fin(dev, bank, voices, queued, stamp, Mix.voices(voices, (pcm, [0.0 : F32 * 10n])))
+  Mix.fin(dev, bank, voices, queued, stamp, Mix.voices(voices, (pcm, [0.0 : F32*1024n])))
 
 # A cue started: its voice joins the voices (the oldest that does not
 # loop stolen at 24; an empty clip is nothing).
@@ -4188,7 +4188,7 @@ def Sound.open() -> IO(Sound):
     dev : Maybe<Audio> <- Sound.device(r)
     loaded : Array<F32> & List<&2, Clip> <- Asset.each(["guarana_a.wav", "guarana_b.wav",
         "guarana_c.wav", "sha_pcm.wav", "needle.wav", "dash.wav", "parry.wav"], 0, Nil{},
-      (Synth.all(14n, [0.0 : F32 * 21n]), Clip{0, 917504, 48000, 1}))
+      (Synth.all(14n, [0.0 : F32^21n]), Clip{0, 917504, 48000, 1}))
     IO.pure(Sound, Sound.made(dev, loaded))
 
 def Cue.add(

@@ -88,4 +88,4 @@ law main:
 def main():
   dup(1n)
 
-#|Tuple{1n, 1n}
+#|(1n, 1n)

@@ -25,7 +25,7 @@ def main.rd1(r):
   main.rd2(x, a2[0])
 
 def main.out():
-  main.rd1(([7 : U32 * 2n][1] <- 9)[1])
+  main.rd1(([7 : U32*4n][1] <- 9)[1])
 
 law main:
   IO(Unit)

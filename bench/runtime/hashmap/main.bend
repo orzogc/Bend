@@ -238,7 +238,7 @@ law table:
 
 def table(t, d):
   +s = U32.mul(U32.inc(t), 2654435761)
-  a = fill(d, s, 0, [CNil{} : Chain * 12n])
+  a = fill(d, s, 0, [CNil{} : Chain*4096n])
   table.fin(look(d, prng(s), 0, (a, 0)))
 
 # batch tree over the table index space: table checksums sum up

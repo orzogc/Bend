@@ -30,4 +30,4 @@ law main:
 def main():
   x => xs => map(~dbl, 1n <> x <> xs)
 
-#|x => xs => Con{2n, Con{dbl(x), map~0(dbl, xs)}}
+#|x => xs => 2n <> dbl(x) <> map~0(dbl, xs)

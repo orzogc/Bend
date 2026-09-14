@@ -91,7 +91,7 @@ law main.out:
   U32
 
 def main.out():
-  arr = [0 : U32 * 2n];
+  arr = [0 : U32*4n];
   x y = cmp(1) cmp(9)
   a = (2 + 3 * 4 : U32)
   b = (1 << 3n : U32)

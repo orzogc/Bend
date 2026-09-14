@@ -25,4 +25,4 @@ law main:
 def main():
   (pick(True{}), e => use(e))
 
-#|Tuple{\{}, e => Empty.absurd(Bool, e)}
+#|(\{}, e => Empty.absurd(Bool, e))

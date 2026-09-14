@@ -1433,7 +1433,7 @@ def Array.new(-T: Data, +d: Nat, +v: T) -> Array<T>:
     case 0n:
       ALeaf{v}
     case 1n+p:
-      ANode{[v : T * p], [v : T * p]}
+      ANode{[v : T^p], [v : T^p]}
 
 def Array.set.fin(-T: Type, r: Array<T> & T) -> Array<T>:
   (na, old) = r

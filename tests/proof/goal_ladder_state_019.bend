@@ -58,7 +58,7 @@ def rgo_cat(A, xs, acc):
       Type
 
 #|Error:
-#|- expected : {List.append(A, List.reverse.go(A, t, Con{h, Nil{}}), acc) == List.reverse.go(A, t, Con{h, acc}) : List<&2, A>}
+#|- expected : {List.append(A, List.reverse.go(A, t, [h]), acc) == List.reverse.go(A, t, h <> acc) : List<&2, A>}
 #|- observed : Type
 #|Context:
 #|- A   : Data

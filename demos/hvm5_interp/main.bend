@@ -1832,7 +1832,7 @@ def term_show(t: Term) -> String:
 # the env: 2^16 cells, the free list keeps the live set small (cell 0
 # holds the display-name counter)
 def env_new() -> Array<Cell>:
-  [Nul{} : Cell * 16n]
+  [Nul{} : Cell*65536n]
 
 def out(o: Out) -> IO(Unit):
   match o:
@@ -1874,7 +1874,7 @@ def book_run.fin(+ix: U32, +n: U32, +vc: U32, p: List<&2, Ent> & Bool) -> IO(Uni
   (es, ok) = p
   match ok:
     case True{}:
-      out(drive(run(S{env_new(), book_load(es, [TEra{} : Tpl * book_depth(32n, n, 0n)]),
+      out(drive(run(S{env_new(), book_load(es, [TEra{} : Tpl^book_depth(32n, n, 0n)]),
         Go{Ref{ix}}, NfK{End{}}, 0, 0, vc})))
     case False{}:
       IO.print("undefined function @main")

@@ -14,7 +14,7 @@ def main.rd(r):
   x
 
 def main.out():
-  main.rd({[4 : U32 * 1n][0] : Array<U32> & U32})
+  main.rd({[4 : U32*2n][0] : Array<U32> & U32})
 
 law main:
   IO(Unit)

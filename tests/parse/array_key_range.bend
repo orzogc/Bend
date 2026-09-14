@@ -11,7 +11,7 @@ def main():
   0
 
 #|Error:
-#|- expected : '*'
+#|- expected : '^'
 #|- observed : ','
 #|Location:
 #| 9 | def main():

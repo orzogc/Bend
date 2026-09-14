@@ -21,4 +21,4 @@ law main:
 def main():
   x => xs => rev(1n <> x <> xs, Nil{})
 
-#|x => xs => rev(xs, Con{x, Con{1n, Nil{}}})
+#|x => xs => rev(xs, [x, 1n])

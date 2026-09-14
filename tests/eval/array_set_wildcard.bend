@@ -24,7 +24,7 @@ law main.out:
   U32
 
 def main.out():
-  main.a((([0 : U32 * 2n][0] <- 3)[1] <- 4)[0])
+  main.a((([0 : U32*4n][0] <- 3)[1] <- 4)[0])
 
 law main:
   IO(Unit)

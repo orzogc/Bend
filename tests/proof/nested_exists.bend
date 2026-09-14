@@ -17,4 +17,4 @@ law main:
 
 def main(): two_wit()
 
-#|Tuple{1n, Tuple{2n, {==}}}
+#|(1n, 2n, {==})

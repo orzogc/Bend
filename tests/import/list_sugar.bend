@@ -13,7 +13,7 @@ def main():
 
 #|Error:
 #|- expected : a declared constructor
-#|- observed : Con{Zx{}, Nil{}}
+#|- observed : [Zx{}]
 #|Location: main
 #|10 | def main():
 #|11>|   h = [Zx{}]

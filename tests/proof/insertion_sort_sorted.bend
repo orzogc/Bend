@@ -218,4 +218,4 @@ law main:
 
 def main(): s()
 
-#|Con{0n, Con{1n, Con{2n, Nil{}}}}
+#|[0n, 1n, 2n]

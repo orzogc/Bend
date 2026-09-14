@@ -5267,7 +5267,7 @@ ${NATIVE.IO}
 // SHOW_DESC (see show_main), w the value's words. A boxed Data reads its
 // arm by cid off a Term (packed, or a node), an inline one by tag off
 // its words.
-static void show_val(Env e, u32 d, const Term* w);
+static void show_val(Env e, u32 d, const Term* w, char chain);
 
 // char_show: an escape, a \u{hex}, else the code point in UTF-8
 static void show_chr(u64 c, char q) {
@@ -5301,7 +5301,6 @@ static void show_f32(u32 x) {
 static void show_arr(Env e, u32 d, Term t, u32 lo, u32 c) {
   if (c > SHOW_DESC[d + 2]) {
     c -= 1;
-    fputs("ANode{", stdout);
     show_arr(e, d, t, lo, c);
     fputs(", ", stdout);
     show_arr(e, d, t, lo + (1u << c), c);
@@ -5310,13 +5309,13 @@ static void show_arr(Env e, u32 d, Term t, u32 lo, u32 c) {
     for (u32 j = 0; j < 1u << c; j += 1) {
       v[j] = blk_read(e.mem, term_tag(t) == TAG_ARR, term_peek(e, t), lo + j);
     }
-    fputs("ALeaf{", stdout);
-    show_val(e, SHOW_DESC[d + 1], v);
+    show_val(e, SHOW_DESC[d + 1], v, 0);
   }
-  putchar('}');
 }
 
-static void show_val(Env e, u32 d, const Term* w) {
+// chain is the bracket of the [a, b] or (a, b) this value continues, or
+// 0: a Con or Nil spells a list, a Tuple a tuple, their tails continue
+static void show_val(Env e, u32 d, const Term* w, char chain) {
   const u32* D = SHOW_DESC;
   Term one;
   switch (D[d]) {
@@ -5338,7 +5337,11 @@ static void show_val(Env e, u32 d, const Term* w) {
       putchar('"');
       break;
     case 5: fputs("{==}", stdout); break;
-    case 6: show_arr(e, d, w[0], 0, blk_cls(w[0])); break;
+    case 6:
+      putchar('[');
+      show_arr(e, d, w[0], 0, blk_cls(w[0]));
+      putchar(']');
+      break;
     default: {
       Term t   = w[0];
       bool box = D[d + 1] != 0;
@@ -5351,12 +5354,30 @@ static void show_val(Env e, u32 d, const Term* w) {
         one = term_loc(t);
         w   = term_tag(t) == TAG_PAK ? &one : e.mem + term_peek(e, t);
       }
-      printf("%s{", SHOW_NAMES[D[a]]);
-      for (u32 j = 0; j < D[a + 2]; j += 1) {
-        fputs(j == 0 ? "" : ", ", stdout);
-        show_val(e, D[a + 4 + 2 * j], w + D[a + 3 + 2 * j]);
+      const char* k = SHOW_NAMES[D[a]];
+      char o = '{';
+      char z = '}';
+      if (strcmp(k, "Con") == 0 || strcmp(k, "Nil") == 0) {
+        o = '[';
+        z = ']';
+      } else if (strcmp(k, "Tuple") == 0) {
+        o = '(';
+        z = ')';
       }
-      putchar('}');
+      if (o == '{') {
+        printf("%s{", k);
+      } else if (chain != o) {
+        putchar(o);
+      }
+      for (u32 j = 0; j < D[a + 2]; j += 1) {
+        if (o == '[' ? j == 0 && chain == o : j > 0) {
+          fputs(", ", stdout);
+        }
+        show_val(e, D[a + 4 + 2 * j], w + D[a + 3 + 2 * j], j == 1 && o != '{' ? o : 0);
+      }
+      if (o == '{' || chain != o) {
+        putchar(z);
+      }
     }
   }
 }
@@ -5410,7 +5431,7 @@ OUTLINE int io_loop(Corpus H) {
   Term m = corpus_eval(H, term_tsk(MAIN_FID, task_node(e, MAIN_FID,
     TERM_HOLE, 0, 0)));
 #if MAIN_PURE
-  show_val(e, 0, H + H_ROOT_WORD);
+  show_val(e, 0, H + H_ROOT_WORD, 0);
   putchar('\n');
   return 0;
 #endif
@@ -5703,15 +5724,31 @@ function show_chr(c, q) {
 }
 
 // A pure main's value, spelled as term_show spells it: d is a node of
-// the descriptor D over the names N (see show_main), v the value.
-function show_val(D, N, d, v) {
+// the descriptor D over the names N (see show_main), v the value, chain
+// the bracket of the [a, b] or (a, b) it continues, or 0.
+function show_val(D, N, d, v, chain) {
   if (D[d] === 7) {
     const fs = Object.values(typeof v === "boolean"
       ? { $: v ? "True" : "False" } : v);
     let a = d + 3;
     for (; N[D[a]] !== fs[0]; a += 3 + 2 * D[a + 2]) {}
-    return fs[0] + "{" + fs.slice(1).map((f, j) =>
-      show_val(D, N, D[a + 4 + 2 * j], f)).join(", ") + "}";
+    let o = "{";
+    let z = "}";
+    if (fs[0] === "Con" || fs[0] === "Nil") {
+      o = "[";
+      z = "]";
+    } else if (fs[0] === "Tuple") {
+      o = "(";
+      z = ")";
+    }
+    let s = o === "{" ? fs[0] + "{" : chain === o ? "" : o;
+    for (const [j, f] of fs.slice(1).entries()) {
+      if (o === "[" ? j === 0 && chain === o : j > 0) {
+        s += ", ";
+      }
+      s += show_val(D, N, D[a + 4 + 2 * j], f, j === 1 && o !== "{" ? o : 0);
+    }
+    return o === "{" || chain !== o ? s + z : s;
   }
   return D[d] === 0 ? String(v)
     : D[d] === 1 ? f32_show(v).replace(/^-?\d+(?=e|$)/, "$&.0")
@@ -5720,9 +5757,7 @@ function show_val(D, N, d, v) {
     : D[d] === 4 ? "\"" + [...v].map((c) =>
       show_chr(c.codePointAt(0), "\"")).join("") + "\""
     : D[d] === 5 ? "{==}"
-    : v.length === 1 ? "ALeaf{" + show_val(D, N, D[d + 1], v[0]) + "}"
-    : "ANode{" + show_val(D, N, d, v.slice(0, v.length >> 1)) + ", "
-      + show_val(D, N, d, v.slice(v.length >> 1)) + "}";
+    : "[" + v.map((x) => show_val(D, N, D[d + 1], x, 0)).join(", ") + "]";
 }
 
 // Io
@@ -5731,7 +5766,7 @@ function show_val(D, N, d, v) {
 function io_exit(main, show) {
   try {
     if (show !== null) {
-      io_out(1, io_bytes(show_val(...show, 0, run_loop(main())) + "\n"));
+      io_out(1, io_bytes(show_val(...show, 0, run_loop(main()), 0) + "\n"));
       process.exit(0);
     }
     process.exit(io_run(main));

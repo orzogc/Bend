@@ -56,4 +56,4 @@ law main:
 def main():
   (Nat.pow2(12n), Nat.min(4n, 3n), small(), sugars(), funs())
 
-#|Tuple{4096n, Tuple{3n, Tuple{Tuple{7n, Some{9n}}, Tuple{Con{Tuple{"a\n", 'x'}, Con{Tuple{"", 'y'}, Nil{}}}, Con{x => 1n+x, Nil{}}}}}}
+#|(4096n, 3n, (7n, Some{9n}), [("a\n", 'x'), ("", 'y')], [x => 1n+x])

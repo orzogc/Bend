@@ -74,4 +74,4 @@ law main:
 
 def main(): my_thesis((6n, Unit{}))
 
-#|Tuple{3n, {==}}
+#|(3n, {==})
