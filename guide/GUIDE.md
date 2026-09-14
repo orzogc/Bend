@@ -414,7 +414,7 @@ in parallel if you want. Events are `Key`, `Mouse`, `Move` and `Close`.
 `tick` answers `None`. Since the state is affine, `view` must hand it back next
 to the image. Underneath are `Window.open`, `Window.frame` and `Window.close`,
 and `Audio.open`, `Audio.write` and `Audio.close` for sound. See
-`demos/pong_game` for a complete one.
+`demos/app_pong_game_2d` for a complete one.
 
 ### The Base Library
 

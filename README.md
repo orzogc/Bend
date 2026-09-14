@@ -74,7 +74,7 @@ Once the proof lands, your code is correct. Mathematically.
 
 **tl;dr with proofs, "make no mistakes" becomes enforceable**
 
-The full game, proof included: [demos/winning_is_impossible](demos/winning_is_impossible).
+The full game, proof included: [demos/app_win_is_bug_2d](demos/app_win_is_bug_2d).
 
 # Examples
 

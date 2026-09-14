@@ -48,7 +48,7 @@ allow(/^bench\/runtime\/[a-z]+\/main\.(bend|c|lean|ts)$/, 8000);
 allow(/^bench\/runtime\/_pin_\/[a-z0-9_]+\.txt$/, 2000);
 allow(/^demos\/[a-z0-9_]+\/[A-Za-z_]+\.bend$/, 30000);
 allow(/^demos\/[a-z0-9_]+\/[A-Za-z_]+\.(c|sh|md)$/, 4000);
-allow(/^demos\/[a-z_]+\/web\/(index\.html|main\.js|bunfig\.toml)$/, 4000);
+allow(/^demos\/[a-z0-9_]+\/web\/(index\.html|main\.js|bunfig\.toml)$/, 4000);
 allow("guide/GUIDE.md", 12000);
 allow("front/index.html", 12000);
 allow("front/lab.ts", 12000);
