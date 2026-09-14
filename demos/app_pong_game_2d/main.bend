@@ -9,7 +9,7 @@
 # the caller classifies the child (Pong.code) so the recursion is one
 # def descending on the depth.
 #
-#   bend demos/pong_game/main.bend -o pong_game && ./pong_game
+#   bend demos/app_pong_game_2d/main.bend -o pong_game && ./pong_game
 import Base
 
 type Pong is Data:

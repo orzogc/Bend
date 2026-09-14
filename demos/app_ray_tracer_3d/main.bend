@@ -14,7 +14,7 @@
 # refcount. Each march loop takes its stop as a parameter the previous
 # step computed, so the recursion is one def descending on the budget.
 #
-#   bend demos/ray_tracer/main.bend -o ray_tracer && ./ray_tracer
+#   bend demos/app_ray_tracer_3d/main.bend -o ray_tracer && ./ray_tracer
 import Base
 
 type Fly is Data:
