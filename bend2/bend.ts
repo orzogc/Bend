@@ -1,15 +1,3 @@
-// HUMAN NOTE: this file is 100% human-designed, and near fully audited by me.
-// It is safest and most important file in this repository, as it contains the
-// entire trusted kernel: evaluator, syntax, type and termination checker. All
-// of that was designed by humans, and obsessivelly audited by us. That doesn't
-// mean there aren't bugs, specially since it ships with additional features to
-// make it much faster. It also drifts from the Lean spec in some important
-// parts that will be aligned soon. The file is surprisingly small and will not
-// grow significantly past this point, so, the trust in it will only increase
-// over time, as we'll be auditing further and placing community bounties (with
-// ProofMarket itself being the largest bounty on Bend's consistency, since any
-// proof of falsehood would allow one to immediatelly claim every open bounty!)
-// 
 // Bend
 // ====
 //

@@ -1,26 +1,3 @@
-// HUMAN NOTE: this file has two parts: compilers and runtimes (at the end).
-// The architecture behind the runtimes was 95% designed by humans, but the file
-// itself is significantly AI written and not fully audited. It can have bugs.
-// The compiler is 50% designed by humans, 50% by AI, and 100% AI written. I've
-// barely audited it, so, it is the most prone to bugs and overfit. In practice,
-// there may be benchmarks where Bend significantly under-performs C, due to
-// falling into some case that wasn't explicitly optimized for. Rather than
-// hoping to cover everything that GCC handled over decades of effort, I'm
-// launching it how it is, and will improve, fix bugs, and generalize, as the
-// language evolves. In theory, Bend can be arbitrarily fast, for clear logical
-// reasons (types, linearity, purity), and as evidenced by the several
-// benchmarks and programs we've written. In practice, it will take time for it
-// to cover all the shapes that a mature compiler does, and that's expected. I
-// also believe I must be in peace with this file being maintained by AI moving
-// forward, since this allows it to include more optimizations and features as
-// models work on it and get better over time. The critical part, the trusted
-// kernel, is human-audited and readable. The compiler doesn't need to be, and
-// once the base architecture is designed (as AIs struggle with that), they can
-// do a fairly good job at maintaining and extending the file. It is still very
-// important that we keep it within a token budget, since larger files cause the
-// models to lose control over it, and that's very dangerous. As models get
-// larget and more capable, this limit can increase. For now, 64k works well.
-
 import * as fs from "node:fs";
 
 import * as Bend from "./bend.ts";

@@ -1,6 +1,4 @@
 #!/usr/bin/env bun
-// HUMAN NOTE: this particular file is AI written and nobody really cares.
-//
 // Run, this file is the CLI. Imported, it is the loader that makes `import
 // Game from "./x.bend"` work: a bun plugin (preload it in bunfig.toml, list
 // it under [serve.static] plugins, or hand it to Bun.build) and a node hook
