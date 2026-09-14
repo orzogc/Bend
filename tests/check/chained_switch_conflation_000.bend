@@ -24,8 +24,9 @@ def main():
   g(1)
 
 #|Error:
-#|- expected : a quantified datatype after + (+D<..> sets D's leading quantities to &2)
-#|- observed : ':'
+#|- expected : 1 patterns (one per scrutinee)
+#|- observed : '
+#|'
 #|Location:
 #|16 |       20
 #|17>|     case 2+q:

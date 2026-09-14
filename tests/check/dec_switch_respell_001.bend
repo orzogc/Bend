@@ -33,8 +33,9 @@ def main():
   0
 
 #|Error:
-#|- expected : a quantified datatype after + (+D<..> sets D's leading quantities to &2)
-#|- observed : ':'
+#|- expected : 1 patterns (one per scrutinee)
+#|- observed : '
+#|'
 #|Location:
 #|25 |           0
 #|26>|     case 2+p:

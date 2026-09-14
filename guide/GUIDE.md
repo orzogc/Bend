@@ -30,12 +30,12 @@ source.
 
 ```python
 type Shape is Data:            # Data: values may be reused; Type: used once
-  Circle{+r: U32}              # a +field may be reused wherever it lands
+  Circle{r: U32}
   Rect{w: U32, h: U32}
 
 def area(s: Shape) -> U32:
   match s:                     # opens s: fields move out, the node is freed
-    case Circle{r}:
+    case Circle{+r}:           # +r: the field is used twice below
       (3 * r * r : U32)        # operators name methods of the type after ":"
     case Rect{w, h}:
       (w * h : U32)
@@ -170,7 +170,8 @@ argument. A loop bounded by the world carries a `Nat` fuel, or wears
 ## Quantities
 
 A binder is used once (`x`), erased (`-x`: types, proofs, generics, gone at run
-time) or reused (`+x`). Values move: into calls, into constructors, into the
+time) or reused (`+x`); a parameter, a field, a pattern, a lambda or a `do`
+binder takes the mark, and `+x` on a pattern is `+x = x` at the top of its body. Values move: into calls, into constructors, into the
 match that opens them; dropping is free; dead positions (types, erased
 arguments, equation endpoints, motives) count nothing. `+` needs kind `Data`:
 `U32`, `Nat`, `Bool`, `String` and every equation are `Data`; functions,
