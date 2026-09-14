@@ -176,3 +176,15 @@ Everything else you need is in [Bend's GUIDE.md](guide/GUIDE.md), also printed b
 - Bend's core is [formalized in Lean](bend2/bend.lean): the checker's rules, with kinds and `Data` copying, are proven confluent, sound, normalizing and consistent with `Type : Type` and negative datatypes. Read the paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf).
 
 - The runtime's paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
+
+## Limitations (this section is a WIP)
+
+- F32 is still axiomatic
+
+- `bend.lean` doesn't match `bend.ts` fully
+
+- compiler is highly vibe-coded
+
+- no shaders on JS side (TODO WebGPU)
+
+- ...
