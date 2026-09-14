@@ -191,7 +191,7 @@ async function shard_run(shard: Test[], tag: number, node: number,
   fs.mkdirSync("/tmp/bend-test", { recursive: true });
   fs.writeFileSync("/tmp/bend-test/" + String(tag) + ".txt", got.out + got.err);
   if (!got.out.includes(MARK + " built")) {
-    throw new Error("node");
+    throw new Error("node", { cause: got.err });
   }
   const gots = shard_parse(shard, got.out);
   for (const t of shard) {

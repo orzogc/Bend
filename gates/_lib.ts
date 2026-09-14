@@ -33,7 +33,7 @@ const SSH = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
   "-o", "ProxyCommand=ssh " + MUX.join(" ") + " -W %h:%p cluster"];
 
 const DROP = new RegExp("Connection reset|closed by remote host"
-  + "|Broken pipe|kex_exchange_identification|mux_client");
+  + "|Broken pipe|kex_exchange_identification|mux_client|timed out");
 
 let held = "";
 
@@ -68,8 +68,9 @@ export function node_name(node: number): string {
   return "cluster-" + node.toString(16).padStart(2, "0");
 }
 
-// A session the transport dropped is retried twice; a node the bastion
-// cannot reach (channel refused) fails at once.
+// A session the transport dropped (or that timed out in the banner
+// exchange: the shared bastion path stalled, not the node) is retried
+// twice; a node the bastion cannot reach (channel refused) fails at once.
 export async function ssh(node: number, script: string,
   input?: Buffer | string, timeout?: number): Promise<Exec> {
   for (let hop = 0; ; hop += 1) {
@@ -145,12 +146,13 @@ export function node_free(): void {
   }
 }
 
-// A job that throws "node" goes back to the queue and its node leaves the
-// pool; a node with nothing to do waits while others still run, since
-// their jobs may come back.
+// A job that throws "node" (its cause: the session's last error line) goes
+// back to the queue and its node leaves the pool; a node with nothing to do
+// waits while others still run, since their jobs may come back.
 export async function node_pool(nodes: number[], jobs: Job[]): Promise<void> {
   const queue = [...jobs];
   let busy = 0;
+  let why = "";
   await Promise.all(nodes.map(async (node) => {
     for (;;) {
       const job = queue.shift();
@@ -171,12 +173,13 @@ export async function node_pool(nodes: number[], jobs: Job[]): Promise<void> {
         if (!(e instanceof Error && e.message === "node")) {
           throw e;
         }
+        why = String(e.cause ?? "").trim().split("\n").pop() ?? "";
         return;
       }
     }
   }));
   if (queue.length > 0) {
-    throw new Error("the cluster ran out of live nodes");
+    throw new Error("the cluster ran out of live nodes: " + why);
   }
 }
 

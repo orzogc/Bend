@@ -257,7 +257,7 @@ async function cell_run(c: Cell, node: number): Promise<void> {
   const ran = new RegExp("^" + MARK + " ran (\\d+) ([\\d.]+) ([\\d.]+)$", "m")
     .exec(got.out);
   if (built === null) {
-    throw new Error("node");
+    throw new Error("node", { cause: got.err });
   }
   c.comp = Number(built[3]) - Number(built[2]);
   if (built[1] !== "0" || ran === null || ran[1] !== "0") {
@@ -291,7 +291,7 @@ async function chk_run(c: Chk, node: number): Promise<void> {
   const runs = [...got.out.matchAll(new RegExp("^" + MARK
     + " check (\\d+) ([\\d.]+) ([\\d.]+)$", "gm"))];
   if (runs.length === 0) {
-    throw new Error("node");
+    throw new Error("node", { cause: got.err });
   }
   if (runs.some((r) => r[1] !== "0") || !got.out.includes("All terms check.")) {
     c.note = c.bench + ": " + cell_note(got.out);
