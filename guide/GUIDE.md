@@ -1,283 +1,580 @@
-# The Bend Guide
+# Bend
 
-Bend is Python's syntax, Haskell's semantics, Lean-style proofs without
-tactics, and parallelism from one line. Programs are pure, strict and total;
-values are immutable and used once by default. One source runs as
-multithreaded C, as a Metal or CUDA kernel, and as JavaScript.
+Bend is a new programming language that combines Lean-like formal proofs with
+C-like speeds and CUDA-like parallelism. It gives humans an ambiguity-free
+language to communicate their intents to AIs, a compiler capable of mechanically
+checking that the AI implemented these intents to unquestionable mathematical
+correctness, and a compiler that runs that code fast on CPUs and GPUs.
 
-## Hello
+## Hello, World!
 
-Bend runs under [Bun](https://bun.com): clone `HigherOrderCO/bend4` and
-symlink `bend2/main.ts` as `bend`.
+Bend's syntax is Python-shaped, but its semantics are closer to Haskell / Lean,
+while being resource-aware like Rust (if less annoyingly). A hello world is just
+a typed definition returning an IO block:
 
 ```python
 import Base
 
 def main() -> IO(Unit):
-  IO.print("Hello, world!")
+  do IO<Unit>:
+    IO.print("Hello, world!")
 ```
 
-`bend hello.bend` checks the file and runs `main` on an in-memory JS backend.
-`bend hello.bend -o hello` builds a native binary (a program with a `!`
-builds its GPU program too: keep `hello.gpu` beside the binary).
-`-o hello.c` or `-o hello.js` emits the source instead. A `main` that is not
-`IO` prints as a value; a file with no `main` just checks. `bend --help` has
-the rest of the CLI; `bend base` prints the prelude, `bend base --types` its
-types, `bend base Nat` one name and everything under it: the reference is the
-source.
+To run it, install [Bun](https://bun.com), clone `HigherOrderCO/bend4`, symlink
+`bend2/main.ts` as `bend`, and type `bend hello.bend`.
 
-## A program
+Bend is a *pure language*, with effects denoted via a Haskell-inspired [IO
+Monad]. It comes with a list of built-in effects for files, networking, audio,
+graphics, input, and more, and the user can extend them with foreign C and JS
+imports; more on that later.
+
+## Core Features
+
+### Types and Functions
+
+A typical Bend program is a set of datatypes and functions over them:
 
 ```python
-type Shape is Data:            # Data: values may be reused; Type: used once
+import Base
+
+type Shape is Data:
   Circle{r: U32}
-  Rect{w: U32, h: U32}
+  Square{s: U32}
 
-def area(s: Shape) -> U32:
-  match s:                     # opens s: fields move out, the node is freed
-    case Circle{+r}:           # +r: the field is used twice below
-      (3 * r * r : U32)        # operators name methods of the type after ":"
-    case Rect{w, h}:
-      (w * h : U32)
-
-def len(-A: Type, xs: List<A>) -> U32:   # -A: erased type parameter
-  match xs:
-    case Nil{}:
-      0
-    case h <> t:
-      (1 + len(A, t) : U32)    # every argument is written: len(U32, xs)
+def area(x: Shape) -> U32:
+  match x:
+    case Circle{+r}:
+      (3 * r * r : U32)
+    case Square{+s}:
+      (s * s : U32)
 
 def main() -> U32:
-  a = area(Rect{2, 3})         # a let infers its type from a call
-  b = len(U32, [1, 2, 3])      # a bare literal would need {v : T}
-  (a + b : U32)
+  area(Square{5})
 ```
 
-`42` is a `U32`, `1.5` an `F32`, `3n` a `Nat` (unary: `0n`, and `1n+p` matches
-the successor of `p`), `'A'` a `Char`, `"abc"` a `String`, `[1, 2]` a `List`,
-`(a, b)` a pair of type `A & B`. Comparisons answer `Bool`; `U32.is_eq` is
-equality (`==` is the equality *type*). There is no `if`: a `Bool` is matched
-like any value, and a match opens a parameter or a field, never a computed
-value, so the caller computes and a helper decides. `match a, b:` takes several
-scrutinees; patterns nest; `_` catches the rest. There is no match on a word:
-count on `Nat`, compute on `U32`. `x => body` is a lambda, `A -> B` its type;
-a closure is used once, a top-level def as often as you like. Operators are
-`Base` defs (`+` is `T.add`); the untyped default is `Nat`; `h <> t` conses,
-`++` appends strings, `[x : T * d]` builds an `Array<T>` (a flat, one-owner
-tree of `2^d` slots, every one `x`), `a[i]` reads it, `m2 = m[i] <- v` writes
-in place, O(1). `Base`'s list kit is
-`List.map`: write the recursion you need.
+Bend, by default, is *affine*, meaning variables must be used, at most, once.
 
-## Parallelism
+Here, `is Data` declares that `Shape` may be copied, while `is Type` keeps it
+non-copiable. The `+` annotation before a variable name allows using it more
+than once, if the variable is Data-kinded.
+
+Bend does almost no inference, meaning it requires more annotations than similar
+languages. This is what allows Bend's checker to be significantly faster than
+other provers, and its error messages more precise, at the expense of programs
+and proofs being more verbose. This is by design.
+
+### Closures
+
+Functions are values and can be stored, passed, and returned from other functions.
 
 ```python
-def pow2(+d: Nat) -> U32:      # +d: used twice below, so d is marked reusable
-  match d:
+import Base
+
+def adder(k: U32) -> U32 -> U32:
+  x => (x + k : U32)
+
+def main() -> U32:
+  add2 = adder(2)
+  add5 = adder(5)
+  add5(add2(1))
+```
+
+A closure is affine: it can be called at most once, even when everything it
+captures is `Data`. Only top-level definitions can be called freely. Partial
+applications like `U32.add(2)` are closures too.
+
+### Recursion and Termination
+
+Bend uses recursion to repeat work. Tail calls compile to loops.
+
+```python
+import Base
+
+def sum(xs: List<U32>, acc: U32) -> U32:
+  match xs:
+    case Nil{}:
+      acc
+    case Con{h, t}:
+      sum(t, (acc + h : U32))
+
+def main() -> U32:
+  sum([1, 2, 3, 4], 0)
+```
+
+Here, `t` has one fewer element than `xs`, so `sum` eventually reaches the
+empty list. Bend verifies termination by requiring recursive calls to use
+smaller parts of their inputs, obtained through pattern matching. Machine words
+like `U32` cannot be matched on, so loop counters are `Nat`s: `case 1n+p:` hands
+you a smaller `p` to recurse on, and a `Nat` is still a machine word at runtime.
+There is no `if`: a branch is a `match` on `True{}` and `False{}`.
+
+Termination is mandatory and mutual recursion is not allowed. Both restrictions
+keep Bend's proofs sound, as a function that never returns could otherwise prove
+anything. A loop bounded by the outside world, like a server's, counts down a
+`Nat` fuel argument instead, and two mutually recursive functions become one def
+with an extra argument selecting which to run. A `def` marked `@unsafe` recurses
+freely, but falls outside Bend's proof guarantees.
+
+One more restriction is the most common source of frustration when learning
+Bend: for now, a `match` can only inspect a parameter or a variable bound by a
+pattern, never a computed value, so `match sum(xs, 0):` is rejected. Compute the
+value first and pass it to a helper that matches on it. This keeps Bend's first
+compiler substantially simpler and faster, and will be lifted in a future update.
+
+### Parallelism
+
+Bend's only parallelism primitive is the parallel call notation:
+
+```python
+import Base
+
+def pow2(+n: Nat) -> U32:
+  match n:
     case 0n:
       1
     case 1n+p:
-      a b = pow2(p) pow2(p)    # the parallel let: two names, two calls
+      a b = pow2(p) pow2(p) # parallel call
       (a + b : U32)
+
+def main() -> U32:
+  pow2!(20n) # `!` runs on GPU
 ```
 
-`a b = f(x) g(y)` is Bend's only parallelism primitive. To the checker it is
-two ordinary lets; to the compiler a fork: each call becomes a task, the rest
-of the body runs when all are done, and a recursive fork is a tree of tasks
-that fills every core (`./pow2 --threads 1` uses one thread). No locks are
-needed: values are affine, so siblings share nothing, and a pure fork has no
-order to keep. Tasks are dealt once and never stolen, so keep siblings
-balanced; an unbalanced fork is correct, only slower. Mark a call with `!`,
-`pow2!(20n)`, and the task tree under it runs on the GPU, nothing copied (host
-and device share one address space); the checker ignores the mark and a binary
-with no device runs it on the CPU. Balanced trees of uniform scalar work win on
-the GPU (mandelbrot, nbody); divergent work (n-queens) stays faster on the CPU.
-A binary takes `--threads N` and `--gpu on|off|4GB` (a size is how much of
-the device's memory it may use).
+A parallel call promises the compiler two things:
 
-## Proofs
+1. The calls are independent.
 
-A type can be written apart from its body, as a `law` (the claim) that a `def`
-(the proof) fills. The checker sees no difference; a human reads the law and
-skips the proof. A law with no def is an open claim: types may mention it, live
-code may not call it, and the report counts a TODO. Another file fills it
-through an import alias (`import ./claims.bend as C`, then `def C.name(..):`),
-which is how a [ProofMarket](https://proofmarket.com) bounty is claimed.
+2. They run in roughly the same time.
 
-A proposition is a type: `Unit` is true, `Empty` false, `{a == b : T}` is
-equality and `{==}` proves it when both sides compute to the same term.
-Anything richer is a def that returns a `Type`:
+Since Bend is pure and affine, the first point always holds. The second is yours
+to keep: if one call finishes before the other, the speedup will be sub-ideal.
+Bend's current scheduler is a contention-free, binary fork-join machine: every
+task is handed to a core exactly once and never moved afterwards. That makes it
+fast and GPU-friendly, but you must keep the workload balanced.
+
+When compiled to a native executable, `pow2(20n)` runs in parallel on the CPU,
+while `pow2!(20n)` runs on the GPU. The heap is fully unified, so, if your chip
+has unified memory (as in Apple M-series processors), moving data from the CPU
+to the GPU is a zero-cost operation. The GPU shines on uniform numeric work like
+mandelbrot or nbody; divergent work like n-queens stays faster on the CPU. A
+machine without a GPU runs `!` on the CPU.
+
+The JavaScript target ignores all that and just runs sequentially.
+
+### Arrays
+
+Arrays give Bend in-place mutation without giving up purity:
 
 ```python
-def IsEven(n: Nat) -> Type:
+import Base
+
+def main() -> Array<U32> & U32:
+  a = [0 : U32 * 3n] # 2^3 slots, all 0
+  b = a[5] <- 42     # in-place write
+  b[5]               # a read returns the array too
+```
+
+An `Array<T>` is a `Type`, so it has exactly one owner at all times. That is
+what lets `a[5] <- 42` overwrite the slot and hand back the same array, with no
+copy. A read hands the array back next to the element for the same reason: if
+it returned only the element, the array would be gone. Indexes wrap around.
+
+For now, the `a[i]` sugar assumes `Array<U32>`. For other element types, call
+`Array.get` and `Array.set` directly, and `Array.clone` when you need two
+copies. Read Bend's Base for reference. This will be generalized soon!
+
+### Quantities
+
+A quantity says how many times a variable may be used.
+
+```python
+import Base
+
+# -A: erased (gone at runtime)
+#  n: affine (used at most once)
+# +x: reusable (requires A to be Data)
+def replicate(-A: Data, n: Nat, +x: A) -> List<A>:
   match n:
     case 0n:
-      Unit
-    case 1n+0n:
-      Empty
-    case 2n+p:
-      IsEven(p)
+      Nil{}
+    case 1n+p:
+      x <> replicate(A, p, x)
 
-def half(n: Nat) -> Nat:
-  match n:
-    case 0n:
-      0n
-    case 1n+0n:
-      0n
-    case 2n+p:
-      1n+half(p)
-
-law half_ok:                   # for lines, then the result
-  for x: Nat
-  for e: IsEven(x)
-  {Nat.double(half(x)) == x : Nat}
-
-def half_ok(x, e):
-  match x:
-    case 0n:
-      {==}                     # the goal computed to {0n == 0n : Nat}
-    case 1n+0n:
-      match e:                 # e : Empty, so no cases: the arm is closed
-    case 2n+p:
-      %half_ok(p, e) : {2n+Nat.double(half(p)) == 2n+_ : Nat}
-      {==}
+def main() -> List<U32>:
+  replicate(U32, 3n, 7)
 ```
 
-Matching refines the goal in each arm, and the recursive call is the induction
-hypothesis. The rewrite `%e : P` takes `e : {a == b : T}` and folds `b` back
-into `a` wherever the motive `P` marks `_`; the goal must be `P` with `b` at
-the marks, and the rest of the body proves `P` with `a` there. Drop it and the
-checker answers with the spot where the two sides part: expected
-`2n+Nat.double(half(p))`, observed `2n+p`, the context, the line. `for -x:
-T` binds an erased hypothesis, `for +x: T` a reusable one, `for x: T where
-P(x)` pairs `x` with evidence, and `exs y: T` asks the proof to produce a `y`:
-`half_exists(x, e)` answers `(half(x), half_ok(x, e))`. A constructor clash
-is refuted by a discriminating motive: rewrite `e : {1n == 0n : Nat}` through
-`disc(_)`, where `disc` sends `0n` to `Unit` and `1n+p` to `Empty`, and answer
-`Unit{}` (`{a != b : T}` is `{a == b : T} -> Empty`; `Equal.sym`, `Equal.trans`
-and `Equal.cong` are in `Base`).
+Erased variables can only appear in types and proofs: the checker sees them, the
+compiler deletes them. Affine variables are the default, and dropping one is
+always free. Reusable variables require `Data`: functions, arrays and IO handles
+are `Type`, so they can never be copied. Note that `main` marks nothing: you
+write `+` where you need the copies, and `replicate` pays for them with a
+reference count at runtime. Matching a `+` value hands out `+` fields; on a
+plain one, write `+r` in the pattern to make a field reusable.
 
-The checker is one bidirectional pass with no unification, implicit arguments,
-tactics or type classes: every type argument is written, every `do` bind is
-annotated, and in exchange checking is linear in the code and every error is
-local. `?TODO` leaves a goal open (the file checks, marked incomplete); `?name`
-reports the goal at that spot. Every def terminates: a recursive call must pass
-a pattern variable bound under a constructor of the matching parameter (`n -
-1` proves nothing, so loops count on `Nat`), and a def calls only itself and
-what is above it, so mutual recursion folds into one def with a phase
-argument. A loop bounded by the world carries a `Nat` fuel, or wears
-`@unsafe`, which skips its descent check and makes the report say so.
-`demos/nat_proofs` is a commutative semiring; `paper/BendTT.pdf` is the theory.
+### Kinds
 
-## Quantities
-
-A binder is used once (`x`), erased (`-x`: types, proofs, generics, gone at run
-time) or reused (`+x`); a parameter, a field, a pattern, a let name, a lambda
-or a `do` binder takes the mark, and `+x` on a pattern is `+x = x` below the
-destructures and match arms that head its body. Values move: into calls, into constructors, into the
-match that opens them; dropping is free; dead positions (types, erased
-arguments, equation endpoints, motives) count nothing. `+` needs kind `Data`:
-`U32`, `Nat`, `Bool`, `String` and every equation are `Data`; functions,
-arrays, `IO(A)` and handles are `Type`, reused by hand or not at all. A `+`
-scrutinee hands out `+` fields. A datatype takes one quantity per parameter (a
-bare name in its header), so a container is as reusable as its element:
-`List<&2, U32>` (also `+List<U32>`) may be reused, `List<&1, U32>` (also
-`List<U32>`) may not, and generic code takes the quantity as an erased
-argument, `def length(a, -A: Kind(a), xs: List<a, A>)`, called `length(&2, U32,
-[1])` or `length(&1, U32 -> U32, [y => y])`. Every refusal is one of two
-errors: `expected : Data, observed : Type`, or `x (consumed more than once)`.
-
-## IO
+Every type has a kind, which caps how many times its values may be used.
 
 ```python
-def main() -> IO(Unit):
-  do IO<Unit>:                                        # sugar over bind, pure
-    IO.write("Hello, ")                               # step; or Unit <- ..
-    name : String <- IO.try(String, IO.get_env("USER"))   # bind
-    k : U32 = 2                                       # let
-    IO.die(Unit, k, name)                             # the value; or return v
-```
+import Base
 
-`IO` is defined in `Base`; only the event loop that runs each effect is built
-in. The kit covers stdout, stderr, the environment, files, TCP and UDP
-(`bend base IO`, `File`, `TCP`, `UDP`). A fallible effect answers `Result<&1,
-&1, U32 & String, A>`: `IO.try` unwraps it or dies, `IO.pass` lifts one.
-Handles are affine and come back beside the `Result`, so even a failure hands
-them back; a handle is opaque (a law of `Base`, no constructor), so the type
-system, not a table, keeps it from being forged or reused. `do` works for `Maybe` and `Result` too. `demos/http_server` is a
-complete server.
-
-**Concurrency.** One event loop runs many computations, as Node runs
-callbacks: each is sequential Bend code stepping to its next effect, and one
-that must wait (a socket, a sleep, a file read) parks alone. `IO.spawn(A, act)`
-starts one; `Chan.new(A, room)` opens a channel (`Chan.send`, `Chan.recv` parks
-until a value arrives, `Chan.close`); `IO.fork(A, act)` spawns and answers the
-channel its value arrives on, `IO.join(A, c)` takes it. `IO.sleep(ms)` parks,
-`IO.now()` is a clock. Pure code inside a step still runs on every core:
-parallelism is the pool and the GPU, concurrency the loop. The process ends
-when every computation has answered, with `IO.die`'s code, or with a deadlock
-message when computations remain and nothing is pending.
-
-**Foreign fills.** An effect is a def whose body is `import "./effs/x.js"`
-(plus a `.c` twin for native builds); the host function is the def's name
-lowercased, dots to underscores, over the backend's own values. A fill must
-answer `IO`, and only the event loop runs it: there is no other FFI, so proofs,
-totality and the GPU never see host code. `bend2/effs/` has one file per
-effect, and the C side (`io_eff`, `io_work` for calls that block) reads off any
-of them.
-
-**Graphics.** A frame is an `Image` quadtree (`Pix{color}` fills a quadrant,
-`Qua{tl, tr, bl, br}` splits it) and an `App<S>` is `App{view, tick}`: `view`
-answers the state beside its image, `tick` folds a frame's events (`Key`,
-`Mouse`, `Move`, `Close`) into the next state in IO, `None` to quit.
-`App.run(~S, ~app, title, w, h, state)` ticks once per frame in a window;
-without a display `Window.open` fails. `demos/pong_game` is the smallest real
-one; `demos/ray_tracer` marches every pixel on the GPU with one `!`.
-
-## Modules
-
-`import ./lib/util.bend as Util` names the file's defs `Util.x`; the alias is
-for this file only, and dots are just characters (`U32.show` needs no module).
-`import 0x<hash>/main.bend as P` is a content-addressed package, fetched from
-the hub on a miss and checked against its hash. `bend file.bend --publish`
-uploads the file and everything it imports as one package (no `?TODO`; an
-open law is fine, so a claim can precede its proof), mines a few seconds of
-proof of work in place of an account, and prints the import line.
-`bend-lang.org/hub/0x<hash>` shows any package, each name linked.
-
-**Templates.** A `def` whose leading parameters have `~` parses once and
-compiles to its own copy per distinct tuple of `~` arguments, substituted as
-syntax, so `List.map(~Nat, ~Nat, ~(x => Nat.add(x, 1n)), xs)` is the loop you
-would write by hand, with no closure at run time:
-
-```python
-def List.map(~A: Type, ~B: Type, ~f: A -> B, xs: List<A>) -> List<B>:
+#  a: a quantity (&0, &1 or &2)
+# -A: a type whose values may be used a times
+def length(a, -A: Kind(a), xs: List<a, A>) -> Nat:
   match xs:
     case Nil{}:
-      Nil{}
-    case h <> t:
-      f(h) <> List.map(~A, ~B, ~f, t)
+      0n
+    case Con{h, t}:
+      1n+length(a, A, t)
+
+def main() -> Nat:
+  length(&2, U32, [1, 2, 3])
 ```
 
-A `~` argument must be closed (no local of the caller: pass it at run time),
-and a template calls only templates declared above it.
+`Type` is short for `Kind(&1)` and `Data` for `Kind(&2)`, so a `Kind(a)`
+parameter accepts both: `length(&1, U32 -> U32, fs)` counts a list of closures
+just as well. A bare `a` in a parameter list is short for `-a: Quant`. Base
+declares `type List<a, -A: Kind(a)> is Kind(a)`, making a list exactly as
+reusable as its elements: `List<U32>` is short for `List<&1, U32>`, and
+`+List<U32>` for `List<&2, U32>`. A type holding two element types combines
+their quantities with `a <&> b`, the smaller of the two.
 
-**From JavaScript.** Imported instead of run, `bend2/main.ts` makes a `.bend`
-file a module (`node --import ./bend2/main.ts app.mjs`, or `preload` it in
-`bunfig.toml`): `import Game from "./game.bend"` exports every non-IO def over
-its live arguments, `Game.step({ $: "Up" }, 1)`; constructors are `{$: "Name",
-field: value}`, `Nat` a `BigInt`, `Bool`, `U32` and `String` native. `bend
-page.html -o dist` bundles a page with the loader on.
+### Templates
 
-## Under the hood
+A template receives its argument as syntax and inlines it at compile time.
 
-Compiled code is a flat worklist machine with no C stack: a def is a segment, a
-call a jump, a fork a join task plus one child per call, dealt over a 128 x 128
-grid of lanes that grow until full and then drain alone. A term is one 64-bit
-word; there is no garbage collector: a match frees its node on the spot and `+`
-values carry a count. The same C source is the host program and the GPU
-kernel; `paper/BendRT.pdf` has the design and the numbers. In the theory, terms
-check live (they run) or dead (they only check); a dead term may inhabit
-`Empty`, nothing promotes dead to live, and that wall, with the usage cap, is
-why `Type : Type` and negative datatypes are consistent without universe levels
-or a positivity check. `bend2/bend.lean` mechanizes the core as the checker
-runs it.
+```python
+import Base
+
+# ~f: substituted at compile time, not passed at runtime
+def twice(~f: U32 -> U32, x: U32) -> U32:
+  f(f(x))
+
+def main() -> U32:
+  twice(~(x => (x + 1 : U32)), 40)
+```
+
+Template parameters come first in the parameter list, and a `~` argument must
+be closed: it may mention top-level defs, but no local variable of the caller.
+Each distinct set of `~` arguments compiles to its own copy of `twice`, so `f`
+costs nothing at runtime and, unlike a closure, may be called as many times as
+you like. A template may call only templates declared above it. This is how
+`List.map` is written in Base.
+
+### Laws and Proofs
+
+A law states a fact that must hold. It must be proven inside a paired def.
+
+```python
+import Base
+
+# LAW: "for every x, x plus 0 equals x"
+law add_zero:
+  for x: Nat
+  {Nat.add(x, 0n) == x : Nat}
+
+# PROOF: case analysis:
+# - base case: reflexivity
+# - step case: induction, rewrite, reflexivity
+def add_zero(x):
+  match x:
+    case 0n:
+      {==}
+    case 1n+p:
+      %add_zero(p) : {1n+Nat.add(p, 0n) == 1n+_ : Nat}
+      {==}
+
+def main() -> {Nat.add(2n, 0n) == 2n : Nat}:
+  add_zero(2n)
+```
+
+Laws are a critical feature in Bend, as they provide an ambiguity-free language
+on which humans can state precise specs for AI's to implement. That is, instead
+of writing a natural language prompt such as "implement a function that sorts a
+list", users can write precise laws like "implement a function F such that, for
+every list of numbers, `F(list)` returns the same numbers in ascending order".
+Models are then guaranteed to respond with bug-free code, since Bend will demand
+that they provide an actual proof.
+
+> We envision that "law-driven development" will eventually become the way humans
+> use AI to write and maintain large codebases, as it is the perfect middle point
+> between having to code everything manually (laborious) and letting AI do it all
+> via prompts without auditing a line of code (error/ambiguity-prone, unsecure).
+
+Bend has no tactics: a proposition is a type, and a proof is a def of that type.
+`{a == b : T}` is an equality; `{==}` proves it when both sides compute to the
+same term. Matching refines the goal in each case, a recursive call is the
+induction hypothesis, and `%e : P` rewrites with `e : {a == b : T}`, replacing
+`b` by `a` at every `_` in `P`. `exs y: T` in a law asks for a witness, returned
+as `(y, proof)`. A failed step prints the expected and observed terms; `?name`
+prints the goal, `?TODO` leaves it open, and a law with no def is an open claim.
+
+Since types are terms, a def may return a `Type`, like `def IsEven(n: Nat) ->
+Type:`, which is all dependent types are. A `match e:` with no cases closes a
+branch where `e : Empty`. To refute a clash like `e : {1n == 0n : Nat}`, rewrite
+it through a motive `disc(_)`, where `disc` sends `0n` to `Empty` and `1n+p` to
+`Unit`, and answer `Unit{}`. `{a != b : T}` is `{a == b : T} -> Empty`, and
+`Equal.sym`, `Equal.trans` and `Equal.cong` are in Base.
+
+### IO and Concurrency
+
+Effects live in the `IO` type and are sequenced with `do` blocks:
+
+```python
+import Base
+
+def greet(name: String) -> IO(String):
+  do IO<String>:
+    IO.sleep(1000)             # a step
+    return "Hello, " ++ name   # return: wraps a pure value
+
+def main() -> IO(Unit):
+  do IO<Unit>:
+    name : String <- IO.try(String, IO.get_env("USER")) # <-: binds a result
+    chan : Chan(String) <- IO.fork(String, greet(name)) # runs concurrently
+    IO.print("Waiting...")
+    text : String <- IO.join(String, chan)
+    IO.print(text)
+```
+
+Every bind is annotated, and `x : T = v` binds a pure value in the middle of a
+block. A fallible effect answers `Result<&1, &1, U32 & String, A>`: `IO.try`
+unwraps it or exits with the error, and `IO.die` exits with your own. A handle
+(`File`, `Socket`, `Window`) is an affine, opaque value, so every effect on one
+hands it back beside its result, and no program can forge or reuse one.
+
+A Bend program is a set of computations interleaved by one event loop, as in
+Node.js: each runs its pure code (in parallel, on every core) up to its next
+effect, and one that waits on a socket, a sleep or a channel steps aside for the
+others. `IO.fork` starts a computation and returns the channel its result will
+arrive on; `IO.join` waits for it. Underneath are `IO.spawn`, `Chan.new`,
+`Chan.send`, `Chan.recv` and `Chan.close`. The program ends when every
+computation is done, or reports a deadlock when the remaining ones all wait.
+
+Every effect in Base is a def whose body is `import "./x.js"` plus a `.c` twin,
+implemented by a host function named after the def, lowercased, dots to
+underscores. You can add your own effects the same way. Only the event loop runs
+them, so proofs, termination and the GPU never touch host code. In the other
+direction, a JS file may `import Game from "./game.bend"` (with `bend2/main.ts`
+preloaded) and call every non-IO def, with constructors as `{$: "Name", field:
+value}` and `Nat` as `BigInt`.
+
+### Monads
+
+The `do` notation works for any monad, not just IO.
+
+```python
+import Base
+
+def add_strs(a: String, b: String) -> Maybe<&2, U32>:
+  do Maybe<&2, U32>:
+    x : U32 <- U32.read(a) # a None here ends the block with None
+    y : U32 <- U32.read(b)
+    return (x + y : U32)
+
+def main() -> Maybe<&2, U32>:
+  add_strs("40", "2")
+```
+
+A `do M<xs.., R>:` block desugars each `x : A <- v` into `M.bind(xs.., A, R, v,
+x => ..)` and each `return e` into `M.pure(xs.., R, e)`, so any type with those
+two defs works: `IO`, `Maybe`, `Result`, or your own. The leading arguments
+(here, the `&2` quantity) are passed along to both.
+
+### Apps
+
+Graphics in Bend are pure: a frame is an `Image`; `App` maps states to images.
+
+```python
+import Base
+
+# tick: folds a frame's events into the next state; None quits the app
+def tick(events: List<Event>, color: U32) -> IO(Maybe<U32>):
+  match events:
+    case Nil{}:
+      IO.pure(Maybe<U32>, Some{color})
+    case Con{Close{}, rest}:
+      IO.pure(Maybe<U32>, None{})
+    case Con{e, rest}:
+      tick(rest, (color + 1 : U32))
+
+def main() -> IO(Unit):
+  # view: returns the state beside its image; Pix paints the whole frame
+  App.run(~U32, ~App{+s => (s, Pix{s}), tick}, "Hello", 256, 256, 0)
+```
+
+An `Image` is a quadtree: `Pix{color}` paints a square, and `Qua{tl, tr, bl,
+br}` splits it in four, so a frame is drawn by recursion like everything else,
+in parallel if you want. Events are `Key`, `Mouse`, `Move` and `Close`.
+`App.run` opens a window and calls `view` then `tick` once per frame, until
+`tick` answers `None`. Since the state is affine, `view` must hand it back next
+to the image. Underneath are `Window.open`, `Window.frame` and `Window.close`,
+and `Audio.open`, `Audio.write` and `Audio.close` for sound. See
+`demos/pong_game` for a complete one.
+
+### The Base Library
+
+Base is small, and its names follow a scheme, so you can guess most of it:
+
+```python
+import Base
+
+def main() -> String:
+  +a = (6 * 7 : U32)         # sugar for U32.mul(6, 7)
+  b  = U32.to_nat(a)         # conversions are T.to_x and T.from_x
+  U32.show(a) ++ " = " ++ Nat.show(b)
+```
+
+Every def is named `Type.verb`, and the same verbs recur across `Nat`, `U32`
+and `F32`: `add sub mul div mod` for arithmetic, `and or xor not shl shr` for
+bits, `cmp` (returning `Cmp`) and `is_eq is_ne is_lt is_le is_gt is_ge`
+(returning `Bool`) for comparisons, `show` to `String` and `read` back from it
+(answering a `Maybe`). Operators and `<`-style comparisons are just sugar for
+these. Beyond numbers there are `Bool`, `Cmp`, `Maybe`, `Result`, `List`,
+`Array`, a string-keyed `Map` (`new set get has del keys`), `Set` on top of it,
+the `Equal` lemmas, and the effects. `bend base` prints all of it, `bend base
+--types` only the types, and `bend base Map` one name and everything under it.
+
+### Modules
+
+A module is a file, and an import gives it a local name:
+
+```python
+# math.bend
+import Base
+
+def square(+x: U32) -> U32:
+  (x * x : U32)
+```
+
+```python
+# main.bend
+import Base
+import ./math.bend as M  # M.x now names every def of math.bend
+
+def main() -> U32:
+  M.square(7)
+```
+
+The alias is local to the importing file, and dots inside a name are just
+characters: `U32.show` needs no module. A law left open in one file may be
+filled in another as `def M.name(..)`, so a proof can ship separately from its
+claim. `import 0x<hash>/main.bend as P` imports a package by content hash,
+fetched from the hub and checked against it; `bend main.bend --publish` uploads
+a file with everything it imports and prints that line.
+
+## Tooling
+
+Bend is a single command:
+
+```bash
+bend file.bend            # check the file, then run main on the JS backend
+bend file.bend -o file    # compile to a native binary (needs clang 19+)
+bend file.bend -o file.c  # emit the C source instead
+bend file.bend -o file.js # emit the JS source instead
+bend page.html -o dist    # bundle a web page that imports .bend files
+./file --threads 8        # run a native binary on 8 CPU threads
+./file --gpu 4GB          # enables the GPU, with max 4GB memory
+```
+
+A `main` that returns `IO` runs; one that returns a value prints it; a file with
+no `main` just checks. A binary that uses `!` builds its GPU program too, as
+`file.gpu`, which must stay beside it. `bend base` prints the Base library
+(`bend base Map` prints one name and everything under it), `bend guide` prints
+this text, and `bend --help` lists the rest.
+
+## Syntax Reference
+
+Every form of the language, grouped by where it appears. Operators, literals
+and brackets are sugar for names in Base.
+
+```python
+# Top level
+import Base                              # the prelude
+import ./file.bend as M                  # a module; its defs are M.x
+type D<a, -A: Kind(a)> is Kind(a):       # a datatype and its kind
+  K{x: A, xs: List<a, A>}                # one constructor per line
+def f(x: A, -y: B, +z: C) -> T:          # a def; the body follows
+def f(x, y):                             # fills the law named f
+def t(~g: A -> B, x: A) -> B:            # a template
+law f:                                   # a claim, proven by def f
+  for x: A                               # a parameter (also for -x, for +x)
+  for y: B where P(y)                    # a parameter with evidence
+  exs z: C                               # a witness the proof must return
+  T                                      # the claim
+@unsafe def f(x: A) -> T:                # skips the termination check
+def e(x: A) -> IO(B):                    # a foreign effect
+  import "./e.c"
+  import "./e.js"
+```
+
+```python
+# Types
+Type  Data  Kind(q)                      # kinds; Type = Kind(&1), Data = Kind(&2)
+Quant  &0  &1  &2  a <&> b               # quantities and their minimum
+A -> B  @x:A -> B  @-x:A -> B            # functions: plain, dependent, erased
+A & B  &x:A -> B  A | B                  # pairs, dependent pairs, sums
+D<A>  +D<A>  D<&2, A>                    # a datatype; + makes it reusable
+{a == b : T}  {a != b : T}               # equality and its negation
+```
+
+```python
+# Terms
+42  1.5  3n  'c'  "s"                    # U32, F32, Nat, Char, String
+[a, b]  h <> t  (a, b)  [v : T * d]      # list, cons, tuple, array of 2^d slots
+K{a, b}  x => e  +x => e                 # a constructor, a lambda
+f(a, b)  f!(a)  t(~g, a)                 # a call, on the GPU, of a template
+(a + b * c : T)  {x : T}                 # operators over T; an annotation
+a[i]  a[i] <- v                          # array read and write
+{==}  %e : P; e2  %e@E : P; e2           # reflexivity, a rewrite, a named one
+?name  ?TODO                             # print the goal; leave it open
+```
+
+```python
+# Statements (a def, case, lambda or parenthesized body)
+x = v  +x = v  -x = v                    # a let: affine, reusable, erased
+(a, b) = v  K{x, y} = v                  # a destructuring let
+a b = f(x) g(y)                          # a parallel let
+match a b:                               # a match on one or more values
+  case K{x, _} 1n+p:                     # patterns nest; _ catches the rest
+do M<xs.., R>:                           # a monadic block over M.bind, M.pure
+  x : A <- m                             # bind
+  x : A = v                              # let
+  m                                      # a Unit step
+  return v                               # the result
+```
+
+Inside `(.. : T)`, `+ - * / %` call `T.add` through `T.mod`, `.&. .|. .^. <<
+>>` the bit operations, and `< <= > >=` the `T.is_lt` family; without a `: T`
+they belong to `Nat`. `&& ||` work on `Bool` and `++` on `String` anywhere.
+Equality of values is a call, `T.is_eq(a, b)`; `==` is only the type.
+
+## Under the Hood
+
+Bend's compiler emits one C file. That same file is the CPU program and the GPU
+kernel: clang builds it for the host, Metal or CUDA builds it for the device, so
+a `!` runs the exact same code on either chip.
+
+A term is one 64-bit word: small values are stored inline, everything else is a
+pointer into a single heap shared by every core and by the GPU. There is no
+garbage collector. Since values are affine, a `match` frees the node it opens
+on the spot, and only `+` values carry a reference count. There is no C stack
+either: each def compiles to a segment of a flat state machine, a call is a
+jump, and a parallel call creates a join task plus one task per call, which the
+scheduler deals across CPU or GPU lanes. `paper/BendRT.pdf` has the design and
+the benchmarks.
+
+Bend's theory has one universe and no positivity check: `Type : Type` holds,
+and a datatype may recurse on the left of an arrow. What keeps this consistent
+is a wall between two checking modes. Code that runs is checked *live*; types,
+erased arguments and equations are checked *dead*. Dead code may loop forever or
+inhabit `Empty`, but nothing dead ever counts as live evidence, and live
+recursion must terminate. `bend2/bend.lean` mechanizes this as the checker runs
+it; `paper/BendTT.pdf` is the paper.
+
+## Further Reading
+
+- `demos/`: complete programs, including the game and its proof from the video.
+- `bend2/base.bend`: the Base library, also printed by `bend base`.
+- `paper/BendTT.pdf` and `paper/BendRT.pdf`: the type theory and the runtime.
