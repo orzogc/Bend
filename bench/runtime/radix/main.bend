@@ -191,9 +191,8 @@ def chk(a):
   match a:
     case Emp{}:
       Cnil{}
-    case Single{x}:
-      +w = x
-      Cval{w, w, 1, 1, w}
+    case Single{+x}:
+      Cval{x, x, 1, 1, x}
     case Concat{a, b}:
       l r = chk(a) chk(b)
       chk_join(l, r)

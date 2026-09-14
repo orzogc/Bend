@@ -209,10 +209,9 @@ law cnew:
 
 def cnew(s, old):
   match s:
-    case Sl{sx, sy, n}:
-      +nn = n
-      +mm = sel(b2u(U32.is_zero(nn)), nn, 1)
-      sel(b2u(U32.is_zero(nn)), U32.or(U32.div(sx, mm), U32.shln(U32.div(sy, mm), 16n)), old)
+    case Sl{sx, sy, +n}:
+      +mm = sel(b2u(U32.is_zero(n)), n, 1)
+      sel(b2u(U32.is_zero(n)), U32.or(U32.div(sx, mm), U32.shln(U32.div(sy, mm), 16n)), old)
     case Sn{l, r}:
       old
 

@@ -235,9 +235,8 @@ def IO.join.go(-A: Type, chan: Chan(A), got: Maybe<&1, A>) -> IO(A):
     case Some{value}:
       IO.bind(Unit, A, Chan.close(A, chan), u => IO.pure(A, value))
 
-def IO.join(-A: Type, chan: Chan(A)) -> IO(A):
-  +c = chan
-  IO.bind(Maybe<&1, A>, A, Chan.recv(A, c), IO.join.go(A, c))
+def IO.join(-A: Type, +chan: Chan(A)) -> IO(A):
+  IO.bind(Maybe<&1, A>, A, Chan.recv(A, chan), IO.join.go(A, chan))
 
 def File.open(path: String, mode: String) ->
   IO(Result<&1, &1, U32 & String, File>):
@@ -827,7 +826,7 @@ def Word.to_nat(n: Nat, w: Word(n)) -> Nat:
         case WCon{True{}, t}:
           1n+Nat.double(Word.to_nat(p, t))
 
-def Word.mul.go(+n: Nat, m: Nat, a: Word(m), b: Word(n), acc: Word(n)) ->
+def Word.mul.go(+n: Nat, m: Nat, a: Word(m), +b: Word(n), acc: Word(n)) ->
   Word(n):
   match m:
     case 0n:
@@ -837,8 +836,7 @@ def Word.mul.go(+n: Nat, m: Nat, a: Word(m), b: Word(n), acc: Word(n)) ->
         case WCon{False{}, at}:
           Word.mul.go(n, mp, at, Word.shl(n, b), acc)
         case WCon{True{}, at}:
-          +b2 = b
-          Word.mul.go(n, mp, at, Word.shl(n, b2), Word.add(n, acc, b2))
+          Word.mul.go(n, mp, at, Word.shl(n, b), Word.add(n, acc, b))
 
 def Word.mul(+n: Nat, a: Word(n), b: Word(n)) -> Word(n):
   Word.mul.go(n, n, a, b, Word.zero(n))
@@ -1185,10 +1183,8 @@ law F32.read:
 
 def Char.cmp(a: Char, b: Char) -> (Char & Char) & Cmp:
   match a b:
-    case Chr{x} Chr{y}:
-      +x2 = x
-      +y2 = y
-      ((Chr{x2}, Chr{y2}), U32.cmp(x2, y2))
+    case Chr{+x} Chr{+y}:
+      ((Chr{x}, Chr{y}), U32.cmp(x, y))
 
 # String
 # ------
@@ -1272,7 +1268,7 @@ def Nat.show(+n: Nat) -> String:
 
 law Nat.read.go:
   for s   : String
-  for acc : Nat
+  for +acc : Nat
   Maybe<&2, Nat>
 
 def Nat.read.max() -> Nat:
@@ -1294,9 +1290,8 @@ def Nat.read.go(s, acc):
     case SNil{}:
       Some{acc}
     case SCon{Chr{x}, t}:
-      +a = acc
       +d = U32.sub(x, 48)
-      Nat.read.if(t, a, d, Bool.and(U32.is_lt(d, 10), Nat.read.fit(a,
+      Nat.read.if(t, acc, d, Bool.and(U32.is_lt(d, 10), Nat.read.fit(acc,
         Nat.divmod(Nat.sub(Nat.read.max(), U32.to_nat(d)), 10n))))
 
 def Nat.read(s: String) -> Maybe<&2, Nat>:
@@ -1339,7 +1334,7 @@ def U32.show(+a: U32) -> String:
 
 law U32.read.go:
   for s   : String
-  for acc : U32
+  for +acc : U32
   Maybe<&2, U32>
 
 def U32.read.if(t: String, n: U32, ok: Bool) -> Maybe<&2, U32>:
@@ -1354,9 +1349,8 @@ def U32.read.go(s, acc):
     case SNil{}:
       Some{acc}
     case SCon{Chr{x}, t}:
-      +a = acc
-      +n = U32.add(U32.mul(a, 10), U32.sub(x, 48))
-      U32.read.if(t, n, U32.is_eq(U32.div(n, 10), a))
+      +n = U32.add(U32.mul(acc, 10), U32.sub(x, 48))
+      U32.read.if(t, n, U32.is_eq(U32.div(n, 10), acc))
 
 def U32.read(s: String) -> Maybe<&2, U32>:
   match s:
@@ -1414,9 +1408,8 @@ def Array.swap.go(T, a, n, i, v):
       Array.swap.if(T, xs, ys, h, i, v, U32.is_lt(i, h))
 
 def Array.swap.at(-T: Type, i: U32, v: T, an: Array<T> & U32) -> Array<T> & T:
-  (a, n) = an
-  +m = n
-  Array.swap.go(T, a, m, U32.and(i, U32.sub(m, 1)), v)
+  (a, +n) = an
+  Array.swap.go(T, a, n, U32.and(i, U32.sub(n, 1)), v)
 
 def Array.swap(-T: Type, a: Array<T>, +i: U32, v: T) -> Array<T> & T:
   Array.swap.at(T, i, v, Array.size(T, a))
@@ -1430,9 +1423,8 @@ def Array.clone.node(
 
 def Array.clone(-T: Data, a: Array<T>) -> Array<T> & Array<T>:
   match a:
-    case ALeaf{x}:
-      +x2 = x
-      (ALeaf{x2}, ALeaf{x2})
+    case ALeaf{+x}:
+      (ALeaf{x}, ALeaf{x})
     case ANode{xs, ys}:
       Array.clone.node(T, Array.clone(T, xs), Array.clone(T, ys))
 
@@ -1468,17 +1460,15 @@ def Array.get.if(
 
 def Array.get.go(T, a, n, i):
   match a:
-    case ALeaf{x}:
-      +x2 = x
-      (ALeaf{x2}, x2)
+    case ALeaf{+x}:
+      (ALeaf{x}, x)
     case ANode{xs, ys}:
       +h = U32.shr(n)
       Array.get.if(T, xs, ys, h, i, U32.is_lt(i, h))
 
 def Array.get.at(-T: Data, i: U32, an: Array<T> & U32) -> Array<T> & T:
-  (a, n) = an
-  +m = n
-  Array.get.go(T, a, m, U32.and(i, U32.sub(m, 1)))
+  (a, +n) = an
+  Array.get.go(T, a, n, U32.and(i, U32.sub(n, 1)))
 
 def Array.get(-T: Data, a: Array<T>, +i: U32) -> Array<T> & T:
   Array.get.at(T, i, Array.size(T, a))
@@ -1490,14 +1480,11 @@ def Map.bit.u(x: U32, k: Nat) -> Bool:
   U32.is_ne(U32.and(U32.shrn(x, k), 1), 0)
 
 def Map.bit.chr(c: Char, off: Nat) -> Char & Bool:
-  match c:
-    case Chr{x}:
-      match off:
-        case 0n:
-          (Chr{x}, True{})
-        case 1n+b:
-          +x2 = x
-          (Chr{x2}, Map.bit.u(x2, Nat.sub(31n, b)))
+  match c off:
+    case Chr{x} 0n:
+      (Chr{x}, True{})
+    case Chr{+x} 1n+b:
+      (Chr{x}, Map.bit.u(x, Nat.sub(31n, b)))
 
 def Map.bit.go.chr(t: String, r: Char & Bool) -> String & Bool:
   (c2, b) = r
@@ -1527,7 +1514,7 @@ def Map.bit(key: String, pos: Nat) -> String & Bool:
 
 law Map.msb.u:
   for n: Nat
-  for x: U32
+  for +x: U32
   Nat
 
 def Map.msb.u.if(p: Nat, x2: U32, z: Bool) -> Nat:
@@ -1542,18 +1529,15 @@ def Map.msb.u(n, x):
     case 0n:
       0n
     case 1n+p:
-      +x2 = x
-      Map.msb.u.if(p, x2, U32.is_zero(x2))
+      Map.msb.u.if(p, x, U32.is_zero(x))
 
 def Map.diff.chr(x: U32) -> Nat:
   Nat.sub(33n, Map.msb.u(32n, x))
 
 def Map.diff.step(x: Char, y: Char) -> Nat & Bool:
   match x y:
-    case Chr{cx} Chr{cy}:
-      +cx2 = cx
-      +cy2 = cy
-      (Map.diff.chr(U32.xor(cx2, cy2)), U32.is_eq(cx2, cy2))
+    case Chr{+cx} Chr{+cy}:
+      (Map.diff.chr(U32.xor(cx, cy)), U32.is_eq(cx, cy))
 
 law Map.diff:
   for a: String
@@ -1606,9 +1590,8 @@ def Map.put(a, V, m, key, x):
       MLeaf{key, x}
     case MLeaf{k, v}:
       MLeaf{k, x}
-    case MNode{pos, lo, hi}:
-      +p = pos
-      Map.put.bit(a, V, x, p, lo, hi, Map.bit(key, p))
+    case MNode{+pos, lo, hi}:
+      Map.put.bit(a, V, x, pos, lo, hi, Map.bit(key, pos))
 
 def Map.ins.splice.bit(
   a, -V: Kind(a), x: V, rest: Map<a, V>, pb: Nat, kb: String & Bool
@@ -1661,9 +1644,8 @@ def Map.ins(a, V, m, key, x, p):
       MLeaf{key, x}
     case MLeaf{k, v}:
       Map.ins.splice(a, V, p, key, x, MLeaf{k, v})
-    case MNode{pos, lo, hi}:
-      +pos2 = pos
-      Map.ins.if(a, V, key, x, lo, hi, pos2, p, Nat.is_lt(pos2, p))
+    case MNode{+pos, lo, hi}:
+      Map.ins.if(a, V, key, x, lo, hi, pos, p, Nat.is_lt(pos, p))
 
 def Map.lo(
   a, -V: Kind(a), -R: Type, p2: Nat, hi: Map<a, V>, r0: Map<a, V> & R
@@ -1698,12 +1680,10 @@ def Map.seek(a, V, m, key):
   match m:
     case MTip{}:
       (MTip{}, key, None{})
-    case MLeaf{k, v}:
-      +k2 = k
-      (MLeaf{k2, v}, key, Some{k2})
-    case MNode{pos, lo, hi}:
-      +p = pos
-      Map.seek.bit(a, V, lo, hi, p, Map.bit(key, p))
+    case MLeaf{+k, v}:
+      (MLeaf{k, v}, key, Some{k})
+    case MNode{+pos, lo, hi}:
+      Map.seek.bit(a, V, lo, hi, pos, Map.bit(key, pos))
 
 def Map.set.fin.go(
   a, -V: Kind(a), m: Map<a, V>, key: String, x: V, r: (String & String) & Cmp
@@ -1764,19 +1744,17 @@ def Map.has(a, V, m, key):
       (MTip{}, False{})
     case MLeaf{k, v}:
       Map.has.leaf(a, V, v, String.cmp(key, k))
-    case MNode{pos, lo, hi}:
-      +p = pos
-      Map.has.bit(a, V, lo, hi, p, Map.bit(key, p))
+    case MNode{+pos, lo, hi}:
+      Map.has.bit(a, V, lo, hi, pos, Map.bit(key, pos))
 
-def Map.get.leaf(-V: Data, d: V, v: V, r: (String & String) & Cmp) ->
+def Map.get.leaf(-V: Data, d: V, +v: V, r: (String & String) & Cmp) ->
   Map<&2, V> & V:
   ((key2, k2), c) = r
   match c:
     case LT{}:
       (MLeaf{k2, v}, d)
     case EQ{}:
-      +v2 = v
-      (MLeaf{k2, v2}, v2)
+      (MLeaf{k2, v}, v)
     case GT{}:
       (MLeaf{k2, v}, d)
 
@@ -1803,9 +1781,8 @@ def Map.get(V, d, m, key):
       (MTip{}, d)
     case MLeaf{k, v}:
       Map.get.leaf(V, d, v, String.cmp(key, k))
-    case MNode{pos, lo, hi}:
-      +p = pos
-      Map.get.bit(V, d, lo, hi, p, Map.bit(key, p))
+    case MNode{+pos, lo, hi}:
+      Map.get.bit(V, d, lo, hi, pos, Map.bit(key, pos))
 
 def Map.pop.lo(
   a, -V: Kind(a), pos: Nat, hi: Map<a, V>, r0: Map<a, V> & Maybe<a, V>
@@ -1861,9 +1838,8 @@ def Map.pop(a, V, m, key):
       (MTip{}, None{})
     case MLeaf{k, v}:
       Map.pop.leaf(a, V, v, String.cmp(key, k))
-    case MNode{pos, lo, hi}:
-      +p = pos
-      Map.pop.bit(a, V, lo, hi, p, Map.bit(key, p))
+    case MNode{+pos, lo, hi}:
+      Map.pop.bit(a, V, lo, hi, pos, Map.bit(key, pos))
 
 def Map.del.fin(a, -V: Kind(a), r: Map<a, V> & Maybe<a, V>) -> Map<a, V>:
   (m2, x) = r

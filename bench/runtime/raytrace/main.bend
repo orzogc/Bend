@@ -125,7 +125,7 @@ law isect5:
   for cx: F32
   for cy: F32
   for cz: F32
-  for r: F32
+  for +r: F32
   for ox: F32
   for oy: F32
   for oz: F32
@@ -138,9 +138,8 @@ def isect5(cx, cy, cz, r, ox, oy, oz, dx, dy, dz):
   +px = F32.sub(ox, cx)
   +py = F32.sub(oy, cy)
   +pz = F32.sub(oz, cz)
-  +rr = r
   +b = F32.add(F32.add(F32.mul(px, dx), F32.mul(py, dy)), F32.mul(pz, dz))
-  isect.go(b, F32.sub(F32.mul(b, b), F32.sub(F32.add(F32.add(F32.mul(px, px), F32.mul(py, py)), F32.mul(pz, pz)), F32.mul(rr, rr))))
+  isect.go(b, F32.sub(F32.mul(b, b), F32.sub(F32.add(F32.add(F32.mul(px, px), F32.mul(py, py)), F32.mul(pz, pz)), F32.mul(r, r))))
 
 law sx:
   for i: Nat
@@ -247,14 +246,12 @@ def nearest(i, ox, oy, oz, dx, dy, dz, pt, pk, bt, bi, lt):
       Hit{U32.is_eq(bi, 9), bt, bi}
     case 0n True{}:
       Hit{U32.is_eq(pk, 9), pt, pk}
-    case 1n+k False{}:
-      +kk = k
-      +t = isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz)
-      nearest(kk, ox, oy, oz, dx, dy, dz, t, U32.from_nat(kk), bt, bi, F32.is_lt(t, bt))
-    case 1n+k True{}:
-      +kk = k
-      +t = isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz)
-      nearest(kk, ox, oy, oz, dx, dy, dz, t, U32.from_nat(kk), pt, pk, F32.is_lt(t, pt))
+    case 1n++k False{}:
+      +t = isect5(sx(k), sy(k), sz(k), sr(k), ox, oy, oz, dx, dy, dz)
+      nearest(k, ox, oy, oz, dx, dy, dz, t, U32.from_nat(k), bt, bi, F32.is_lt(t, bt))
+    case 1n++k True{}:
+      +t = isect5(sx(k), sy(k), sz(k), sr(k), ox, oy, oz, dx, dy, dz)
+      nearest(k, ox, oy, oz, dx, dy, dz, t, U32.from_nat(k), pt, pk, F32.is_lt(t, pt))
 
 law fmax0.go:
   for x: F32
@@ -345,14 +342,12 @@ def nearest.t(i, ox, oy, oz, dx, dy, dz, pt, bt, lt):
       bt
     case 0n True{}:
       pt
-    case 1n+k False{}:
-      +kk = k
-      +t = isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz)
-      nearest.t(kk, ox, oy, oz, dx, dy, dz, t, bt, F32.is_lt(t, bt))
-    case 1n+k True{}:
-      +kk = k
-      +t = isect5(sx(kk), sy(kk), sz(kk), sr(kk), ox, oy, oz, dx, dy, dz)
-      nearest.t(kk, ox, oy, oz, dx, dy, dz, t, pt, F32.is_lt(t, pt))
+    case 1n++k False{}:
+      +t = isect5(sx(k), sy(k), sz(k), sr(k), ox, oy, oz, dx, dy, dz)
+      nearest.t(k, ox, oy, oz, dx, dy, dz, t, bt, F32.is_lt(t, bt))
+    case 1n++k True{}:
+      +t = isect5(sx(k), sy(k), sz(k), sr(k), ox, oy, oz, dx, dy, dz)
+      nearest.t(k, ox, oy, oz, dx, dy, dz, t, pt, F32.is_lt(t, pt))
 
 # the bounce loop, ONE self-recursive def and one level per turn,
 # PIPELINED across the nearest call: each turn receives the hit of
@@ -381,13 +376,12 @@ def trace(dep, ht, sox, soy, soz, rdx, rdy, rdz, acc, w):
   match dep ht:
     case d2 Hit{True{}, mt, mi}:
       acc
-    case 0n Hit{False{}, t, i}:
-      +tt = t
+    case 0n Hit{False{}, +t, i}:
       +si = U32.to_nat(i)
       +rr = sr(si)
-      +hx = F32.add(sox, F32.mul(tt, rdx))
-      +hy = F32.add(soy, F32.mul(tt, rdy))
-      +hz = F32.add(soz, F32.mul(tt, rdz))
+      +hx = F32.add(sox, F32.mul(t, rdx))
+      +hy = F32.add(soy, F32.mul(t, rdy))
+      +hz = F32.add(soz, F32.mul(t, rdz))
       +nx2 = F32.div(F32.sub(hx, sx(si)), rr)
       +ny2 = F32.div(F32.sub(hy, sy(si)), rr)
       +nz2 = F32.div(F32.sub(hz, sz(si)), rr)
@@ -404,13 +398,12 @@ def trace(dep, ht, sox, soy, soz, rdx, rdy, rdz, acc, w):
       soz2 = F32.add(hz, F32.mul(fl(1, 1000), nz2))
       st = nearest.t(9n, sox2, soy2, soz2, lx, ly, lz, U32.to_f32(1000000000), U32.to_f32(1000000000), False{})
       F32.add(acc, F32.mul(w, F32.add(fl(1, 10), F32.mul(fl(85, 100), shade(st, ll, df)))))
-    case 1n+k Hit{False{}, t, i}:
-      +tt = t
+    case 1n+k Hit{False{}, +t, i}:
       +si = U32.to_nat(i)
       +rr = sr(si)
-      +hx = F32.add(sox, F32.mul(tt, rdx))
-      +hy = F32.add(soy, F32.mul(tt, rdy))
-      +hz = F32.add(soz, F32.mul(tt, rdz))
+      +hx = F32.add(sox, F32.mul(t, rdx))
+      +hy = F32.add(soy, F32.mul(t, rdy))
+      +hz = F32.add(soz, F32.mul(t, rdz))
       +nx2 = F32.div(F32.sub(hx, sx(si)), rr)
       +ny2 = F32.div(F32.sub(hy, sy(si)), rr)
       +nz2 = F32.div(F32.sub(hz, sz(si)), rr)

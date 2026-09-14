@@ -6,7 +6,7 @@
 import Base
 
 law produce:
-  for c: Chan(Nat)
+  for +c: Chan(Nat)
   for n: Nat
   IO(Unit)
 
@@ -15,11 +15,10 @@ def produce(c, n):
     case 0n:
       Chan.close(Nat, c)
     case 1n+p:
-      +ch = c
       +q  = p
       do IO<Unit>:
-        Bool <- Chan.send(Nat, ch, q)
-        produce(ch, q)
+        Bool <- Chan.send(Nat, c, q)
+        produce(c, q)
 
 law consume.got:
   for rest: IO(Unit)
@@ -34,7 +33,7 @@ def consume.got(rest, got):
       IO.bind(Unit, Unit, IO.print(Nat.show(value)), u => rest)
 
 law consume:
-  for c: Chan(Nat)
+  for +c: Chan(Nat)
   for f: Nat
   IO(Unit)
 
@@ -43,9 +42,8 @@ def consume(c, f):
     case 0n:
       IO.pure(Unit, Unit{})
     case 1n+g:
-      +ch = c
-      rest = consume(ch, g)
-      IO.bind(Maybe<&1, Nat>, Unit, Chan.recv(Nat, ch), consume.got(rest))
+      rest = consume(c, g)
+      IO.bind(Maybe<&1, Nat>, Unit, Chan.recv(Nat, c), consume.got(rest))
 
 law main.go:
   for c: Chan(Nat)

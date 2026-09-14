@@ -48,10 +48,9 @@ def poly(A, r):
   (arr, p) = r
   match p:
     case E{x, l}:
-      s = sum(l)
-      +s2 = s
-      t = sum(Con{s2, Con{s2, Nil{}}})
-      poly.fin(A, U32.add(s2, t), Array.get(Ent<A>, arr, 0))
+      +s = sum(l)
+      t = sum(Con{s, Con{s, Nil{}}})
+      poly.fin(A, U32.add(s, t), Array.get(Ent<A>, arr, 0))
 
 law go:
   for arr: Array<Ent<U32>>

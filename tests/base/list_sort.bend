@@ -57,21 +57,15 @@ law spass.go:
   List<&2, U32>
 
 def spass.go(b, xs, h, f, zs, os):
-  match xs:
-    case Con{h0, t}:
-      match f:
-        case True{}:
-          +h2 = h0
-          spass.go(b, t, h2, U32.is_zero(U32.and(U32.shrn(h2, b), 1)), Con{h, zs}, os)
-        case False{}:
-          +h2 = h0
-          spass.go(b, t, h2, U32.is_zero(U32.and(U32.shrn(h2, b), 1)), zs, Con{h, os})
-    case Nil{}:
-      match f:
-        case True{}:
-          lconcat(lrev(Con{h, zs}), lrev(os))
-        case False{}:
-          lconcat(lrev(zs), lrev(Con{h, os}))
+  match xs f:
+    case Con{+h0, t} True{}:
+      spass.go(b, t, h0, U32.is_zero(U32.and(U32.shrn(h0, b), 1)), Con{h, zs}, os)
+    case Con{+h0, t} False{}:
+      spass.go(b, t, h0, U32.is_zero(U32.and(U32.shrn(h0, b), 1)), zs, Con{h, os})
+    case Nil{} True{}:
+      lconcat(lrev(Con{h, zs}), lrev(os))
+    case Nil{} False{}:
+      lconcat(lrev(zs), lrev(Con{h, os}))
 
 law spass:
   for +b : Nat
@@ -82,9 +76,8 @@ law spass:
 
 def spass(b, xs, zs, os):
   match xs:
-    case Con{h0, t}:
-      +h = h0
-      spass.go(b, t, h, U32.is_zero(U32.and(U32.shrn(h, b), 1)), zs, os)
+    case Con{+h0, t}:
+      spass.go(b, t, h0, U32.is_zero(U32.and(U32.shrn(h0, b), 1)), zs, os)
     case Nil{}:
       lconcat(lrev(zs), lrev(os))
 
@@ -146,9 +139,8 @@ def lget(d, i, xs):
   match i xs:
     case 0n Nil{}:
       (Nil{}, d)
-    case 0n Con{h0, t}:
-      +h = h0
-      (Con{h, t}, h)
+    case 0n Con{+h0, t}:
+      (Con{h0, t}, h0)
     case 1n+p Nil{}:
       (Nil{}, d)
     case 1n+p Con{h, t}:

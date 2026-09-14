@@ -175,22 +175,14 @@ law mjoin:
 
 def mjoin(l, r):
   match l r:
-    case Ml{a} Ml{b}:
-      +aa = a
-      +bb = b
-      Mn{mrk(aa, bb), Ml{aa}, Ml{bb}}
-    case Ml{a} Mn{c, x, y}:
-      +aa = a
-      +cc = c
-      Mn{mrk(aa, cc), Ml{aa}, Mn{cc, x, y}}
-    case Mn{a, x, y} Ml{b}:
-      +aa = a
-      +bb = b
-      Mn{mrk(aa, bb), Mn{aa, x, y}, Ml{bb}}
-    case Mn{a, x, y} Mn{c, w, z}:
-      +aa = a
-      +cc = c
-      Mn{mrk(aa, cc), Mn{aa, x, y}, Mn{cc, w, z}}
+    case Ml{+a} Ml{+b}:
+      Mn{mrk(a, b), Ml{a}, Ml{b}}
+    case Ml{+a} Mn{+c, x, y}:
+      Mn{mrk(a, c), Ml{a}, Mn{c, x, y}}
+    case Mn{+a, x, y} Ml{+b}:
+      Mn{mrk(a, b), Mn{a, x, y}, Ml{b}}
+    case Mn{+a, x, y} Mn{+c, w, z}:
+      Mn{mrk(a, c), Mn{a, x, y}, Mn{c, w, z}}
 
 # build the Merkle tree over blocks b .. b + 2^d - 1
 law build:
@@ -249,11 +241,9 @@ def pverify(p, lh):
   match p:
     case Pn{}:
       lh
-    case Pc{s, sib, rest}:
-      +ss = s
+    case Pc{+s, +sib, rest}:
       +hh = pverify(rest, lh)
-      +sb = sib
-      mrk(sel(ss, hh, sb), sel(ss, sb, hh))
+      mrk(sel(s, hh, sib), sel(s, sib, hh))
 
 # small: (4n, 13) expect 524568222; big (22n, 1337) expect 3104235417
 law main:

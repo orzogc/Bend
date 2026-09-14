@@ -63,9 +63,8 @@ def String.split(s, sep):
   match s:
     case SNil{}:
       Con{SNil{}, Nil{}}
-    case SCon{h, t}:
-      +h2 = h
-      String.split.fin(h2, String.split(t, sep), ceq(h2, sep))
+    case SCon{+h, t}:
+      String.split.fin(h, String.split(t, sep), ceq(h, sep))
 
 law String.join.go:
   for xs   : List<&2, String>

@@ -39,10 +39,9 @@ def Sq.wrap(v: U32) -> U32:
 
 # One tick of motion: 2 pixels per held direction, around the torus.
 def Sq.move(s: Sq) -> Sq:
-  Sq{pid, x, y, held} = s
-  +h = held
-  Sq{pid, Sq.wrap((x + 480 + 2 * (h >> 3n .&. 1) - 2 * (h >> 2n .&. 1) : U32)),
-    Sq.wrap((y + 480 + 2 * (h >> 1n .&. 1) - 2 * (h .&. 1) : U32)), h}
+  Sq{pid, x, y, +held} = s
+  Sq{pid, Sq.wrap((x + 480 + 2 * (held >> 3n .&. 1) - 2 * (held >> 2n .&. 1) : U32)),
+    Sq.wrap((y + 480 + 2 * (held >> 1n .&. 1) - 2 * (held .&. 1) : U32)), held}
 
 def Sq.of(+s: Sq, pid: U32) -> Bool:
   Sq{p, x, y, held} = s
@@ -68,12 +67,10 @@ def Sq.hit.go(out: Bool, in: Bool) -> Nat:
       1n
 
 def Sq.hit(+x0: U32, +y0: U32, +s: U32, sq: Sq) -> Nat:
-  Sq{pid, x, y, held} = sq
-  +rx = x
-  +ry = y
+  Sq{pid, +x, +y, held} = sq
   Sq.hit.go(
-    ((x0 + s <= rx) || (rx + 32 <= x0) || (y0 + s <= ry) || (ry + 32 <= y0) : U32),
-    ((rx <= x0) && (x0 + s <= rx + 32) && (ry <= y0) && (y0 + s <= ry + 32) : U32))
+    ((x0 + s <= x) || (x + 32 <= x0) || (y0 + s <= y) || (y + 32 <= y0) : U32),
+    ((x <= x0) && (x0 + s <= x + 32) && (y <= y0) && (y0 + s <= y + 32) : U32))
 
 def Sq.color(k: Nat) -> U32:
   match k:
@@ -110,9 +107,8 @@ def World.input(+w: World(), +pid: U32, +held: U32) -> World():
   match w:
     case Nil{}:
       [Sq.spawn(pid, held)]
-    case Con{s, t}:
-      +s2 = s
-      World.input.go(Sq.of(s2, pid), s2, t, held, u => World.input(t, pid, held))
+    case Con{+s, t}:
+      World.input.go(Sq.of(s, pid), s, t, held, u => World.input(t, pid, held))
 
 def World.inputs(ins: List<&2, Input>, w: World()) -> World():
   match ins:
@@ -144,9 +140,8 @@ def World.mine(w: World(), +pid: U32) -> Maybe<&2, Sq>:
   match w:
     case Nil{}:
       None{}
-    case Con{s, t}:
-      +s2 = s
-      World.mine.go(Sq.of(s2, pid), s2, World.mine(t, pid))
+    case Con{+s, t}:
+      World.mine.go(Sq.of(s, pid), s, World.mine(t, pid))
 
 def World.keep(hit: Bool, s: Sq, rest: World()) -> World():
   match hit:
@@ -159,9 +154,8 @@ def World.others(w: World(), +pid: U32) -> World():
   match w:
     case Nil{}:
       []
-    case Con{s, t}:
-      +s2 = s
-      World.keep(Bool.not(Sq.of(s2, pid)), s2, World.others(t, pid))
+    case Con{+s, t}:
+      World.keep(Bool.not(Sq.of(s, pid)), s, World.others(t, pid))
 
 def World.blend.go(mine: Maybe<&2, Sq>, rest: World()) -> World():
   match mine:
@@ -189,9 +183,8 @@ def World.code(+x0: U32, +y0: U32, +s: U32, w: World()) -> Nat:
     case Nil{}:
       0n
     case Con{sq, t}:
-      Sq{pid, x, y, held} = sq
-      +p = pid
-      World.code.go(Sq.hit(x0, y0, s, Sq{p, x, y, held}), p,
+      Sq{+pid, x, y, held} = sq
+      World.code.go(Sq.hit(x0, y0, s, Sq{pid, x, y, held}), pid,
         World.code(x0, y0, s, t))
 
 def World.paint(code: Nat) -> U32:
@@ -282,42 +275,35 @@ def Play.quit(c: Net.Client<Input, World()>) -> IO(Maybe<Play>):
 
 # Held keys that changed are posted; a key's repeat changes nothing.
 def Play.post(
-  changed: Bool, pid: U32, held: U32, world: World(), c: Net.Client<Input, World()>
+  changed: Bool, +pid: U32, +held: U32, world: World(), c: Net.Client<Input, World()>
 ) -> IO(Maybe<Play>):
   match changed:
     case False{}:
       IO.pure(Maybe<Play>, Some{Play{pid, held, world, c}})
     case True{}:
-      +p = pid
-      +h = held
       do IO<Maybe<Play>>:
         c2 : Net.Client<Input, World()> <- Net.Client.post(~Input, ~World(),
-          ~Walkers.game(), c, Input{p, h})
-        return Some{Play{p, h, world, c2}}
+          ~Walkers.game(), c, Input{pid, held})
+        return Some{Play{pid, held, world, c2}}
 
 def Play.keyed(
-  esc: Bool, pid: U32, held: U32, held2: U32, world: World(),
+  esc: Bool, pid: U32, held: U32, +held2: U32, world: World(),
   c: Net.Client<Input, World()>
 ) -> IO(Maybe<Play>):
   match esc:
     case True{}:
       Play.quit(c)
     case False{}:
-      +h2 = held2
-      Play.post(Bool.not(U32.is_eq(held, h2)), pid, h2, world, c)
+      Play.post(Bool.not(U32.is_eq(held, held2)), pid, held2, world, c)
 
 def Play.event(e: Event, play: Play) -> IO(Maybe<Play>):
-  match e:
-    case Key{code, down}:
-      Play{pid, held, world, c} = play
-      +cd = code
-      +dn = down
-      Play.keyed(Bool.and(dn, U32.is_eq(cd, 27)), pid, held,
-        Play.press(dn, held, Play.key(cd)), world, c)
-    case Close{}:
-      Play{pid, held, world, c} = play
+  match e play:
+    case Key{+code, +down} Play{pid, held, world, c}:
+      Play.keyed(Bool.and(down, U32.is_eq(code, 27)), pid, held,
+        Play.press(down, held, Play.key(code)), world, c)
+    case Close{} Play{pid, held, world, c}:
       Play.quit(c)
-    case other:
+    case other play:
       IO.pure(Maybe<Play>, Some{play})
 
 def Play.events(events: List<Event>, play: Play) -> IO(Maybe<Play>):
@@ -329,11 +315,10 @@ def Play.events(events: List<Event>, play: Play) -> IO(Maybe<Play>):
         App.more(Play, p => Play.events(rest, p)))
 
 def Play.framed(
-  pid: U32, held: U32, css: Net.Client<Input, World()> & World() & World()
+  +pid: U32, held: U32, css: Net.Client<Input, World()> & World() & World()
 ) -> Play:
   (c, (local, remote)) = css
-  +p = pid
-  Play{p, held, World.blend(p, local, remote), c}
+  Play{pid, held, World.blend(pid, local, remote), c}
 
 def Play.frame(play: Play) -> IO(Maybe<Play>):
   Play{pid, held, world, c} = play
@@ -349,9 +334,8 @@ def Play.tick(events: List<Event>, play: Play) -> IO(Maybe<Play>):
     App.more(Play, Play.frame))
 
 def Play.view(play: Play) -> Play & Image:
-  Play{pid, held, world, c} = play
-  +w = world
-  (Play{pid, held, w, c}, World.draw(9n, World.code(0, 0, 512, w), 0, 0, w))
+  Play{pid, held, +world, c} = play
+  (Play{pid, held, world, c}, World.draw(9n, World.code(0, 0, 512, world), 0, 0, world))
 
 # Join the room and spawn: an input with no key held makes the square
 # exist.

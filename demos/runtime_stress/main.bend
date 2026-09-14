@@ -107,9 +107,8 @@ law Rt.read.back:
   Array<U32> & U32
 
 def Rt.read.back(i, bv):
-  (b2, v) = bv
-  +val = v
-  Rt.read.fin(val, Array.swap(U32, b2, i, val))
+  (b2, +v) = bv
+  Rt.read.fin(v, Array.swap(U32, b2, i, v))
 
 law Rt.read:
   for  b: Array<U32>
@@ -171,9 +170,8 @@ law spawn.leaf.mk:
   U32 & (Array<U32> -> Array<U32>)
 
 def spawn.leaf.mk(s, qi):
-  (q, i) = qi
-  +j = i
-  (s, b => spawn.leaf.go(s, q, j, b))
+  (q, +i) = qi
+  (s, b => spawn.leaf.go(s, q, i, b))
 
 law spawn.node:
   for l: U32 & (Array<U32> -> Array<U32>)
@@ -229,9 +227,8 @@ law churn.mix:
   (Array<U32> & U32) & U32
 
 def churn.mix(z, c, b2, o, qr):
-  (quo, r) = qr
-  +dig = r
-  churn.pick(z, c, b2, o, quo, dig, Rt.eqz(dig))
+  (quo, +r) = qr
+  churn.pick(z, c, b2, o, quo, r, Rt.eqz(r))
 
 law churn.spin:
   for +t : U32
@@ -241,9 +238,8 @@ law churn.spin:
   (Array<U32> & U32) & U32
 
 def churn.spin(t, z, c, bo):
-  (b2, old) = bo
-  +o = old
-  churn.mix(z, c, b2, o, Rt.divmod(o, t))
+  (b2, +old) = bo
+  churn.mix(z, c, b2, old, Rt.divmod(old, t))
 
 law churn.turn:
   for +t : U32
@@ -326,14 +322,12 @@ def run.seed(ten, off, vf):
   churn("Bend stresses its own runtime!", ten, off, f(Rt.alloc(6n, off)), v, "")
 
 law run.mix:
-  for t: U32
-  for z: U32
+  for +t: U32
+  for +z: U32
   String
 
 def run.mix(t, z):
-  +ten = t
-  +off = z
-  run.seed(ten, off, spawn(20n, off, ten))
+  run.seed(t, z, spawn(20n, z, t))
 
 law run.chr:
   for x: Char

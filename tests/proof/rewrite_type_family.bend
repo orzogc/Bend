@@ -59,9 +59,8 @@ def even_dbl(n):
   match n:
     case Z{}:
       U{}
-    case S{p}:
-      +q = p
-      %add_succ(q, q) : IsEven(S{_})
-      even_dbl(q)
+    case S{+p}:
+      %add_succ(p, p) : IsEven(S{_})
+      even_dbl(p)
 
 #|All terms check.

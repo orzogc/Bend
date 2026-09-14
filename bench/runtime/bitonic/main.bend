@@ -184,9 +184,8 @@ law scan:
 
 def scan(t):
   match t:
-    case Leaf{v}:
-      +w = v
-      St{w, w, 1, w}
+    case Leaf{+v}:
+      St{v, v, 1, v}
     case Node{a, b}:
       l r = scan(a) scan(b)
       stat_join(l, r)

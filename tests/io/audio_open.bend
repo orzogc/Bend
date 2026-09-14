@@ -35,10 +35,9 @@ law wrote:
   IO(Unit)
 
 def wrote(r):
-  (a, q) = r
-  +n = q
+  (a, +q) = r
   do IO<Unit>:
-    u : Unit <- IO.print(Math.word((n <= 512 : U32), "queued", "over"))
+    u : Unit <- IO.print(Math.word((q <= 512 : U32), "queued", "over"))
     Audio.close(a)
 
 law opened:

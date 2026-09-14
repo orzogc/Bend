@@ -7,15 +7,14 @@
 import Base
 
 law producer:
-  for c: Chan(U32)
+  for +c: Chan(U32)
   IO(Unit)
 
 def producer(c):
-  +ch = c
   do IO<Unit>:
-    a : Bool <- Chan.send(U32, ch, 11)
-    b : Bool <- Chan.send(U32, ch, 22)
-    Chan.close(U32, ch)
+    a : Bool <- Chan.send(U32, c, 11)
+    b : Bool <- Chan.send(U32, c, 22)
+    Chan.close(U32, c)
 
 law got:
   for m: Maybe<&1, U32>

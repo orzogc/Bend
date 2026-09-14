@@ -174,16 +174,15 @@ law cdf:
 
 def cdf(h):
   match h:
-    case Hl{h0, h1, h2, h3, h4, h5, h6, h7}:
-      +c0 = h0
-      +c1 = U32.add(c0, h1)
+    case Hl{+h0, h1, h2, h3, h4, h5, h6, h7}:
+      +c1 = U32.add(h0, h1)
       +c2 = U32.add(c1, h2)
       +c3 = U32.add(c2, h3)
       +c4 = U32.add(c3, h4)
       +c5 = U32.add(c4, h5)
       +c6 = U32.add(c5, h6)
       +c7 = U32.add(c6, h7)
-      Lut{U32.div(U32.mul(c0, 255), c7), U32.div(U32.mul(c1, 255), c7), U32.div(U32.mul(c2, 255), c7), U32.div(U32.mul(c3, 255), c7),
+      Lut{U32.div(U32.mul(h0, 255), c7), U32.div(U32.mul(c1, 255), c7), U32.div(U32.mul(c2, 255), c7), U32.div(U32.mul(c3, 255), c7),
           U32.div(U32.mul(c4, 255), c7), U32.div(U32.mul(c5, 255), c7), U32.div(U32.mul(c6, 255), c7), U32.div(U32.mul(c7, 255), c7)}
 
 # pass-2 leaf: recompute the pixel, recolor through the LUT (branchless
@@ -238,23 +237,15 @@ law rend.mix:
 
 def rend.mix(hd, tn, lut):
   match lut:
-    case Lut{l0, l1, l2, l3, l4, l5, l6, l7}:
-      +q0 = l0
-      +q1 = l1
-      +q2 = l2
-      +q3 = l3
-      +q4 = l4
-      +q5 = l5
-      +q6 = l6
-      +q7 = l7
-      m1 = U32.add(U32.mul(q0, 2654435761), q1)
-      m2 = U32.add(U32.mul(m1, 2654435761), q2)
-      m3 = U32.add(U32.mul(m2, 2654435761), q3)
-      m4 = U32.add(U32.mul(m3, 2654435761), q4)
-      m5 = U32.add(U32.mul(m4, 2654435761), q5)
-      m6 = U32.add(U32.mul(m5, 2654435761), q6)
-      m7 = U32.add(U32.mul(m6, 2654435761), q7)
-      r = rcol(Nat.add(hd, 6n), 0, tn, q0, q1, q2, q3, q4, q5, q6, q7)
+    case Lut{+l0, +l1, +l2, +l3, +l4, +l5, +l6, +l7}:
+      m1 = U32.add(U32.mul(l0, 2654435761), l1)
+      m2 = U32.add(U32.mul(m1, 2654435761), l2)
+      m3 = U32.add(U32.mul(m2, 2654435761), l3)
+      m4 = U32.add(U32.mul(m3, 2654435761), l4)
+      m5 = U32.add(U32.mul(m4, 2654435761), l5)
+      m6 = U32.add(U32.mul(m5, 2654435761), l6)
+      m7 = U32.add(U32.mul(m6, 2654435761), l7)
+      r = rcol(Nat.add(hd, 6n), 0, tn, l0, l1, l2, l3, l4, l5, l6, l7)
       U32.add(U32.mul(m7, 2654435761), r)
 
 law rend:

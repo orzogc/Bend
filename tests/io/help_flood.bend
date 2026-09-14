@@ -22,7 +22,7 @@ def one(c):
 
 law spawn_all:
   for n: Nat
-  for c: Chan(U32)
+  for +c: Chan(U32)
   IO(Unit)
 
 def spawn_all(n, c):
@@ -30,10 +30,9 @@ def spawn_all(n, c):
     case 0n:
       IO.pure(Unit, Unit{})
     case 1n+p:
-      +ch = c
       do IO<Unit>:
-        Unit <- IO.spawn(Unit, one(ch))
-        spawn_all(p, ch)
+        Unit <- IO.spawn(Unit, one(c))
+        spawn_all(p, c)
 
 law got:
   for m: Maybe<&1, U32>
@@ -48,7 +47,7 @@ def got(m):
 
 law drain:
   for n: Nat
-  for c: Chan(U32)
+  for +c: Chan(U32)
   for +acc: U32
   IO(U32)
 
@@ -57,10 +56,9 @@ def drain(n, c, acc):
     case 0n:
       IO.pure(U32, acc)
     case 1n+p:
-      +ch = c
       do IO<U32>:
-        m : Maybe<&1, U32> <- Chan.recv(U32, ch)
-        drain(p, ch, (acc + got(m) : U32))
+        m : Maybe<&1, U32> <- Chan.recv(U32, c)
+        drain(p, c, (acc + got(m) : U32))
 
 law main.go:
   for c: Chan(U32)

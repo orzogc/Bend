@@ -35,9 +35,8 @@ law rnext:
 
 def rnext(r):
   match r:
-    case Rnd{s0}:
-      +s = s0
-      +a = U32.xor(s, U32.shln(s, 13n))
+    case Rnd{+s0}:
+      +a = U32.xor(s0, U32.shln(s0, 13n))
       +b = U32.xor(a, U32.shrn(a, 17n))
       +c = U32.xor(b, U32.shln(b, 5n))
       (Rnd{c}, c)

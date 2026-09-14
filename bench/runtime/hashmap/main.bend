@@ -128,9 +128,8 @@ law ins:
   Array<Chain>
 
 def ins(b, k, r):
-  (a, c0) = r
-  +c = c0
-  ins.put(a, b, k, c, has(c, k, False{}))
+  (a, +c0) = r
+  ins.put(a, b, k, c0, has(c0, k, False{}))
 
 # phase 1: D inserts, key j from the table seed
 law fill:

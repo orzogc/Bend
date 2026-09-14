@@ -385,9 +385,8 @@ def str_find(s: String, z: Bool, +c: U32, +i: U32) -> U32:
   match s z:
     case _ True{}:
       i
-    case SCon{h, t} False{}:
-      +u = t
-      str_find(u, U32.is_eq(str_at(u, 0n), c), c, (i + 1 : U32))
+    case SCon{h, +t} False{}:
+      str_find(t, U32.is_eq(str_at(t, 0n), c), c, (i + 1 : U32))
     case SNil{} False{}:
       i
 
@@ -420,10 +419,9 @@ def ws_new(sp: Bool, cm: Bool) -> Ws:
 # the source head as whitespace: a blank or "~", or "//"
 def str_ws(s: String) -> Ws:
   match s:
-    case SCon{Chr{c}, t}:
-      +d = c
-      ws_new(U32.is_le(d, chr_code(' ')) || chr_is(d, '~'),
-        chr_is(d, '/') && chr_is(str_at(t, 0n), '/'))
+    case SCon{Chr{+c}, t}:
+      ws_new(U32.is_le(c, chr_code(' ')) || chr_is(c, '~'),
+        chr_is(c, '/') && chr_is(str_at(t, 0n), '/'))
     case SNil{}:
       No{}
 
@@ -439,12 +437,10 @@ def str_cm(s: String) -> Ws:
 # blanks and comments dropped from the head; z classifies the head
 def str_skip(s: String, z: Ws) -> String:
   match s z:
-    case SCon{c, t} Sp{}:
-      +r = t
-      str_skip(r, str_ws(r))
-    case SCon{c, t} Cm{}:
-      +r = t
-      str_skip(r, str_cm(r))
+    case SCon{c, +t} Sp{}:
+      str_skip(t, str_ws(t))
+    case SCon{c, +t} Cm{}:
+      str_skip(t, str_cm(t))
     case u _:
       u
 
@@ -455,9 +451,8 @@ def str_word.go(c: Char, p: String & String) -> String & String:
 # the word at the head, and the rest; z: is the head a name character
 def str_word(s: String, z: Bool) -> String & String:
   match s z:
-    case SCon{c, t} True{}:
-      +r = t
-      str_word.go(c, str_word(r, chr_name(str_at(r, 0n))))
+    case SCon{c, +t} True{}:
+      str_word.go(c, str_word(t, chr_name(str_at(t, 0n))))
     case u _:
       ("", u)
 
@@ -486,9 +481,8 @@ def hc_new(+c: U32, +d: U32) -> Hc:
 # ==
 
 # a state over a source: blanks skipped, the head classified
-def st_new(src: String, sc: List<&2, Bind>, vc: U32, ns: Names) -> St:
-  +r = src
-  +s = str_skip(r, str_ws(r))
+def st_new(+src: String, sc: List<&2, Bind>, vc: U32, ns: Names) -> St:
+  +s = str_skip(src, str_ws(src))
   St{hc_new(str_at(s, 0n), str_at(s, 1n)), s, sc, vc, ns}
 
 # Parser monad
@@ -531,9 +525,8 @@ def name.go(
 
 # the name at the head
 def name(k: String -> St -> IO(Unit), s: St) -> IO(Unit):
-  St{h, src, sc, vc, ns} = s
-  +r = src
-  name.go(sc, vc, ns, k, str_word(r, chr_name(str_at(r, 0n))))
+  St{h, +src, sc, vc, ns} = s
+  name.go(sc, vc, ns, k, str_word(src, chr_name(str_at(src, 0n))))
 
 # the name at the head, as a code
 def label() -> P(U32):
@@ -551,9 +544,8 @@ def opt.go(hit: Bool, k: Bool -> St -> IO(Unit), s: St, t: String) -> IO(Unit):
 
 # an optional character: consumed when present; the answer says which
 def opt(ch: Char, k: Bool -> St -> IO(Unit), s: St) -> IO(Unit):
-  St{h, src, sc, vc, ns} = s
-  +r = src
-  opt.go(chr_is(str_at(r, 0n), ch), k, St{h, r, sc, vc, ns}, str_drop(r, 1n))
+  St{h, +src, sc, vc, ns} = s
+  opt.go(chr_is(str_at(src, 0n), ch), k, St{h, src, sc, vc, ns}, str_drop(src, 1n))
 
 # an optional character, consumed when present
 def skip(ch: Char) -> P(Unit):
@@ -612,10 +604,8 @@ def bindc.go(
         (vc + 2 : U32), ns})
 
 # a dup's live sides pushed onto the scope ("-" is a dead side)
-def bindc(l: U32, a: String, b: String, k: Dp -> St -> IO(Unit), s: St) -> IO(Unit):
-  +a2 = a
-  +b2 = b
-  bindc.go(String.eq(a2, "-"), String.eq(b2, "-"), l, a2, b2, k, s)
+def bindc(l: U32, +a: String, +b: String, k: Dp -> St -> IO(Unit), s: St) -> IO(Unit):
+  bindc.go(String.eq(a, "-"), String.eq(b, "-"), l, a, b, k, s)
 
 def pop.go(ok: Bool, nm: String, u: U32) -> P(Unit):
   match ok:
@@ -678,10 +668,9 @@ def look.go(
       IO.print("unbound variable: " ++ nm)
 
 # a variable occurrence
-def look(nm: String, k: Tpl -> St -> IO(Unit), s: St) -> IO(Unit):
+def look(+nm: String, k: Tpl -> St -> IO(Unit), s: St) -> IO(Unit):
   St{h, src, sc, vc, ns} = s
-  +n = nm
-  look.go(n, k, h, src, vc, ns, sc_find(sc, n, False{}))
+  look.go(nm, k, h, src, vc, ns, sc_find(sc, nm, False{}))
 
 # is the source over
 def eof(k: Bool -> St -> IO(Unit), s: St) -> IO(Unit):
@@ -705,10 +694,9 @@ def names_find.go(+nm: String, +n: U32, p: Map<&2, U32> & Bool) -> Names & U32:
       (Names{Map.set(&2, U32, m, nm, n), (n + 1 : U32)}, n)
 
 # the index of a name: the next one when the name is new
-def names_find(ns: Names, nm: String) -> Names & U32:
+def names_find(ns: Names, +nm: String) -> Names & U32:
   Names{m, n} = ns
-  +w = nm
-  names_find.go(w, n, Map.has(&2, U32, m, w))
+  names_find.go(nm, n, Map.has(&2, U32, m, nm))
 
 def index.go(
   k: U32 -> St -> IO(Unit),
@@ -1093,15 +1081,12 @@ def free_cov(k: FK, +fh: U32, +i: U32, p: Array<Cell> & Cell) -> FS:
 def free_run(s: FS) -> Fr:
   FS{env, t, k, fh} = s
   match t:
-    case Var{i}:
-      +j = i
-      free_run(free_var(k, fh, j, Array.swap(Cell, env, j, Num{fh})))
-    case Co0{l, i}:
-      +j = i
-      free_run(free_cov(k, fh, j, Array.swap(Cell, env, j, Nul{})))
-    case Co1{l, i}:
-      +j = i
-      free_run(free_cov(k, fh, j, Array.swap(Cell, env, j, Nul{})))
+    case Var{+i}:
+      free_run(free_var(k, fh, i, Array.swap(Cell, env, i, Num{fh})))
+    case Co0{l, +i}:
+      free_run(free_cov(k, fh, i, Array.swap(Cell, env, i, Nul{})))
+    case Co1{l, +i}:
+      free_run(free_cov(k, fh, i, Array.swap(Cell, env, i, Nul{})))
     case Lam{i, f}:
       free_run(FS{subst(env, i, Sub{Era{}}), f, k, fh})
     case Sup{l, a, b}:
@@ -1684,15 +1669,12 @@ def run(s: S) -> Out:
       match t:
         case Cal{f, x}:
           run(S{env, book, Go{f}, Arg{x, k}, c, fh, nx})
-        case Var{i}:
-          +j = i
-          run(go_var(book, k, c, fh, nx, j, Array.swap(Cell, env, j, Num{fh})))
-        case Co0{l, i}:
-          +j = i
-          run(go_cov(book, k, c, fh, nx, l, j, 0, Array.swap(Cell, env, j, Nul{})))
-        case Co1{l, i}:
-          +j = i
-          run(go_cov(book, k, c, fh, nx, l, j, 1, Array.swap(Cell, env, j, Nul{})))
+        case Var{+i}:
+          run(go_var(book, k, c, fh, nx, i, Array.swap(Cell, env, i, Num{fh})))
+        case Co0{l, +i}:
+          run(go_cov(book, k, c, fh, nx, l, i, 0, Array.swap(Cell, env, i, Nul{})))
+        case Co1{l, +i}:
+          run(go_cov(book, k, c, fh, nx, l, i, 1, Array.swap(Cell, env, i, Nul{})))
         case Ref{r}:
           Exp{env, book, k, c, fh, nx, r}
         case u:
@@ -1763,12 +1745,10 @@ def run(s: S) -> Out:
 @unsafe
 def drive(o: Out) -> Out:
   match o:
-    case Exp{env, book, k, c, fh, nx, r}:
-      +r2 = r
-      drive(run(go_ref(env, k, c, fh, nx, r2, Array.swap(Tpl, book, r2, TEra{}))))
-    case Dsp{env, book, k, c, fh, nx, r, w}:
-      +r2 = r
-      drive(run(dsp(env, k, c, fh, nx, r2, w, Array.swap(Tpl, book, r2, TEra{}))))
+    case Exp{env, book, k, c, fh, nx, +r}:
+      drive(run(go_ref(env, k, c, fh, nx, r, Array.swap(Tpl, book, r, TEra{}))))
+    case Dsp{env, book, k, c, fh, nx, +r, w}:
+      drive(run(dsp(env, k, c, fh, nx, r, w, Array.swap(Tpl, book, r, TEra{}))))
     case o2:
       o2
 
@@ -1884,9 +1864,8 @@ def ents_has.go(eq: Bool, e: Ent, p: List<&2, Ent> & Bool) -> List<&2, Ent> & Bo
 # is definition ix among the parsed ones
 def ents_has(es: List<&2, Ent>, +ix: U32) -> List<&2, Ent> & Bool:
   match es:
-    case Con{Ent{i, t}, r}:
-      +j = i
-      ents_has.go(U32.is_eq(j, ix), Ent{j, t}, ents_has(r, ix))
+    case Con{Ent{+i, t}, r}:
+      ents_has.go(U32.is_eq(i, ix), Ent{i, t}, ents_has(r, ix))
     case Nil{}:
       (Nil{}, False{})
 
@@ -1901,10 +1880,8 @@ def book_run.fin(+ix: U32, +n: U32, +vc: U32, p: List<&2, Ent> & Bool) -> IO(Uni
       IO.print("undefined function @main")
 
 def book_run.go(es: List<&2, Ent>, +vc: U32, p: Names & U32) -> IO(Unit):
-  (ns, ix) = p
-  Names{m, n} = ns
-  +i = ix
-  book_run.fin(i, n, vc, ents_has(es, i))
+  (Names{m, n}, +ix) = p
+  book_run.fin(ix, n, vc, ents_has(es, ix))
 
 # the parsed definitions run: binder ids end at vc, fresh ids follow
 def book_run(es: List<&2, Ent>, s: St) -> IO(Unit):

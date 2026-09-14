@@ -21,9 +21,8 @@ def gen(d, i):
   match d:
     case 0n:
       Lf2{i}
-    case 1n+k:
-      +k2 = k
-      Nd2{gen(k2, (i * 2 : U32)), gen(k2, (i * 2 + 1 : U32))}
+    case 1n++k:
+      Nd2{gen(k, (i * 2 : U32)), gen(k, (i * 2 + 1 : U32))}
 
 law tally:
   for t: T2

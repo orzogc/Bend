@@ -111,32 +111,23 @@ def on_flag(+x: Nat, +y: Nat) -> Bool:
   nat_eq(x, flag_x()) && nat_eq(y, flag_y())
 
 def move(+tx: Nat, +ty: Nat, g: Game) -> Game:
-  Game{x, y, w0} = g
-  +w = w0
-  pick(Game, wall(tx, ty), Game{x, y, w}, Game{tx, ty, w || on_flag(tx, ty)})
+  Game{x, y, +w0} = g
+  pick(Game, wall(tx, ty), Game{x, y, w0}, Game{tx, ty, w0 || on_flag(tx, ty)})
 
 def step(a: Move, g: Game) -> Game:
   match a:
     case Up{}:
-      Game{x0, y0, w} = g
-      +x = x0
-      +y = y0
-      move(x, warp_up(y), Game{x, y, w})
+      Game{+x0, +y0, w} = g
+      move(x0, warp_up(y0), Game{x0, y0, w})
     case Down{}:
-      Game{x0, y0, w} = g
-      +x = x0
-      +y = y0
-      move(x, warp_down(y), Game{x, y, w})
+      Game{+x0, +y0, w} = g
+      move(x0, warp_down(y0), Game{x0, y0, w})
     case Left{}:
-      Game{x0, y0, w} = g
-      +x = x0
-      +y = y0
-      move(warp_left(x), y, Game{x, y, w})
+      Game{+x0, +y0, w} = g
+      move(warp_left(x0), y0, Game{x0, y0, w})
     case Right{}:
-      Game{x0, y0, w} = g
-      +x = x0
-      +y = y0
-      move(warp_right(x), y, Game{x, y, w})
+      Game{+x0, +y0, w} = g
+      move(warp_right(x0), y0, Game{x0, y0, w})
 
 def start() -> Game:
   Game{start_x(), start_y(), False{}}
@@ -186,17 +177,15 @@ def row(x: Nat, +y: Nat) -> String:
   match x:
     case 0n:
       cell(0n, y)
-    case 1n+p0:
-      +p = p0
-      row(p, y) ++ cell(1n+p, y)
+    case 1n++p0:
+      row(p0, y) ++ cell(1n+p0, y)
 
 def grid(y: Nat) -> String:
   match y:
     case 0n:
       row(Nat.sub(map_w(), 1n), 0n)
-    case 1n+p0:
-      +p = p0
-      grid(p) ++ "\n" ++ row(Nat.sub(map_w(), 1n), 1n+p)
+    case 1n++p0:
+      grid(p0) ++ "\n" ++ row(Nat.sub(map_w(), 1n), 1n+p0)
 
 
 def main() -> IO(Unit):

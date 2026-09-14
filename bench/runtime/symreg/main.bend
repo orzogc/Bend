@@ -219,11 +219,9 @@ law pick:
 
 def pick(a, b):
   match a b:
-    case Sel{f1, s1, c1} Sel{f2, s2, c2}:
-      +g1 = f1
-      +g2 = f2
-      +w = b2u(U32.is_lt(g1, g2))
-      Sel{sel(w, g2, g1), sel(w, s2, s1), U32.add(c1, c2)}
+    case Sel{+f1, s1, c1} Sel{+f2, s2, c2}:
+      +w = b2u(U32.is_lt(f1, f2))
+      Sel{sel(w, f2, f1), sel(w, s2, s1), U32.add(c1, c2)}
 
 law batch:
   for +d: Nat

@@ -7,9 +7,8 @@ type Log is Type:
   Log{file: File, n: U32}
 
 def Log.view(s: Log) -> Log & Image:
-  Log{file, n} = s
-  +m = n
-  (Log{file, m}, Pix{m})
+  Log{file, +n} = s
+  (Log{file, n}, Pix{n})
 
 def Log.next(w: File & Result<&1, &1, U32 & String, Unit>, n: U32) ->
   IO(Maybe<Log>):
@@ -19,12 +18,11 @@ def Log.next(w: File & Result<&1, &1, U32 & String, Unit>, n: U32) ->
     IO.pure(Maybe<Log>, Some{Log{file, U32.inc(n)}})
 
 def Log.tick(events: List<Event>, s: Log) -> IO(Maybe<Log>):
-  Log{file, n} = s
-  +m = n
+  Log{file, +n} = s
   do IO<Maybe<Log>>:
     w : File & Result<&1, &1, U32 & String, Unit> <-
-      File.write(file, "frame " ++ U32.show(m) ++ "\n")
-    Log.next(w, m)
+      File.write(file, "frame " ++ U32.show(n) ++ "\n")
+    Log.next(w, n)
 
 def read_go(m: File & Result<&1, &1, U32 & String, String>) -> IO(Unit):
   (f, r) = m

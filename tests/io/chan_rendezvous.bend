@@ -7,16 +7,15 @@
 import Base
 
 law sender:
-  for c: Chan(U32)
+  for +c: Chan(U32)
   IO(Unit)
 
 def sender(c):
-  +ch = c
   do IO<Unit>:
     Unit <- IO.print("s0")
-    Bool <- Chan.send(U32, ch, 1)
+    Bool <- Chan.send(U32, c, 1)
     Unit <- IO.print("s1")
-    Bool <- Chan.send(U32, ch, 2)
+    Bool <- Chan.send(U32, c, 2)
     IO.print("s2")
 
 law main.go:

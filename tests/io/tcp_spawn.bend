@@ -100,13 +100,12 @@ law main.go:
   IO(U32)
 
 def main.go(b):
-  (l, port) = b
-  +p = port
+  (l, +port) = b
   do IO<U32>:
     Unit <- IO.spawn(Unit, serve(3n, l))
-    a : Chan(String) <- IO.fork(String, client(p, "one"))
-    b : Chan(String) <- IO.fork(String, client(p, "two"))
-    c : Chan(String) <- IO.fork(String, client(p, "three"))
+    a : Chan(String) <- IO.fork(String, client(port, "one"))
+    b : Chan(String) <- IO.fork(String, client(port, "two"))
+    c : Chan(String) <- IO.fork(String, client(port, "three"))
     x : String <- IO.join(String, a)
     y : String <- IO.join(String, b)
     z : String <- IO.join(String, c)

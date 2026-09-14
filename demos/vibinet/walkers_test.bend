@@ -95,11 +95,10 @@ def Bot.report(ks: List<&2, Nat>, c: Net.Client<Game.Input, Game.World()>) ->
   match ks:
     case Nil{}:
       Net.Client.close(Game.Input, Game.World(), c)
-    case Con{k, t}:
-      +k2 = k
+    case Con{+k, t}:
       do IO<Unit>:
-        c2 : Net.Client<Game.Input, Game.World()> <- Bot.line(k2,
-          Net.Client.at(~Game.Input, ~Game.World(), ~Game.Walkers.game(), c, k2))
+        c2 : Net.Client<Game.Input, Game.World()> <- Bot.line(k,
+          Net.Client.at(~Game.Input, ~Game.World(), ~Game.Walkers.game(), c, k))
         Bot.report(t, c2)
 
 def Bot.done(play: Game.Play) -> IO(Unit):

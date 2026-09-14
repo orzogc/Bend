@@ -91,9 +91,8 @@ def lfodd(xs):
   match xs:
     case Nil{}:
       Nil{}
-    case Con{h, t}:
-      +h2 = h
-      lfodd.put(h2, lfodd(t), Bool.not(U32.is_eq(U32.mod(h2, 2), 0)))
+    case Con{+h, t}:
+      lfodd.put(h, lfodd(t), Bool.not(U32.is_eq(U32.mod(h, 2), 0)))
 
 law lrange.go:
   for +n  : Nat

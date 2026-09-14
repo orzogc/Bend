@@ -29,9 +29,8 @@ def Counter.tick(events: List<Event>, s: Counter) -> IO(Maybe<Counter>):
     IO.pure(Maybe<Counter>, count_events(events, s))
 
 def Counter.view(s: Counter) -> Counter & Image:
-  Counter{n} = s
-  +m = n
-  (Counter{m}, Pix{m})
+  Counter{+n} = s
+  (Counter{n}, Pix{n})
 
 def show(m: Maybe<Counter>) -> IO(Unit):
   match m:

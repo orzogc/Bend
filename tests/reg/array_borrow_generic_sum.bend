@@ -51,15 +51,13 @@ def poly(A, r):
   (arr, p) = r
   match p:
     case One{x, l}:
-      s = sum(l)
-      +s2 = s
-      t = sum(Con{s2, Con{s2, Nil{}}})
-      (x, poly.fin(A, U32.add(s2, t), Array.get(Tg<A>, arr, 1)))
+      +s = sum(l)
+      t = sum(Con{s, Con{s, Nil{}}})
+      (x, poly.fin(A, U32.add(s, t), Array.get(Tg<A>, arr, 1)))
     case Two{l, y}:
-      s = sum(l)
-      +s2 = s
-      t = sum(Con{s2, Con{s2, Nil{}}})
-      (y, poly.fin(A, U32.add(s2, t), Array.get(Tg<A>, arr, 0)))
+      +s = sum(l)
+      t = sum(Con{s, Con{s, Nil{}}})
+      (y, poly.fin(A, U32.add(s, t), Array.get(Tg<A>, arr, 0)))
 
 law go2:
   for r: U32 & (U32 & U32)

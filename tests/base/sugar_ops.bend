@@ -42,12 +42,11 @@ def cmp.a(x, f):
       cmp.b((x < 6 : U32))
 
 law cmp:
-  for x0: U32
+  for +x0: U32
   U32
 
 def cmp(x0):
-  +x = x0
-  cmp.a(x, (x < 3 : U32))
+  cmp.a(x0, (x0 < 3 : U32))
 
 law getat.go:
   for r: Array<U32> & U32

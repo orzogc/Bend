@@ -203,9 +203,8 @@ law pop.cell:
   St & Bool
 
 def pop.cell(g, d, head, tail, r):
-  (q, c) = r
-  +c2 = c
-  pop.dist(g, q, c2, head, tail, d[c2])
+  (q, +c) = r
+  pop.dist(g, q, c, head, tail, d[c])
 
 # one pop: take the head cell and its distance, look at its four
 # neighbours, then report whether the queue still holds a cell
@@ -252,11 +251,10 @@ def fold(j, r, acc, cnt):
     case 0n:
       U32.xor(acc, U32.mul(cnt, 2246822519))
     case 1n+p:
-      (d, v) = r
+      (d, +v) = r
       +c = U32.sub(1023, U32.from_nat(p))
-      +w = v
-      +hit = b2u(U32.is_ne(w, 4294967295))
-      k = U32.mul(hit, U32.mul(w, U32.inc(c)))
+      +hit = b2u(U32.is_ne(v, 4294967295))
+      k = U32.mul(hit, U32.mul(v, U32.inc(c)))
       m = U32.xor(U32.mul(acc, 2654435761), k)
       fold(p, d[U32.inc(c)], m, U32.add(cnt, hit))
 

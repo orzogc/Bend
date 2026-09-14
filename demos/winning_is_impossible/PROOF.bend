@@ -181,71 +181,55 @@ def chk_row(+a: Game.Move, +x: Nat, y: Nat) -> Bool:
   match y:
     case 0n:
       chk(a, x, 0n)
-    case 1n+q0:
-      +q = q0
-      chk(a, x, 1n+q) && chk_row(a, x, q)
+    case 1n++q0:
+      chk(a, x, 1n+q0) && chk_row(a, x, q0)
 
 def chk_all(+a: Game.Move, x: Nat) -> Bool:
   match x:
     case 0n:
       chk_row(a, 0n, 7n)
-    case 1n+p0:
-      +p = p0
-      chk_row(a, 1n+p, 7n) && chk_all(a, p)
+    case 1n++p0:
+      chk_row(a, 1n+p0, 7n) && chk_all(a, p0)
 
 def chk_row_at(+a: Game.Move, +x: Nat, y: Nat, j: Nat, wr: T(chk_row(a, x, y)),
   wj: T(Game.nat_le(j, y))) -> T(chk(a, x, j)):
-  match y:
-    case 0n:
-      match j:
-        case 0n:
-          wr
-        case 1n+jp:
-          Empty.absurd(T(chk(a, x, 1n+jp)), wj)
-    case 1n+q0:
-      match j:
-        case 0n:
-          +q = q0
-          and_split(chk(a, x, 1n+q), chk_row(a, x, q), wr, T(chk(a, x, 0n)),
-            wp => wt => chk_row_at(a, x, q, 0n, wt, Unit{}))
-        case 1n+jp0:
-          +q = q0
-          +jp = jp0
-          and_split(chk(a, x, 1n+q), chk_row(a, x, q), wr, T(chk(a, x, 1n+jp)),
-            wp => wt =>
-              or_case(T(Game.nat_le(1n+jp, q)), {jp == q : Nat},
-                le_split(jp, q, wj), T(chk(a, x, 1n+jp)),
-                l => chk_row_at(a, x, q, 1n+jp, wt, l),
-                e => %sym(Nat, jp, q, e) : T(chk(a, x, 1n+_))
-                     wp))
+  match y j:
+    case 0n 0n:
+      wr
+    case 0n 1n+jp:
+      Empty.absurd(T(chk(a, x, 1n+jp)), wj)
+    case 1n++q0 0n:
+      and_split(chk(a, x, 1n+q0), chk_row(a, x, q0), wr, T(chk(a, x, 0n)),
+        wp => wt => chk_row_at(a, x, q0, 0n, wt, Unit{}))
+    case 1n++q0 1n++jp0:
+      and_split(chk(a, x, 1n+q0), chk_row(a, x, q0), wr, T(chk(a, x, 1n+jp0)),
+        wp => wt =>
+          or_case(T(Game.nat_le(1n+jp0, q0)), {jp0 == q0 : Nat},
+            le_split(jp0, q0, wj), T(chk(a, x, 1n+jp0)),
+            l => chk_row_at(a, x, q0, 1n+jp0, wt, l),
+            e => %sym(Nat, jp0, q0, e) : T(chk(a, x, 1n+_))
+                 wp))
 
 def chk_all_at(+a: Game.Move, x: Nat, i: Nat, wa: T(chk_all(a, x)),
   wi: T(Game.nat_le(i, x))) -> T(chk_row(a, i, 7n)):
-  match x:
-    case 0n:
-      match i:
-        case 0n:
-          wa
-        case 1n+ip:
-          Empty.absurd(T(chk_row(a, 1n+ip, 7n)), wi)
-    case 1n+p0:
-      match i:
-        case 0n:
-          +p = p0
-          and_split(chk_row(a, 1n+p, 7n), chk_all(a, p), wa,
-            T(chk_row(a, 0n, 7n)),
-            wp => wt => chk_all_at(a, p, 0n, wt, Unit{}))
-        case 1n+ip0:
-          +p = p0
-          +ip = ip0
-          and_split(chk_row(a, 1n+p, 7n), chk_all(a, p), wa,
-            T(chk_row(a, 1n+ip, 7n)),
-            wp => wt =>
-              or_case(T(Game.nat_le(1n+ip, p)), {ip == p : Nat},
-                le_split(ip, p, wi), T(chk_row(a, 1n+ip, 7n)),
-                l => chk_all_at(a, p, 1n+ip, wt, l),
-                e => %sym(Nat, ip, p, e) : T(chk_row(a, 1n+_, 7n))
-                     wp))
+  match x i:
+    case 0n 0n:
+      wa
+    case 0n 1n+ip:
+      Empty.absurd(T(chk_row(a, 1n+ip, 7n)), wi)
+    case 1n++p0 0n:
+      and_split(chk_row(a, 1n+p0, 7n), chk_all(a, p0), wa,
+        T(chk_row(a, 0n, 7n)),
+        wp => wt => chk_all_at(a, p0, 0n, wt, Unit{}))
+    case 1n++p0 1n++ip0:
+      and_split(chk_row(a, 1n+p0, 7n), chk_all(a, p0), wa,
+        T(chk_row(a, 1n+ip0, 7n)),
+        wp => wt =>
+          or_case(T(Game.nat_le(1n+ip0, p0)), {ip0 == p0 : Nat},
+            le_split(ip0, p0, wi), T(chk_row(a, 1n+ip0, 7n)),
+            l => chk_all_at(a, p0, 1n+ip0, wt, l),
+            e => %sym(Nat, ip0, p0, e) : T(chk_row(a, 1n+_, 7n))
+                 wp))
 
 def cert(+a: Game.Move, +x: Nat, +y: Nat, ca: T(chk_all(a, 11n)),
   lx: T(Game.nat_le(x, 11n)), ly: T(Game.nat_le(y, 7n))) -> T(chk(a, x, y)):
@@ -301,71 +285,55 @@ def fchk_row(+s: String, +x: Nat, y: Nat) -> Bool:
   match y:
     case 0n:
       fchk(s, x, 0n)
-    case 1n+q0:
-      +q = q0
-      fchk(s, x, 1n+q) && fchk_row(s, x, q)
+    case 1n++q0:
+      fchk(s, x, 1n+q0) && fchk_row(s, x, q0)
 
 def fchk_all(+s: String, x: Nat) -> Bool:
   match x:
     case 0n:
       fchk_row(s, 0n, 7n)
-    case 1n+p0:
-      +p = p0
-      fchk_row(s, 1n+p, 7n) && fchk_all(s, p)
+    case 1n++p0:
+      fchk_row(s, 1n+p0, 7n) && fchk_all(s, p0)
 
 def fchk_row_at(+s: String, +x: Nat, y: Nat, j: Nat, wr: T(fchk_row(s, x, y)),
   wj: T(Game.nat_le(j, y))) -> T(fchk(s, x, j)):
-  match y:
-    case 0n:
-      match j:
-        case 0n:
-          wr
-        case 1n+jp:
-          Empty.absurd(T(fchk(s, x, 1n+jp)), wj)
-    case 1n+q0:
-      match j:
-        case 0n:
-          +q = q0
-          and_split(fchk(s, x, 1n+q), fchk_row(s, x, q), wr, T(fchk(s, x, 0n)),
-            wp => wt => fchk_row_at(s, x, q, 0n, wt, Unit{}))
-        case 1n+jp0:
-          +q = q0
-          +jp = jp0
-          and_split(fchk(s, x, 1n+q), fchk_row(s, x, q), wr, T(fchk(s, x, 1n+jp)),
-            wp => wt =>
-              or_case(T(Game.nat_le(1n+jp, q)), {jp == q : Nat},
-                le_split(jp, q, wj), T(fchk(s, x, 1n+jp)),
-                l => fchk_row_at(s, x, q, 1n+jp, wt, l),
-                e => %sym(Nat, jp, q, e) : T(fchk(s, x, 1n+_))
-                     wp))
+  match y j:
+    case 0n 0n:
+      wr
+    case 0n 1n+jp:
+      Empty.absurd(T(fchk(s, x, 1n+jp)), wj)
+    case 1n++q0 0n:
+      and_split(fchk(s, x, 1n+q0), fchk_row(s, x, q0), wr, T(fchk(s, x, 0n)),
+        wp => wt => fchk_row_at(s, x, q0, 0n, wt, Unit{}))
+    case 1n++q0 1n++jp0:
+      and_split(fchk(s, x, 1n+q0), fchk_row(s, x, q0), wr, T(fchk(s, x, 1n+jp0)),
+        wp => wt =>
+          or_case(T(Game.nat_le(1n+jp0, q0)), {jp0 == q0 : Nat},
+            le_split(jp0, q0, wj), T(fchk(s, x, 1n+jp0)),
+            l => fchk_row_at(s, x, q0, 1n+jp0, wt, l),
+            e => %sym(Nat, jp0, q0, e) : T(fchk(s, x, 1n+_))
+                 wp))
 
 def fchk_all_at(+s: String, x: Nat, i: Nat, wa: T(fchk_all(s, x)),
   wi: T(Game.nat_le(i, x))) -> T(fchk_row(s, i, 7n)):
-  match x:
-    case 0n:
-      match i:
-        case 0n:
-          wa
-        case 1n+ip:
-          Empty.absurd(T(fchk_row(s, 1n+ip, 7n)), wi)
-    case 1n+p0:
-      match i:
-        case 0n:
-          +p = p0
-          and_split(fchk_row(s, 1n+p, 7n), fchk_all(s, p), wa,
-            T(fchk_row(s, 0n, 7n)),
-            wp => wt => fchk_all_at(s, p, 0n, wt, Unit{}))
-        case 1n+ip0:
-          +p = p0
-          +ip = ip0
-          and_split(fchk_row(s, 1n+p, 7n), fchk_all(s, p), wa,
-            T(fchk_row(s, 1n+ip, 7n)),
-            wp => wt =>
-              or_case(T(Game.nat_le(1n+ip, p)), {ip == p : Nat},
-                le_split(ip, p, wi), T(fchk_row(s, 1n+ip, 7n)),
-                l => fchk_all_at(s, p, 1n+ip, wt, l),
-                e => %sym(Nat, ip, p, e) : T(fchk_row(s, 1n+_, 7n))
-                     wp))
+  match x i:
+    case 0n 0n:
+      wa
+    case 0n 1n+ip:
+      Empty.absurd(T(fchk_row(s, 1n+ip, 7n)), wi)
+    case 1n++p0 0n:
+      and_split(fchk_row(s, 1n+p0, 7n), fchk_all(s, p0), wa,
+        T(fchk_row(s, 0n, 7n)),
+        wp => wt => fchk_all_at(s, p0, 0n, wt, Unit{}))
+    case 1n++p0 1n++ip0:
+      and_split(fchk_row(s, 1n+p0, 7n), fchk_all(s, p0), wa,
+        T(fchk_row(s, 1n+ip0, 7n)),
+        wp => wt =>
+          or_case(T(Game.nat_le(1n+ip0, p0)), {ip0 == p0 : Nat},
+            le_split(ip0, p0, wi), T(fchk_row(s, 1n+ip0, 7n)),
+            l => fchk_all_at(s, p0, 1n+ip0, wt, l),
+            e => %sym(Nat, ip0, p0, e) : T(fchk_row(s, 1n+_, 7n))
+                 wp))
 
 def fcert(+s: String, +x: Nat, +y: Nat, ca: T(fchk_all(s, 11n)),
   lx: T(Game.nat_le(x, 11n)), ly: T(Game.nat_le(y, 7n))) -> T(fchk(s, x, y)):
@@ -399,21 +367,20 @@ def off_flag(+x: Nat, +y: Nat, +hp: T(okpos(x, y)))
 
 # the chosen cell: a step from a safe cell lands somewhere safe (or stays),
 # and lands unwon, since a safe cell is off the flag
-def go_pos(+a: Game.Move, +x: Nat, +y: Nat, hp: T(okpos(x, y)),
+def go_pos(+a: Game.Move, +x: Nat, +y: Nat, +hp: T(okpos(x, y)),
   ca: T(chk_all(a, 11n)))
   -> &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
    & {Game.Game{nx, ny, False{}}
       == Game.move(tx(a, x, y), ty(a, x, y), Game.Game{x, y, False{}}) : Game.Game}:
-  +hp2 = hp
   pick_split(Game.Game,
     gz => &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
         & {Game.Game{nx, ny, False{}} == gz : Game.Game},
     Game.wall(tx(a, x, y), ty(a, x, y)),
     Game.Game{x, y, False{}},
     Game.Game{tx(a, x, y), ty(a, x, y), Game.on_flag(tx(a, x, y), ty(a, x, y))},
-    et => (x, (y, (hp2, {==}))),
+    et => (x, (y, (hp, {==}))),
     ef =>
-      +safe = go_ok(a, x, y, hp2, ca, ef)
+      +safe = go_ok(a, x, y, hp, ca, ef)
       (tx(a, x, y), (ty(a, x, y), (safe,
         %off_flag(tx(a, x, y), ty(a, x, y), safe)
           : {Game.Game{tx(a, x, y), ty(a, x, y), False{}}
@@ -437,52 +404,44 @@ def use4(-a: Game.Move, -x: Nat, -y: Nat,
 # The engine of both laws: from a safe unwon cell, any list of moves ends
 # on a safe unwon cell. Each arm: the step lands safe (go_pos), then the
 # rest of the list runs from there.
-def run_safe(t: List<Game.Move>, x: Nat, y: Nat, hp: T(okpos(x, y)))
+def run_safe(t: List<Game.Move>, +x: Nat, +y: Nat, hp: T(okpos(x, y)))
   -> &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
    & {Game.run(t, Game.Game{x, y, False{}}) == Game.Game{nx, ny, False{}} : Game.Game}:
   match t:
     case Nil{}:
       (x, (y, (hp, {==})))
     case Con{Game.Up{}, as0}:
-      +x2 = x
-      +y2 = y
-      use4(Game.Up{}, x2, y2, go_pos(Game.Up{}, x2, y2, hp, Unit{}),
+      use4(Game.Up{}, x, y, go_pos(Game.Up{}, x, y, hp, Unit{}),
         &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
-         & {Game.run(as0, Game.move(tx(Game.Up{}, x2, y2), ty(Game.Up{}, x2, y2),
-            Game.Game{x2, y2, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
+         & {Game.run(as0, Game.move(tx(Game.Up{}, x, y), ty(Game.Up{}, x, y),
+            Game.Game{x, y, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
         mx => my => hq => eq =>
           %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
               & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
           run_safe(as0, mx, my, hq))
     case Con{Game.Down{}, as0}:
-      +x2 = x
-      +y2 = y
-      use4(Game.Down{}, x2, y2, go_pos(Game.Down{}, x2, y2, hp, Unit{}),
+      use4(Game.Down{}, x, y, go_pos(Game.Down{}, x, y, hp, Unit{}),
         &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
-         & {Game.run(as0, Game.move(tx(Game.Down{}, x2, y2), ty(Game.Down{}, x2, y2),
-            Game.Game{x2, y2, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
+         & {Game.run(as0, Game.move(tx(Game.Down{}, x, y), ty(Game.Down{}, x, y),
+            Game.Game{x, y, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
         mx => my => hq => eq =>
           %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
               & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
           run_safe(as0, mx, my, hq))
     case Con{Game.Left{}, as0}:
-      +x2 = x
-      +y2 = y
-      use4(Game.Left{}, x2, y2, go_pos(Game.Left{}, x2, y2, hp, Unit{}),
+      use4(Game.Left{}, x, y, go_pos(Game.Left{}, x, y, hp, Unit{}),
         &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
-         & {Game.run(as0, Game.move(tx(Game.Left{}, x2, y2), ty(Game.Left{}, x2, y2),
-            Game.Game{x2, y2, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
+         & {Game.run(as0, Game.move(tx(Game.Left{}, x, y), ty(Game.Left{}, x, y),
+            Game.Game{x, y, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
         mx => my => hq => eq =>
           %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
               & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}
           run_safe(as0, mx, my, hq))
     case Con{Game.Right{}, as0}:
-      +x2 = x
-      +y2 = y
-      use4(Game.Right{}, x2, y2, go_pos(Game.Right{}, x2, y2, hp, Unit{}),
+      use4(Game.Right{}, x, y, go_pos(Game.Right{}, x, y, hp, Unit{}),
         &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
-         & {Game.run(as0, Game.move(tx(Game.Right{}, x2, y2), ty(Game.Right{}, x2, y2),
-            Game.Game{x2, y2, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
+         & {Game.run(as0, Game.move(tx(Game.Right{}, x, y), ty(Game.Right{}, x, y),
+            Game.Game{x, y, False{}})) == Game.Game{nx, ny, False{}} : Game.Game},
         mx => my => hq => eq =>
           %eq : &nx: Nat -> &ny: Nat -> T(okpos(nx, ny))
               & {Game.run(as0, _) == Game.Game{nx, ny, False{}} : Game.Game}

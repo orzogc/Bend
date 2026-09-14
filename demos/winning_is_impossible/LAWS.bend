@@ -32,9 +32,8 @@ def next_row(s: String) -> String:
   match s:
     case SNil{}:
       SNil{}
-    case SCon{c, rest}:
-      +r = rest
-      pick(String, ch(c, 10), r, next_row(r))
+    case SCon{c, +rest}:
+      pick(String, ch(c, 10), rest, next_row(rest))
 
 # whether column x of the first line is 'F'
 def flag_in_row(s: String, x: Nat) -> Bool:

@@ -32,12 +32,11 @@ def fold(im: Image) -> U32:
       (a + b + c + d : U32)
 
 def seen(q: Window & Image & List<Event>) -> IO(Window & Image):
-  (w, im, evs) = q
-  +i = im
+  (w, +im, evs) = q
   do IO<Window & Image>:
     u : Unit <- IO.print(U32.show(count(evs)) ++ " events, fold "
-      ++ U32.show(fold(i)))
-    IO.pure(Window & Image, (w, i))
+      ++ U32.show(fold(im)))
+    IO.pure(Window & Image, (w, im))
 
 def frames(n: Nat, p: Window & Image) -> IO(Window):
   match n:

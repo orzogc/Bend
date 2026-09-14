@@ -222,9 +222,8 @@ def Post.from(-P: Data, ps: List<&2, Post<P>>, +t: Nat) -> List<&2, Post<P>>:
   match ps:
     case Nil{}:
       []
-    case Con{p, rest}:
-      +p2 = p
-      Post.keep(P, Bool.not(Nat.is_lt(Post.tick(P, p2), t)), p2,
+    case Con{+p, rest}:
+      Post.keep(P, Bool.not(Nat.is_lt(Post.tick(P, p), t)), p,
         Post.from(P, rest, t))
 
 # Drop the prediction named: its echo arrived.
@@ -232,9 +231,8 @@ def Post.drop(-P: Data, ps: List<&2, Post<P>>, +name: String) -> List<&2, Post<P
   match ps:
     case Nil{}:
       []
-    case Con{p, rest}:
-      +p2 = p
-      Post.keep(P, Bool.not(String.eq(Post.name(P, p2), name)), p2,
+    case Con{+p, rest}:
+      Post.keep(P, Bool.not(String.eq(Post.name(P, p), name)), p,
         Post.drop(P, rest, name))
 
 # Game
@@ -646,19 +644,18 @@ def Client.frame(~P: Data, ~S: Data, ~game: Game<P, S>, c: Client<P, S>) ->
     Client.frame.go(~P, ~S, ~game, c, now)
 
 def Client.post.go(
-  ~P: Data, ~S: Data, ~game: Game<P, S>, c: Client<P, S>, p: P, now: Nat
+  ~P: Data, ~S: Data, ~game: Game<P, S>, c: Client<P, S>, +p: P, now: Nat
 ) -> IO(Client<P, S>):
   Client{sock, link} = c
   Link{host, port, room, me, seq, clock, pinged, net} = link
   +name = me ++ "-" ++ Nat.show(seq)
   +time = Clock.server(clock, now)
-  +p2 = p
   do IO<Client<P, S>>:
     s2 : Socket <- Client.send(sock, host, port,
-      Send{room, time, name, Game.show(P, S, game, p2)})
+      Send{room, time, name, Game.show(P, S, game, p)})
     return Client{s2, Link{host, port, room, me, Nat.add(seq, 1n), clock, pinged,
       Net.local(P, S, net,
-        Post{0n, Time.tick(time, Game.rate(P, S, game)), name, Some{p2}})}}
+        Post{0n, Time.tick(time, Game.rate(P, S, game)), name, Some{p}})}}
 
 # Post an input: predicted at once, sent to the relay.
 def Client.post(~P: Data, ~S: Data, ~game: Game<P, S>, c: Client<P, S>, p: P) ->
@@ -878,14 +875,12 @@ def Server.serve(
   m: Maybe<&2, Msg>, sock: Socket, rooms: Map<&2, Room>, +peer: Peer, +now: Nat
 ) -> IO(Socket & Map<&2, Room>):
   match m:
-    case Some{Join{room, from}}:
-      +rm = room
-      Server.join(sock, peer, rm, from,
-        Map.get(Room, Room{now, 0n, [], []}, rooms, rm))
-    case Some{Send{room, time, name, data}}:
-      +rm = room
-      Server.post(sock, rm, time, name, data, now,
-        Map.get(Room, Room{now, 0n, [], []}, rooms, rm))
+    case Some{Join{+room, from}}:
+      Server.join(sock, peer, room, from,
+        Map.get(Room, Room{now, 0n, [], []}, rooms, room))
+    case Some{Send{+room, time, name, data}}:
+      Server.post(sock, room, time, name, data, now,
+        Map.get(Room, Room{now, 0n, [], []}, rooms, room))
     case Some{Ping{room, sent}}:
       Server.ping(sock, peer, sent, now,
         Map.get(Room, Room{now, 0n, [], []}, rooms, room))

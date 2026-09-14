@@ -87,7 +87,7 @@ law solve:
   for +f: Nat
   for z: Bool
   for e: Bool
-  for sib: U32
+  for +sib: U32
   for +nc: U32
   for +nl: U32
   for +nr: U32
@@ -111,17 +111,15 @@ def solve(f, z, e, sib, nc, nl, nr, cols, ld, rd, full, ret, sols, nodes):
     case 1n+g True{} e4 Stats{s1, n1}:
       Stats{U32.add(sols, s1), U32.add(nodes, n1)}
     case 1n+g False{} True{} Stat0{}:
-      +c2 = sib
-      +b2 = U32.and(c2, U32.sub(0, c2))
+      +b2 = U32.and(sib, U32.sub(0, sib))
       +n2 = U32.or(cols, b2)
-      solve(g, U32.is_zero(c2), U32.is_eq(n2, full), U32.sub(c2, b2), n2,
+      solve(g, U32.is_zero(sib), U32.is_eq(n2, full), U32.sub(sib, b2), n2,
         U32.shl(U32.or(ld, b2)), U32.shr(U32.or(rd, b2)),
         cols, ld, rd, full, Stat0{}, U32.inc(sols), U32.inc(nodes))
     case 1n+g False{} True{} Stats{s1, n1}:
-      +c2 = sib
-      +b2 = U32.and(c2, U32.sub(0, c2))
+      +b2 = U32.and(sib, U32.sub(0, sib))
       +n2 = U32.or(cols, b2)
-      solve(g, U32.is_zero(c2), U32.is_eq(n2, full), U32.sub(c2, b2), n2,
+      solve(g, U32.is_zero(sib), U32.is_eq(n2, full), U32.sub(sib, b2), n2,
         U32.shl(U32.or(ld, b2)), U32.shr(U32.or(rd, b2)),
         cols, ld, rd, full, Stat0{},
         U32.inc(U32.add(sols, s1)), U32.inc(U32.add(nodes, n1)))
@@ -129,10 +127,9 @@ def solve(f, z, e, sib, nc, nl, nr, cols, ld, rd, full, ret, sols, nodes):
       +cc = U32.and(full, U32.not(U32.or(nc, U32.or(nl, nr))))
       +cb = U32.and(cc, U32.sub(0, cc))
       +cn = U32.or(nc, cb)
-      +c2 = sib
-      +b2 = U32.and(c2, U32.sub(0, c2))
+      +b2 = U32.and(sib, U32.sub(0, sib))
       +n2 = U32.or(cols, b2)
-      solve(g, U32.is_zero(c2), U32.is_eq(n2, full), U32.sub(c2, b2), n2,
+      solve(g, U32.is_zero(sib), U32.is_eq(n2, full), U32.sub(sib, b2), n2,
         U32.shl(U32.or(ld, b2)), U32.shr(U32.or(rd, b2)),
         cols, ld, rd, full,
         solve(g, U32.is_zero(cc), U32.is_eq(cn, full), U32.sub(cc, cb), cn,
@@ -142,10 +139,9 @@ def solve(f, z, e, sib, nc, nl, nr, cols, ld, rd, full, ret, sols, nodes):
       +cc = U32.and(full, U32.not(U32.or(nc, U32.or(nl, nr))))
       +cb = U32.and(cc, U32.sub(0, cc))
       +cn = U32.or(nc, cb)
-      +c2 = sib
-      +b2 = U32.and(c2, U32.sub(0, c2))
+      +b2 = U32.and(sib, U32.sub(0, sib))
       +n2 = U32.or(cols, b2)
-      solve(g, U32.is_zero(c2), U32.is_eq(n2, full), U32.sub(c2, b2), n2,
+      solve(g, U32.is_zero(sib), U32.is_eq(n2, full), U32.sub(sib, b2), n2,
         U32.shl(U32.or(ld, b2)), U32.shr(U32.or(rd, b2)),
         cols, ld, rd, full,
         solve(g, U32.is_zero(cc), U32.is_eq(cn, full), U32.sub(cc, cb), cn,

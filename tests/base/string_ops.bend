@@ -143,9 +143,8 @@ def sfind(p, s):
   match s:
     case SNil{}:
       sfind.z(starts(p, SNil{}))
-    case SCon{h, t0}:
-      +t = t0
-      sfind.step(starts(p, SCon{h, t}), sfind(p, t))
+    case SCon{h, +t0}:
+      sfind.step(starts(p, SCon{h, t0}), sfind(p, t0))
 
 law triml.go:
   for  s: String
@@ -154,20 +153,15 @@ law triml.go:
   String
 
 def triml.go(s, x, f):
-  match s:
-    case SNil{}:
-      match f:
-        case True{}:
-          SNil{}
-        case False{}:
-          SCon{Chr{x}, SNil{}}
-    case SCon{Chr{y0}, t}:
-      match f:
-        case True{}:
-          +y = y0
-          triml.go(t, y, U32.is_eq(y, 32))
-        case False{}:
-          SCon{Chr{x}, SCon{Chr{y0}, t}}
+  match s f:
+    case SNil{} True{}:
+      SNil{}
+    case SNil{} False{}:
+      SCon{Chr{x}, SNil{}}
+    case SCon{Chr{+y0}, t} True{}:
+      triml.go(t, y0, U32.is_eq(y0, 32))
+    case SCon{Chr{+y0}, t} False{}:
+      SCon{Chr{x}, SCon{Chr{y0}, t}}
 
 law triml:
   for s: String
@@ -177,9 +171,8 @@ def triml(s):
   match s:
     case SNil{}:
       SNil{}
-    case SCon{Chr{x0}, t}:
-      +x = x0
-      triml.go(t, x, U32.is_eq(x, 32))
+    case SCon{Chr{+x0}, t}:
+      triml.go(t, x0, U32.is_eq(x0, 32))
 
 law strim:
   for s: String
@@ -209,9 +202,8 @@ def supper(s):
   match s:
     case SNil{}:
       SNil{}
-    case SCon{Chr{x0}, t}:
-      +x = x0
-      supper.put(x, supper(t), Bool.and(U32.is_le(97, x), U32.is_le(x, 122)))
+    case SCon{Chr{+x0}, t}:
+      supper.put(x0, supper(t), Bool.and(U32.is_le(97, x0), U32.is_le(x0, 122)))
 
 law ssplit.push:
   for c  : Char
@@ -247,9 +239,8 @@ def ssplit(sep, s):
   match s:
     case SNil{}:
       Con{SNil{}, Nil{}}
-    case SCon{Chr{x0}, t}:
-      +x = x0
-      ssplit.put(x, ssplit(sep, t), U32.is_eq(x, sep))
+    case SCon{Chr{+x0}, t}:
+      ssplit.put(x0, ssplit(sep, t), U32.is_eq(x0, sep))
 
 law sjoin.go:
   for +sep : String

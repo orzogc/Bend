@@ -2896,10 +2896,9 @@ def Text.strokes(
   match g:
     case SNil{}:
       cells
-    case SCon{Chr{c}, rest}:
-      +d = c
-      +k = (d - 48 : U32)
-      +on = (d > 32 : U32)
+    case SCon{Chr{+c}, rest}:
+      +k = (c - 48 : U32)
+      +on = (c > 32 : U32)
       +qx = (x + U32.to_f32((k % 5 : U32)) * u : F32)
       +qy = (base - (6.0 - U32.to_f32((k / 5 : U32))) * u : F32)
       Text.strokes(rest, on, qx, qy, x, base, u, wv, wh, col,
@@ -2926,11 +2925,10 @@ def Text.go(
   match s:
     case SNil{}:
       cells
-    case SCon{Chr{c}, rest}:
-      +d = c
-      +low = ((d >= 97) && (d <= 122) : U32)
+    case SCon{Chr{+c}, rest}:
+      +low = ((c >= 97) && (c <= 122) : U32)
       +k = (u * Math.pick(low, 0.72, 1.0) : F32)
-      +code = Math.word(low, (d - 32 : U32), d)
+      +code = Math.word(low, (c - 32 : U32), c)
       Text.go(rest, (x + Text.adv(Font.glyph(code)) * k * 0.5 : F32), base, u, wv, wh, col,
         Text.strokes(Text.pts(Font.glyph(code)), False{}, 0.0, 0.0, x, base, k, wv, wh, col,
           cells))
@@ -3521,9 +3519,8 @@ def Tile.go(cs: Tris, +x: U32, +y: U32, old: Four) -> Image:
 # one: four of its pixel).
 def Image.open(old: Image) -> Four:
   match old:
-    case Pix{c}:
-      +p = c
-      Four{Pix{p}, Pix{p}, Pix{p}, Pix{p}}
+    case Pix{+c}:
+      Four{Pix{c}, Pix{c}, Pix{c}, Pix{c}}
     case Qua{a, b, c, d}:
       Four{a, b, c, d}
 
@@ -3846,11 +3843,10 @@ def Asset.opened(
         r2 : Result<&1, &1, U32 & String, File> <- File.open(Asset.dir(True{}) ++ name, "r")
         Asset.opened(k, name, r2)
 
-def Asset.bytes(name: String) -> IO(List<&2, U32>):
-  +n = name
+def Asset.bytes(+name: String) -> IO(List<&2, U32>):
   do IO<List<&2, U32>>:
-    r : Result<&1, &1, U32 & String, File> <- File.open(Asset.dir(False{}) ++ n, "r")
-    Asset.opened(1n, n, r)
+    r : Result<&1, &1, U32 & String, File> <- File.open(Asset.dir(False{}) ++ name, "r")
+    Asset.opened(1n, name, r)
 
 def Asset.wav(name: String, +at: U32, pcm: Array<F32>) -> IO(Array<F32> & Clip):
   do IO<Array<F32> & Clip>:
@@ -3875,12 +3871,11 @@ def Asset.each(
       (pcm, clip) = r
       IO.pure(Array<F32> & List<&2, Clip>, (pcm, Con{clip, clips}))
     case Con{name, rest}:
-      (pcm, clip) = r
-      +c = clip
-      +at2 = (at + Clip.size(c) : U32)
+      (pcm, +clip) = r
+      +at2 = (at + Clip.size(clip) : U32)
       do IO<Array<F32> & List<&2, Clip>>:
         r2 : Array<F32> & Clip <- Asset.wav(name, at2, pcm)
-        Asset.each(rest, at2, Con{c, clips}, r2)
+        Asset.each(rest, at2, Con{clip, clips}, r2)
 
 # The synthesized clips 0 to n - 1 before the rest.
 def Bank.synth(+n: Nat, rest: List<&2, Clip>) -> List<&2, Clip>:
@@ -4021,9 +4016,8 @@ def Mix.t3(
   +i: U32, +f: F32, +live: F32, +gl: F32, +gr: F32, +l0: F32, +r0: F32, +a1: U32, mono: Bool,
   out: Array<F32>, r: Array<F32> & F32
 ) -> Array<F32> & Array<F32>:
-  (pcm, l1) = r
-  +l = l1
-  Mix.t4(i, f, live, gl, gr, l0, r0, l, out, Mix.right(mono, pcm, a1, l))
+  (pcm, +l1) = r
+  Mix.t4(i, f, live, gl, gr, l0, r0, l1, out, Mix.right(mono, pcm, a1, l1))
 
 def Mix.t2(
   +i: U32, +f: F32, +live: F32, +gl: F32, +gr: F32, +l0: F32, +a1: U32, mono: Bool, out: Array<F32>,
@@ -4036,9 +4030,8 @@ def Mix.t1(
   +i: U32, +f: F32, +live: F32, +gl: F32, +gr: F32, +a0: U32, +a1: U32, +mono: Bool, out: Array<F32>,
   r: Array<F32> & F32
 ) -> Array<F32> & Array<F32>:
-  (pcm, l0) = r
-  +l = l0
-  Mix.t2(i, f, live, gl, gr, l, a1, mono, out, Mix.right(mono, pcm, a0, l))
+  (pcm, +l0) = r
+  Mix.t2(i, f, live, gl, gr, l0, a1, mono, out, Mix.right(mono, pcm, a0, l0))
 
 def Mix.t0(
   +i: U32, +c: F32, +start: U32, +frames: U32, loop: Bool, +gl: F32, +gr: F32, +ch: U32,
@@ -4121,10 +4114,9 @@ def Sound.after(
   old: Maybe<Audio>, pcm: Array<F32>, +bank: List<&2, Clip>, +voices: List<&2, Voice>,
   +prev: List<&2, Voice>, +now: Nat, r: Audio & U32
 ) -> Sound & Audio:
-  (dev, q) = r
-  +n = q
-  (Sound{old, pcm, bank, Bool.pick(List<&2, Voice>, (n > 3584 : U32), prev, voices), prev, Nil{},
-    n, now}, dev)
+  (dev, +q) = r
+  (Sound{old, pcm, bank, Bool.pick(List<&2, Voice>, (q > 3584 : U32), prev, voices), prev, Nil{},
+    q, now}, dev)
 
 def Sound.write(dev: Audio, s: Sound, +now: Nat) -> IO(Sound & Audio):
   Sound{old, pcm, bank, voices, prev, block, _, _} = s
@@ -4377,12 +4369,11 @@ def Play.go(
       Play.serve(window, live, snd, now, rest)
 
 def Play.after(
-  paced: Window & Nat & U32, m: Maybe<Game>, prev: Game, stamp: Nat, debt: U32, now: Nat,
+  paced: Window & Nat & U32, m: Maybe<Game>, prev: Game, stamp: Nat, debt: U32, +now: Nat,
   cues: List<&2, Cue>, snd: Sound, rest: Window -> Live -> Sound -> IO(Unit)
 ) -> IO(Unit):
   (window, begin, frames) = paced
-  +at = now
-  Play.go(window, snd, at, rest, Live.after(m, prev, stamp, debt, at, begin, frames, cues))
+  Play.go(window, snd, now, rest, Live.after(m, prev, stamp, debt, now, begin, frames, cues))
 
 # The title paced, the events into the game, then the ticks owed.
 def Play.next(
@@ -4531,9 +4522,8 @@ def Sums.add(
 def Sums.next(
   ti: Nat & Nat & Image & Cells, warm: Bool, +s: Sums, +t0: Nat, +t5: Nat, +t6: Nat, +t7: Nat
 ) -> Sums & Image & Cells:
-  (t1, t2, img, used) = ti
-  +ta = t1
-  (Sums.add(warm, s, Probe.ms(t0, ta), Probe.ms(ta, t2), 0, 0, Probe.ms(t5, t6),
+  (+t1, t2, img, used) = ti
+  (Sums.add(warm, s, Probe.ms(t0, t1), Probe.ms(t1, t2), 0, 0, Probe.ms(t5, t6),
     Probe.ms(t6, t7), Probe.ms(t0, t7)), img, used)
 
 # Microseconds a frame.
@@ -4649,11 +4639,10 @@ def Probe.mixed(
 # A tick's cues into the sound and n blocks rendered: the game after,
 # the sound, the cues, the blocks.
 def Probe.mix(
-  +a: Game, g2: Game, snd: Sound, n: Nat
+  +a: Game, +g2: Game, snd: Sound, n: Nat
 ) -> Game & Sound & List<&2, Cue> & List<&2, List<&2, F32>>:
-  +b = g2
-  +cues = Cue.list(a, b, Nil{})
-  Probe.mixed(b, cues, Probe.render(n, Sound.cues(cues, snd), Nil{}))
+  +cues = Cue.list(a, g2, Nil{})
+  Probe.mixed(g2, cues, Probe.render(n, Sound.cues(cues, snd), Nil{}))
 
 def Probe.cues(cues: List<&2, Cue>, +t: U32) -> IO(Unit):
   match cues:
