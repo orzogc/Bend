@@ -60,7 +60,6 @@ type Carb = {
   bangs: Set<Bend.Name>;
   sites: Map<Bend.Name, number>;
   hot: Set<Bend.Name>;
-  poly: Set<string>;
   own: Set<string>;
   lend: Set<string>;
 };
@@ -1317,7 +1316,6 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     bangs: new Set(),
     sites: new Map(),
     hot: new Set(),
-    poly: new Set(),
     own: new Set(),
     lend: new Set(),
   };
@@ -1562,17 +1560,17 @@ function node_fields(fl: File, t: string, node: Lay,
 // type (hot); a shared value of an erased parameter's type marks it
 // (poly). compile_book emits the book until a pass changes nothing.
 
-function facts_hot(fl: File, B: HTerm | null, force: boolean): void {
+function facts_hot(fl: File, B: HTerm | null, force: boolean,
+  local = false): void {
   const w = ty_wnf(fl.book, B);
   if (w?.$ === "Lam") {
-    facts_hot(fl, w.f(DUMMY), force);
-    return;
+    return facts_hot(fl, w.f(DUMMY), force, local);
   }
   if (w?.$ !== "ADT") {
-    const dom = w?.$ === "Var" && tele_unbind(fl.book,
+    const dom = w?.$ === "Var" && !local && tele_unbind(fl.book,
       (fl.book.tlds[fl.def] as Def).T).doms[w.i];
     if (force && w?.$ === "Var" && dom && dom[1] === w.k && !live_dom(dom)) {
-      fl.poly.add(fl.def + "~" + w.i);
+      fl.hot.add(fl.def + "~" + w.i);
     } else if (force && "All Var App Mat".includes(w?.$!)) {
       fl.hot.add("*");
     }
@@ -1580,7 +1578,7 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean): void {
   }
   const tk = "t:" + w.k;
   const hot = force || fl.hot.has(tk);
-  w.x.forEach((x) => facts_hot(fl, x, hot));
+  w.x.forEach((x) => facts_hot(fl, x, hot, local));
   if (!hot || fl.hot.has(tk)) {
     return;
   }
@@ -1589,7 +1587,10 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean): void {
   if (tld?.$ === "ADT") {
     for (const c of tld.c) {
       fl.hot.add(c.k);
-      ctr_doms(fl.book, c, w.x).forEach((A) => facts_hot(fl, A, true));
+      // A constructor's own erased binder is not the def's parameter: a
+      // field typed by it is unknown, never poly.
+      const own = ctr_tail(fl.book, c, w.x).some((d) => !live_dom(d));
+      ctr_doms(fl.book, c, w.x).forEach((A) => facts_hot(fl, A, true, own));
     }
   }
 }
@@ -1749,15 +1750,6 @@ function arr_open(book: Bend.Book, adt: HAdt): HAdt {
   return adt;
 }
 
-function arr_call(fl: Carb, k: Bend.Name, all: HTerm[]): boolean {
-  const it = intr_of(fl, k, true);
-  const arr = it?.call === true && it.C === undefined;
-  if (arr && ty_adt(fl.book, all[0]) === null) {
-    die("an open Array element type");
-  }
-  return arr;
-}
-
 function arr_lay(el: Lay): Lay {
   return lay_pack([{ k: "Tuple",
     fs: [{ at: 0, lay: BOX }, { at: 1, lay: el }] }]);
@@ -1836,13 +1828,13 @@ function bind_pop(fl: File, x: HTerm): Val {
     return b.val;
   }
   fl.uses.set(p, { ...b, n: b.n - 1 });
-  return val_new(b.val.ws.map((w, j) => {
+  b.val.ws.forEach((w, j) => {
     if (b.val.lay.ks[j] === "box" && !fl.brwl.has(w)) {
       file_push(fl, `${w} = term_keep(e, ${w});`);
       facts_hot(fl, b.A, true);
     }
-    return w;
-  }), b.val.lay);
+  });
+  return b.val;
 }
 
 function bind_uses(fl: File, p: Probe, v: Val, rest: HTerm[],
@@ -1927,27 +1919,10 @@ function emit_jump(fl: File, args: string[], k: Bend.Name): void {
 function emit_args(fl: File, ck: Call, jump = false, fork = false): string[] {
   const brw = brw_of(fl, ck.k);
   ck.all.forEach((a, q) =>
-    fl.poly.has(ck.k + "~" + q) && facts_hot(fl, a, true));
+    fl.hot.has(ck.k + "~" + q) && facts_hot(fl, a, true));
   const xs = ck.args.map((a) => Bend.term_strip(a));
   const vars = xs.filter((x) => x.$ === "Var");
   const rest = fl.rest;
-  const read = (x: HTerm, at: string): Val => {
-    const p = probe_of(x);
-    const b = bind_of(fl, p);
-    const twin = vars.filter((y) => probe_of(y) === p).length > 1;
-    const dead = rest_use(fl, rest, p) === 0;
-    if (!dead || (!jump && twin)) {
-      fl.lend.add(at);
-    } else {
-      val_own(fl, b.val, at, !jump);
-    }
-    if (dead && !twin && val_brw(fl, b.val)) {
-      fl.uses.delete(p);
-    } else if (!fork) {
-      fl.uses.set(p, { ...b, n: Math.max(b.n - 1, 1) });
-    }
-    return b.val;
-  };
   const vs = ck.args.map((a, i): Val | null => {
     if (xs[i].$ === "Var") {
       return null;
@@ -1961,7 +1936,21 @@ function emit_args(fl: File, ck: Call, jump = false, fork = false): string[] {
   xs.forEach((x, i) => brw[i] || (vs[i] ??= bind_pop(fl, x)));
   return xs.flatMap((x, i) => {
     const at = ck.k + "~" + i;
-    const b = vs[i] ?? read(x, at);
+    let b = vs[i];
+    if (b === null) {
+      const p = probe_of(x);
+      const bd = bind_of(fl, p);
+      const twin = vars.filter((y) => probe_of(y) === p).length > 1;
+      const dead = rest_use(fl, rest, p) === 0;
+      !dead || (!jump && twin) ? fl.lend.add(at)
+        : val_own(fl, bd.val, at, !jump);
+      if (dead && !twin && val_brw(fl, bd.val)) {
+        fl.uses.delete(p);
+      } else if (!fork) {
+        fl.uses.set(p, { ...bd, n: Math.max(bd.n - 1, 1) });
+      }
+      b = bd.val;
+    }
     const v = val_to(fl, b, lays[i]);
     return !brw[i] ? val_own(fl, v)
       : (vs[i] === null && v === b) || facts_packed(fl, x) ? v.ws
@@ -1981,16 +1970,10 @@ function emit_each(fl: File, xs: HTerm[]): Val[] {
 }
 
 function emit_put(fl: File, dst: Dst, v: Val): void {
-  if (dst === null) {
-    spare_flush(fl);
-    const ws = val_own(fl, val_to(fl, v, fl.seg.ret));
-    ws.forEach((w, j) => file_push(fl, `r${j} = ${w};`));
-    file_push(fl, `WL_RETN(${ws.length});`);
-  } else {
-    val_own(fl, val_to(fl, v, dst.lay)).forEach((w, j) => {
-      file_push(fl, `${dst.ws[j]} = ${w};`);
-    });
-  }
+  dst === null && spare_flush(fl);
+  const ws = val_own(fl, val_to(fl, v, dst?.lay ?? fl.seg.ret));
+  ws.forEach((w, j) => file_push(fl, `${dst?.ws[j] ?? "r" + j} = ${w};`));
+  dst === null && file_push(fl, `WL_RETN(${ws.length});`);
 }
 
 function emit_fuse(fl: File, ck: Call, dst: Dst, tail = false): void {
@@ -2050,7 +2033,7 @@ function emit_native(fl: File, ck: Call, ers: HTerm[]): string {
   const vals = emit_open(fl, ck.k);
   const seg = fl.seg;
   seg.fid = name;
-  const dst = { ws: seg.ret.ks.map(() => name_local(fl, "v")), lay: seg.ret };
+  const dst = val_new(seg.ret.ks.map(() => name_local(fl, "v")), seg.ret);
   emit_body(fl, tld.h as HTerm, tld.T, ers, vals, dst);
   fl.spins.push([name, [`${seg.lines.length < SPIN_FAR ? "INLINE" : "FAR"} Term ${name}(Env e, THR Term* o${
     seg.ks.map((k, i) => `, ${lay_c(k)} r${i}`).join("")}) {`,
@@ -2065,7 +2048,7 @@ function emit_native(fl: File, ck: Call, ers: HTerm[]): string {
 }
 
 function emit_dst(fl: File, lay: Lay, k = "v"): Val {
-  return { ws: emit_hold(fl, lay.ks.map(() => "0"), k, lay.ks), lay };
+  return val_new(emit_hold(fl, lay.ks.map(() => "0"), k, lay.ks), lay);
 }
 
 function emit_intr(fl: File, it: Intr, x: HTerm,
@@ -2073,14 +2056,17 @@ function emit_intr(fl: File, it: Intr, x: HTerm,
   const m = term_spine(fl, x);
   const k = (m.t as Of<"Ref">).k;
   const args = emit_each(fl, m.args);
-  if (arr_call(fl, k, m.all)) {
-    const op = eff_name(k);
-    const el = lay_of(fl.book, m.all[0]);
-    if ("array_get array_new array_clone".includes(op) && el.ks.includes("box")
-      && !(op === "array_new" && facts_packed(fl, m.all[2]))) {
-      facts_hot(fl, m.all[0], true);
-    }
-    return arr_op(fl, op, el, args);
+  const op = eff_name(k);
+  // An intrinsic that installs count cells (blk_new, blk_keep: clone's C
+  // too) heats its element type.
+  if ("array_get array_new array_clone".includes(op)
+    && lay_of(fl.book, m.all[0]).ks.includes("box")
+    && !(op === "array_new" && facts_packed(fl, m.all[2]))) {
+    facts_hot(fl, m.all[0], true);
+  }
+  if (it.call === true && it.C === undefined) {
+    ty_adt(fl.book, m.all[0]) ?? die("an open Array element type");
+    return arr_op(fl, op, lay_of(fl.book, m.all[0]), args);
   }
   const ws = args.map((v) => (val_own(fl, v), val_word(v)));
   if (Array.isArray(it.C)) {
@@ -2709,7 +2695,7 @@ function compile_segs(fl: File): string {
 export function compile_book(book: Bend.Book): string {
   const entry = io_entry(book);
   const cb = carb_book(book, [entry]);
-  const facts = () => JSON.stringify([[...cb.own], [...cb.hot], [...cb.poly]]);
+  const facts = () => JSON.stringify([[...cb.own], [...cb.hot]]);
   const pass = (defs: [Bend.Name, Def][]): File => {
     [cb.lend, BRWS].forEach((m) => m.clear());
     const fl = file_new(cb, "Term");
@@ -2846,7 +2832,9 @@ function js_expr(fl: File, tm: HTerm,
       if (m.t.$ !== "Ref") {
         die("a " + m.t.$ + "-headed spine in an expression");
       }
-      arr_call(fl, m.t.k, m.all);
+      const it = intr_of(fl, m.t.k, true);
+      it?.call === true && it.C === undefined && ty_adt(fl.book, m.all[0]) === null
+        && die("an open Array element type");
       return js_call(fl, m.t.k, m.args, false);
     }
     case "Ctr": {
