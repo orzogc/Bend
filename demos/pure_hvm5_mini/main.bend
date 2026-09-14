@@ -330,7 +330,7 @@ def lam() -> String:
   SCon{Chr{206}, SCon{Chr{187}, ""}}
 
 # the program: hvm5 -s of this file prints the same
-def src() -> String:
+def program() -> String:
   "// Booleans are bit runs over (); @not flips one.\n" ++
   "@not = λ{#0: λ- #1{()}; #1: λ- #0{()}};\n" ++
   "// Church numeral 2: the function is shared by a dup.\n" ++
@@ -912,7 +912,7 @@ def term(ph: Ph) -> P(Tpl):
 
 # the definitions to the end of the source; done: is the source over
 @unsafe
-def book(done: Bool, es: List<&2, Ent>) -> P(List<&2, Ent>):
+def defs(done: Bool, es: List<&2, Ent>) -> P(List<&2, Ent>):
   match done:
     case True{}:
       P.pure(List<&2, Ent>, es)
@@ -924,13 +924,13 @@ def book(done: Bool, es: List<&2, Ent>) -> P(List<&2, Ent>):
         t : Tpl <- term(Trm{})
         Unit <- sym(';')
         e : Bool <- eof
-        book(e, Ent{ix, t} <> es)
+        defs(e, Ent{ix, t} <> es)
 
 # the definitions of the source
 def prog() -> P(List<&2, Ent>):
   do P<List<&2, Ent>>:
     e : Bool <- eof
-    book(e, Nil{})
+    defs(e, Nil{})
 
 # Pak
 # ===
@@ -1889,4 +1889,4 @@ def book_run(es: List<&2, Ent>, s: St) -> IO(Unit):
   book_run.go(es, vc, names_find(ns, "main"))
 
 def main() -> IO(Unit):
-  prog()(book_run, st_new(src(), Nil{}, 1, Names{Map.new(&2, U32), 0}))
+  prog()(book_run, st_new(program(), Nil{}, 1, Names{Map.new(&2, U32), 0}))

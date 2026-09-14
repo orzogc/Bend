@@ -187,6 +187,51 @@ def grid(y: Nat) -> String:
     case 1n++p0:
       grid(p0) ++ "\n" ++ row(Nat.sub(map_w(), 1n), 1n+p0)
 
+# Drawn board
+# -----------
+# The board the page draws: grid(map_h() - 1), one row per line, and
+# the page's reading of it: the character at column x of row y, 'F'
+# where it draws the flag. The laws bind exactly what the page shows.
+
+def drawn() -> String:
+  grid(Nat.sub(map_h(), 1n))
+
+def ch(c: Char, k: U32) -> Bool:
+  Chr{code} = c
+  U32.is_eq(code, k)
+
+# the text after the first line
+def next_row(s: String) -> String:
+  match s:
+    case SNil{}:
+      SNil{}
+    case SCon{c, +rest}:
+      pick(String, ch(c, 10), rest, next_row(rest))
+
+# whether column x of the first line is 'F'
+def flag_in_row(s: String, x: Nat) -> Bool:
+  match s:
+    case SNil{}:
+      False{}
+    case SCon{c, rest}:
+      match x:
+        case 0n:
+          ch(c, 70)
+        case 1n+p:
+          pick(Bool, ch(c, 10), False{}, flag_in_row(rest, p))
+
+# whether the page draws a flag at row y, column x of s
+def flag_at(y: Nat, x: Nat, s: String) -> Bool:
+  match y:
+    case 0n:
+      flag_in_row(s, x)
+    case 1n+q:
+      flag_at(q, x, next_row(s))
+
+# a board with the player on a drawn flag
+def at_flag(g: Game) -> Bool:
+  Game{x, y, won} = g
+  flag_at(y, x, drawn())
 
 def main() -> IO(Unit):
   do IO<Unit>:

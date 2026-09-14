@@ -30,7 +30,7 @@
 # bits) instead of feeding the device; SLASH_VOICES=N adds N looping
 # voices to load the mixer.
 #
-#   bend demos/slash_bros_3d/main.bend -o slash && ./slash
+#   bend demos/app_slash_bros_3d/main.bend -o slash && ./slash
 import Base
 
 # Math
