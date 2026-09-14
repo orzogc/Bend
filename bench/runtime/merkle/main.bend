@@ -225,9 +225,7 @@ def pgen(d, k, b):
     case 0n:
       Pn{}
     case 1n+p:
-      bit0 half0 = U32.and(U32.shrn(k, p), 1) U32.shln(1, p)
-      +bit = bit0
-      +half = half0
+      +bit +half = U32.and(U32.shrn(k, p), 1) U32.shln(1, p)
       sib rest = htree(p, sel(bit, U32.add(b, half), b)) pgen(p, k, sel(bit, b, U32.add(b, half)))
       Pc{bit, sib, rest}
 

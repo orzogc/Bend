@@ -170,8 +170,9 @@ argument. A loop bounded by the world carries a `Nat` fuel, or wears
 ## Quantities
 
 A binder is used once (`x`), erased (`-x`: types, proofs, generics, gone at run
-time) or reused (`+x`); a parameter, a field, a pattern, a lambda or a `do`
-binder takes the mark, and `+x` on a pattern is `+x = x` at the top of its body. Values move: into calls, into constructors, into the
+time) or reused (`+x`); a parameter, a field, a pattern, a let name, a lambda
+or a `do` binder takes the mark, and `+x` on a pattern is `+x = x` below the
+destructures and match arms that head its body. Values move: into calls, into constructors, into the
 match that opens them; dropping is free; dead positions (types, erased
 arguments, equation endpoints, motives) count nothing. `+` needs kind `Data`:
 `U32`, `Nat`, `Bool`, `String` and every equation are `Data`; functions,

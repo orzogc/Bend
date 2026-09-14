@@ -499,10 +499,9 @@ def hist(j, r, rg, acc):
       (g, z) = rg
       gfold(64n, Array.get(U32, g, 0), acc)
     case 1n+q:
-      (h2, v0) = r
+      (h2, +v) = r
       (g, z) = rg
       +i = U32.sub(4095, U32.from_nat(q))
-      +v = v0
       +b = U32.and(U32.shrn(v, 2n), 63)
       hist(q, Array.get(U32, h2, U32.inc(i)), hist.bump(b, Array.get(U32, g, b)),
         U32.add(U32.mul(acc, 2654435761), U32.mul(v, U32.inc(i))))

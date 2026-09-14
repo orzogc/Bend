@@ -4707,27 +4707,26 @@ def Probe.loop(
         Unit <- Sound.close(snd)
         Probe.report(s)
     case 1n+k:
-      (g, snd, cues, blocks) = gs
+      (+g, snd, cues, blocks) = gs
       (s, img, used) = si
-      +game = g
       do IO<Unit>:
         f2 : Maybe<File> <- Probe.wav(blocks, file)
         Unit <- Probe.cues(cues, Sim.dec(t))
-        g1 : Game <- Probe.watch(game, Sim.dec(t))
+        g1 : Game <- Probe.watch(g, Sim.dec(t))
         t8 : Nat <- IO.now()
         snd2 : Sound <- Probe.serve(feed, snd, t8, Sim.dec(t))
         t0 : Nat <- IO.now()
-        cells : Cells = Scene.build(Probe.rig(Game.lerp(prev, game, 0.5), rig), Game.clock(game, 0.5),
+        cells : Cells = Scene.build(Probe.rig(Game.lerp(prev, g, 0.5), rig), Game.clock(g, 0.5),
           used)
         ti : Nat & Nat & Image & Cells <- Probe.frame(cells, img)
         t5 : Nat <- IO.now()
-        g2 : Game = Script.tick(game, t)
+        g2 : Game = Script.tick(g, t)
         t6 : Nat <- IO.now()
         gs2 : Game & Sound & List<&2, Cue> & List<&2, List<&2, F32>> <-
           IO.pure(Game & Sound & List<&2, Cue> & List<&2, List<&2, F32>>,
-            Probe.mix(game, g2, snd2, U32.to_nat(Math.word(feed, 0, ((due + 800) / 512 : U32)))))
+            Probe.mix(g, g2, snd2, U32.to_nat(Math.word(feed, 0, ((due + 800) / 512 : U32)))))
         t7 : Nat <- IO.now()
-        Probe.loop(k, gs2, game, (t + 1 : U32), Sums.next(ti, Nat.is_lt(seen, 8n), s, t0, t5, t6, t7),
+        Probe.loop(k, gs2, g, (t + 1 : U32), Sums.next(ti, Nat.is_lt(seen, 8n), s, t0, t5, t6, t7),
           1n+seen, rig, ((due + 800) % 512 : U32), f2, feed)
 
 # A frame as lines: Q opens a node, a number is a Pix.

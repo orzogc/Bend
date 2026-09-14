@@ -200,9 +200,7 @@ law round:
   U32
 
 def round(d, s):
-  a00 b00 = gen(d, U32.inc(s)) gen(d, U32.add(s, 2))
-  +a = a00
-  +b = b00
+  +a +b = gen(d, U32.inc(s)) gen(d, U32.add(s, 2))
   +r = vgen(d, U32.add(s, 3))
   +c = mul(a, b)
   k = cksum(c)

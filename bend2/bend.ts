@@ -110,8 +110,9 @@
 // ">"-headed operator never fires -- space your comparisons and
 // shifts -- so nested closers stack (List<List<A>>). "-" or "+" glued
 // to a name heads a binder or literal, never an operator. a + on a
-// pattern, lambda or do binder x re-binds it reusable: its body opens
-// with +x = x. statements
+// pattern, let, lambda or do binder x re-binds it reusable: +x = x
+// opens its body, below the destructures and match arms that head it.
+// statements
 // live in bodies: a def body, a case body, a lambda body, an if
 // branch, a fork or rewrite tail; parens hold one body, or a tuple.
 // a parallel let "x y z = a b c" is one Let binding n names to n
@@ -669,10 +670,6 @@ export function uses_get(u: Uses, k: U32): Quant {
 
 export function uses_add(a: Uses, b: Uses): Uses {
   return pmap_union(a, b, quant_add);
-}
-
-export function uses_join(a: Uses, b: Uses): Uses {
-  return pmap_union(a, b, quant_join);
 }
 
 export function uses_del(u: Uses, k: U32): Uses {
@@ -1527,10 +1524,6 @@ const KEYWORDS = new Set([
 
 const QUAS: Record<string, Quant> = { "0": None(), "1": Lone(), "2": Many() };
 
-export function parse_new(book: Book, dir: string, str: string, ns: string = "", al: Record<Name, Name> = Object.create(null)): Parse {
-  return { book, dir, str, pos: 0, sc: { stk: [], frs: 0 }, ns, al, os: [], inst: null, plus: [] };
-}
-
 export function parse_col(src: string, pos: Loc): number {
   return pos - src.lastIndexOf("\n", pos - 1);
 }
@@ -2364,10 +2357,13 @@ export function parse_body(p: Parse, col: number = 0): Body {
 }
 
 export function body_plus(plus: Array<[PVar, LTerm]>, b: Body): Body {
-  for (const [k, v] of plus.reverse()) {
-    b = { $: "Local", k: [k], q: Many(), v: [v], f: b };
+  if (b.$ === "Local" && b.k[0].$ === "PCtr") {
+    return { ...b, f: body_plus(plus, b.f) };
   }
-  return b;
+  if (b.$ === "Match") {
+    return { ...b, r: b.r.map((r) => ({ p: r.p, f: body_plus(plus, r.f) })) };
+  }
+  return plus.reduceRight((f, [k, v]): Body => ({ $: "Local", k: [k], q: Many(), v: [v], f }), b);
 }
 
 export function parse_body_stmt(p: Parse, col: number): Body {
@@ -2394,7 +2390,7 @@ export function parse_body_stmt(p: Parse, col: number): Body {
   if (q.$ === "Lone") {
     ts = [parse_term(p)];
     parse_skip(p);
-    while (!parse_nl(p) && char_is_head(parse_peek(p)) && !KEYWORDS.has(p.str.slice(p.pos).match(/^[A-Za-z0-9_.]*/)?.[0] ?? "")) {
+    while (!parse_nl(p) && (char_is_head(parse_peek(p)) || parse_at(p, "+")) && !KEYWORDS.has(p.str.slice(p.pos).match(/^[A-Za-z0-9_.]*/)?.[0] ?? "")) {
       ts.push(parse_term(p));
       parse_skip(p);
     }
@@ -2660,7 +2656,7 @@ export function parse_adt(p: Parse, book: Book): void {
 }
 
 export function parse_book(book: Book, dir: string, src: string, ns: string = "", al: Record<Name, Name> = Object.create(null)): Book {
-  const p = parse_new(book, dir, src, ns, al);
+  const p: Parse = { book, dir, str: src, pos: 0, sc: { stk: [], frs: 0 }, ns, al, os: [], inst: null, plus: [] };
   while (true) {
     parse_skip(p);
     if (p.pos >= p.str.length) {
@@ -2772,7 +2768,13 @@ export function match_flatten(m: Match, vars: PVar[], fr: () => number): LTerm {
       if (c === null) {
         return Efq(m.s);
       } else {
-        const xs = patt_binds(c.x, fr);
+        const xs = c.x.map((q): PVar => {
+          if (q.$ === "PVar") {
+            return q;
+          }
+          const i = fr();
+          return { $: "PVar", k: "_" + String(i), i, s: q.s };
+        });
         const ps = rows_pick_ctr(m.r, x, c.k, xs);
         const pe = xs.map((q) => patt_term(q)).concat(m.e.slice(1));
         const pv = xs.concat(vars.slice(1));
@@ -2821,16 +2823,6 @@ export function rows_bind_var(rows: Rows, x: PVar): Rows {
     } else {
       throw Err(book_nil(), ctx_nil(), "a variable pattern (this column has no constructor row)", undefined, p0.s);
     }
-  });
-}
-
-export function patt_binds(qs: Patt[], fr: () => number): PVar[] {
-  return qs.map((q): PVar => {
-    if (q.$ === "PVar") {
-      return q;
-    }
-    const i = fr();
-    return { $: "PVar", k: "_" + String(i), i, s: q.s };
   });
 }
 
@@ -3641,7 +3633,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
           const h_chk = term_check(book, h_lhs, tm.h, qt, term_check_mat_goal(tel, ctr.n, []), ctx, d);
           const m_gol = All(t_wnf.q, t_wnf.k, t_wnf.i, ADT(a_wnf.k, a_wnf.x, tm.s, a_wnf.r.concat([ctr.k])), t_wnf.B, tm.s);
           const m_chk = term_check(book, lhs, tm.m, qt, m_gol, ctx, d);
-          return Check(Mat(tm.k, h_chk.tm, m_chk.tm, tm.s, tm.ks), ty, uses_join(h_chk.us, m_chk.us));
+          return Check(Mat(tm.k, h_chk.tm, m_chk.tm, tm.s, tm.ks), ty, pmap_union(h_chk.us, m_chk.us, quant_join));
         }
       }
     }
