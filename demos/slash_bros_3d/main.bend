@@ -1,47 +1,34 @@
 # Slash Bros 3D: the render core under the original's stage, hero and
 # light. The host builds the scene: every surface (a unit shape in a
 # basis, a cloth sheet, a ring, the cliff, an arch) is a grid of
-# patches, fewer when it is small on the screen; a triangle that meets
-# the screen carries its barycentric,
-# depth and colour planes (Gouraud: a vertex is lit by the original's
-# lights, GGX with Schlick and Smith, ACES, gamma; a transparent one is
-# unlit) and is put in every 64-cell it meets, a quadtree over the 2048
-# root (the window shows its top-left 1920 x 1200). ONE bang,
-# Frame.node!, borrows the tree on the device as a fork tree down to
-# the cells and their 16 tiles (a tile nothing crosses is one Pix); the
-# last frame's image goes down the same tree and each tile drops its
-# own, and the host frees the scene beside the next one's build. A tile
-# filters the cell's list into its opaque and transparent lists and
-# walks them once per 2 x 2 block: the nearest opaque wins at each
-# pixel, the sky where none, then the transparent ones nearer than it
-# blend over; a block under one opaque triangle, or of one colour, is
-# one Pix. The camera is the original's lens (a
-# spring after the hero and the boss) and eye (x, y + 3.2, 27) looking
-# at (x, y, 0), focal 51840 / width about (960, 581). The sim is the
-# original's hero side at 60 Hz (WASD or arrows move, I jumps, J and K
-# attack, L guards or dodges, P pauses, R restarts, Esc quits): his
-# moves, the strikes on a stand-in boss, the stage, the blast zones and
-# the lives, the cape's Verlet cloth, the lens; the boss, THE SEVERANT
-# (a hooded swordsman 2.4 times the hero, a katana of 3.1, a Verlet
-# cloak, mantle and hair), stalks him to a spacing of 3.2 and picks an
-# attack by range and his state: a cleave, a low sweep, a lunge, a
-# leap and slam, a drawn cut, each a wind-up, live frames of the blade
-# and a recovery; it blocks and counters, chains enraged under 160
-# vitality, reels when struck and dies past the blast zones; the view
-# lies between the last two ticks. The effects are additive ribbons
-# and beams: the swing's arcs, a special's threads, the charge's glow,
-# the guard's field, the sparks of a hit, a death's detonation, the
-# boss's blade trail, its slam's wave, its block's flash and its aura.
-# The title shows the frame rate twice a second. SLASH_PROBE=N runs N frames of a scripted fight
-# headless, prints the state every 60 ticks and the microseconds a
-# frame of each stage; SLASH_DUMP=T then prints the frame at tick T as
-# a tree (Q, or a colour); SLASH_MODE=M rigs the mode (9: the parry cue).
-# The sound (the 14 clips synthesized, the 7 WAVs of media/slash_bros_3d
-# decoded, a 24-voice mixer, the original's cues) is Bend's; the probe
-# prints every cue with its tick and feeds the device as the game does
-# (its queue every 60 ticks), or with SLASH_WAV=path writes its mix
-# there as text (a line a block, each sample's bits); SLASH_VOICES=N
-# adds N looping voices to load the mixer.
+# patches, fewer when small on the screen; a triangle on the screen
+# carries its barycentric, depth and colour planes (Gouraud: a vertex
+# is lit by the original's lights, GGX with Schlick and Smith, ACES,
+# gamma; a transparent one is unlit) and goes in every 64-cell it
+# meets, a quadtree over the 2048 root (the window shows its top-left
+# 1920 x 1200). ONE bang, Frame.node!, borrows the tree on the device
+# as a fork tree down to the cells and their 16 tiles (a tile nothing
+# crosses is one Pix); the last frame's image goes down the same tree
+# and each tile drops its own; the host frees the scene beside the
+# next build. A tile filters the cell's list into its opaque and
+# transparent lists and walks them once per 4 x 4 square: the nearest
+# opaque wins at each pixel, the sky where none, then the transparent
+# ones nearer than it blend over; a 2 x 2 block under one opaque
+# triangle, or of one colour, is one Pix. The camera is the original's
+# lens (a spring after the hero and the boss) and eye (x, y + 3.2, 27)
+# looking at (x, y, 0), focal 51840 / width about (960, 581). The sim
+# is the original's hero side at 60 Hz (WASD or arrows move, I jumps,
+# J and K attack, L guards or dodges, P pauses, R restarts, Esc quits)
+# against THE SEVERANT (Boss), with the effects (Effects) and the sound
+# (Sound); the view lies between the last two ticks. The title shows
+# the frame rate twice a second. SLASH_PROBE=N runs N frames of a
+# scripted fight headless and prints the state every 60 ticks, every
+# cue with its tick and the microseconds a frame of each stage;
+# SLASH_DUMP=T then prints the frame at tick T as a tree (Q, or a
+# colour); SLASH_MODE=M rigs the mode (9: the parry cue); SLASH_WAV=
+# path writes the mix there as text (a line a block, each sample's
+# bits) instead of feeding the device; SLASH_VOICES=N adds N looping
+# voices to load the mixer.
 #
 #   bend demos/slash_bros_3d/main.bend -o slash && ./slash
 import Base
@@ -1296,8 +1283,9 @@ def Garb.seed(+o: Vec, +face: F32) -> Garb:
 
 def Garb.step(+g: Garb, +o: Vec, +face: F32, +t: F32) -> Garb:
   Garb{cloak, hood, hair} = g
-  Garb{Cloth.step(cloak, Fit.cloak(), o, face, t, 0.0), Cloth.step(hood, Fit.hood(), o, face, t, 0.0),
-    Cloth.step(hair, Fit.hair(), o, face, t, 0.0)}
+  a b c = Cloth.step(cloak, Fit.cloak(), o, face, t, 0.0) Cloth.step(hood, Fit.hood(), o, face, t, 0.0)
+    Cloth.step(hair, Fit.hair(), o, face, t, 0.0)
+  Garb{a, b, c}
 
 def Garb.lerp(+a: Garb, +b: Garb, +u: F32) -> Garb:
   Garb{c0, h0, r0} = a
@@ -3097,8 +3085,8 @@ def Hud.build(+g: Game, cells: Cells) -> Cells:
       Hud.screen(U32.is_eq(mode, 0), U32.is_eq(mode, 2), U32.is_eq(mode, 3), U32.is_eq(mode, 4),
         g, cells)))
 
-# A cell's list freed, one flat loop (the runtime's sink walks a node
-# in 350 ns); nothing (CNil) comes back, a merge's identity.
+# A cell's list freed, one flat loop; nothing (CNil) comes back, a
+# merge's identity.
 def Tris.free(ts: Tris) -> Cells:
   match ts:
     case TNil{}:
@@ -3162,9 +3150,8 @@ def Sky.band(+y: U32) -> U32:
   Math.pack((0.063 + 0.129 * u : F32), (0.102 + 0.137 * u : F32),
     (0.141 + 0.141 * u : F32))
 
-# The star (of the original's 16: x = (137.508 i + 31) mod 1024, y = 12
-# + 228 |sin 4.73 i|, a diamond of half width 1.3 or 0.65, two greys)
-# whose diamond meets the h-square at (x, y), walked from i.
+# The star of the original's 16 (a diamond of half width 1.3 or 0.65,
+# two greys) whose diamond meets the h-square at (x, y), walked from i.
 def Sky.star(n: Nat, +i: F32, +x: F32, +y: F32, +h: F32, +sky: Sky) -> Sky:
   match n:
     case 0n:
@@ -3247,6 +3234,10 @@ def Sky.col(per: Bool, +x: U32, +sky: Sky) -> Sky:
 type Hit is Data:
   Hit{w: F32, c: U32, i: U32}
 
+# The hits of a 2 x 2 block, and did a pixel take a blend.
+type Blk is Data:
+  Blk{+h0: Hit, +h1: Hit, +h2: Hit, +h3: Hit, mixed: Bool}
+
 # The four quadrants of the last frame's image of a region.
 type Four is Data:
   Four{a: Image, b: Image, c: Image, d: Image}
@@ -3312,7 +3303,6 @@ def Blk.hit(
       Hit{w, Math.pack((rc + ru * px + rv * py : F32), (gc + gu * px + gv * py : F32),
         (bc + bu * px + bv * py : F32)), i}
 
-# A pixel's colour: its hit, else the sky there.
 def Blk.at(none: Bool, +c: U32, +x: U32, +y: U32, +sky: Sky) -> U32:
   match none:
     case False{}:
@@ -3368,103 +3358,117 @@ def Blk.one(same: Bool, +k0: U32, +k1: U32, +k2: U32, +k3: U32) -> Image:
 
 # The block's image: one Pix under one opaque triangle nothing blended
 # over, or of one colour; else its four pixels.
-def Blk.four(
-  +i0: U32, +i1: U32, +i2: U32, +i3: U32, mixed: Bool, +k0: U32, +k1: U32,
-  +k2: U32, +k3: U32
-) -> Image:
+def Blk.four(+b: Blk) -> Image:
+  Blk{h0, h1, h2, h3, mixed} = b
+  Hit{_, k0, i0} = h0
+  Hit{_, k1, i1} = h1
+  Hit{_, k2, i2} = h2
+  Hit{_, k3, i3} = h3
   Blk.one((U32.is_eq(i0, i1) && U32.is_eq(i1, i2) && U32.is_eq(i2, i3)
     && (((i0 > 0) && Bool.not(mixed))
       || (U32.is_eq(k0, k1) && U32.is_eq(k1, k2) && U32.is_eq(k2, k3))) : U32),
     k0, k1, k2, k3)
 
-# The transparent triangles nearer than the block's opaque hits blended
-# over its colours in the list's order, one flat loop; mixed when a
-# pixel took one.
+# A transparent triangle nearer than the block's opaque hits blended
+# over its colours; mixed when a pixel took it.
+def Blend.step(+t: Tri, +px: F32, +py: F32, +b: Blk) -> Blk:
+  Tri{a0, b0, c0, a1, b1, c1, wc, wu, wv, rc, ru, rv, gc, gu, gv, bc, bu, bv,
+    m, al, bx0, by0, bx1, by1} = t
+  Blk{h0, h1, h2, h3, mixed} = b
+  Hit{w0, k0, i0} = h0
+  Hit{w1, k1, i1} = h1
+  Hit{w2, k2, i2} = h2
+  Hit{w3, k3, i3} = h3
+  +l0 = (a0 * px + b0 * py + c0 + 0.002 : F32)
+  +l1 = (a1 * px + b1 * py + c1 + 0.002 : F32)
+  +w = (wc + wu * px + wv * py : F32)
+  +px1 = (px + 1.0 : F32)
+  +py1 = (py + 1.0 : F32)
+  +q0 = Bool.and(Tri.in(l0, l1), (w > w0 : F32))
+  +q1 = Bool.and(Tri.in((l0 + a0 : F32), (l1 + a1 : F32)), (w + wu > w1 : F32))
+  +q2 = Bool.and(Tri.in((l0 + b0 : F32), (l1 + b1 : F32)), (w + wv > w2 : F32))
+  +q3 = Bool.and(Tri.in((l0 + a0 + b0 : F32), (l1 + a1 + b1 : F32)),
+    (w + wu + wv > w3 : F32))
+  Blk{Hit{w0, Blend.px(q0, t, px, py, k0), i0}, Hit{w1, Blend.px(q1, t, px1, py, k1), i1},
+    Hit{w2, Blend.px(q2, t, px, py1, k2), i2}, Hit{w3, Blend.px(q3, t, px1, py1, k3), i3},
+    Bool.or(mixed, Bool.or(Bool.or(q0, q1), Bool.or(q2, q3)))}
+
+# The transparent triangles blended over the four blocks from (px, py)
+# in the list's order, one flat loop; then their images.
 def Blend.go(
-  bs: Tris, +px: F32, +py: F32, +w0: F32, +w1: F32, +w2: F32, +w3: F32, +i0: U32,
-  +i1: U32, +i2: U32, +i3: U32, +k0: U32, +k1: U32, +k2: U32, +k3: U32,
-  mixed: Bool
+  bs: Tris, +px: F32, +py: F32, +b0: Blk, +b1: Blk, +b2: Blk, +b3: Blk
 ) -> Image:
   match bs:
     case TNil{}:
-      Blk.four(i0, i1, i2, i3, mixed, k0, k1, k2, k3)
+      Qua{Blk.four(b0), Blk.four(b1), Blk.four(b2), Blk.four(b3)}
     case TCons{t, n}:
-      Tri{a0, b0, c0, a1, b1, c1, wc, wu, wv, rc, ru, rv, gc, gu, gv, bc, bu, bv,
-        m, al, bx0, by0, bx1, by1} = t
-      +l0 = (a0 * px + b0 * py + c0 + 0.002 : F32)
-      +l1 = (a1 * px + b1 * py + c1 + 0.002 : F32)
-      +w = (wc + wu * px + wv * py : F32)
-      +px1 = (px + 1.0 : F32)
-      +py1 = (py + 1.0 : F32)
-      +q0 = Bool.and(Tri.in(l0, l1), (w > w0 : F32))
-      +q1 = Bool.and(Tri.in((l0 + a0 : F32), (l1 + a1 : F32)), (w + wu > w1 : F32))
-      +q2 = Bool.and(Tri.in((l0 + b0 : F32), (l1 + b1 : F32)), (w + wv > w2 : F32))
-      +q3 = Bool.and(Tri.in((l0 + a0 + b0 : F32), (l1 + a1 + b1 : F32)),
-        (w + wu + wv > w3 : F32))
-      Blend.go(n, px, py, w0, w1, w2, w3, i0, i1, i2, i3,
-        Blend.px(q0, t, px, py, k0), Blend.px(q1, t, px1, py, k1),
-        Blend.px(q2, t, px, py1, k2), Blend.px(q3, t, px1, py1, k3),
-        Bool.or(mixed, Bool.or(Bool.or(q0, q1), Bool.or(q2, q3))))
+      +px1 = (px + 2.0 : F32)
+      +py1 = (py + 2.0 : F32)
+      Blend.go(n, px, py, Blend.step(t, px, py, b0), Blend.step(t, px1, py, b1),
+        Blend.step(t, px, py1, b2), Blend.step(t, px1, py1, b3))
 
-# The block's colours: its hits, the sky where none; then the blends.
-def Blk.fin(
-  bs: Tris, +px: F32, +py: F32, +x: U32, +y: U32, +sky: Sky, +h0: Hit, +h1: Hit,
-  +h2: Hit, +h3: Hit
-) -> Image:
+# The block's colours: its hits, the sky where none.
+def Blk.fill(+b: Blk, +x: U32, +y: U32, +sky: Sky) -> Blk:
+  Blk{h0, h1, h2, h3, mixed} = b
   Hit{w0, c0, i0} = h0
   Hit{w1, c1, i1} = h1
   Hit{w2, c2, i2} = h2
   Hit{w3, c3, i3} = h3
   +x1 = (x + 1 : U32)
   +y1 = (y + 1 : U32)
-  Blend.go(bs, px, py, w0, w1, w2, w3, i0, i1, i2, i3,
-    Blk.at(U32.is_eq(i0, 0), c0, x, y, sky), Blk.at(U32.is_eq(i1, 0), c1, x1, y, sky),
-    Blk.at(U32.is_eq(i2, 0), c2, x, y1, sky),
-    Blk.at(U32.is_eq(i3, 0), c3, x1, y1, sky), False{})
+  Blk{Hit{w0, Blk.at(U32.is_eq(i0, 0), c0, x, y, sky), i0},
+    Hit{w1, Blk.at(U32.is_eq(i1, 0), c1, x1, y, sky), i1},
+    Hit{w2, Blk.at(U32.is_eq(i2, 0), c2, x, y1, sky), i2},
+    Hit{w3, Blk.at(U32.is_eq(i3, 0), c3, x1, y1, sky), i3}, mixed}
 
-# The nearest opaque triangle of the tile's list at the four pixel
-# centres from (px, py), the entries counted from i, one flat loop: the
-# planes step by a column and a row.
+# The triangle i over the block's four pixel centres from (px, py):
+# the planes step by a column and a row.
+def Blk.step(+t: Tri, +i: U32, +px: F32, +py: F32, +b: Blk) -> Blk:
+  Tri{a0, b0, c0, a1, b1, c1, wc, wu, wv, rc, ru, rv, gc, gu, gv, bc, bu, bv,
+    m, al, bx0, by0, bx1, by1} = t
+  Blk{h0, h1, h2, h3, mixed} = b
+  Hit{w0, _, _} = h0
+  Hit{w1, _, _} = h1
+  Hit{w2, _, _} = h2
+  Hit{w3, _, _} = h3
+  +l0 = (a0 * px + b0 * py + c0 + 0.002 : F32)
+  +l1 = (a1 * px + b1 * py + c1 + 0.002 : F32)
+  +w = (wc + wu * px + wv * py : F32)
+  +px1 = (px + 1.0 : F32)
+  +py1 = (py + 1.0 : F32)
+  Blk{Blk.hit(Bool.and(Tri.in(l0, l1), (w > w0 : F32)), t, w, i, px, py, h0),
+    Blk.hit(Bool.and(Tri.in((l0 + a0 : F32), (l1 + a1 : F32)),
+        (w + wu > w1 : F32)), t, (w + wu : F32), i, px1, py, h1),
+    Blk.hit(Bool.and(Tri.in((l0 + b0 : F32), (l1 + b1 : F32)),
+        (w + wv > w2 : F32)), t, (w + wv : F32), i, px, py1, h2),
+    Blk.hit(Bool.and(Tri.in((l0 + a0 + b0 : F32), (l1 + a1 + b1 : F32)),
+        (w + wu + wv > w3 : F32)), t, (w + wu + wv : F32), i, px1, py1, h3), mixed}
+
+# The nearest opaque triangle of the tile's list over the four blocks
+# from (px, py), the entries counted from i, one flat loop: an entry is
+# read once for the sixteen pixels; then the sky, the blends.
 def Blk.go(
-  cs: Tris, bs: Tris, +i: U32, +px: F32, +py: F32, +x: U32, +y: U32, +sky: Sky,
-  +h0: Hit, +h1: Hit, +h2: Hit, +h3: Hit
+  cs: Tris, bs: Tris, +i: U32, +px: F32, +py: F32, +x: U32, +y: U32, +sa: Sky,
+  +sb: Sky, +b0: Blk, +b1: Blk, +b2: Blk, +b3: Blk
 ) -> Image:
   match cs:
     case TNil{}:
-      Blk.fin(bs, px, py, x, y, sky, h0, h1, h2, h3)
+      +x1 = (x + 2 : U32)
+      +y1 = (y + 2 : U32)
+      Blend.go(bs, px, py, Blk.fill(b0, x, y, sa), Blk.fill(b1, x1, y, sb),
+        Blk.fill(b2, x, y1, sa), Blk.fill(b3, x1, y1, sb))
     case TCons{t, n}:
-      Tri{a0, b0, c0, a1, b1, c1, wc, wu, wv, rc, ru, rv, gc, gu, gv, bc, bu, bv,
-        m, al, bx0, by0, bx1, by1} = t
-      Hit{w0, _, _} = h0
-      Hit{w1, _, _} = h1
-      Hit{w2, _, _} = h2
-      Hit{w3, _, _} = h3
-      +l0 = (a0 * px + b0 * py + c0 + 0.002 : F32)
-      +l1 = (a1 * px + b1 * py + c1 + 0.002 : F32)
-      +w = (wc + wu * px + wv * py : F32)
-      +px1 = (px + 1.0 : F32)
-      +py1 = (py + 1.0 : F32)
-      Blk.go(n, bs, (i + 1 : U32), px, py, x, y, sky,
-        Blk.hit(Bool.and(Tri.in(l0, l1), (w > w0 : F32)), t, w, i, px, py, h0),
-        Blk.hit(Bool.and(Tri.in((l0 + a0 : F32), (l1 + a1 : F32)),
-            (w + wu > w1 : F32)), t, (w + wu : F32), i, px1, py, h1),
-        Blk.hit(Bool.and(Tri.in((l0 + b0 : F32), (l1 + b1 : F32)),
-            (w + wv > w2 : F32)), t, (w + wv : F32), i, px, py1, h2),
-        Blk.hit(Bool.and(Tri.in((l0 + a0 + b0 : F32), (l1 + a1 + b1 : F32)),
-            (w + wu + wv > w3 : F32)), t, (w + wu + wv : F32), i, px1, py1, h3))
-
-def Tile.blk(cs: Tris, bs: Tris, +x: U32, +y: U32, +sky: Sky) -> Image:
-  Blk.go(cs, bs, 1, (U32.to_f32(x) + 0.5 : F32), (U32.to_f32(y) + 0.5 : F32), x,
-    y, sky, Hit{0.0, 0, 0}, Hit{0.0, 0, 0}, Hit{0.0, 0, 0}, Hit{0.0, 0, 0})
+      +px1 = (px + 2.0 : F32)
+      +py1 = (py + 2.0 : F32)
+      Blk.go(n, bs, (i + 1 : U32), px, py, x, y, sa, sb, Blk.step(t, i, px, py, b0),
+        Blk.step(t, i, px1, py, b1), Blk.step(t, i, px, py1, b2),
+        Blk.step(t, i, px1, py1, b3))
 
 # Four blocks under the skies of their two column pairs.
 def Tile.b4(+cs: Tris, +bs: Tris, +per: Bool, +x: U32, +y: U32, +sky: Sky) -> Image:
-  +sa = Sky.col(per, x, sky)
-  +sb = Sky.col(per, (x + 2 : U32), sky)
-  +x1 = (x + 2 : U32)
-  +y1 = (y + 2 : U32)
-  Qua{Tile.blk(cs, bs, x, y, sa), Tile.blk(cs, bs, x1, y, sb),
-    Tile.blk(cs, bs, x, y1, sa), Tile.blk(cs, bs, x1, y1, sb)}
+  +b = {Blk{Hit{0.0, 0, 0}, Hit{0.0, 0, 0}, Hit{0.0, 0, 0}, Hit{0.0, 0, 0}, False{}} : Blk}
+  Blk.go(cs, bs, 1, (U32.to_f32(x) + 0.5 : F32), (U32.to_f32(y) + 0.5 : F32), x, y,
+    Sky.col(per, x, sky), Sky.col(per, (x + 2 : U32), sky), b, b, b, b)
 
 def Tile.b8(+cs: Tris, +bs: Tris, +per: Bool, +x: U32, +y: U32, +sky: Sky) -> Image:
   +x1 = (x + 4 : U32)
@@ -3472,10 +3476,8 @@ def Tile.b8(+cs: Tris, +bs: Tris, +per: Bool, +x: U32, +y: U32, +sky: Sky) -> Im
   Qua{Tile.b4(cs, bs, per, x, y, sky), Tile.b4(cs, bs, per, x1, y, sky),
     Tile.b4(cs, bs, per, x, y1, sky), Tile.b4(cs, bs, per, x1, y1, sky)}
 
-# The tile's lists freed after its pixels read them, one flat loop: with
-# no use after the read, the read would own the lists and the readers
-# would take them (comp.ts facts_scan); as dead parameters, the runtime's
-# sink frees them 0.55 ms a frame slower than this walk.
+# The tile's lists freed after its pixels read them, one flat loop (as
+# dead parameters, the runtime's sink frees them 0.55 ms a frame slower).
 def Tile.fin(img: Image, cs: Tris, bs: Tris) -> Image:
   match cs bs:
     case TCons{_, n} _:
@@ -3516,8 +3518,7 @@ def Tile.go(cs: Tris, +x: U32, +y: U32, old: Four) -> Image:
     Sky.mixed(sky, x, y, 16), x, y, sky)
 
 # The last frame's image of a region as its four quadrants (a plain
-# one: four of its pixel), opened at every call so a fork def has one
-# fork body.
+# one: four of its pixel).
 def Image.open(old: Image) -> Four:
   match old:
     case Pix{c}:
@@ -3543,8 +3544,7 @@ def Cell.fork(+k: Nat, +cs: Tris, +x: U32, +y: U32, old: Four) -> Image:
       Qua{a, b, c, d}
 
 # An empty region of 64 << k at (x, y): black off the screen, else split
-# down to its cells, each its 16 tiles (a tile nothing crosses is one
-# Pix, so a clear cell is its four bands).
+# down to its cells and their tiles (a tile nothing crosses is one Pix).
 def Frame.sky(+k: Nat, on: Bool, +x: U32, +y: U32, old: Four) -> Image:
   match k on:
     case 0n True{}:
@@ -3583,9 +3583,8 @@ def Frame.node(c: Cells, +k: Nat, +x: U32, +y: U32, old: Four) -> Image:
             Frame.node(bl, e, x, y1, Image.open(oc)) Frame.node(br, e, x1, y1, Image.open(od))
           Qua{a, b, c, d}
 
-# The frame of the scene over the last one (dropped tile by tile inside
-# it): the bang borrows the tree, so the device never owns it; the tree
-# comes back beside the image for the host to drop.
+# The frame over the last one (dropped tile by tile inside it): the
+# bang borrows the tree, which comes back for the host to drop.
 def Frame.show(+cells: Cells, old: Image) -> Image & Cells:
   (Frame.node!(cells, 5n, 0, 0, Image.open(old)), cells)
 
@@ -3595,9 +3594,8 @@ def Frame.show(+cells: Cells, old: Image) -> Image & Cells:
 
 # The sound is Bend's: 14 clips are synthesized at launch and 7 read
 # from WAV files (media/slash_bros_3d) into one store of samples, a
-# mixer of up to 24 voices renders 512-frame stereo blocks at 48 kHz,
-# and only the transport is native (Audio.open/write/close, a ring of
-# 4096 frames the device drains). A clip: its first sample in the
+# mixer of up to 24 voices renders 512-frame stereo blocks at 48 kHz;
+# only the transport (Audio.open/write/close) is native. A clip: its first sample in the
 # store, its frames, its rate and its channels (1 or 2).
 type Clip is Data:
   Clip{start: U32, frames: U32, rate: U32, ch: U32}
@@ -4516,7 +4514,6 @@ type Sums is Data:
 def Probe.ms(+a: Nat, +b: Nat) -> U32:
   U32.from_nat(Nat.sub(b, a))
 
-# The turn's stages added, unless it warms up.
 def Sums.add(
   warm: Bool, +s: Sums, +b: U32, +d: U32, +p: U32, +f: U32, +k: U32, +m: U32, +w: U32
 ) -> Sums:
