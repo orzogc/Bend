@@ -1,8 +1,9 @@
-# The laws of the typed evaluator. opt_sound is the headline: the
-# constant folder keeps the meaning of every well-typed program, at
-# every object type. The other laws pin the folder on the shapes it
-# folds, and the value of the sample program. PROOF.bend must prove
-# them.
+# The laws of the typed evaluator. opt_sound and opt_complete are the
+# headlines: the constant folder keeps the meaning of every well-typed
+# program, at every object type, and it folds every program down to
+# the literal of its value. opt_idem is the third: a second pass
+# changes nothing. The other laws pin the folder on the shapes it folds, and
+# the value of the sample program. PROOF.bend must prove them.
 import Base
 import ./main.bend as TE
 
@@ -13,6 +14,21 @@ law opt_sound:
   for -t: TE.Ty
   for e: TE.Expr<t>
   {TE.eval(t, TE.opt(t, e)) == TE.eval(t, e) : TE.Val(t)}
+
+# LAW: the optimizer computes every program: a program has no
+# variables, so opt(e) is the literal of the value of e, at every
+# object type.
+law opt_complete:
+  for -t: TE.Ty
+  for e: TE.Expr<t>
+  {TE.lit(t, TE.eval(t, e)) == TE.opt(t, e) : TE.Expr<t>}
+
+# LAW: the optimizer is idempotent: optimizing an optimized program
+# changes nothing.
+law opt_idem:
+  for -t: TE.Ty
+  for e: TE.Expr<t>
+  {TE.opt(t, TE.opt(t, e)) == TE.opt(t, e) : TE.Expr<t>}
 
 # LAW: the optimizer folds a sum of two literals into their sum.
 law opt_folds_add:

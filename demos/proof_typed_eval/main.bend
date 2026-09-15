@@ -5,7 +5,8 @@
 # program's types when it builds the term. eval maps an Expr<t> to
 # Val(t), the meaning of t: it has no error case and no default.
 # opt is a constant folder; LAWS.bend states that it keeps the
-# meaning of every program. Try it:
+# meaning of every program, and that it folds every program all the
+# way down to the literal of its value. Try it:
 #
 #   bend demos/proof_typed_eval/main.bend
 import Base
@@ -134,6 +135,18 @@ def opt(-t: Ty, e: Expr<t>) -> Expr<t>:
       fold_zero(opt(TNum{}, a))
     case If{c, a, b}:
       fold_if(t, opt(TBool{}, c), opt(t, a), opt(t, b))
+
+# Spec
+# ----
+
+# The literal of a value: the program that is that value. The laws
+# use it to say what opt computes.
+def lit(t: Ty, v: Val(t)) -> Expr<t>:
+  match t:
+    case TNum{}:
+      Num{v, {==}}
+    case TBool{}:
+      Bit{v, {==}}
 
 # Main
 # ----

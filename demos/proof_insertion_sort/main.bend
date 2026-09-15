@@ -2,7 +2,9 @@
 # vocabulary its laws need: Sorted (a computed type), count (how many
 # times a value occurs) and length. main prints sort([3n, 1n, 2n]).
 # LAWS.bend states that sort's output is sorted, has the same counts
-# and the same length as its input; PROOF.bend proves it.
+# and the same length as its input, that sort keeps a sorted list as
+# it is, and that the head of its output is at most every element of
+# its input; PROOF.bend proves it.
 #
 #   bend demos/proof_insertion_sort/main.bend
 #
@@ -92,6 +94,14 @@ def Sorted.from(lo: Nat, xs: List<&2, Nat>) -> Type:
 
 def Sorted(xs: List<&2, Nat>) -> Type:
   Sorted.from(0n, xs)
+
+# Below(lo, xs): every element of xs is at least lo
+def Below(lo: Nat, xs: List<&2, Nat>) -> Type:
+  match xs:
+    case Nil{}:
+      Unit
+    case h <> t:
+      (LE(lo, h) & Below(lo, t))
 
 def eq(a: Nat, b: Nat) -> Bool:
   Cmp.is_eq(Nat.cmp(a, b))
