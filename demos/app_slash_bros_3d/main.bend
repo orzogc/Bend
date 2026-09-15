@@ -1067,10 +1067,18 @@ def Game.rest(+g: Game) -> Game:
     Game.cape(paused, False{}, cloth, hero, time), Game.garb(paused, garb, boss, time), lens,
     blast}
 
+# The mode toggled by P: a pause (4) resumes the fight (1), the fight
+# pauses, any other mode stays; paused and fighting are the mode's
+# tests, taken apart so LAWS.bend can split on them.
+def Mode.toggle.go(paused: Bool, fighting: Bool, +mode: U32) -> U32:
+  R.word(paused, 1, R.word(fighting, 4, mode))
+
+def Mode.toggle(+mode: U32) -> U32:
+  Mode.toggle.go(U32.is_eq(mode, 4), U32.is_eq(mode, 1), mode)
+
 def Game.pause(+g: Game) -> Game:
   Game{time, held, _, mode, hero, boss, flash, cloth, garb, lens, blast} = g
-  Game{time, held, 0, R.word(U32.is_eq(mode, 4), 1, R.word(U32.is_eq(mode, 1), 4, mode)),
-    hero, boss, flash, cloth, garb, lens, blast}
+  Game{time, held, 0, Mode.toggle(mode), hero, boss, flash, cloth, garb, lens, blast}
 
 # K past the fight goes back to the title; R, or L outside the fight
 # and the pause, starts a fresh fight; P (or L in a pause) toggles the
@@ -1099,6 +1107,33 @@ def Game.step(+g: Game) -> Game:
       && Bool.not(U32.is_eq(mode, 4)))),
     (Sim.has(taps, 1024) || (U32.is_eq(mode, 4) && Sim.has(taps, 128))), U32.is_eq(mode, 1),
     (flash >= 6 : U32), g)
+
+# Spec
+# ----
+# What LAWS.bend measures: n ticks of the game (as the loop's
+# Live.steps runs them), n fades of a countdown, and a frame's events
+# joined.
+
+def Game.steps(n: Nat, +g: Game) -> Game:
+  match n:
+    case 0n:
+      g
+    case 1n+k:
+      Game.steps(k, Game.step(g))
+
+def Sim.fade(n: Nat, +x: U32) -> U32:
+  match n:
+    case 0n:
+      x
+    case 1n+k:
+      Sim.fade(k, Sim.dec(x))
+
+def Game.cat(a: List<Event>, b: List<Event>) -> List<Event>:
+  match a:
+    case Nil{}:
+      b
+    case e <> rest:
+      e <> Game.cat(rest, b)
 
 # Hero
 # ----

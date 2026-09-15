@@ -456,6 +456,30 @@ def str_word(s: String, z: Bool) -> String & String:
     case u _:
       ("", u)
 
+# Spec
+# ====
+# What LAWS.bend measures: the word and the rest re-joined (the lexer
+# loses nothing), and the "{" of a string (the printer's braces).
+
+def word_cat(p: String & String) -> String:
+  (w, u) = p
+  w ++ u
+
+def opens.go(brace: Bool, n: Nat) -> Nat:
+  match brace:
+    case True{}:
+      1n+n
+    case False{}:
+      n
+
+# how many "{" a string holds
+def opens(s: String) -> Nat:
+  match s:
+    case SNil{}:
+      0n
+    case SCon{Chr{c}, t}:
+      opens.go(chr_is(c, '{'), opens(t))
+
 # Hc
 # ==
 
