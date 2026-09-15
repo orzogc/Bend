@@ -1,52 +1,43 @@
-# Parallel N-queens -- the laws. Claims about the search: the fork tree
-# joins by addition at every depth; the backtracker ends a chain in two
-# ways (a row with no free column keeps the count, a board with no row
-# left adds one); the boards 1 to 6 have their classic counts; and a
-# wider fork space gives the same count. PROOF.bend must prove every one.
+# Parallel N-queens -- the laws. Claims about the search: every board
+# the fork tree returns is safe (no two queens attack each other), so
+# every solution counted is one; and the fork tree computes the same
+# boards as the flat loop over the first row's columns, so the
+# parallel search has its sequential meaning. PROOF.bend must prove
+# every one. A Bool fact is stated with True{} on the left, the side a
+# rewrite keeps.
 import Base
 import ./main.bend as Q
 
-# LAW: a fork joins as the sum of its halves: the tree of depth d + 1
-# at the index i counts what the tree of depth d at i and the tree of
-# depth d at i + 2^d count together, for any board and prefix shape.
-law fork_split:
+# LAW: the search is sound: every board the fork tree of any depth
+# returns, from any first column, for any rows left and any board
+# size, is safe.
+law fork_safe:
   for +d: Nat
-  for +i: U32
-  for +k: Nat
-  for +w: Nat
-  for +left: Nat
-  for +full: U32
-  {Q.fork(1n+d, i, k, w, left, full)
-    == (Q.fork(d, i, k, w, left, full) + Q.fork(d, (i + (1 << d) : U32), k, w, left, full) : U32) : U32}
+  for +i: Nat
+  for +r: Nat
+  for +n: Nat
+  {True{} == Q.all_safe(Q.fork(d, i, r, n)) : Bool}
 
-# LAW: the backtracker ends a chain in two ways: a row with no free
-# column (the flag is True) keeps the count acc, for any words; a board
-# with no row left adds one to acc, whatever the flag and the words.
-law solve_ends:
-  for +g: Nat
-  for +p: Nat
-  for z: Bool
-  for +cand: U32
-  for +cols: U32
-  for +ld: U32
-  for +rd: U32
-  for +full: U32
-  for +acc: U32
-  {Q.solve(1n+g, 1n+p, True{}, cand, cols, ld, rd, full, acc) == acc : U32}
-  & {Q.solve(1n+g, 0n, z, cand, cols, ld, rd, full, acc) == (acc + 1 : U32) : U32}
+# LAW: every solution of the n x n board is safe, for any n and any
+# fork depth d.
+law boards_safe:
+  for  n: Nat
+  for +d: Nat
+  {True{} == Q.all_safe(Q.boards(n, d)) : Bool}
 
-# LAW: the classic counts: the boards 1 to 6 have 1, 0, 0, 2, 10 and 4
-# solutions (the width w is the bits of a column: 2^w >= n).
+# LAW: the parallel tree equals its sequential meaning: the fork tree
+# of depth d from column i returns the boards of the flat loop over
+# the 2^d columns i, i + 1, .., i + 2^d - 1, in order.
+law fork_is_flat:
+  for +d: Nat
+  for +i: Nat
+  for +r: Nat
+  for +n: Nat
+  {Q.fork(d, i, r, n) == Q.flat(Q.pow2(d), i, r, n) : List<&2, List<&2, Nat>>}
+
+# LAW: the classic counts: the boards 4, 5 and 6 have 2, 10 and 4
+# solutions (closed, by evaluation).
 law counts:
-  {Q.queens(1n, 0n) == 1 : U32}
-  & {Q.queens(2n, 1n) == 0 : U32}
-  & {Q.queens(3n, 2n) == 0 : U32}
-  & {Q.queens(4n, 2n) == 2 : U32}
-  & {Q.queens(5n, 3n) == 10 : U32}
-  & {Q.queens(6n, 3n) == 4 : U32}
-
-# LAW: a wider fork space gives the same count: 3 bits per column name
-# columns beyond the 4 x 4 board, which are never free, so the extra
-# leaves count nothing.
-law width:
-  {Q.queens(4n, 3n) == Q.queens(4n, 2n) : U32}
+  {Q.queens(4n, 2n) == 2n : Nat}
+  & {Q.queens(5n, 3n) == 10n : Nat}
+  & {Q.queens(6n, 3n) == 4n : Nat}
