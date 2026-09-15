@@ -26,8 +26,9 @@ const SLOTS = { dir: "/tmp/bend-cluster-slots", count: 4, size: 48, base: 2 };
 
 const STALE = 20 * 60 * 1000;
 
-const MUX = ["-o", "BatchMode=yes", "-o", "ControlMaster=auto",
-  "-o", "ControlPath=/tmp/bend-cluster-mux", "-o", "ControlPersist=600"];
+const MUX = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
+  "-o", "ControlMaster=auto", "-o", "ControlPath=/tmp/bend-cluster-mux",
+  "-o", "ControlPersist=600"];
 
 const SSH = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
   "-o", "ProxyCommand=ssh " + MUX.join(" ") + " -W %h:%p cluster"];
@@ -91,11 +92,20 @@ function sleep(ms: number): Promise<void> {
 // ====
 
 // Locks a slot of 48 minis, after one session to the bastion opens the
-// mux the rest share. A dead node is found by its first job (node_pool
-// requeues the job and drops the node), not by a probe.
+// mux the rest share. A bastion that refuses that session (the agent lost
+// id_rsa at a reboot, the host is down) fails the gate at once with its
+// reason; without this every node's first session dies as "Connection
+// closed by UNKNOWN" and the pool runs dry. A dead node is found by its
+// first job (node_pool requeues the job and drops the node), not by a
+// probe.
 export async function node_lock(): Promise<number[]> {
   const nodes = slot_lock();
-  await exec("ssh", [...MUX, "cluster", "true"]);
+  const got = await exec("ssh", [...MUX, "cluster", "true"]);
+  if (got.code !== 0) {
+    throw new Error("the bastion refused the mux session (is id_rsa in the"
+      + " agent? ssh-add ~/.ssh/id_rsa): "
+      + (got.err.trim().split("\n").pop() ?? ""));
+  }
   return nodes;
 }
 
