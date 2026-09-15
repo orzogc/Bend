@@ -145,6 +145,7 @@ For more examples, check:
 
 ```bash
 # needs Bun 1.3+ (https://bun.com) and clang 19+; Metal or CUDA for the GPU
+# (Linux: CUDA 12 at /usr/local/cuda; libx11-dev, libasound2-dev for Window, Audio)
 git clone https://github.com/HigherOrderCO/bend4
 cd bend4
 ln -s "$PWD/bend2/main.ts" ~/.bun/bin/bend   # puts `bend` on the PATH

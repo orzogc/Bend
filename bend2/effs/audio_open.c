@@ -9,15 +9,21 @@
 #ifndef IO_RING
 #define IO_RING 4096u
 
-#if BEND_METAL
+#ifdef __OBJC__
 #import <AudioToolbox/AudioToolbox.h>
+#elif defined(__linux__)
+#include <alsa/asoundlib.h>
 #endif
 
 typedef struct {
   _Atomic(u64) read, written;
   float        pcm[IO_RING * 2];
-#if BEND_METAL
+#ifdef __OBJC__
   AudioUnit    unit;
+#elif defined(__linux__)
+  snd_pcm_t*   unit;
+  pthread_t    pump;
+  _Atomic(u32) done;
 #endif
 } IoRing;
 
@@ -49,7 +55,7 @@ static void io_ring_pull(IoRing* p, float* out, u32 frames) {
   atomic_store_explicit(&p->read, r + n, memory_order_release);
 }
 
-#if BEND_METAL
+#ifdef __OBJC__
 
 static OSStatus io_ring_pump(void* ctx, AudioUnitRenderActionFlags* flags,
   const AudioTimeStamp* when, UInt32 bus, UInt32 frames,
@@ -95,6 +101,52 @@ static void io_ring_free(IoRing* p) {
     AudioOutputUnitStop(p->unit);
     AudioUnitUninitialize(p->unit);
     AudioComponentInstanceDispose(p->unit);
+  }
+  free(p);
+}
+
+#elif defined(__linux__)
+
+// A thread feeds the default ALSA device 256 frames at a time (a
+// write blocks until the device has room, so the ring drains at the
+// device's clock).
+static void* io_ring_pump(void* ctx) {
+  IoRing* p = ctx;
+  float   out[256 * 2];
+  while (atomic_load_explicit(&p->done, memory_order_relaxed) == 0) {
+    io_ring_pull(p, out, 256);
+    snd_pcm_sframes_t n = snd_pcm_writei(p->unit, out, 256);
+    if (n < 0) {
+      snd_pcm_recover(p->unit, (int)n, 1);
+    }
+  }
+  return NULL;
+}
+
+static void io_ring_hush(const char* file, int line, const char* fn, int err,
+  const char* fmt, ...) {
+}
+
+static u32 io_ring_start(IoRing* p, u32 rate) {
+  snd_lib_error_set_handler(io_ring_hush);
+  if (snd_pcm_open(&p->unit, "default", SND_PCM_STREAM_PLAYBACK, 0) < 0) {
+    return ENODEV;
+  }
+  if (snd_pcm_set_params(p->unit, SND_PCM_FORMAT_FLOAT_LE,
+    SND_PCM_ACCESS_RW_INTERLEAVED, 2, rate, 1, 20000) < 0
+    || pthread_create(&p->pump, NULL, io_ring_pump, p) != 0) {
+    return ENODEV;
+  }
+  return 0;
+}
+
+static void io_ring_free(IoRing* p) {
+  if (p->unit != NULL) {
+    atomic_store_explicit(&p->done, 1, memory_order_relaxed);
+    if (p->pump != 0) {
+      pthread_join(p->pump, NULL);
+    }
+    snd_pcm_close(p->unit);
   }
   free(p);
 }

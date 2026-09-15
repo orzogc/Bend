@@ -14,6 +14,19 @@ law nul_tail:
 def nul_tail():
   SCon{Chr{0}, SCon{Chr{88}, SNil{}}}
 
+# EILSEQ is 92 on macOS and 84 on Linux.
+law ilseq:
+  for yes: Bool
+  for code: U32
+  String
+
+def ilseq(yes, code):
+  match yes:
+    case True{}:
+      "EILSEQ"
+    case False{}:
+      U32.show(code)
+
 law path_go:
   for r: Result<&1, &1, (U32 & String), File>
   IO(Unit)
@@ -25,10 +38,9 @@ def path_go(r):
         x : Unit <- File.close(file)
         IO.print("path=opened")
     case Fail{error}:
-      (code, message) = error
-      do IO<Unit>:
-        x : Unit <- IO.print(String.append("path=fail:", U32.show(code)))
-        IO.print(message)
+      (+code, message) = error
+      IO.print(String.append("path=fail:", ilseq(U32.is_eq(code, 92)
+        || U32.is_eq(code, 84), code)))
 
 law mode_go:
   for r: Result<&1, &1, (U32 & String), File>
@@ -85,8 +97,7 @@ def main():
     d : Unit <- host_go(s)
     return 0
 
-#|path=fail:92
-#|Illegal byte sequence
+#|path=fail:EILSEQ
 #|mode=fail:22
 #|env=miss:2
 #|host=fail:22

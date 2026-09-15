@@ -1,7 +1,7 @@
 // Window
 // ======
 
-#if BEND_METAL
+#ifdef __OBJC__
 
 #import <AppKit/AppKit.h>
 #import <QuartzCore/QuartzCore.h>
@@ -124,7 +124,7 @@ static u32 window_make(const char* title, u32 w, u32 h, intptr_t* out,
     return EINVAL;
   }
   if (NSScreen.screens.count == 0) {
-    *why = "Window.open: no display (build a native binary with bend <file> -o <out> and run it from a macOS desktop session)";
+    *why = "Window.open: no display (build a native binary with bend <file> -o <out> and run it from a desktop session)";
     return ENOTSUP;
   }
   if (window_dev == nil) {
@@ -172,11 +172,71 @@ static u32 window_make(const char* title, u32 w, u32 h, intptr_t* out,
   return 0;
 }
 
+#elif defined(__linux__)
+
+// The X11 window: its own connection (so its queue holds only its
+// events), the frame's image and the events pumped since the last
+// frame, five words each (kind, a, b, c, d) as on the Mac. The same
+// block sits in window_frame.c and window_close.c under this guard.
+#ifndef BendWin
+#define BendWin BendWin
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/keysym.h>
+
+typedef struct {
+  Display* dpy;
+  Window   win;
+  Atom     del;
+  XImage*  img;
+  u32      n;
+  u32      cap;
+  u32*     evs;
+} BendWin;
+#endif
+
+static u32 window_make(const char* title, u32 w, u32 h, intptr_t* out,
+  const char** why) {
+  if (w < 1 || h < 1 || w > 16384 || h > 16384) {
+    return EINVAL;
+  }
+  Display* dpy = XOpenDisplay(NULL);
+  if (dpy == NULL) {
+    *why = "Window.open: no display (build a native binary with bend <file> -o <out> and run it from a desktop session)";
+    return ENOTSUP;
+  }
+  int scr = DefaultScreen(dpy);
+  if (DefaultDepth(dpy, scr) < 24) {
+    XCloseDisplay(dpy);
+    *why = "Window.open: the display has no 24-bit visual";
+    return ENOTSUP;
+  }
+  BendWin* win = io_mem(calloc(1, sizeof *win));
+  win->dpy = dpy;
+  win->win = XCreateSimpleWindow(dpy, RootWindow(dpy, scr), 0, 0, w, h, 0, 0,
+    BlackPixel(dpy, scr));
+  win->del = XInternAtom(dpy, "WM_DELETE_WINDOW", False);
+  win->img = XCreateImage(dpy, DefaultVisual(dpy, scr), DefaultDepth(dpy, scr),
+    ZPixmap, 0, io_mem(calloc(w * h, 4)), w, h, 32, w * 4);
+  win->img->byte_order = LSBFirst;
+  XSizeHints hints = { .flags = PMinSize | PMaxSize, .min_width = w,
+    .min_height = h, .max_width = w, .max_height = h };
+  XSetWMNormalHints(dpy, win->win, &hints);
+  XSetWMProtocols(dpy, win->win, &win->del, 1);
+  XStoreName(dpy, win->win, title);
+  XSelectInput(dpy, win->win, KeyPressMask | KeyReleaseMask | ButtonPressMask
+    | ButtonReleaseMask | PointerMotionMask);
+  XMapRaised(dpy, win->win);
+  XFlush(dpy);
+  *out = (intptr_t)win;
+  return 0;
+}
+
 #else
 
 static u32 window_make(const char* title, u32 w, u32 h, intptr_t* out,
   const char** why) {
-  *why = "Window.open: no display (build a native binary with bend <file> -o <out> and run it from a macOS desktop session)";
+  *why = "Window.open: no display (build a native binary with bend <file> -o <out> and run it from a desktop session)";
   return ENOTSUP;
 }
 

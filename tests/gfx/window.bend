@@ -1,6 +1,6 @@
 # gfx (gfx_window): build(6n) is the full-detail 64 x 64 Image whose
 # pixel (x, y) is x + 64y; fold sums its leaves (+q is shared). Without a
-# display (the JS backend, a CPU-only binary, a node with no session)
+# display (the JS backend, a node with no session)
 # Window.open Fails with one line and ENOTSUP on every lane and the frames
 # fold unshown; on a display it frames each image (the shared one twice: a
 # frame answers it unconsumed), then closes.
@@ -89,7 +89,7 @@ def main() -> IO(Unit):
     r : Result<&1, &1, U32 & String, Window> <- Window.open("gfx", 64, 48)
     opened(r)
 
-#|Window.open: no display (build a native binary with bend <file> -o <out> and run it from a macOS desktop session)
+#|Window.open: no display (build a native binary with bend <file> -o <out> and run it from a desktop session)
 #|ENOTSUP
 #|7
 #|8386560

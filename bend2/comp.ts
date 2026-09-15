@@ -3094,7 +3094,7 @@ using namespace metal;
 #include <sys/mman.h>
 #include <time.h>
 #include <poll.h>
-#if BEND_METAL
+#ifdef __OBJC__
 #import <Metal/Metal.h>
 #import <Foundation/Foundation.h>
 #include <mach-o/dyld.h>
@@ -3288,9 +3288,9 @@ typedef u32 __attribute__((may_alias)) u32a;
 #endif
 
 #ifdef __METAL_VERSION__
-typedef threadgroup atomic_uint* Cursor;
+typedef threadgroup atomic_uint* Cur;
 #else
-typedef u32* Cursor;
+typedef u32* Cur;
 #endif
 
 // Constants
@@ -3359,7 +3359,7 @@ static const char BEND_SRC[] = {
 , 0 };
 #endif
 
-#if BEND_METAL
+#ifdef __OBJC__
 static id<MTLDevice>               gpu_dev;
 static id<MTLCommandQueue>         gpu_que;
 static id<MTLComputePipelineState> gpu_pso;
@@ -4104,7 +4104,7 @@ INLINE Term task_deliver(Corpus H, Term cont, u32 idx, THR Term* v, u32 n) {
   return 0;
 }
 
-INLINE void task_deal(Corpus H, Term join, u32 base, u32 stride, Cursor cur) {
+INLINE void task_deal(Corpus H, Term join, u32 base, u32 stride, Cur cur) {
   Loc loc = term_loc(join);
   u32 ar  = fid_arity((u32)term_aux(join));
   u32 g   = 0;
@@ -4276,7 +4276,7 @@ static Reply work_loop(Env e, Stk sp, Term t, bool seq) {
 // a fork-free one). The host grows a row ring by ring and works a ring
 // until it drains; a device lane does both.
 INLINE u32 monk_step(Env e, Stk stk, Ring rg, u32 put0, bool seq, u32 base,
-  u32 stride, Cursor cur) {
+  u32 stride, Cur cur) {
   Corpus   H   = e.mem;
   DEV u32* get = ring_get(H, rg);
   if (*get == put0) {
@@ -4415,6 +4415,42 @@ extern "C" __global__ void bend_dev(Corpus H, u32 pass) {
 
 #endif
 
+// Window
+// ======
+
+// The Linux kit's fill, the Mac's window_msl in the runtime's dialect:
+// a ! build carries window_dev in its cubin, a host build walks the
+// pixels itself. An Image is a quadtree over 2^k x 2^k: a Qua at level
+// i splits its square in four (tl, tr, bl, br), a Qua under the pixels
+// follows tl, a Pix is 0xRRGGBB.
+#if defined(__linux__) || defined(__CUDACC_RTC__)
+
+INLINE u32 window_pix(Corpus H, Term t, u32 k, u32 x, u32 y) {
+  for (u32 i = k; term_tag(t) == TAG_CTR;) {
+    u32 j = 0;
+    if (i > 0) {
+      i -= 1;
+      j = ((y >> i) & 1) * 2 + ((x >> i) & 1);
+    }
+    Loc l = term_rfc(t) ? H[term_loc(t)] >> 24 : term_loc(t);
+    t = H[l + j];
+  }
+  return (u32)term_loc(t) & 0xFFFFFF;
+}
+
+#ifdef __CUDACC_RTC__
+extern "C" __global__ void window_dev(Corpus H, Term root, u32 w, u32 h,
+  u32 k, u32* out) {
+  u32 x = blockIdx.x * blockDim.x + threadIdx.x;
+  u32 y = blockIdx.y * blockDim.y + threadIdx.y;
+  if (x < w && y < h) {
+    out[y * w + x] = window_pix(H, root, k, x, y);
+  }
+}
+#endif
+
+#endif
+
 #if !DEVICE
 
 // Row
@@ -4548,7 +4584,7 @@ OUTLINE void pool_turn(bool grow) {
 static const char* gpu_path(void) {
   static char path[4096];
   u32 n = sizeof path - 8;
-#if BEND_METAL
+#ifdef __APPLE__
   _NSGetExecutablePath(path, &n);
 #else
   path[readlink("/proc/self/exe", path, n)] = 0;
@@ -4899,7 +4935,7 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
       }
       continue;
     }
-    task_deal(H, r, 0, 0, (Cursor)0);
+    task_deal(H, r, 0, 0, (Cur)0);
     pool_open();
     cube_run(H, false);
     break;

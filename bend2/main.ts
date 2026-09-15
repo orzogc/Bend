@@ -75,9 +75,6 @@ for (let n = from;; n += step) {
   }
 }`;
 
-export const METAL = ["-DBEND_METAL=1", "-x", "objective-c", "-fobjc-arc",
-  "-fmodules"];
-
 const PLUGIN: BunPlugin = {
   name: "bend",
   setup(build) {
@@ -190,14 +187,23 @@ function cli_emit(book: Bend.Book, out: string): void {
   } else {
     const c = Comp.compile_book(book);
     fs.writeFileSync(out + ".c", c);
-    cli_build(out, !/^#define BANGS\s+0$/m.test(c));
+    cli_build(out, c);
   }
 }
 
 // A `!` program builds with the GPU lane and writes its GPU program too.
-function cli_build(bin: string, bangs: boolean): void {
-  const cpu = ["-std=c11", "-O3", bin + ".c", "-lpthread", "-lm", "-o", bin];
-  const gpu = process.platform === "darwin" ? [...METAL, ...cpu]
+// On macOS a program with a framework (#import: a window, audio) builds
+// as Objective-C; on Linux it links the X11 and ALSA libraries it includes.
+function cli_build(bin: string, c: string): void {
+  const mac   = process.platform === "darwin";
+  const bangs = !/^#define BANGS\s+0$/m.test(c);
+  const objc  = mac && (bangs || /^#import /m.test(c))
+    ? ["-x", "objective-c", "-fobjc-arc", "-fmodules"] : [];
+  const libs  = [["X11", "X11"], ["alsa", "asound"]].flatMap(([h, l]) =>
+    !mac && c.includes("#include <" + h + "/") ? ["-l" + l] : []);
+  const cpu = [...objc, "-std=c11", "-O3", bin + ".c", "-lpthread", "-lm",
+    ...libs, "-o", bin];
+  const gpu = mac ? ["-DBEND_METAL=1", ...cpu]
     : ["-DBEND_CUDA=1", "-I/usr/local/cuda/include",
       "-L/usr/local/cuda/lib64", ...cpu, "-lcuda", "-lnvrtc"];
   const steps: [string, string[]][] = bangs

@@ -1,9 +1,9 @@
 # io (io_audio_open): Audio.open answers Done{Audio} on a machine with an
-# output, Fail on one without (a node with no audio device, a CPU-only
-# binary, the JS lane's silent stub answers Done); either way the
-# write and close paths return cleanly: 512 frames of silence written
-# to an open device queue at most 512, a failed open is reported once,
-# and the last line is the same on every lane.
+# output, Fail on one without (a node with no audio device; the JS lane's
+# silent stub answers Done); either way the write and close paths return
+# cleanly: 512 frames of silence written to an open device queue at most
+# 512, a failed open is reported once, and the last line is the same on
+# every lane.
 import Base
 
 law zeros:
