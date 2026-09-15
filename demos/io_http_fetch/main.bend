@@ -5,39 +5,100 @@
 # connects to the API's address 208.95.112.1 and names the host in
 # the Host header. The response is read in two sequential recvs:
 # Connection close makes the second read the tail or an empty EOF.
-# http_body strips the status line and headers: a rolling 4-byte
-# window walks the bytes until it equals "\r\n\r\n" as a big-endian
-# word (218762506), and answers the rest. Handles are affine: every
-# op threads its handle back OUTSIDE the Result, and each tuple
-# destructures in its own helper. Try it:
+# http_body strips the status line and headers: it walks the text
+# with a flag that says whether the blank line "\r\n\r\n" starts at
+# the current position, and answers what follows the first blank
+# line. The Spec section holds the notions the laws use: a prefix
+# test by character codes, drop and take, and no_sep, the scan that
+# says a text has no blank line. Handles are affine: every op threads
+# its handle back OUTSIDE the Result, and each tuple destructures in
+# its own helper. Try it:
 #
 #   bend demos/io_http_fetch/main.bend
 import Base
 
-law http_body.go:
-  for s: String
-  for e: Bool
-  for w: U32
-  String
+# Spec
+# ----
 
-def http_body.go(s, e, w):
+# the blank line that ends the headers
+def sep() -> String:
+  "\r\n\r\n"
+
+# two characters have the same code
+def char_eq(a: Char, b: Char) -> Bool:
+  match a b:
+    case Chr{x} Chr{y}:
+      U32.is_eq(x, y)
+
+# p is a prefix of s
+def is_prefix(p: String, s: String) -> Bool:
+  match p s:
+    case SNil{} s2:
+      True{}
+    case SCon{a, pt} SNil{}:
+      False{}
+    case SCon{a, pt} SCon{b, st}:
+      Bool.and(char_eq(a, b), is_prefix(pt, st))
+
+# the text after its first n characters
+def drop(n: Nat, s: String) -> String:
+  match n:
+    case 0n:
+      s
+    case 1n+p:
+      match s:
+        case SNil{}:
+          SNil{}
+        case SCon{h, t}:
+          drop(p, t)
+
+# the first n characters of a text
+def take(n: Nat, s: String) -> String:
+  match n:
+    case 0n:
+      SNil{}
+    case 1n+p:
+      match s:
+        case SNil{}:
+          SNil{}
+        case SCon{h, t}:
+          SCon{h, take(p, t)}
+
+# no position of the text starts a blank line; e says whether the
+# current position does
+def no_sep.go(s: String, e: Bool) -> Bool:
+  match s:
+    case SNil{}:
+      True{}
+    case SCon{h, +t}:
+      match e:
+        case True{}:
+          False{}
+        case False{}:
+          no_sep.go(t, is_prefix(sep(), t))
+
+def no_sep(+s: String) -> Bool:
+  no_sep.go(s, is_prefix(sep(), s))
+
+# Program
+# -------
+
+# the text after the first blank line; e says whether the blank line
+# starts at the current position: then the body is the text after
+# the 4 characters of the blank line
+def http_body.go(s: String, e: Bool) -> String:
   match s:
     case SNil{}:
       SNil{}
-    case SCon{Chr{a}, t}:
+    case SCon{h, +t}:
       match e:
         case True{}:
-          SCon{Chr{a}, t}
+          drop(3n, t)
         case False{}:
-          +w2 = (w * 256 + a : U32)
-          http_body.go(t, U32.is_eq(w2, 218762506), w2)
+          http_body.go(t, is_prefix(sep(), t))
 
-law http_body:
-  for s: String
-  String
-
-def http_body(s):
-  http_body.go(s, False{}, 0)
+def http_body(+s: String) -> String:
+  http_body.go(s, is_prefix(sep(), s))
 
 law fetch_tail:
   for head: String

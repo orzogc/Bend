@@ -1,22 +1,35 @@
-# The laws of the HTTP server. They pin its pure part: the response
-# text every connection gets (http_response) and the page inside it
-# (http_page). PROOF.bend must prove them.
+# The laws of the HTTP server. They pin http_response, the pure part
+# of the program, for EVERY page: the response is a head, a blank
+# line, then the page; a client that cuts at the first blank line
+# reads the page back; and the response determines the page. A
+# closed law pins the exact bytes on the wire for the demo's page.
+# PROOF.bend must prove them.
 import Base
 import ./main.bend as Srv
 
-# LAW: the response is an HTTP/1.1 200 OK: it starts with that status
-# line, and some rest follows.
-law status_ok:
-  exs rest: String
-  {Srv.http_response() == "HTTP/1.1 200 OK\r\n" ++ rest : String}
-
-# LAW: the response ends with the Content-Length header, the blank line
-# that closes the headers, and then the page.
-law page_after_headers:
+# LAW: the response of any page is some head, then the blank line,
+# then the page.
+law page_after_blank:
+  for +page: String
   exs head: String
-  {Srv.http_response() == head ++ "Content-Length: 22\r\n\r\n" ++ Srv.http_page() : String}
+  {head ++ ("\r\n\r\n" ++ page) == Srv.http_response(page) : String}
 
-# LAW: the page has 22 characters, the count the Content-Length header
-# declares.
-law content_length:
-  {Srv.http_length(Srv.http_page()) == 22n : Nat}
+# LAW: a client that reads the text after the first blank line gets
+# the page back, whatever the page holds.
+law body_is_page:
+  for +page: String
+  {Srv.http_body(Srv.http_response(page)) == page : String}
+
+# LAW: the response determines the page: two equal responses come
+# from equal pages.
+law response_inj:
+  for +a: String
+  for +b: String
+  for  e: {Srv.http_response(a) == Srv.http_response(b) : String}
+  {a == b : String}
+
+# LAW: the bytes on the wire for the demo's page: the status line, the
+# headers with Content-Length 22, the blank line, the page (closed, by
+# evaluation).
+law wire_bytes:
+  {Srv.http_response(Srv.http_page()) == "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\nConnection: close\r\nContent-Length: 22\r\n\r\n<h1>Hello, world!</h1>" : String}
