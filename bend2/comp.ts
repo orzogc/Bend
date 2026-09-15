@@ -16,7 +16,8 @@ type Arm = { k: Bend.Name; fs: Field[] };
 
 type Field = { at: number; lay: Lay };
 
-type Val = { ws: string[]; lay: Lay };
+// A value whose words are constants (a literal's) is stat.
+type Val = { ws: string[]; lay: Lay; stat: boolean };
 
 type Bind = { val: Val; n: number; A: HTerm | null };
 
@@ -60,6 +61,7 @@ type Carb = {
   bangs: Set<Bend.Name>;
   sites: Map<Bend.Name, number>;
   hot: Set<Bend.Name>;
+  stat: Set<Bend.Name>;
   own: Set<string>;
   lend: Set<string>;
 };
@@ -80,6 +82,8 @@ type File = Carb & {
   spins: [string, string, Set<string>][];
   spun: Map<string, string>;
   clos: Set<string>;
+  img: string[];
+  lits: Map<string, number>;
   reqs: string;
   fuel: number;
 };
@@ -595,6 +599,13 @@ const CONSTS: Map<HTerm, boolean> = new Map();
 // Name
 // ====
 
+function name_own(k: Bend.Name, tld: { T: HTerm }, head: string): string {
+  const segs = k.split(".");
+  return segs.map((_, i) => segs.slice(i).join(".")).find((own) =>
+    new RegExp("^" + head + own.replace(/\./g, "\\.") + "[(:<{\\s]", "m")
+      .test(tld.T.s?.src ?? "")) ?? k;
+}
+
 function name_clean(k: string): string {
   return (LOCAL.get(k) ?? k).replace(/[^A-Za-z0-9_]/g, "_");
 }
@@ -1023,18 +1034,25 @@ function ctr_flds(book: Bend.Book, k: Bend.Name,
   return xs.filter((_, j) => qs?.[j] === undefined || quant_live(qs[j]));
 }
 
-function ctr_build(fl: File, k: Bend.Name, exprs: string[]): string {
-  const cid = cid_reg(fl, k, exprs.length);
+function ctr_build(fl: File, k: Bend.Name, exprs: string[],
+  stat = false): string {
+  const cid = cid_mac(k);
   const node = lay_node(fl.book, k);
   if (exprs.length === 0 || (node.ks.length === 1 && node.ks[0] === "w32")) {
     return `term_pak(${cid}, ${exprs[0] ?? 0})`;
+  }
+  if (stat) {
+    fl.stat.add(k);
+    const at = memo(fl.lits, exprs.join(", "), () =>
+      fl.img.push(...exprs) - exprs.length);
+    return `term_ctr(${cid}, STAT_OFF + ${at})`;
   }
   const alloc = `heap_alloc(e, cls_fit(${exprs.length}))`;
   const at = fl.spares.findIndex((s) =>
     cls_fit(s.words) === cls_fit(exprs.length));
   const s = at < 0 ? null : fl.spares.splice(at, 1)[0];
-  const got = s === null ? alloc : s.z ? `${s.name} ? ${s.name} : ${alloc}`
-    : s.name;
+  const got = s === null ? alloc
+    : s.z ? `${s.name} >= HEAP_OFF ? ${s.name} : ${alloc}` : s.name;
   return `term_ctr(${cid}, ${node_fill(fl, "nd", got, exprs,
     fl.hot.has(k))})`;
 }
@@ -1354,11 +1372,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
   LOCAL.clear();
   for (const [k, tld] of Object.entries(src.tlds)) {
     if (def_foreign(tld)) {
-      const src  = tld.T.s?.src ?? "";
-      const segs = k.split(".");
-      LOCAL.set(k, segs.map((_, i) => segs.slice(i).join(".")).find((own) =>
-        new RegExp("^(def|law) " + own.replace(/\./g, "\\.") + "[(:\\s]", "m")
-          .test(src)) ?? k);
+      LOCAL.set(k, name_own(k, tld, "(def|law) "));
     }
   }
   const cb: Carb = {
@@ -1366,6 +1380,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     bangs: new Set(),
     sites: new Map(),
     hot: new Set(),
+    stat: new Set(),
     own: new Set(),
     lend: new Set(),
   };
@@ -1378,10 +1393,16 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     const tld = def_body(cb, d);
     const own: Src = { refs: new Set(), deps: new Set(), flat: done_live(tld) };
     SRCS.set(d, own);
+    for (const x of tld?.$ === "ADT" ? tld.c : tld ? [tld] : []) {
+      queue.push(...type_adts(cb, x.T));
+    }
     if (!done_live(tld)) {
       continue;
     }
     term_any(cb, tld.h as HTerm, (s, tail) => {
+      if (s.$ === "Ann") {
+        queue.push(...type_adts(cb, s.T));
+      }
       if (s.$ === "Ref") {
         if (s.b) {
           cb.bangs.add(s.k);
@@ -1404,6 +1425,18 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
     queue.push(...own.refs);
   }
   return cb;
+}
+
+// The datatypes a type mentions
+function type_adts(cb: Carb, T: HTerm): Bend.Name[] {
+  const t = ty_wnf(cb.book, T);
+  switch (t?.$) {
+    case "All": return [...type_adts(cb, t.A), ...type_adts(cb, t.B(DUMMY))];
+    case "Lam": return type_adts(cb, t.f(DUMMY));
+    case "ADT": return WORDS[t.k] !== undefined || t.k === "Array" ? []
+      : [t.k, ...t.x.flatMap((x) => type_adts(cb, x))];
+    default: return [];
+  }
 }
 
 // Flat
@@ -1442,20 +1475,14 @@ function cid_mac(k: string): string {
   return "CID_" + name_clean(k).toUpperCase();
 }
 
-function cid_reg(fl: File, k: Bend.Name,
-  n = lay_node(fl.book, k).ks.length): string {
-  fl.cids.set(k, n);
-  return cid_mac(k);
-}
-
 // File
 // ====
 
 function file_new(cb: Carb, decl: string): File {
   return { ...cb, decl, segs: [], seg: seg_new("", BOX, []), tab: 2,
     cids: new Map(), tabs: new Map(), spins: [], spun: new Map(), clos: new Set(),
-    reqs: "", fuel: 0, fresh: new Map(), spares: [], uses: new Map(),
-    brwl: new Map(), rest: [], def: "" };
+    img: [], lits: new Map(), reqs: "", fuel: 0, fresh: new Map(), spares: [],
+    uses: new Map(), brwl: new Map(), rest: [], def: "" };
 }
 
 function file_push(fl: File, line: string): void {
@@ -1565,10 +1592,10 @@ function node_fill(fl: File, k: string, alloc: string,
   return nd;
 }
 
-function node_build(fl: File, k: Bend.Name, at: (j: number) => Val): string {
+function node_build(fl: File, k: Bend.Name, vs: Val[]): string {
   const fs = lay_node(fl.book, k).arms![0].fs;
-  return ctr_build(fl, k, fs.flatMap((f, j) =>
-    val_own(fl, val_to(fl, at(j), f.lay))));
+  return ctr_build(fl, k, vs.flatMap((v, j) =>
+    val_own(fl, val_to(fl, v, fs[j].lay))), vs.every((v) => v.stat));
 }
 
 function node_fields(fl: File, t: string, node: Lay,
@@ -1579,7 +1606,8 @@ function node_fields(fl: File, t: string, node: Lay,
     return fs.map((f) => val_new(f.lay.ks.map(() => `term_loc(${t})`), f.lay));
   }
   const r = fl.brwl.get(t);
-  const z = r === undefined && fl.hot.has(node.arms![0].k);
+  const k = node.arms![0].k;
+  const z = r === undefined && (fl.hot.has(k) || fl.stat.has(k));
   const sp = name_local(fl, "sp");
   let fb = `e.mem[${sp} + `;
   if (z) {
@@ -1669,12 +1697,12 @@ function facts_packed(cb: Carb, t: HTerm): boolean {
 // Val
 // ===
 
-function val_new(ws: string[], lay: Lay): Val {
-  return { ws, lay };
+function val_new(ws: string[], lay: Lay, stat = false): Val {
+  return { ws, lay, stat };
 }
 
 function val_field(v: Val, f: Field): Val {
-  return val_new(v.ws.slice(f.at, f.at + f.lay.ks.length), f.lay);
+  return val_new(v.ws.slice(f.at, f.at + f.lay.ks.length), f.lay, v.stat);
 }
 
 function val_word(v: Val): string {
@@ -1766,9 +1794,12 @@ function val_box(fl: File, v: Val): string {
   }
   const arms = v.lay.arms!;
   const build = (arm: Arm): string =>
-    node_build(fl, arm.k, (j) => val_field(v, arm.fs[j]));
+    node_build(fl, arm.k, arm.fs.map((f) => val_field(v, f)));
   if (arms.length <= 1) {
     return arms.map(build)[0] ?? "0";
+  }
+  if (v.stat) {
+    return build(arms[Number(v.ws[0])]);
   }
   const out = emit_hold(fl, ["0"], "b")[0];
   const tag = emit_alias(fl, v.ws[0], "t");
@@ -1784,7 +1815,7 @@ function val_unbox(fl: File, v: Val, lay: Lay): Val {
   }
   const t = emit_alias(fl, v.ws[0], "u");
   return val_arms(fl, lay, t, (_, i) =>
-    `term_aux(${t}) == ${cid_reg(fl, lay.arms![i].k)}`, (arm) => {
+    `term_aux(${t}) == ${cid_mac(lay.arms![i].k)}`, (arm) => {
     const fs = node_fields(fl, t, lay_node(fl.book, arm.k));
     return arm.fs.map((f, j) => val_to(fl, fs[j], f.lay));
   });
@@ -2158,14 +2189,13 @@ function emit_clo(fl: File, x: HTerm, ty: HTerm | null): Val {
 function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null): Val {
   const [adt, u] = ctr_adt(fl, x, ty);
   if (u !== null) {
-    return val_new([`${u}ull`], W32);
+    return val_new([`${u}ull`], W32, true);
   }
-  const flds = ctr_flds(fl.book, x.k, x.x);
+  const vs = emit_each(fl, ctr_flds(fl.book, x.k, x.x));
   const lay = lay_of(fl.book, adt);
   // A word type's constructor is its word: a Word's bits packed, a box
   // read, Nat's Succ one more (checked), Zero 0.
   if (WORDS[adt.k] !== undefined) {
-    const vs = emit_each(fl, flds);
     if (vs.length === 1 && vs[0].ws.length > 1) {
       return val_new([`(${vs[0].ws.map((w, i) => `((u64)${w} << ${i})`)
         .join(" | ")})`], lay);
@@ -2177,14 +2207,13 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null): Val {
   }
   if (adt.k === "Array") {
     const el = lay_of(fl.book, adt.x[0]);
-    const vs = emit_each(fl, flds);
     return val_new([x.k === "ALeaf" ? arr_new(fl, "0", vs[0], el)
       : `blk_node(e, ${val_own(fl, vs[0])[0]}, ${val_own(fl, vs[1])[0]})`],
     BOX);
   }
-  const vs = emit_each(fl, flds);
+  const stat = vs.every((v) => v.stat);
   if (lay_box(lay)) {
-    return val_new([node_build(fl, x.k, (j) => vs[j])], BOX);
+    return val_new([node_build(fl, x.k, vs)], BOX, stat);
   }
   const arm = lay_arm(lay, x.k);
   const ws = lay.ks.map((_, j) => j === 0 && lay.arms!.length > 1
@@ -2194,7 +2223,7 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null): Val {
       ws[arm.fs[j].at + n] = w;
     });
   });
-  return val_new(ws, lay);
+  return val_new(ws, lay, stat);
 }
 
 function emit_fold(fl: File, t: HTerm): HTerm | null {
@@ -2313,8 +2342,7 @@ function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): Val {
         return emit_intr(fl, intr, x, ty);
       }
       if (tld?.$ === "ADT") {
-        const lay = lay_of(fl.book, ty);
-        return val_new(lay.ks.map(() => "0ull"), lay);
+        return emit_zero(fl, ty);
       }
       if (!def_foreign(tld)) {
         die(`a live call into the law ${g.k}`);
@@ -2329,9 +2357,8 @@ function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): Val {
       if (let_live(fl, x)[0]) {
         const rest = fl.rest;
         fl.rest = [o.b, ...rest];
-        const v = val_hold(fl, emit_expr(fl, x.v[0], null), x.k[0]);
+        emit_let(fl, x, o);
         fl.rest = rest;
-        bind_uses(fl, o.ps[0], v, [o.b], ty_ann(x.v[0]));
       }
       return emit_expr(fl, o.b, null);
     }
@@ -2339,11 +2366,19 @@ function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null): Val {
       ? emit_clo(fl, x, ty) : emit_expr(fl, (x as Of<"Lam">).f(DUMMY),
         (ty_all(fl.book, ty) as HAll).B(DUMMY));
     case "Hol": die("a hole value");
-    default: {
-      const lay = lay_of(fl.book, ty);
-      return val_new(lay.ks.map(() => "0ull"), lay);
-    }
+    default: return emit_zero(fl, ty);
   }
+}
+
+function emit_zero(fl: File, ty: HTerm | null): Val {
+  const lay = lay_of(fl.book, ty);
+  return val_new(lay.ks.map(() => "0ull"), lay);
+}
+
+// A let's one value, emitted and bound over its body.
+function emit_let(fl: File, x: HLet, o: { ps: Probe[]; b: HTerm }): void {
+  const v = val_hold(fl, emit_expr(fl, x.v[0], null), x.k[0]);
+  bind_uses(fl, o.ps[0], v, [o.b], ty_ann(x.v[0]));
 }
 
 function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
@@ -2378,8 +2413,7 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
       }
       const o = term_open(x);
       fl.rest = [o.b];
-      const v = val_hold(fl, emit_expr(fl, x.v[0], null), x.k[0]);
-      bind_uses(fl, o.ps[0], v, [o.b], ty_ann(x.v[0]));
+      emit_let(fl, x, o);
       bind_dead(fl, [o.b]);
       return emit_body(fl, o.b, null, ers, [], dst);
     }
@@ -2594,7 +2628,7 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
             "h").map((w) => val_new([w], BOX)))];
       }
       if (lay_box(lay)) {
-        return [`term_aux(${sw}) == ${cid_reg(fl, k)}`, h,
+        return [`term_aux(${sw}) == ${cid_mac(k)}`, h,
           () => node_fields(fl, sw, lay_node(fl.book, k), true)];
       }
       return [`${sw} == ${lay.arms!.indexOf(lay_arm(lay, k))}`, h,
@@ -2658,22 +2692,40 @@ function compile_reqs(fl: File): void {
   const seen = new Set<string>();
   fl.spares = [];
   for (const [k, tld] of done_defs(fl, def_foreign)) {
+    const ns = k.slice(0, k.length - LOCAL.get(k)!.length);
+    const own = ns === "" ? []
+      : Object.keys(fl.book.ctrs).filter((c) => c.startsWith(ns));
+    const macs = own.map((c) =>
+      [cid_mac(name_own(c, fl.book.ctrs[c], " +")), cid_mac(c)]);
+    for (const [m, g] of macs) {
+      fl.reqs += `#pragma push_macro("${m}")\n#define ${m} ${g}\n`;
+    }
     fl.reqs += eff_src(tld.i!.find((x) => x.endsWith(".c"))
       ?? die("no .c import: " + k), seen);
+    for (const [m] of macs) {
+      fl.reqs += `#pragma pop_macro("${m}")\n`;
+    }
     const qp = [...sig_def(fl, k).live.map(([, n]) => n), "k"].map((n) =>
       name_local(fl, n));
     fl.seg = seg_new(k, BOX, qp);
     fl.segs.push(fl.seg);
+    fl.cids.set(k, qp.length);
     file_push(fl, `r0 = ${ctr_build(fl, k, qp)};`);
     file_push(fl, "WL_RETN(1);");
   }
 }
 
+const TABLES = ["CID_ARITY_T", "FID_ARITY_T", "FID_FLAG_T", "FID_RESW_T"];
+
+// The datatypes whose constructors the runtime or the elaborator lays itself.
+const RUNTIME_ADTS = ["Sigma", "String", "Word.Con", "IO.OP", "Result",
+  "Maybe", "Bool", "Unit"];
+
 function compile_tables(fl: File, entries: Seg[]): string[] {
   const defs: string[] = [];
   for (const ms of [[...fl.cids.keys()].map(cid_mac),
     [...entries.map((s) => s.fid), "FID_EXIT", "FID_ENTER"]]) {
-    const dup = ms.find((m, i) => ms.indexOf(m) < i);
+    const dup = [...ms, ...TABLES].find((m, i, a) => a.indexOf(m) < i);
     if (ms.length > 65536 || dup !== undefined) {
       die(dup === undefined ? "an id over 65535"
         : "two names mangle to " + dup);
@@ -2703,6 +2755,7 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   table("FID_RESW_T", entries.map((s) =>
     s.frame === null ? 0 : s.params.length - s.frame.at.length));
   table("CID_ARITY_T", [...fl.cids.values()]);
+  defs.push(`#define STAT_LEN ${fl.img.length}`, "");
   // One bank for both lanes, as wide as the widest segment or return; rp
   // pads the host's twelfth slot so rax stays free for the tail call.
   const resw = Math.max(...entries.map((s) => s.ret.ks.length));
@@ -2744,14 +2797,16 @@ function compile_segs(fl: File): string {
 
 export function compile_book(book: Bend.Book): string {
   const show = show_main(book);
-  const cb = carb_book(book, ["main"]);
-  const facts = () => JSON.stringify([[...cb.own], [...cb.hot]]);
+  const cb = carb_book(book, ["main", ...RUNTIME_ADTS]);
+  const facts = () => JSON.stringify([[...cb.own], [...cb.hot],
+    [...cb.stat]]);
   const pass = (defs: [Bend.Name, Def][]): File => {
     [cb.lend, BRWS].forEach((m) => m.clear());
     const fl = file_new(cb, "Term");
-    for (const k of ("Tuple SNil SCon Unit WCon Emit Halt Fail Done None"
-      + " Some Nil Con Key Mouse Move Close True False").split(" ")) {
-      cid_reg(fl, k);
+    for (const k of SRCS.keys()) {
+      for (const c of (cb.book.tlds[k] as Bend.ADT).c ?? []) {
+        fl.cids.set(c.k, lay_node(fl.book, c.k).ks.length);
+      }
     }
     for (const [k, tld] of defs) {
       compile_def(fl, k, tld);
@@ -2790,7 +2845,7 @@ export function compile_book(book: Bend.Book): string {
     seg_new("clo_apply", BOX, ["", ""])];
   const desc = show === null ? [] : ["#if !DEVICE",
     `static const u32 SHOW_DESC[] = { ${show.cells.map((c) =>
-      typeof c === "string" ? cid_reg(fl, c) : c).join(", ")} };`,
+      typeof c === "string" ? cid_mac(c) : c).join(", ")} };`,
     `static const char* SHOW_NAMES[] = { ${show.names.map((n) =>
       JSON.stringify(n)).join(", ")} };`, "#endif"];
   const defs = compile_tables(fl, entries);
@@ -2799,7 +2854,8 @@ export function compile_book(book: Bend.Book): string {
   const fills: [string, string[]][] = [
     ["Tables", [defs.join("\n"), ...[...fl.tabs].map(([r, i]) =>
       `CONSTV u64 TAB_${i}[] = { ${r} };`)]],
-    ["Spins", fl.spins.map((s) => s[1])],
+    ["Spins", [`CONSTV u64 STAT_IMG[] = { ${fl.img.join(", ") || 0} };`,
+      ...fl.spins.map((s) => s[1])]],
     ["Segments", [compile_segs(fl)]],
     ["Requests", [fl.reqs]],
   ];
@@ -2907,7 +2963,7 @@ function js_expr(fl: File, tm: HTerm,
       }
       const keys = js_ctr(fl, x.k);
       return exprs.reduce((e, z, j) => e + ", [\"" + keys[j] + "\"]: " + z,
-        "{$: \"" + x.k + "\"") + "}";
+        "{$: \"" + name_own(x.k, fl.book.ctrs[x.k], " +") + "\"") + "}";
     }
     case "Let": return js_expr(fl, js_open(fl, x), ty);
     case "Lam": case "Mat": case "Efq": {
@@ -2988,7 +3044,8 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
       return bodies[0]();
     }
     return emit_chain(fl, (i) => native === undefined
-      ? s + ".$ === \"" + arms[i][0] + "\""
+      ? s + ".$ === \"" + name_own(arms[i][0], fl.book.ctrs[arms[i][0]], " +")
+        + "\""
       : tpl(native.cond?.[arms[i][0]] ?? die(arms[i][0] + NATIVE_DIE), [s]),
     bodies);
   }
@@ -3326,10 +3383,12 @@ typedef u32* Cur;
 #define H_ROOT_WORD  (4 * LINE)
 #define H_BANK       (H_ROOT_WORD + WL_RESW)
 
-#define ALC_OFF  ((H_BANK + 3 * NCLS_ALL + PAGE_LEN - 1) & ~(PAGE_LEN - 1))
+#define PAGE_UP(n) (((n) + PAGE_LEN - 1) & ~(PAGE_LEN - 1))
+#define ALC_OFF  PAGE_UP(H_BANK + 3 * NCLS_ALL)
 #define RING_OFF (ALC_OFF + CUBE * 2 * ALC_WORDS)
 #define STAK_OFF (RING_OFF + CUBE * RING_WORDS)
-#define HEAP_OFF (STAK_OFF + CUBE * STAK_LEN)
+#define STAT_OFF (STAK_OFF + CUBE * STAK_LEN)
+#define HEAP_OFF (STAT_OFF + PAGE_UP(STAT_LEN))
 
 // Globals
 // =======
@@ -3648,7 +3707,7 @@ INLINE void heap_free(Env e, Cls cls, Loc loc) {
 // =====
 
 INLINE void spare_free(Env e, Cls cls, Loc loc) {
-  if (loc != 0) {
+  if (loc >= HEAP_OFF) {
     heap_free(e, cls, loc);
   }
 }
@@ -3656,9 +3715,8 @@ INLINE void spare_free(Env e, Cls cls, Loc loc) {
 // Term
 // ====
 
-INLINE Term term_make(u64 tag, u64 aux, Loc loc) {
-  return (tag << 56) | (aux << 40) | loc;
-}
+#define term_make(tag, aux, loc) \
+  (((u64)(tag) << 56) | ((u64)(aux) << 40) | (u64)(loc))
 
 #define term_ctr(cid, loc) term_make(TAG_CTR, cid, loc)
 #define term_pak(cid, loc) term_make(TAG_PAK, cid, loc)
@@ -3686,8 +3744,9 @@ INLINE Loc term_loc(Term t) {
   return t & LOC_MASK;
 }
 
+// A static node (below the heap) is trivial, as is a captureless closure.
 INLINE bool term_triv(Term t) {
-  return term_tag(t) <= TAG_PAK || t == TERM_HOLE;
+  return term_tag(t) <= TAG_PAK || t == TERM_HOLE || term_loc(t) < HEAP_OFF;
 }
 
 OUTLINE Term rfc_wrap(Env e, Term t, u32 cnt) {
@@ -3756,7 +3815,7 @@ INLINE void blk_free(Env e, Term t) {
   heap_free(e, blk_span(t), term_loc(t));
 }
 
-static void term_drop(Env e, Term t) {
+FAR void term_drop(Env e, Term t) {
   Corpus H = e.mem;
   u64  cur = 0;
   Term c0  = 0;
@@ -3772,9 +3831,6 @@ static void term_drop(Env e, Term t) {
         t = (t & ~(RFC_BIT | LOC_MASK)) | (H[r] >> 24);
         heap_free(e, 0, r);
       }
-    }
-    if (term_tag(t) == TAG_CLO && fid_arity((u32)term_aux(t)) == 1) {
-      t = 0;
     }
     if (!term_triv(t)) {
       u64 tag = term_tag(t);
@@ -4888,6 +4944,7 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
     memset(H, 0, STAK_OFF * 8);
   }
 #endif
+  memcpy(H + STAT_OFF, STAT_IMG, STAT_LEN * sizeof(u64));
   u64    at = HEAP_OFF + (cap << PAGE_BITS);
   for (u32 c = 0; c < NCLS_ALL; c += 1) {
     bank_at(H, c)->off = at;

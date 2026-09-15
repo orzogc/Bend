@@ -108,7 +108,8 @@ function shard_split(tests: Test[], count: number): Test[][] {
   return shards.filter((s) => s.length > 0);
 }
 
-function shard_pack(shard: Test[]): Buffer {
+// Every test's source goes to every shard: a test may import another.
+function shard_pack(shard: Test[], tests: Test[]): Buffer {
   const dir = fs.mkdtempSync("/tmp/bend-shard-");
   lib.bend2_copy(path.join(dir, "bend2"));
   for (const sub of fs.readdirSync(TESTS)) {
@@ -120,7 +121,7 @@ function shard_pack(shard: Test[]): Buffer {
       }
     }
   }
-  for (const t of shard) {
+  for (const t of tests) {
     fs.writeFileSync(path.join(dir, "tests", test_path(t)), t.src);
   }
   fs.writeFileSync(path.join(dir, "main.bend"), shard.map((t) =>
@@ -186,9 +187,10 @@ function shard_parse(shard: Test[], out: string): Map<string, Got> {
   return gots;
 }
 
-async function shard_run(shard: Test[], tag: number, node: number,
-  fails: Fail[]): Promise<void> {
-  const got = await lib.ssh(node, shard_script(shard, tag), shard_pack(shard),
+async function shard_run(shard: Test[], tests: Test[], tag: number,
+  node: number, fails: Fail[]): Promise<void> {
+  const got = await lib.ssh(node, shard_script(shard, tag),
+    shard_pack(shard, tests),
     20 * 60 * 1000);
   fs.mkdirSync("/tmp/bend-test", { recursive: true });
   fs.writeFileSync("/tmp/bend-test/" + String(tag) + ".txt", got.out + got.err);
@@ -212,7 +214,7 @@ if (import.meta.main) {
   const shards = shard_split(tests, nodes.length);
   const fails: Fail[] = [];
   await lib.node_pool(nodes, shards.map((shard, tag) => (node: number) =>
-    shard_run(shard, tag, node, fails)));
+    shard_run(shard, tests, tag, node, fails)));
   fails.sort((a, b) => a.name < b.name ? -1 : 1);
   if (!lib.GATE) {
     for (const f of fails) {
