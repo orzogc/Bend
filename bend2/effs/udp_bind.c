@@ -11,7 +11,8 @@ uint32_t udp_bind(uint32_t port, int* out) {
     close(fd);
     return EINVAL;
   }
-  if (bind(fd, (struct sockaddr*)&at, sizeof(at)) < 0) {
+  if (bind(fd, (struct sockaddr*)&at, sizeof(at)) < 0
+    || fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
     uint32_t code = (uint32_t)errno;
     close(fd);
     return code;

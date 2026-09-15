@@ -8,8 +8,7 @@ Term udp_poll_run(Env e, Term* f, IoWork* w) {
   int       fd   = (int)io_hand_v(f[0]);
   u32       max  = f[1] < INT32_MAX ? (u32)f[1] : INT32_MAX;
   char*     data = io_mem(malloc(max + 1));
-  ssize_t   n    = recvfrom(fd, data, max, MSG_DONTWAIT,
-    (struct sockaddr*)&at, &alen);
+  ssize_t   n    = recvfrom(fd, data, max, 0, (struct sockaddr*)&at, &alen);
   u32       code = n < 0 ? (u32)errno : 0;
   Term      r;
   if (code == EAGAIN) {

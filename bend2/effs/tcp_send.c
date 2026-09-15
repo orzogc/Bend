@@ -1,16 +1,17 @@
 // TCP
 // ===
 
-static void tcp_send_call(IoWork* w) {
+// Sends what is left; a full socket (non-blocking, so EAGAIN) parks the
+// computation until the socket is writable, and the loop resumes here.
+static Term tcp_send_more(Env e, IoWork* w) {
   int fd = (int)w->hand;
-  ssize_t n = 0;
-  for (uint64_t at = 0; n >= 0 && at < w->size; at += (uint64_t)n) {
-    n = send(fd, w->data + at, w->size - at, 0);
+  while (w->code == 0 && (u64)w->made < w->size) {
+    ssize_t n = send(fd, w->data + w->made, w->size - (u64)w->made, 0);
+    if (n < 0 && errno == EAGAIN) {
+      return io_wait_on(w, fd, POLLOUT, tcp_send_more);
+    }
+    w->made += io_sys_end(w, n);
   }
-  io_sys_end(w, n);
-}
-
-static Term tcp_send_pack(Env e, IoWork* w) {
   Term r = w->code != 0 ? io_fail(e, w->code, NULL)
     : io_done(e, term_pak(CID_UNIT, 0));
   free(w->data);
@@ -20,7 +21,9 @@ static Term tcp_send_pack(Env e, IoWork* w) {
 Term tcp_send_run(Env e, Term* f, IoWork* w) {
   w->hand = (intptr_t)io_hand_v(f[0]);
   w->data = io_cstr(e, f[1], &w->size);
-  return io_work(w, tcp_send_call, tcp_send_pack);
+  w->made = 0;
+  w->code = 0;
+  return tcp_send_more(e, w);
 }
 
 static void __attribute__((constructor)) tcp_send_use(void) {

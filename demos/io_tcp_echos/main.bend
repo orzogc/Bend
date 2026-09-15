@@ -18,11 +18,13 @@ def echo_step(r: Result<&1, &1, U32 & String, String>) -> Maybe<String>:
     case Fail{e}:
       None{}
 
-def echo_sent(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Socket):
+def echo_sent(m: Socket & Result<&1, &1, U32 & String, Unit>, next: Socket -> IO(Unit)) -> IO(Unit):
   (s, r) = m
-  do IO<Socket>:
-    IO.pass(Unit, r)
-    return s
+  match r:
+    case Done{u}:
+      next(s)
+    case Fail{e}:
+      Socket.close(s)
 
 # the move made: the data sent and the handler goes on, or the close
 def echo_move(s: Socket, m: Maybe<String>, next: Socket -> IO(Unit)) -> IO(Unit):
@@ -32,8 +34,7 @@ def echo_move(s: Socket, m: Maybe<String>, next: Socket -> IO(Unit)) -> IO(Unit)
     case Some{d}:
       do IO<Unit>:
         sm : Socket & Result<&1, &1, U32 & String, Unit> <- TCP.send(s, d)
-        s2 : Socket <- echo_sent(sm)
-        next(s2)
+        echo_sent(sm, next)
 
 def echo_back(m: Socket & Result<&1, &1, U32 & String, String>, next: Socket -> IO(Unit)) -> IO(Unit):
   (s, r) = m

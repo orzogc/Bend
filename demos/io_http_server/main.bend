@@ -14,16 +14,17 @@ def http_response(page: String) -> String:
 
 def http_sent(m: Socket & Result<&1, &1, U32 & String, Unit>) -> IO(Unit):
   (s, r) = m
-  do IO<Unit>:
-    IO.pass(Unit, r)
-    Socket.close(s)
+  Socket.close(s)
 
 def http_reply(m: Socket & Result<&1, &1, U32 & String, String>) -> IO(Unit):
   (s, r) = m
-  do IO<Unit>:
-    req  : String <- IO.pass(String, r)
-    sent : Socket & Result<&1, &1, U32 & String, Unit> <- TCP.send(s, http_response("<h1>Hello, world!</h1>"))
-    http_sent(sent)
+  match r:
+    case Done{req}:
+      do IO<Unit>:
+        sent : Socket & Result<&1, &1, U32 & String, Unit> <- TCP.send(s, http_response("<h1>Hello, world!</h1>"))
+        http_sent(sent)
+    case Fail{e}:
+      Socket.close(s)
 
 def http_talk(s: Socket) -> IO(Unit):
   do IO<Unit>:

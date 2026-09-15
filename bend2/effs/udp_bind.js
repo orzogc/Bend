@@ -12,7 +12,8 @@ function udp_bind(port) {
     sys.close(fd);
     return io_fail(22);
   }
-  if (sys.bind(fd, sys.ptr(at), 16) < 0) {
+  if (sys.bind(fd, sys.ptr(at), 16) < 0
+    || sys.fcntl(fd, 4, sys.fcntl(fd, 3, 0) | (sys.mac ? 4 : 0x800)) < 0) {
     const code = sys.errno();
     sys.close(fd);
     return io_fail(code);

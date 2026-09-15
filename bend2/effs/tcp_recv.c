@@ -1,11 +1,6 @@
 // TCP
 // ===
 
-static void tcp_recv_call(IoWork* w) {
-  int fd  = (int)w->hand;
-  w->size = io_sys_end(w, recv(fd, w->data, w->word, 0));
-}
-
 static Term tcp_recv_pack(Env e, IoWork* w) {
   Term r = w->code ? io_fail(e, w->code, NULL)
     : io_done(e, io_str(e, w->data, w->size));
@@ -13,14 +8,20 @@ static Term tcp_recv_pack(Env e, IoWork* w) {
   return io_tup(e, io_hand(w->hand), r);
 }
 
+// The loop parked the request until the socket was readable; a recv that
+// still finds nothing (the socket is non-blocking) parks again.
+static Term tcp_recv_more(Env e, IoWork* w) {
+  int fd  = (int)w->hand;
+  w->size = io_sys_end(w, recv(fd, w->data, (size_t)w->made, 0));
+  return w->code == EAGAIN ? io_wait_on(w, fd, POLLIN, tcp_recv_more)
+    : tcp_recv_pack(e, w);
+}
+
 Term tcp_recv_run(Env e, Term* f, IoWork* w) {
   w->hand = (intptr_t)io_hand_v(f[0]);
-  w->word = f[1] < INT32_MAX ? f[1] : INT32_MAX;
-  w->data = io_mem(malloc(w->word + 1));
-  int fd  = (int)w->hand;
-  w->size = io_sys_end(w, recv(fd, w->data, w->word, MSG_DONTWAIT));
-  return w->code == EAGAIN ? io_work(w, tcp_recv_call, tcp_recv_pack)
-    : tcp_recv_pack(e, w);
+  w->made = f[1] < INT32_MAX ? (intptr_t)f[1] : INT32_MAX;
+  w->data = io_mem(malloc((size_t)w->made + 1));
+  return tcp_recv_more(e, w);
 }
 
 static void __attribute__((constructor)) tcp_recv_use(void) {
