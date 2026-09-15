@@ -308,10 +308,11 @@ that they provide an actual proof.
 Bend has no tactics: a proposition is a type, and a proof is a def of that type.
 `{a == b : T}` is an equality; `{==}` proves it when both sides compute to the
 same term. Matching refines the goal in each case, a recursive call is the
-induction hypothesis, and `%e : P` rewrites with `e : {a == b : T}`, replacing
-`b` by `a` at every `_` in `P`. `exs y: T` in a law asks for a witness, returned
-as `(y, proof)`. A failed step prints the expected and observed terms; `?name`
-prints the goal, `?TODO` leaves it open, and a law with no def is an open claim.
+induction hypothesis, and `%e : P` rewrites with `e : {a == b : T}`: `P` is the
+goal with `_` marking `b`, and the goal becomes `P` with `a` there. `exs y: T`
+in a law asks for a witness, returned as `(y, proof)`. A failed step prints the
+expected and observed terms; `?name` prints the goal, `?TODO` leaves it open,
+and a law with no def is an open claim.
 
 Since types are terms, a def may return a `Type`, like `def IsEven(n: Nat) ->
 Type:`, which is all dependent types are. A `match e:` with no cases closes a
