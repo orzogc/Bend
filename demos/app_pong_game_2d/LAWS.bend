@@ -1,46 +1,47 @@
-# Pong -- the laws. Claims about the game's pure logic: Esc quits, the
-# paddles stay in the field, the ball keeps or flips its speed, the ball
-# is always drawn orange, and the first frame moves the ball by its
-# speed. PROOF.bend must prove every one.
+# Pong -- the laws. Claims about the game's whole step over any state:
+# a frame never moves a paddle or the ball out of the field, an Esc
+# anywhere in a frame's events quits, the start is in the field, the
+# first frame moves the ball by its speed, and a key pressed then
+# released is off again. PROOF.bend must prove every one.
 import Base
 import ./main.bend as Game
 
-# LAW: Esc pressed quits: Pong.key on code 27 down gives None for any
-# game state, and so does the close button.
-law quits:
+# LAW: the field invariant: from any state whose paddles are within
+# 0..416 and whose ball is within 0..504 on both axes, one step (any
+# held keys, any ball direction, any wall or paddle bounce, any reset)
+# gives a state within the same bounds.
+law step_in_field:
   for +g: Game.Pong
-  {Game.Pong.key(27, True{}, g) == None{} : Maybe<Game.Pong>}
-  & {Game.Pong.event(Close{}, g) == None{} : Maybe<Game.Pong>}
+  for h: Game.Pong.in_field(g)
+  Game.Pong.in_field(Game.Pong.step(g))
 
-# LAW: the paddles stay in the field: a wrapped (negative) position
-# clamps to 0 for any y; the left paddle at the top (0) with W held
-# stays at 0; at the bottom (416, the last row where its 96 pixels fit)
-# with S held it stays at 416; with no key held it stays at 208.
-law paddle_field:
-  for +y: U32
-  {Game.Pong.clamp(True{}, y) == 0 : U32}
-  & {Game.Pong.paddle(0, 1, 0n, 1n) == 0 : U32}
-  & {Game.Pong.paddle(416, 2, 0n, 1n) == 416 : U32}
-  & {Game.Pong.paddle(208, 0, 0n, 1n) == 208 : U32}
+# LAW: an Esc key-down anywhere in a frame's events quits, whatever the
+# events before and after it and whatever the state.
+law esc_quits:
+  for pre: List<Event>
+  for post: List<Event>
+  for g: Game.Pong
+  {Game.Pong.events(Game.Pong.cat(pre, Key{27, True{}} <> post), g) == None{}
+    : Maybe<Game.Pong>}
 
-# LAW: the ball keeps its speed off a miss and flips it on a hit: for
-# any v, bounce(False{}, v) is v; bounce(True{}, 3) is the wrap of -3,
-# and a second hit restores 3.
-law bounce:
-  for +v: U32
-  {Game.Pong.bounce(False{}, v) == v : U32}
-  & {Game.Pong.bounce(True{}, 3) == 4294967293 : U32}
-  & {Game.Pong.bounce(True{}, Game.Pong.bounce(True{}, 3)) == 3 : U32}
-
-# LAW: the ball is always drawn orange: a cell that touches the ball is
-# coded 1n, whatever the paddle tests say, and code 1n paints 16763904.
-law ball_orange:
-  for pad: Bool
-  for none: Bool
-  {Game.Pong.color(Game.Pong.code_of(True{}, pad, none)) == 16763904 : U32}
+# LAW: the start is in the field (sanity).
+law init_in_field:
+  Game.Pong.in_field(Game.Pong.init())
 
 # LAW: the first frame: one step from the start moves the ball by its
-# speed (3, 3), leaves both paddles at 208 and keeps the speeds.
+# speed (3, 3) and leaves both paddles at 208 (sanity).
 law first_step:
   {Game.Pong.step(Game.Pong.init())
-    == Game.Pong{208, 208, 0, 255, 255, 3, 3} : Game.Pong}
+    == Game.Pong{208n, 208n, Game.Keys{False{}, False{}, False{}, False{}},
+      255n, 255n, True{}, True{}} : Game.Pong}
+
+# LAW: W pressed then released is off, and the other keys keep their
+# state, whatever they were (sanity).
+law keys_lens:
+  for w: Bool
+  for s: Bool
+  for up: Bool
+  for down: Bool
+  {Game.Pong.press(False{}, 119, Game.Pong.press(True{}, 119,
+      Game.Keys{w, s, up, down}))
+    == Game.Keys{False{}, s, up, down} : Game.Pong.Keys}

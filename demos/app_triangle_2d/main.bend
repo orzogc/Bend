@@ -1,12 +1,15 @@
 # Triangle: the hello triangle over base's App and Window kit. One orange
 # triangle on a teal field; a click inside it adds a white square to the
 # tally along the top edge; Esc or the close button quits. The state is
-# the click count. A frame is an Image quadtree: kind classifies each
-# cell against the tally strip and the triangle (a cell is inside when
-# its four corners are, outside when they all lie beyond one edge) and
-# draw emits one Pix the moment the cell is uniform, so a frame costs a
-# few thousand nodes along the edges. The caller classifies the child, so
-# the recursion is one def descending on the depth.
+# the click count, a Nat (the drawing reads it as a U32 at the edge, so
+# LAWS.bend can speak about any count). A frame is an Image quadtree:
+# kind classifies each cell against the tally strip and the triangle (a
+# cell is inside when its four corners are, outside when they all lie
+# beyond one edge) and draw emits one Pix the moment the cell is
+# uniform, so a frame costs a few thousand nodes along the edges. The
+# caller classifies the child, so the recursion is one def descending on
+# the depth. The Spec section names what the laws say: a hit (a click
+# inside), a quit (Esc down or Close), and their counts over a list.
 #
 #   bend demos/app_triangle_2d/main.bend -o hello_triangle && ./hello_triangle
 import Base
@@ -83,37 +86,91 @@ def Tri.draw(+d: Nat, kind: Nat, +x0: U32, +y0: U32, +n: U32) -> Image:
             Tri.draw(e, Tri.kind(e, x1, y1, n), x1, y1, n)
           Qua{tl, tr, bl, br}
 
-def Tri.view(n: U32) -> U32 & Image:
+def Tri.view(n: Nat) -> Nat & Image:
   +m = n
-  (m, Tri.draw(9n, Tri.kind(9n, 0, 0, m), 0, 0, m))
+  +u = U32.from_nat(m)
+  (m, Tri.draw(9n, Tri.kind(9n, 0, 0, u), 0, 0, u))
 
-def Tri.quit(esc: Bool, n: U32) -> Maybe<U32>:
+def Tri.quit(esc: Bool, n: Nat) -> Maybe<Nat>:
   match esc:
     case True{}:
       None{}
     case False{}:
       Some{n}
 
-def Tri.event(e: Event, +n: U32) -> Maybe<U32>:
+def Tri.esc(+code: U32, down: Bool) -> Bool:
+  Bool.and(down, U32.is_eq(code, 27))
+
+def Tri.bump(hit: Bool, n: Nat) -> Nat:
+  match hit:
+    case True{}:
+      1n+n
+    case False{}:
+      n
+
+def Tri.event(e: Event, n: Nat) -> Maybe<Nat>:
   match e:
     case Key{code, down}:
-      Tri.quit(Bool.and(down, U32.is_eq(code, 27)), n)
+      Tri.quit(Tri.esc(code, down), n)
     case Mouse{x, y, button, down}:
-      Some{Tri.pick(Bool.and(down, Tri.inside(x, y)), (n + 1 : U32), n)}
+      Some{Tri.bump(Bool.and(down, Tri.inside(x, y)), n)}
     case Move{x, y}:
       Some{n}
     case Close{}:
       None{}
 
-def Tri.events(events: List<Event>, n: U32) -> Maybe<U32>:
+def Tri.events(events: List<Event>, n: Nat) -> Maybe<Nat>:
   match events:
     case Nil{}:
       Some{n}
     case e <> rest:
-      Maybe.bind(&1, U32, U32, Tri.event(e, n), m => Tri.events(rest, m))
+      Maybe.bind(&1, Nat, Nat, Tri.event(e, n), m => Tri.events(rest, m))
 
-def Tri.tick(events: List<Event>, n: U32) -> IO(Maybe<U32>):
-  IO.pure(Maybe<U32>, Tri.events(events, n))
+def Tri.tick(events: List<Event>, n: Nat) -> IO(Maybe<Nat>):
+  IO.pure(Maybe<Nat>, Tri.events(events, n))
+
+# Spec
+# ----
+# What LAWS.bend says about the tally: a hit is a mouse-down inside the
+# triangle, a quit is Esc down or the close button; hits and quits fold
+# them over a frame's event list, and cat joins two lists.
+
+def Tri.hit(e: Event) -> Bool:
+  match e:
+    case Mouse{x, y, button, down}:
+      Bool.and(down, Tri.inside(x, y))
+    case _:
+      False{}
+
+def Tri.quit_of(e: Event) -> Bool:
+  match e:
+    case Key{code, down}:
+      Tri.esc(code, down)
+    case Close{}:
+      True{}
+    case _:
+      False{}
+
+def Tri.hits(events: List<Event>) -> Nat:
+  match events:
+    case Nil{}:
+      0n
+    case e <> rest:
+      Tri.bump(Tri.hit(e), Tri.hits(rest))
+
+def Tri.quits(events: List<Event>) -> Bool:
+  match events:
+    case Nil{}:
+      False{}
+    case e <> rest:
+      Bool.or(Tri.quit_of(e), Tri.quits(rest))
+
+def Tri.cat(xs: List<Event>, ys: List<Event>) -> List<Event>:
+  match xs:
+    case Nil{}:
+      ys
+    case x <> rest:
+      x <> Tri.cat(rest, ys)
 
 def main() -> IO(Unit):
-  App.run(~U32, ~App{Tri.view, Tri.tick}, "Triangle", 512, 512, 0)
+  App.run(~Nat, ~App{Tri.view, Tri.tick}, "Triangle", 512, 512, 0n)

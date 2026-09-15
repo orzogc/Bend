@@ -1,53 +1,59 @@
-# Fly -- the laws. Claims about the flight's pure control logic: Esc
-# and the close button quit, the held word tracks the keys, the fps
-# counter counts frames per second, and the fps digits blank their
-# leading zeros. The F32 scene is not claimed. PROOF.bend must prove
-# every one.
+# Fly -- the laws. Claims about the flight's pure control logic over
+# any state: the held keys are a store that a key event writes at one
+# slot (pressing a key sets that key; it changes no other key), an Esc
+# anywhere in a frame's events quits, and the fps counter never counts
+# more frames than there were ticks. The F32 scene is not claimed.
+# PROOF.bend must prove every one.
 import Base
 import ./main.bend as Ray
 
-# LAW: Esc pressed quits: Fly.key on code 27 down gives None for any
-# state, and so does the close button.
-law quits:
+# LAW: after a key is pressed (or released), that key reads pressed (or
+# released), for any slot and any held keys.
+law press_reads:
+  for held: List<&2, Bool>
+  for k: Nat
+  for v: Bool
+  {Ray.Fly.get(Ray.Fly.set(held, k, v), k) == v : Bool}
+
+# LAW: pressing or releasing one key changes no other key: for any two
+# different slots j and k, slot j reads the same before and after.
+law press_others:
+  for held: List<&2, Bool>
+  for k: Nat
+  for j: Nat
+  for v: Bool
+  for ne: {Ray.Fly.same(j, k) == False{} : Bool}
+  {Ray.Fly.get(Ray.Fly.set(held, k, v), j) == Ray.Fly.get(held, j) : Bool}
+
+# LAW: an Esc key-down anywhere in a frame's events quits, whatever the
+# events before and after it and whatever the state.
+law esc_quits:
+  for pre: List<Event>
+  for post: List<Event>
+  for s: Ray.Fly
+  {Ray.Fly.events(Ray.Fly.cat(pre, Key{27, True{}} <> post), s) == None{}
+    : Maybe<Ray.Fly>}
+
+# LAW: the fps counter never counts more frames than there were ticks:
+# after any list of tick times, the frames of the current second are at
+# most their number plus the frames before.
+law frames_bound:
+  for +ts: List<&2, Nat>
   for +s: Ray.Fly
-  {Ray.Fly.key(27, True{}, s) == None{} : Maybe<Ray.Fly>}
-  & {Ray.Fly.event(Close{}, s) == None{} : Maybe<Ray.Fly>}
+  Ray.Fly.truth(Ray.Fly.le(Ray.Fly.frames_of(Ray.Fly.clocks(ts, s)),
+    Nat.add(Ray.Fly.len(ts), Ray.Fly.frames_of(s))))
 
-# LAW: the held word tracks the keys: pressing W on an empty word sets
-# bit 1; pressing W and releasing it restores a word that holds Left
-# (64); Esc (27) has no bit, so it never moves the camera.
-law held_word:
-  {Ray.Fly.press(True{}, 0, Ray.Fly.mask(119)) == 1 : U32}
-  & {Ray.Fly.press(False{}, Ray.Fly.press(True{}, 64, Ray.Fly.mask(119)),
-      Ray.Fly.mask(119)) == 64 : U32}
-  & {Ray.Fly.mask(27) == 0 : U32}
-
-# LAW: the fps counter: a tick within the second (999 ms after t0) adds
-# a frame and keeps the count; a tick at the next second (1000 ms)
-# makes the frames the count, restarts them at 0 and moves t0. For any
-# position, angles and held word.
-law fps_counter:
-  for x: F32
-  for y: F32
-  for z: F32
-  for yaw: F32
-  for pitch: F32
-  for held: U32
-  for frames: U32
-  for fps: U32
-  {Ray.Fly.clock(999n, Ray.Fly{x, y, z, yaw, pitch, held, 0n, frames, fps})
-    == Ray.Fly{x, y, z, yaw, pitch, held, 0n, (frames + 1 : U32), fps}
-    : Ray.Fly}
-  & {Ray.Fly.clock(1000n, Ray.Fly{x, y, z, yaw, pitch, held, 0n, 7, fps})
-    == Ray.Fly{x, y, z, yaw, pitch, held, 1000n, 0, 8} : Ray.Fly}
+# LAW: the key slots: W is 0, Down is 9, Esc has no slot the flight
+# reads (sanity).
+law slots:
+  {Ray.Fly.slot(119) == 0n : Nat}
+  & {Ray.Fly.slot(63233) == 9n : Nat}
+  & {Ray.Fly.slot(27) == 10n : Nat}
 
 # LAW: the fps digits: a count under 10 blanks its two leading digits
-# (glyph 10, the empty one, for any digit it would show) and shows its
-# units; 123 shows 1, 2, 3.
+# and shows its units; 123 shows 1, 2, 3 (sanity).
 law fps_digits:
-  for d: U32
-  {Ray.Fly.glyph(U32.to_nat(Ray.Fly.lead(True{}, d))) == 0 : U32}
-  & {Ray.Fly.digit(0n, 7) == 10 : U32}
+  {Ray.Fly.digit(0n, 7) == 10 : U32}
   & {Ray.Fly.digit(1n, 7) == 10 : U32}
   & {Ray.Fly.digit(2n, 7) == 7 : U32}
   & {Ray.Fly.digit(0n, 123) == 1 : U32}

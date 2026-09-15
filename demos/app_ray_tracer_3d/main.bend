@@ -2,31 +2,36 @@
 # one light and hard shadows, flown with W/A/S/D (forward, left, back,
 # right, relative to the yaw), Q/E (up, down), the arrows left/right
 # (turn) and up/down (look up, down); Esc or the close button quits.
-# The held keys are bits of one word (1 W, 2 A, 4 S, 8 D, 16 Q, 32 E,
-# 64 Left, 128 Right, 256 Up, 512 Down). The top-left corner counts the
-# frames per second (IO.now once per tick; the count of the last whole
-# second, in a 3 x 5 font). Every pixel differs, so a frame is the
-# full-detail quadtree to depth 10 (1024 x 1024, the window shows its
-# top 1024 x 768): Fly.scene! builds it on the GPU, the ONE bang in the
-# file, and a machine without a GPU runs the same bang on the host
-# pool. F32 math only; the camera basis is a flat Data record built
-# once per frame (Fly.Cam), so the fork shares twelve words and no
-# refcount. Each march loop takes its stop as a parameter the previous
-# step computed, so the recursion is one def descending on the budget.
+# The held keys are a list of Bools, one slot per key (0 W, 1 A, 2 S,
+# 3 D, 4 Q, 5 E, 6 Left, 7 Right, 8 Up, 9 Down; any other key is slot
+# 10, which the flight never reads), so LAWS.bend can speak about any
+# key and any state. The top-left corner counts the frames per second
+# (IO.now once per tick; the count of the last whole second, in a 3 x 5
+# font); the counter's frames and count are Nats, read as a U32 once
+# per frame. Every pixel differs, so a frame is the full-detail
+# quadtree to depth 10 (1024 x 1024, the window shows its top 1024 x
+# 768): Fly.scene! builds it on the GPU, the ONE bang in the file, and
+# a machine without a GPU runs the same bang on the host pool. F32
+# math only; the camera basis is a flat Data record built once per
+# frame (Fly.Cam), so the fork shares twelve words and no refcount.
+# Each march loop takes its stop as a parameter the previous step
+# computed, so the recursion is one def descending on the budget. The
+# Spec section names what the laws say: equality and order on Nat, the
+# join of two event lists, and the counter replayed over tick times.
 #
 #   bend demos/app_ray_tracer_3d/main.bend -o ray_tracer && ./ray_tracer
 import Base
 
 type Fly is Data:
-  Fly{x: F32, y: F32, z: F32, yaw: F32, pitch: F32, held: U32, t0: Nat,
-    frames: U32, fps: U32}
+  Fly{x: F32, y: F32, z: F32, yaw: F32, pitch: F32, held: List<&2, Bool>,
+    t0: Nat, frames: Nat, fps: Nat}
 
 type Fly.Cam is Data:
   Cam{ex: F32, ey: F32, ez: F32, fx: F32, fy: F32, fz: F32, rx: F32, rz: F32,
     ux: F32, uy: F32, uz: F32, fps: U32}
 
 def Fly.init() -> Fly:
-  Fly{0.0, 1.5, (0.0 - 6.0 : F32), 0.0, 0.0, 0, 0n, 0, 0}
+  Fly{0.0, 1.5, (0.0 - 6.0 : F32), 0.0, 0.0, [], 0n, 0n, 0n}
 
 def Fly.pick(c: Bool, a: F32, b: F32) -> F32:
   match c:
@@ -44,13 +49,6 @@ def Fly.max(+a: F32, +b: F32) -> F32:
 def Fly.clamp01(+x: F32) -> F32:
   Fly.min(1.0, Fly.max(0.0, x))
 
-def Fly.bit(b: Bool, v: U32) -> U32:
-  match b:
-    case True{}:
-      v
-    case False{}:
-      0
-
 def Fly.onef(b: Bool) -> F32:
   match b:
     case True{}:
@@ -58,24 +56,64 @@ def Fly.onef(b: Bool) -> F32:
     case False{}:
       0.0
 
-def Fly.bitf(+held: U32, m: U32) -> F32:
-  Fly.onef(U32.is_ne((held .&. m : U32), 0))
+# Keys
+# ----
+# The held keys: get reads a slot (False past the end), set writes one
+# (padding with False up to it), slot maps a key code to its slot.
 
-def Fly.mask(+code: U32) -> U32:
-  (Fly.bit(U32.is_eq(code, 119), 1) .|. Fly.bit(U32.is_eq(code, 97), 2)
-    .|. Fly.bit(U32.is_eq(code, 115), 4) .|. Fly.bit(U32.is_eq(code, 100), 8)
-    .|. Fly.bit(U32.is_eq(code, 113), 16) .|. Fly.bit(U32.is_eq(code, 101), 32)
-    .|. Fly.bit(U32.is_eq(code, 63234), 64)
-    .|. Fly.bit(U32.is_eq(code, 63235), 128)
-    .|. Fly.bit(U32.is_eq(code, 63232), 256)
-    .|. Fly.bit(U32.is_eq(code, 63233), 512) : U32)
+def Fly.get(held: List<&2, Bool>, k: Nat) -> Bool:
+  match held:
+    case Nil{}:
+      False{}
+    case h <> t:
+      match k:
+        case 0n:
+          h
+        case 1n+j:
+          Fly.get(t, j)
 
-def Fly.press(down: Bool, held: U32, mask: U32) -> U32:
-  match down:
+def Fly.pad(k: Nat, v: Bool) -> List<&2, Bool>:
+  match k:
+    case 0n:
+      [v]
+    case 1n+j:
+      False{} <> Fly.pad(j, v)
+
+def Fly.set(held: List<&2, Bool>, k: Nat, v: Bool) -> List<&2, Bool>:
+  match held:
+    case Nil{}:
+      Fly.pad(k, v)
+    case h <> t:
+      match k:
+        case 0n:
+          v <> t
+        case 1n+j:
+          h <> Fly.set(t, j, v)
+
+def Fly.at(hit: Bool, k: Nat, rest: Nat) -> Nat:
+  match hit:
     case True{}:
-      (held .|. mask : U32)
+      k
     case False{}:
-      (held .&. U32.not(mask) : U32)
+      rest
+
+def Fly.slot(+code: U32) -> Nat:
+  Fly.at(U32.is_eq(code, 119), 0n,
+    Fly.at(U32.is_eq(code, 97), 1n,
+      Fly.at(U32.is_eq(code, 115), 2n,
+        Fly.at(U32.is_eq(code, 100), 3n,
+          Fly.at(U32.is_eq(code, 113), 4n,
+            Fly.at(U32.is_eq(code, 101), 5n,
+              Fly.at(U32.is_eq(code, 63234), 6n,
+                Fly.at(U32.is_eq(code, 63235), 7n,
+                  Fly.at(U32.is_eq(code, 63232), 8n,
+                    Fly.at(U32.is_eq(code, 63233), 9n, 10n))))))))))
+
+def Fly.press(down: Bool, +code: U32, held: List<&2, Bool>) -> List<&2, Bool>:
+  Fly.set(held, Fly.slot(code), down)
+
+def Fly.esc(+code: U32, down: Bool) -> Bool:
+  Bool.and(down, U32.is_eq(code, 27))
 
 def Fly.quit(esc: Bool, s: Fly) -> Maybe<Fly>:
   match esc:
@@ -86,9 +124,8 @@ def Fly.quit(esc: Bool, s: Fly) -> Maybe<Fly>:
 
 def Fly.key(+code: U32, +down: Bool, s: Fly) -> Maybe<Fly>:
   Fly{x, y, z, yaw, pitch, held, t0, frames, fps} = s
-  Fly.quit(Bool.and(down, U32.is_eq(code, 27)),
-    Fly{x, y, z, yaw, pitch, Fly.press(down, held, Fly.mask(code)), t0, frames,
-      fps})
+  Fly.quit(Fly.esc(code, down),
+    Fly{x, y, z, yaw, pitch, Fly.press(down, code, held), t0, frames, fps})
 
 def Fly.event(e: Event, s: Fly) -> Maybe<Fly>:
   match e:
@@ -110,11 +147,11 @@ def Fly.events(events: List<Event>, s: Fly) -> Maybe<Fly>:
 
 def Fly.step(+s: Fly) -> Fly:
   Fly{x, y, z, yaw, pitch, held, t0, frames, fps} = s
-  +fwd = (Fly.bitf(held, 1) - Fly.bitf(held, 4) : F32)
-  +side = (Fly.bitf(held, 8) - Fly.bitf(held, 2) : F32)
-  +rise = (Fly.bitf(held, 16) - Fly.bitf(held, 32) : F32)
-  +turn = (Fly.bitf(held, 128) - Fly.bitf(held, 64) : F32)
-  +tilt = (Fly.bitf(held, 256) - Fly.bitf(held, 512) : F32)
+  +fwd = (Fly.onef(Fly.get(held, 0n)) - Fly.onef(Fly.get(held, 2n)) : F32)
+  +side = (Fly.onef(Fly.get(held, 3n)) - Fly.onef(Fly.get(held, 1n)) : F32)
+  +rise = (Fly.onef(Fly.get(held, 4n)) - Fly.onef(Fly.get(held, 5n)) : F32)
+  +turn = (Fly.onef(Fly.get(held, 7n)) - Fly.onef(Fly.get(held, 6n)) : F32)
+  +tilt = (Fly.onef(Fly.get(held, 8n)) - Fly.onef(Fly.get(held, 9n)) : F32)
   +yaw2 = (yaw + 0.03 * turn : F32)
   Fly{(x + 0.08 * (fwd * F32.sin(yaw2) + side * F32.cos(yaw2)) : F32),
     Fly.max(0.3, (y + 0.08 * rise : F32)),
@@ -128,12 +165,12 @@ def Fly.count(within: Bool, now: Nat, s: Fly) -> Fly:
       s
     case False{}:
       Fly{x, y, z, yaw, pitch, held, t0, frames, fps} = s
-      Fly{x, y, z, yaw, pitch, held, now, 0, frames}
+      Fly{x, y, z, yaw, pitch, held, now, 0n, frames}
 
 def Fly.clock(+now: Nat, +s: Fly) -> Fly:
   Fly{x, y, z, yaw, pitch, held, t0, frames, fps} = s
   Fly.count(Nat.is_lt(Nat.sub(now, t0), 1000n), now,
-    Fly{x, y, z, yaw, pitch, held, t0, (frames + 1 : U32), fps})
+    Fly{x, y, z, yaw, pitch, held, t0, 1n+frames, fps})
 
 def Fly.after(now: Nat, m: Maybe<Fly>) -> Maybe<Fly>:
   match m:
@@ -320,11 +357,75 @@ def Fly.camera(+s: Fly) -> Fly.Cam:
   +sp = F32.sin(pitch)
   +cp = F32.cos(pitch)
   Cam{x, y, z, (sy * cp : F32), sp, (cy * cp : F32), cy, (0.0 - sy : F32),
-    (0.0 - sp * sy : F32), cp, (0.0 - sp * cy : F32), fps}
+    (0.0 - sp * sy : F32), cp, (0.0 - sp * cy : F32), U32.from_nat(fps)}
 
 def Fly.view(s: Fly) -> Fly & Image:
   +s2 = s
   (s2, Fly.scene!(10n, 0, 0, Fly.camera(s2)))
+
+# Spec
+# ----
+# What LAWS.bend says about the flight: equality and order on Nat, the
+# truth of a Bool as a type, the join of two event lists, the counter's
+# frames, and the counter replayed over a list of tick times.
+
+def Fly.same(a: Nat, b: Nat) -> Bool:
+  match a:
+    case 0n:
+      match b:
+        case 0n:
+          True{}
+        case 1n+q:
+          False{}
+    case 1n+p:
+      match b:
+        case 0n:
+          False{}
+        case 1n+q:
+          Fly.same(p, q)
+
+def Fly.le(a: Nat, b: Nat) -> Bool:
+  match a:
+    case 0n:
+      True{}
+    case 1n+p:
+      match b:
+        case 0n:
+          False{}
+        case 1n+q:
+          Fly.le(p, q)
+
+def Fly.truth(b: Bool) -> Data:
+  match b:
+    case True{}:
+      Unit
+    case False{}:
+      Empty
+
+def Fly.cat(xs: List<Event>, ys: List<Event>) -> List<Event>:
+  match xs:
+    case Nil{}:
+      ys
+    case x <> rest:
+      x <> Fly.cat(rest, ys)
+
+def Fly.frames_of(s: Fly) -> Nat:
+  Fly{x, y, z, yaw, pitch, held, t0, frames, fps} = s
+  frames
+
+def Fly.len(ts: List<&2, Nat>) -> Nat:
+  match ts:
+    case Nil{}:
+      0n
+    case t <> rest:
+      1n+Fly.len(rest)
+
+def Fly.clocks(ts: List<&2, Nat>, s: Fly) -> Fly:
+  match ts:
+    case Nil{}:
+      s
+    case t <> rest:
+      Fly.clocks(rest, Fly.clock(t, s))
 
 def main() -> IO(Unit):
   App.run(~Fly, ~App{Fly.view, Fly.tick}, "Fly", 1024, 768, Fly.init())
