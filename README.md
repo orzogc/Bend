@@ -1,10 +1,4 @@
-<p align="center"><img src="media/hero.gif" width="560" alt="Bend: a fast language that blocks AI mistakes via proof"></p>
-
-- Bend is as **fast** as **C**.
-
-- Bend is as **parallel** as **CUDA**.
-
-- Bend features **proofs**, like **Lean**.
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="media/hero_dark.gif"><img src="media/hero.gif" width="560" alt="Bend: a fast language that blocks AI mistakes via proof"></picture></p>
 
 In the post-AGI economy, humans will eventually stop writing and reading code,
 but we still need an ambiguity-free language to communicate our intents to the
@@ -44,27 +38,37 @@ spreads the calls over every core it can find, then joins them back. Below,
 
 <p align="center"><img src="media/parallel.gif" width="440" alt="pow2 splitting over 4,096 GPU cores, then folding back"></p>
 
-## Bend blocks mistakes via PROOF
+## Bend BLOCKS mistakes (with proof!)
 
-How can you **trust** code you never read? By demanding a **proof**. Suppose
-you wrote a game that must be unbeatable: if the player grabs the flag, you
-lose. In other languages, you'd write *tests*. But you can't test infinitely
-many sequences of moves. On Bend, you state the law in `LAWS.bend`:
+How can you **trust** code you never read? By demanding a **proof**. `LAWS.bend`
+is where you declare laws. From then on, no AI can ship one line that breaks
+them, ever. Watch it guard a game:
+
+<p align="center"><b>Law</b>: winning is <b>impossible</b><br><img src="media/game_law.gif" width="480" alt="The player walks up and bumps the wall of the flag's room"><br><i>So far, it works!</i></p>
+
+<p align="center"><b>New feature:</b> "Claude, make the board wrap around"</p>
+
+<p align="center"><b>Without LAWS.bend:</b><br><img src="media/game_bug.gif" width="480" alt="The player wraps around the edge and takes the flag"><br><i>Laws broken. AI mistake: <b>merged</b>.</i></p>
+
+<p align="center"><b>With LAWS.bend:</b><br><img src="media/game_law_kept.gif" width="480" alt="A wall on the far edge stops the player"><br><i>Laws intact. AI mistake: <b>blocked</b>!</i></p>
+
+Without LAWS.bend, the bug went live. With LAWS.bend, the AI had to retry until
+it built a wall and proved the law holds. Merging a bug is mathematically
+impossible: it is a *theorem*.
 
 ```python
-# LAW: (you write this)
+# LAWS.bend
 law you_cant_win:                 # "winning is impossible"
   for moves: List<Move>           # any sequence of moves
   board = replay(start(), moves)  # replayed from the start
   is_won(board) == False          # never leads to victory
-
-# PROOF: (your AI writes this)
-def you_cant_win(moves):
-  # ...
 ```
 
-Once the proof lands, your code is correct. Mathematically. From then on, no
-AI can ship one line that breaks that law, ever.
+```python
+# PROOF.bend
+def you_cant_win(moves):
+  # ... written by the AI
+```
 
 > We must stress what this means. This is not a test. This is not an audit.
 > This is a MATHEMATICAL PROOF. That your app has ZERO bugs. With Bend, the same
@@ -72,7 +76,7 @@ AI can ship one line that breaks that law, ever.
 > vibe coded SaaS never displays an uncentered div again. And that's beautiful.
 
 `LAWS.bend` is `AGENTS.md` backed by **proof**: "make no mistakes" is now
-type-checked. [Watch it guard the game](https://bend-lang.com/#laws), live.
+type-checked. [Edit the game and try to win](https://bend-lang.com/#lab).
 
 # Get Started
 

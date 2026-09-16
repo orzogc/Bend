@@ -736,7 +736,7 @@ S.reveal = (u, dur, b) => {
 };
 
 // the landing page's hero: Bend, a purple block cursor blinking after it,
-// and the pitch, its bold words in ink and the rest dim
+// the pitch, its bold words in ink and the rest dim, and the three claims
 // the pitch lands in three parts, each read before the next appears
 const PITCH = ["a *fast* language", " that *blocks AI mistakes*", " via *proof*"], PAT = [0.6, 1.9, 3.2];
 S.title = (u, dur) => {
@@ -749,6 +749,8 @@ S.title = (u, dur) => {
     cx.globalAlpha = ease((u - PAT[i])/0.4);
     rich(s, px + ws[i]/2, 404, 26, INK, DIM); px += ws[i];
   });
+  cx.globalAlpha = ease((u - 4.2)/0.4);
+  T("C speed · CUDA parallelism · Lean proofs", W/2, 440, 19, DIM, "center");
   cx.globalAlpha = 1;
 };
 
