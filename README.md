@@ -8,9 +8,15 @@ A **fast** language that **blocks AI mistakes** via **proof**.
 
 - Bend features **proofs**, like **Lean**.
 
-In an era where we stop writing and reading code, Bend is designed to be an
-ambiguity-free language that humans can use to communicate their intents to the
-AI's building the world around us, and computers can run at peak capacity.
+In the post-AGI economy, humans will eventually stop writing and reading code,
+but we still need an ambiguity-free language to communicate our intents to the
+AI's building the world around us. Bend is that language.
+
+With **laws**, intents can be made clearer than natural language. With
+**proofs**, we can mechanically verify the AI implemented our prompts correctly.
+And with a **fast compiler**, we can run that code at peak compute.
+
+That's Bend - and nothing else.
 
 <p align="center"><img src="media/intro.gif" alt="Bend, in five minutes"></p>
 
