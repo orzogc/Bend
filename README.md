@@ -1,6 +1,4 @@
-# Bend
-
-A **fast** language that **blocks AI mistakes** via **proof**.
+<p align="center"><img src="media/hero.gif" width="560" alt="Bend: a fast language that blocks AI mistakes via proof"></p>
 
 - Bend is as **fast** as **C**.
 
@@ -17,8 +15,6 @@ With **laws**, intents can be made clearer than natural language. With
 And with a **fast compiler**, we can run that code at peak compute.
 
 That's Bend - and nothing else.
-
-<p align="center"><img src="media/intro.gif" alt="Bend, in five minutes"></p>
 
 ## Bend runs FAST
 
@@ -40,10 +36,19 @@ Bend's compiler is so powerful it can verify mathematical proofs. Usually, this
 is slow. Bend is not. It checks, in under a second, files that other projects
 would take minutes, making proofs way more practical.
 
-## Bend BLOCKS mistakes
+## Bend is PARALLEL
 
-Suppose you wrote a game that must be unbeatable: if the player grabs the flag,
-you lose. In other languages, you'd write *tests*. But you can't test infinitely
+No threads, no locks, no kernels to write. Split the work in two, and Bend
+spreads the calls over every core it can find, then joins them back. Below,
+`pow2(20)` divides until one task sits on each of 4,096 GPU cores:
+
+<p align="center"><img src="media/parallel.gif" width="440" alt="pow2 splitting over 4,096 GPU cores, then folding back"></p>
+
+## Bend blocks mistakes via PROOF
+
+How can you **trust** code you never read? By demanding a **proof**. Suppose
+you wrote a game that must be unbeatable: if the player grabs the flag, you
+lose. In other languages, you'd write *tests*. But you can't test infinitely
 many sequences of moves. On Bend, you state the law in `LAWS.bend`:
 
 ```python
@@ -58,14 +63,16 @@ def you_cant_win(moves):
   # ...
 ```
 
-Once the proof lands, your code is correct. Mathematically.
+Once the proof lands, your code is correct. Mathematically. From then on, no
+AI can ship one line that breaks that law, ever.
 
 > We must stress what this means. This is not a test. This is not an audit.
 > This is a MATHEMATICAL PROOF. That your app has ZERO bugs. With Bend, the same
 > intelligence that disproved the Jacobian Conjecture will now prove that your
 > vibe coded SaaS never displays an uncentered div again. And that's beautiful.
 
-**tl;dr with proofs, "make no mistakes" becomes enforceable**
+`LAWS.bend` is `AGENTS.md` backed by **proof**: "make no mistakes" is now
+type-checked. [Watch it guard the game](https://bend-lang.com/#laws), live.
 
 # Get Started
 
