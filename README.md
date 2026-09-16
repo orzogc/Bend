@@ -166,7 +166,9 @@ bend hello.bend -o hello    # compile to a native binary (a ! needs Metal or CUD
 
 ### 4. Ask your AI to use Bend:
 
-Tell your agent: "run `bend`, read its guide, and build my next project in Bend".
+Tell your agent:
+
+> *run `bend`, read its guide, and build my next project in Bend.*
 
 # References
 
