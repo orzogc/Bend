@@ -6,19 +6,6 @@
 # shared strings ride + binders (String is Data)
 import Base
 
-law Maybe.default:
-  for -A: Data
-  for  m: Maybe<&2, A>
-  for  d: A
-  A
-
-def Maybe.default(A, m, d):
-  match m:
-    case None{}:
-      d
-    case Some{x}:
-      x
-
 law bu:
   for b: Bool
   U32
@@ -263,7 +250,7 @@ law main.out:
   U32
 
 def main.out():
-  b0 = bu(seq_(replace1("banana", Maybe.default(U32, sfind("an", "banana"), 99), 2, "X"), "bXana"))
+  b0 = bu(seq_(replace1("banana", Maybe.default(&2, U32, sfind("an", "banana"), 99), 2, "X"), "bXana"))
   b1 = bu(seq_(sjoin("-", ssplit(44, "a,b,c")), "a-b-c"))
   b2 = bu(U32.is_eq(occurs(5n, "an", "banana"), 2))
   b3 = bu(U32.is_eq(occurs(5n, "zz", "banana"), 0))

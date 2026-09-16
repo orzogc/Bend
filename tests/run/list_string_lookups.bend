@@ -10,70 +10,6 @@
 # shared strings and chars ride + binders (String and Char are Data)
 import Base
 
-law Maybe.is_some:
-  for -a: Quant
-  for -A: Kind(a)
-  for  m: Maybe<a, A>
-  Bool
-
-def Maybe.is_some(a, A, m):
-  match m:
-    case None{}:
-      False{}
-    case Some{x}:
-      True{}
-
-law Maybe.default:
-  for -a: Quant
-  for -A: Kind(a)
-  for  m: Maybe<a, A>
-  for  d: A
-  A
-
-def Maybe.default(a, A, m, d):
-  match m:
-    case None{}:
-      d
-    case Some{x}:
-      x
-
-law List.get:
-  for -a : Quant
-  for -A : Kind(a)
-  for n  : Nat
-  for xs : List<a, A>
-  Maybe<a, A>
-
-def List.get(a, A, n, xs):
-  match n xs:
-    case 0n Nil{}:
-      None{}
-    case 0n h <> t:
-      Some{h}
-    case 1n+p Nil{}:
-      None{}
-    case 1n+p h <> t:
-      List.get(a, A, p, t)
-
-law List.set:
-  for -a : Quant
-  for -A : Kind(a)
-  for n  : Nat
-  for x  : A
-  for xs : List<a, A>
-  List<a, A>
-
-def List.set(a, A, n, x, xs):
-  match n xs:
-    case 0n Nil{}:
-      Nil{}
-    case 0n h <> t:
-      x <> t
-    case 1n+p Nil{}:
-      Nil{}
-    case 1n+p h <> t:
-      h <> List.set(a, A, p, x, t)
-
 law bu:
   for b: Bool
   U32
@@ -289,9 +225,9 @@ law chk_get:
   U32
 
 def chk_get():
-  a = digit99(List.get(&2, U32, 2n, l4()))
-  b = digit99(List.get(&2, U32, 7n, l4()))
-  c = digit99(List.get(&2, U32, 1n, List.set(&2, U32, 1n, 25, l4())))
+  a = digit99(List.get(&2, U32, l4(), 2n))
+  b = digit99(List.get(&2, U32, l4(), 7n))
+  c = digit99(List.get(&2, U32, List.set(&2, U32, l4(), 1n, 25), 1n))
   bu(Bool.and(U32.is_eq(a, 30), Bool.and(U32.is_eq(b, 99), U32.is_eq(c, 25))))
 
 law chk_find:

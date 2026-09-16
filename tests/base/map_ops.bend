@@ -5,29 +5,6 @@
 # the original's.
 import Base
 
-law Nat.is_eq:
-  for a: Nat
-  for b: Nat
-  Bool
-
-def Nat.is_eq(a, b):
-  Cmp.is_eq(Nat.cmp(a, b))
-
-law Map.size:
-  for -a: Quant
-  for -V: Kind(a)
-  for  m: Map<a, V>
-  Nat
-
-def Map.size(a, V, m):
-  match m:
-    case MTip{}:
-      0n
-    case MLeaf{k, v}:
-      1n
-    case MNode{pos, lo, hi}:
-      Nat.add(Map.size(a, V, lo), Map.size(a, V, hi))
-
 law b2u:
   for b: Bool
   U32

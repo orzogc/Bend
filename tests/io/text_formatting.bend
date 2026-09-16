@@ -7,31 +7,6 @@
 # the join separator wears + (String is Data, so it duplicates freely)
 import Base
 
-law String.join.go:
-  for xs   : List<&2, String>
-  for h    : String
-  for +sep : String
-  String
-
-def String.join.go(xs, h, sep):
-  match xs:
-    case Nil{}:
-      h
-    case h2 <> t2:
-      String.append(h, String.append(sep, String.join.go(t2, h2, sep)))
-
-law String.join:
-  for xs  : List<&2, String>
-  for sep : String
-  String
-
-def String.join(xs, sep):
-  match xs:
-    case Nil{}:
-      SNil{}
-    case h <> t:
-      String.join.go(t, h, sep)
-
 law main.out:
   String
 

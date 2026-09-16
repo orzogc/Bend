@@ -5,17 +5,17 @@
 # binder pins bend's own parse refusal.
 import Base
 
-law List.length:
+law LL.length:
   for -A: Type
   for xs: List<A>
   Nat
 
-def List.length(A, xs):
+def LL.length(A, xs):
   match xs:
     case Nil{}:
       0n
     case h <> t:
-      1n+List.length(A, t)
+      1n+LL.length(A, t)
 
 law lmap:
   for ~f: U32 -> U32
@@ -30,7 +30,7 @@ def lmap(f, xs):
       f(h) <> lmap(f, t)
 
 law thm:
-  {List.length(lmap(x => (x + 1 : U32), [1, 2])) = 2n : Nat}
+  {LL.length(lmap(x => (x + 1 : U32), [1, 2])) = 2n : Nat}
 
 def thm():
   {=}

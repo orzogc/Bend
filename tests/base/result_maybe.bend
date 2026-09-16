@@ -5,20 +5,6 @@
 # type annotation
 import Base
 
-law Maybe.default:
-  for -a: Quant
-  for -A: Kind(a)
-  for  m: Maybe<a, A>
-  for  d: A
-  A
-
-def Maybe.default(a, A, m, d):
-  match m:
-    case None{}:
-      d
-    case Some{x}:
-      x
-
 law bu:
   for b: Bool
   U32

@@ -93,9 +93,6 @@ type Room is Data:
 # ====
 
 # Nat.sub saturates, so b + (a - b) is the larger.
-def Nat.max(a: Nat, +b: Nat) -> Nat:
-  Nat.add(b, Nat.sub(a, b))
-
 def Nat.quo(qr: Nat & Nat) -> Nat:
   (q, r) = qr
   q

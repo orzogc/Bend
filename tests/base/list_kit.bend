@@ -3,156 +3,6 @@
 # nine checks packed positionally into one U32
 import Base
 
-law List.length:
-  for -a : Quant
-  for -A : Kind(a)
-  for xs : List<a, A>
-  Nat
-
-def List.length(a, A, xs):
-  match xs:
-    case Nil{}:
-      0n
-    case h <> t:
-      1n+List.length(a, A, t)
-
-law List.append:
-  for -a : Quant
-  for -A : Kind(a)
-  for xs : List<a, A>
-  for ys : List<a, A>
-  List<a, A>
-
-def List.append(a, A, xs, ys):
-  match xs:
-    case Nil{}:
-      ys
-    case h <> t:
-      h <> List.append(a, A, t, ys)
-
-law Maybe.default:
-  for -a: Quant
-  for -A: Kind(a)
-  for  m: Maybe<a, A>
-  for  d: A
-  A
-
-def Maybe.default(a, A, m, d):
-  match m:
-    case None{}:
-      d
-    case Some{x}:
-      x
-
-law List.is_empty:
-  for -a : Quant
-  for -A : Kind(a)
-  for xs : List<a, A>
-  Bool
-
-def List.is_empty(a, A, xs):
-  match xs:
-    case Nil{}:
-      True{}
-    case h <> t:
-      False{}
-
-law List.head:
-  for -a : Quant
-  for -A : Kind(a)
-  for xs : List<a, A>
-  Maybe<a, A>
-
-def List.head(a, A, xs):
-  match xs:
-    case Nil{}:
-      None{}
-    case h <> t:
-      Some{h}
-
-law List.tail:
-  for -a : Quant
-  for -A : Kind(a)
-  for xs : List<a, A>
-  List<a, A>
-
-def List.tail(a, A, xs):
-  match xs:
-    case Nil{}:
-      Nil{}
-    case h <> t:
-      t
-
-law List.get:
-  for -a : Quant
-  for -A : Kind(a)
-  for n  : Nat
-  for xs : List<a, A>
-  Maybe<a, A>
-
-def List.get(a, A, n, xs):
-  match n xs:
-    case 0n Nil{}:
-      None{}
-    case 0n h <> t:
-      Some{h}
-    case 1n+p Nil{}:
-      None{}
-    case 1n+p h <> t:
-      List.get(a, A, p, t)
-
-law List.set:
-  for -a : Quant
-  for -A : Kind(a)
-  for n  : Nat
-  for x  : A
-  for xs : List<a, A>
-  List<a, A>
-
-def List.set(a, A, n, x, xs):
-  match n xs:
-    case 0n Nil{}:
-      Nil{}
-    case 0n h <> t:
-      x <> t
-    case 1n+p Nil{}:
-      Nil{}
-    case 1n+p h <> t:
-      h <> List.set(a, A, p, x, t)
-
-law List.concat:
-  for -a  : Quant
-  for -A  : Kind(a)
-  for xss : List<a, List<a, A>>
-  List<a, A>
-
-def List.concat(a, A, xss):
-  match xss:
-    case Nil{}:
-      Nil{}
-    case h <> t:
-      List.append(a, A, h, List.concat(a, A, t))
-
-law List.zip:
-  for -a : Quant
-  for -A : Kind(a)
-  for -b : Quant
-  for -B : Kind(b)
-  for xs : List<a, A>
-  for ys : List<b, B>
-  List<&1, A & B>
-
-def List.zip(a, A, b, B, xs, ys):
-  match xs ys:
-    case Nil{} Nil{}:
-      Nil{}
-    case Nil{} h <> t:
-      Nil{}
-    case h <> t Nil{}:
-      Nil{}
-    case x <> xt y <> yt:
-      (x, y) <> List.zip(a, A, b, B, xt, yt)
-
 law bu:
   for b: Bool
   U32
@@ -205,10 +55,10 @@ law main.out:
   U32
 
 def main.out():
-  b0 = bu(U32.is_eq(digit99(List.get(&2, U32, 2n, l4())), 30))
-  b1 = bu(U32.is_eq(digit99(List.get(&2, U32, 7n, l4())), 99))
-  b2 = bu(U32.is_eq(digit99(List.head(&2, U32, List.set(&2, U32, 0n, 5, l2()))), 5))
-  b3 = bu(U32.is_eq(nlen(List.set(&2, U32, 5n, 9, l2())), 2))
+  b0 = bu(U32.is_eq(digit99(List.get(&2, U32, l4(), 2n)), 30))
+  b1 = bu(U32.is_eq(digit99(List.get(&2, U32, l4(), 7n)), 99))
+  b2 = bu(U32.is_eq(digit99(List.head(&2, U32, List.set(&2, U32, l2(), 0n, 5))), 5))
+  b3 = bu(U32.is_eq(nlen(List.set(&2, U32, l2(), 5n, 9)), 2))
   b4 = bu(U32.is_eq(nlen(List.concat(&2, U32, [[1], [2, 3]])), 3))
   b5 = bu(U32.is_eq(zsum(List.zip(&2, U32, &2, U32, [1, 2, 3], [4, 5])), 12))
   b6 = bu(U32.is_eq(digit99(List.head(&2, U32, List.tail(&2, U32, [7, 8]))), 8))

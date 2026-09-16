@@ -7,17 +7,6 @@
 # Bool param. a re-tested binder rides + (U32 is Data)
 import Base
 
-law String.length:
-  for s: String
-  Nat
-
-def String.length(s):
-  match s:
-    case SNil{}:
-      0n
-    case SCon{h, t}:
-      1n+String.length(t)
-
 law cmp.b:
   for f: Bool
   U32

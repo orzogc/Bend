@@ -6,29 +6,6 @@
 # Data, so it duplicates)
 import Base
 
-law List.reverse.go:
-  for -a  : Quant
-  for -A  : Kind(a)
-  for xs  : List<a, A>
-  for acc : List<a, A>
-  List<a, A>
-
-def List.reverse.go(a, A, xs, acc):
-  match xs:
-    case Nil{}:
-      acc
-    case h <> t:
-      List.reverse.go(a, A, t, h <> acc)
-
-law List.reverse:
-  for -a : Quant
-  for -A : Kind(a)
-  for xs : List<a, A>
-  List<a, A>
-
-def List.reverse(a, A, xs):
-  List.reverse.go(a, A, xs, Nil{})
-
 law l123:
   List<&2, U32>
 

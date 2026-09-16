@@ -25,13 +25,6 @@ def word(c: Bool, a: U32, b: U32) -> U32:
     case False{}:
       b
 
-def Bool.pick(-A: Type, c: Bool, a: A, b: A) -> A:
-  match c:
-    case True{}:
-      a
-    case False{}:
-      b
-
 def min(+a: F32, +b: F32) -> F32:
   pick((a < b : F32), a, b)
 

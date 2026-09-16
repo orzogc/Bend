@@ -1,53 +1,53 @@
 # io pin (io_json_roundtrip): bend3's JSON module -- read/show
 # roundtrip with escapes and nesting, located read errors, polite
 # accessors defaulting on misses. bend has no JSON module -- rt dies
-# first on the missing surface (List.get answers Maybe in bend, so
-# the accessor walk rides Maybe.default).
+# first on the missing surface (LL.get answers Maybe in bend, so
+# the accessor walk rides Mb.default).
 import Base
 
-law List.length:
+law LL.length:
   for -a: Quant
   for -A: Kind(a)
   for xs: List<a, A>
   Nat
 
-def List.length(a, A, xs):
+def LL.length(a, A, xs):
   match xs:
     case Nil{}:
       0n
     case h <> t:
-      1n+List.length(a, A, t)
+      1n+LL.length(a, A, t)
 
-law Nat.is_eq:
+law nat_eq:
   for a: Nat
   for b: Nat
   Bool
 
-def Nat.is_eq(a, b):
+def nat_eq(a, b):
   Cmp.is_eq(Nat.cmp(a, b))
 
-law Maybe.default:
+law Mb.default:
   for -a: Quant
   for -A: Kind(a)
   for m: Maybe<a, A>
   for d: A
   A
 
-def Maybe.default(a, A, m, d):
+def Mb.default(a, A, m, d):
   match m:
     case None{}:
       d
     case Some{x}:
       x
 
-law List.get:
+law LL.get:
   for -a: Quant
   for -A: Kind(a)
   for n: Nat
   for xs: List<a, A>
   Maybe<a, A>
 
-def List.get(a, A, n, xs):
+def LL.get(a, A, n, xs):
   match n xs:
     case 0n Nil{}:
       None{}
@@ -56,7 +56,7 @@ def List.get(a, A, n, xs):
     case 1n+p Nil{}:
       None{}
     case 1n+p h <> t:
-      List.get(a, A, p, t)
+      LL.get(a, A, p, t)
 
 law b2u:
   for b: Bool
@@ -131,10 +131,10 @@ law access_score:
   U32
 
 def access_score(v):
-  n1 = Maybe.default(&1, JSON, JSON.null(), List.get(&1, JSON, 1n, JSON.items(JSON.get("nums", v))))
+  n1 = Mb.default(&1, JSON, JSON.null(), LL.get(&1, JSON, 1n, JSON.items(JSON.get("nums", v))))
   a = b2u(U32.is_eq(JSON.as_u32(n1), 20))
   b = b2u(String.eq(JSON.as_string(JSON.get("name", v)), "bend"))
-  c = b2u(Nat.is_eq(List.length(&1, JSON, JSON.items(JSON.get("nums", v))), 3n))
+  c = b2u(nat_eq(LL.length(&1, JSON, JSON.items(JSON.get("nums", v))), 3n))
   d = b2u(U32.is_eq(JSON.as_u32(JSON.get("missing", v)), 0))
   (a + b + c + d : U32)
 

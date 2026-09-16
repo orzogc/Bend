@@ -5,14 +5,14 @@
 # Request respells as its method & path & headers & length tuple).
 import Base
 
-law Maybe.default:
+law Mb.default:
   for -a: Quant
   for -A: Kind(a)
   for m: Maybe<a, A>
   for d: A
   A
 
-def Maybe.default(a, A, m, d):
+def Mb.default(a, A, m, d):
   match m:
     case None{}:
       d
@@ -61,7 +61,7 @@ law rt_score:
 
 def rt_score(req):
   (m, p, hs, b) = req
-  (b2u(String.eq(m, "POST")) + b2u(String.eq(p, "/echo")) + b2u(U32.is_eq(Maybe.default(&2, U32, 0, U32.read(HTTP.get_header("", "content-length", hs))), 5)) : U32)
+  (b2u(String.eq(m, "POST")) + b2u(String.eq(p, "/echo")) + b2u(U32.is_eq(Mb.default(&2, U32, 0, U32.read(HTTP.get_header("", "content-length", hs))), 5)) : U32)
 
 law chk_roundtrip:
   U32

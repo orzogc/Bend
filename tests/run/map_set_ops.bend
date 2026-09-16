@@ -8,60 +8,28 @@
 # one digit each, the original's golden.
 import Base
 
-law String.join.go:
+law Str.join.go:
   for xs : List<&2, String>
   for h  : String
   String
 
-def String.join.go(xs, h):
+def Str.join.go(xs, h):
   match xs:
     case Nil{}:
       h
     case h2 <> t2:
-      String.append(h, String.append(",", String.join.go(t2, h2)))
+      String.append(h, String.append(",", Str.join.go(t2, h2)))
 
-law String.join:
+law Str.join:
   for xs: List<&2, String>
   String
 
-def String.join(xs):
+def Str.join(xs):
   match xs:
     case Nil{}:
       SNil{}
     case h <> t:
-      String.join.go(t, h)
-
-law Map.values.go:
-  for -a  : Quant
-  for -V  : Kind(a)
-  for m   : Map<a, V>
-  for acc : List<a, V>
-  List<a, V>
-
-def Map.values.go(a, V, m, acc):
-  match m:
-    case MTip{}:
-      acc
-    case MLeaf{k, v}:
-      v <> acc
-    case MNode{pos, lo, hi}:
-      Map.values.go(a, V, lo, Map.values.go(a, V, hi, acc))
-
-law Map.values:
-  for -a: Quant
-  for -V: Kind(a)
-  for  m: Map<a, V>
-  List<a, V>
-
-def Map.values(a, V, m):
-  Map.values.go(a, V, m, Nil{})
-
-law Set.to_list:
-  for s: Set()
-  List<&2, String>
-
-def Set.to_list(s):
-  Map.keys(&2, Unit, s)
+      Str.join.go(t, h)
 
 law b2u:
   for b: Bool
@@ -240,7 +208,7 @@ law chk_order:
   U32
 
 def chk_order():
-  ks = String.join(Map.keys(&2, U32, m3()))
+  ks = Str.join(Map.keys(&2, U32, m3()))
   b2u(Bool.and(String.eq(ks, "app,apple,banana"), U32.is_eq(digits(Map.values(&2, U32, m3()), 0), 213)))
 
 law chk_set:
@@ -276,7 +244,7 @@ law chk_set.s2:
 
 def chk_set.s2(hx, r):
   (s2, hz) = r
-  ks = String.join(Set.to_list(s2))
+  ks = Str.join(Set.to_list(s2))
   chk_set.s3(hx, hz, ks, Set.has(Set.del(Set.add(Set.add(Set.new(), "x"), "y"), "y"), "y"))
 
 law chk_set.s1:

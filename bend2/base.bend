@@ -149,6 +149,14 @@ def Exists(-A: Type, -B: @-x: A -> Type) -> Type:
 def Or(-A: Type, -B: Type) -> Type:
   Either<&1, &1, A, B>
 
+def Pair.fst(-A: Type, -B: Type, p: A & B) -> A:
+  (a, b) = p
+  a
+
+def Pair.snd(-A: Type, -B: Type, p: A & B) -> B:
+  (a, b) = p
+  b
+
 # Effects
 # -------
 
@@ -450,6 +458,20 @@ def Bool.full_add(a: Bool, b: Bool, c: Bool) -> Bool & Bool:
     case True{} True{} True{}:
       (True{}, True{})
 
+def Bool.pick(-A: Type, c: Bool, a: A, b: A) -> A:
+  match c:
+    case False{}:
+      b
+    case True{}:
+      a
+
+def Bool.to_u32(b: Bool) -> U32:
+  match b:
+    case False{}:
+      0
+    case True{}:
+      1
+
 # Cmp
 # ---
 
@@ -565,6 +587,48 @@ def Nat.cmp(a: Nat, b: Nat) -> Cmp:
 def Nat.is_lt(a: Nat, b: Nat) -> Bool:
   Cmp.is_lt(Nat.cmp(a, b))
 
+def Nat.is_eq(a: Nat, b: Nat) -> Bool:
+  Cmp.is_eq(Nat.cmp(a, b))
+
+def Nat.is_ne(a: Nat, b: Nat) -> Bool:
+  Bool.not(Cmp.is_eq(Nat.cmp(a, b)))
+
+def Nat.is_le(a: Nat, b: Nat) -> Bool:
+  Cmp.is_le(Nat.cmp(a, b))
+
+def Nat.is_gt(a: Nat, b: Nat) -> Bool:
+  Cmp.is_gt(Nat.cmp(a, b))
+
+def Nat.is_ge(a: Nat, b: Nat) -> Bool:
+  Cmp.is_ge(Nat.cmp(a, b))
+
+def Nat.min(+a: Nat, +b: Nat) -> Nat:
+  Bool.pick(Nat, Nat.is_lt(a, b), a, b)
+
+def Nat.max(+a: Nat, +b: Nat) -> Nat:
+  Bool.pick(Nat, Nat.is_lt(a, b), b, a)
+
+def Nat.div.fin(qr: Nat & Nat) -> Nat:
+  (q, r) = qr
+  q
+
+def Nat.div(a: Nat, b: Nat) -> Nat:
+  Nat.div.fin(Nat.divmod(a, b))
+
+def Nat.mod.fin(qr: Nat & Nat) -> Nat:
+  (q, r) = qr
+  r
+
+def Nat.mod(a: Nat, b: Nat) -> Nat:
+  Nat.mod.fin(Nat.divmod(a, b))
+
+def Nat.pow(+a: Nat, b: Nat) -> Nat:
+  match b:
+    case 0n:
+      1n
+    case 1n+p:
+      Nat.mul(a, Nat.pow(a, p))
+
 # Maybe
 # -----
 
@@ -579,6 +643,39 @@ def Maybe.bind(
       None{}
     case Some{x}:
       f(x)
+
+def Maybe.default(a, -A: Kind(a), m: Maybe<a, A>, d: A) -> A:
+  match m:
+    case None{}:
+      d
+    case Some{x}:
+      x
+
+def Maybe.is_some(a, -A: Kind(a), m: Maybe<a, A>) -> Bool:
+  match m:
+    case None{}:
+      False{}
+    case Some{x}:
+      True{}
+
+def Maybe.is_none(a, -A: Kind(a), m: Maybe<a, A>) -> Bool:
+  Bool.not(Maybe.is_some(a, A, m))
+
+def Maybe.map(
+  a, -A: Kind(a), -B: Kind(a), f: A -> B, m: Maybe<a, A>
+) -> Maybe<a, B>:
+  match m:
+    case None{}:
+      None{}
+    case Some{x}:
+      Some{f(x)}
+
+def Maybe.or(a, -A: Kind(a), m: Maybe<a, A>, n: Maybe<a, A>) -> Maybe<a, A>:
+  match m:
+    case None{}:
+      n
+    case Some{x}:
+      Some{x}
 
 # Result
 # ------
@@ -596,6 +693,39 @@ def Result.bind(
     case Done{x}:
       f(x)
 
+def Result.default(
+  a, b, -E: Kind(a), -A: Kind(b), r: Result<a, b, E, A>, d: A
+) -> A:
+  match r:
+    case Fail{e}:
+      d
+    case Done{x}:
+      x
+
+def Result.is_done(
+  a, b, -E: Kind(a), -A: Kind(b), r: Result<a, b, E, A>
+) -> Bool:
+  match r:
+    case Fail{e}:
+      False{}
+    case Done{x}:
+      True{}
+
+def Result.is_fail(
+  a, b, -E: Kind(a), -A: Kind(b), r: Result<a, b, E, A>
+) -> Bool:
+  Bool.not(Result.is_done(a, b, E, A, r))
+
+def Result.map(
+  a, b, -E: Kind(a), -A: Kind(b), -B: Kind(b), f: A -> B,
+  r: Result<a, b, E, A>
+) -> Result<a, b, E, B>:
+  match r:
+    case Fail{e}:
+      Fail{e}
+    case Done{x}:
+      Done{f(x)}
+
 # List
 # ----
 
@@ -605,6 +735,286 @@ def List.map(~A: Type, ~B: Type, ~f: A -> B, xs: List<A>) -> List<B>:
       Nil{}
     case h <> t:
       f(h) <> List.map(~A, ~B, ~f, t)
+
+def List.length(a, -A: Kind(a), xs: List<a, A>) -> Nat:
+  match xs:
+    case Nil{}:
+      0n
+    case h <> t:
+      1n+List.length(a, A, t)
+
+def List.append(a, -A: Kind(a), xs: List<a, A>, ys: List<a, A>) -> List<a, A>:
+  match xs:
+    case Nil{}:
+      ys
+    case h <> t:
+      h <> List.append(a, A, t, ys)
+
+def List.concat(a, -A: Kind(a), xss: List<a, List<a, A>>) -> List<a, A>:
+  match xss:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      List.append(a, A, h, List.concat(a, A, t))
+
+def List.reverse.go(a, -A: Kind(a), xs: List<a, A>, acc: List<a, A>) ->
+  List<a, A>:
+  match xs:
+    case Nil{}:
+      acc
+    case h <> t:
+      List.reverse.go(a, A, t, h <> acc)
+
+def List.reverse(a, -A: Kind(a), xs: List<a, A>) -> List<a, A>:
+  List.reverse.go(a, A, xs, Nil{})
+
+def List.is_empty(a, -A: Kind(a), xs: List<a, A>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case h <> t:
+      False{}
+
+def List.head(a, -A: Kind(a), xs: List<a, A>) -> Maybe<a, A>:
+  match xs:
+    case Nil{}:
+      None{}
+    case h <> t:
+      Some{h}
+
+def List.tail(a, -A: Kind(a), xs: List<a, A>) -> List<a, A>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      t
+
+def List.last.go(a, -A: Kind(a), xs: List<a, A>, last: A) -> A:
+  match xs:
+    case Nil{}:
+      last
+    case h <> t:
+      List.last.go(a, A, t, h)
+
+def List.last(a, -A: Kind(a), xs: List<a, A>) -> Maybe<a, A>:
+  match xs:
+    case Nil{}:
+      None{}
+    case h <> t:
+      Some{List.last.go(a, A, t, h)}
+
+def List.get(a, -A: Kind(a), xs: List<a, A>, n: Nat) -> Maybe<a, A>:
+  match xs n:
+    case Nil{} _:
+      None{}
+    case h <> t 0n:
+      Some{h}
+    case h <> t 1n+p:
+      List.get(a, A, t, p)
+
+def List.set(a, -A: Kind(a), xs: List<a, A>, n: Nat, x: A) -> List<a, A>:
+  match xs n:
+    case Nil{} _:
+      Nil{}
+    case h <> t 0n:
+      x <> t
+    case h <> t 1n+p:
+      h <> List.set(a, A, t, p, x)
+
+def List.take(a, -A: Kind(a), xs: List<a, A>, n: Nat) -> List<a, A>:
+  match xs n:
+    case Nil{} _:
+      Nil{}
+    case h <> t 0n:
+      Nil{}
+    case h <> t 1n+p:
+      h <> List.take(a, A, t, p)
+
+def List.drop(a, -A: Kind(a), xs: List<a, A>, n: Nat) -> List<a, A>:
+  match xs n:
+    case Nil{} _:
+      Nil{}
+    case h <> t 0n:
+      h <> t
+    case h <> t 1n+p:
+      List.drop(a, A, t, p)
+
+def List.zip(
+  a, -A: Kind(a), b, -B: Kind(b), xs: List<a, A>, ys: List<b, B>
+) -> List<&1, A & B>:
+  match xs ys:
+    case Nil{} _:
+      Nil{}
+    case h <> t Nil{}:
+      Nil{}
+    case x <> xt y <> yt:
+      (x, y) <> List.zip(a, A, b, B, xt, yt)
+
+def List.range.go(+n: Nat, acc: List<&2, Nat>) -> List<&2, Nat>:
+  match n:
+    case 0n:
+      acc
+    case 1n+p:
+      List.range.go(p, p <> acc)
+
+def List.range(n: Nat) -> List<&2, Nat>:
+  List.range.go(n, Nil{})
+
+def List.replicate(-A: Data, n: Nat, +x: A) -> List<&2, A>:
+  match n:
+    case 0n:
+      Nil{}
+    case 1n+p:
+      x <> List.replicate(A, p, x)
+
+def List.filter.put(-A: Data, h: A, r: List<&2, A>, keep: Bool) -> List<&2, A>:
+  match keep:
+    case False{}:
+      r
+    case True{}:
+      h <> r
+
+def List.filter(~A: Data, ~f: A -> Bool, xs: List<&2, A>) -> List<&2, A>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case +h <> t:
+      List.filter.put(A, h, List.filter(~A, ~f, t), f(h))
+
+def List.foldl(
+  ~a: Quant, ~A: Kind(a), ~B: Type, ~f: B -> A -> B, xs: List<a, A>, acc: B
+) -> B:
+  match xs:
+    case Nil{}:
+      acc
+    case h <> t:
+      List.foldl(~a, ~A, ~B, ~f, t, f(acc, h))
+
+def List.foldr(
+  ~a: Quant, ~A: Kind(a), ~B: Type, ~f: A -> B -> B, xs: List<a, A>, z: B
+) -> B:
+  match xs:
+    case Nil{}:
+      z
+    case h <> t:
+      f(h, List.foldr(~a, ~A, ~B, ~f, t, z))
+
+def List.any(~a: Quant, ~A: Kind(a), ~f: A -> Bool, xs: List<a, A>) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case h <> t:
+      Bool.or(f(h), List.any(~a, ~A, ~f, t))
+
+def List.all(~a: Quant, ~A: Kind(a), ~f: A -> Bool, xs: List<a, A>) -> Bool:
+  match xs:
+    case Nil{}:
+      True{}
+    case h <> t:
+      Bool.and(f(h), List.all(~a, ~A, ~f, t))
+
+def List.find.put(-A: Data, h: A, r: Maybe<&2, A>, hit: Bool) -> Maybe<&2, A>:
+  match hit:
+    case False{}:
+      r
+    case True{}:
+      Some{h}
+
+def List.find(~A: Data, ~f: A -> Bool, xs: List<&2, A>) -> Maybe<&2, A>:
+  match xs:
+    case Nil{}:
+      None{}
+    case +h <> t:
+      List.find.put(A, h, List.find(~A, ~f, t), f(h))
+
+def List.contains(
+  ~A: Data, ~eq: A -> A -> Bool, xs: List<&2, A>, +x: A
+) -> Bool:
+  match xs:
+    case Nil{}:
+      False{}
+    case h <> t:
+      Bool.or(eq(h, x), List.contains(~A, ~eq, t, x))
+
+def List.merge.step(
+  -A: Data, acc: List<&2, A>, x: A, xt: List<&2, A>, y: A, yt: List<&2, A>,
+  le: Bool
+) -> List<&2, A> & List<&2, A> & List<&2, A>:
+  match le:
+    case False{}:
+      (y <> acc, x <> xt, yt)
+    case True{}:
+      (x <> acc, xt, y <> yt)
+
+# The fuel bounds the steps: a sort passes its length, enough for any merge.
+def List.merge.go(
+  ~A: Data, ~le: A -> A -> Bool, fuel: Nat,
+  st: List<&2, A> & List<&2, A> & List<&2, A>
+) -> List<&2, A>:
+  match fuel:
+    case 0n:
+      (acc, xs, ys) = st
+      List.reverse.go(&2, A, acc, List.append(&2, A, xs, ys))
+    case 1n+f:
+      (acc, xs, ys) = st
+      match xs ys:
+        case Nil{} Nil{}:
+          List.reverse.go(&2, A, acc, Nil{})
+        case Nil{} y <> yt:
+          List.reverse.go(&2, A, acc, y <> yt)
+        case x <> xt Nil{}:
+          List.reverse.go(&2, A, acc, x <> xt)
+        case +x <> xt +y <> yt:
+          List.merge.go(~A, ~le, f,
+            List.merge.step(A, acc, x, xt, y, yt, le(x, y)))
+
+def List.sort.runs(-A: Data, xs: List<&2, A>) -> List<&2, List<&2, A>>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      [h] <> List.sort.runs(A, t)
+
+def List.sort.pass(
+  ~A: Data, ~le: A -> A -> Bool, +n: Nat, runs: List<&2, List<&2, A>>
+) -> List<&2, List<&2, A>>:
+  match runs:
+    case Nil{}:
+      Nil{}
+    case r <> Nil{}:
+      [r]
+    case r1 <> r2 <> rest:
+      List.merge.go(~A, ~le, n, (Nil{}, r1, r2))
+        <> List.sort.pass(~A, ~le, n, rest)
+
+def List.sort.go(
+  ~A: Data, ~le: A -> A -> Bool, fuel: Nat, +n: Nat, runs: List<&2, List<&2, A>>
+) -> List<&2, A>:
+  match fuel:
+    case 0n:
+      List.concat(&2, A, runs)
+    case 1n+f:
+      match runs:
+        case Nil{}:
+          Nil{}
+        case r <> Nil{}:
+          r
+        case r1 <> r2 <> rest:
+          List.sort.go(~A, ~le, f, n,
+            List.sort.pass(~A, ~le, n, r1 <> r2 <> rest))
+
+def List.sort(~A: Data, ~le: A -> A -> Bool, +xs: List<&2, A>) -> List<&2, A>:
+  +n = List.length(&2, A, xs)
+  List.sort.go(~A, ~le, n, n, List.sort.runs(A, xs))
+
+def List.for_each(
+  ~a: Quant, ~A: Kind(a), ~f: A -> IO(Unit), xs: List<a, A>
+) -> IO(Unit):
+  match xs:
+    case Nil{}:
+      IO.pure(Unit, Unit{})
+    case h <> t:
+      IO.bind(Unit, Unit, f(h), u => List.for_each(~a, ~A, ~f, t))
 
 # Word
 # ----
@@ -1014,6 +1424,25 @@ def U32.mod(a: U32, +b: U32) -> U32:
   U32{aw} = a
   U32.mod.if(aw, b, U32.is_zero(b))
 
+def U32.min(+a: U32, +b: U32) -> U32:
+  Bool.pick(U32, U32.is_lt(a, b), a, b)
+
+def U32.max(+a: U32, +b: U32) -> U32:
+  Bool.pick(U32, U32.is_lt(a, b), b, a)
+
+def U32.clamp(x: U32, lo: U32, hi: U32) -> U32:
+  U32.min(U32.max(x, lo), hi)
+
+def U32.pow(+a: U32, n: Nat) -> U32:
+  match n:
+    case 0n:
+      1
+    case 1n+p:
+      U32.mul(a, U32.pow(a, p))
+
+def U32.is_even(a: U32) -> Bool:
+  U32.is_zero(U32.and(a, 1))
+
 # F32
 # ---
 
@@ -1178,6 +1607,36 @@ law F32.read:
   for s: String
   Maybe<&2, F32>
 
+def F32.min(+a: F32, +b: F32) -> F32:
+  Bool.pick(F32, F32.is_lt(a, b), a, b)
+
+def F32.max(+a: F32, +b: F32) -> F32:
+  Bool.pick(F32, F32.is_lt(a, b), b, a)
+
+def F32.clamp(x: F32, lo: F32, hi: F32) -> F32:
+  F32.min(F32.max(x, lo), hi)
+
+def F32.lerp(+a: F32, b: F32, t: F32) -> F32:
+  F32.add(a, F32.mul(F32.sub(b, a), t))
+
+def F32.square(+a: F32) -> F32:
+  F32.mul(a, a)
+
+def F32.hypot(+x: F32, +y: F32) -> F32:
+  F32.sqrt(F32.add(F32.mul(x, x), F32.mul(y, y)))
+
+def F32.round(a: F32) -> F32:
+  F32.floor(F32.add(a, 0.5))
+
+def F32.pi() -> F32:
+  3.14159265
+
+def F32.from_nat(n: Nat) -> F32:
+  U32.to_f32(U32.from_nat(n))
+
+def F32.to_nat(a: F32) -> Nat:
+  U32.to_nat(F32.to_u32(a))
+
 # Char
 # ----
 
@@ -1185,6 +1644,48 @@ def Char.cmp(a: Char, b: Char) -> (Char & Char) & Cmp:
   match a b:
     case Chr{+x} Chr{+y}:
       ((Chr{x}, Chr{y}), U32.cmp(x, y))
+
+def Char.to_u32(c: Char) -> U32:
+  match c:
+    case Chr{x}:
+      x
+
+def Char.from_u32(x: U32) -> Char:
+  Chr{x}
+
+def Char.is_eq(a: Char, b: Char) -> Bool:
+  match a b:
+    case Chr{x} Chr{y}:
+      U32.is_eq(x, y)
+
+def Char.is_digit(c: Char) -> Bool:
+  match c:
+    case Chr{+x}:
+      Bool.and(U32.is_ge(x, 48), U32.is_le(x, 57))
+
+def Char.is_upper(c: Char) -> Bool:
+  match c:
+    case Chr{+x}:
+      Bool.and(U32.is_ge(x, 65), U32.is_le(x, 90))
+
+def Char.is_lower(c: Char) -> Bool:
+  match c:
+    case Chr{+x}:
+      Bool.and(U32.is_ge(x, 97), U32.is_le(x, 122))
+
+def Char.is_alpha(+c: Char) -> Bool:
+  Bool.or(Char.is_upper(c), Char.is_lower(c))
+
+def Char.is_space(c: Char) -> Bool:
+  match c:
+    case Chr{+x}:
+      Bool.or(U32.is_eq(x, 32), Bool.and(U32.is_ge(x, 9), U32.is_le(x, 13)))
+
+def Char.to_upper(+c: Char) -> Char:
+  Bool.pick(Char, Char.is_lower(c), Chr{U32.sub(Char.to_u32(c), 32)}, c)
+
+def Char.to_lower(+c: Char) -> Char:
+  Bool.pick(Char, Char.is_upper(c), Chr{U32.add(Char.to_u32(c), 32)}, c)
 
 # String
 # ------
@@ -1234,6 +1735,226 @@ def String.eq.fin(r: (String & String) & Cmp) -> Bool:
 
 def String.eq(a: String, b: String) -> Bool:
   String.eq.fin(String.cmp(a, b))
+
+def String.length(s: String) -> Nat:
+  match s:
+    case SNil{}:
+      0n
+    case SCon{h, t}:
+      1n+String.length(t)
+
+def String.is_empty(s: String) -> Bool:
+  match s:
+    case SNil{}:
+      True{}
+    case SCon{h, t}:
+      False{}
+
+def String.reverse.go(s: String, acc: String) -> String:
+  match s:
+    case SNil{}:
+      acc
+    case SCon{h, t}:
+      String.reverse.go(t, SCon{h, acc})
+
+def String.reverse(s: String) -> String:
+  String.reverse.go(s, SNil{})
+
+def String.order.fin(r: (String & String) & Cmp) -> Cmp:
+  (ab, c) = r
+  c
+
+def String.order(a: String, b: String) -> Cmp:
+  String.order.fin(String.cmp(a, b))
+
+def String.is_lt(a: String, b: String) -> Bool:
+  Cmp.is_lt(String.order(a, b))
+
+def String.is_le(a: String, b: String) -> Bool:
+  Cmp.is_le(String.order(a, b))
+
+def String.is_gt(a: String, b: String) -> Bool:
+  Cmp.is_gt(String.order(a, b))
+
+def String.is_ge(a: String, b: String) -> Bool:
+  Cmp.is_ge(String.order(a, b))
+
+law String.starts_with:
+  for s: String
+  for p: String
+  Bool
+
+def String.starts_with.if(t: String, pt: String, same: Bool) -> Bool:
+  match same:
+    case False{}:
+      False{}
+    case True{}:
+      String.starts_with(t, pt)
+
+def String.starts_with(s, p):
+  match s p:
+    case SNil{} SNil{}:
+      True{}
+    case SNil{} SCon{h, t}:
+      False{}
+    case SCon{h, t} SNil{}:
+      True{}
+    case SCon{x, xt} SCon{y, yt}:
+      String.starts_with.if(xt, yt, Char.is_eq(x, y))
+
+def String.ends_with(s: String, p: String) -> Bool:
+  String.starts_with(String.reverse(s), String.reverse(p))
+
+law String.contains:
+  for +s: String
+  for +p: String
+  Bool
+
+def String.contains.if(t: String, p: String, here: Bool) -> Bool:
+  match here:
+    case False{}:
+      String.contains(t, p)
+    case True{}:
+      True{}
+
+def String.contains(s, p):
+  match s:
+    case SNil{}:
+      String.is_empty(p)
+    case SCon{h, t}:
+      String.contains.if(t, p, String.starts_with(SCon{h, t}, p))
+
+def String.take(s: String, n: Nat) -> String:
+  match s n:
+    case SNil{} _:
+      SNil{}
+    case SCon{h, t} 0n:
+      SNil{}
+    case SCon{h, t} 1n+p:
+      SCon{h, String.take(t, p)}
+
+def String.drop(s: String, n: Nat) -> String:
+  match s n:
+    case SNil{} _:
+      SNil{}
+    case SCon{h, t} 0n:
+      SCon{h, t}
+    case SCon{h, t} 1n+p:
+      String.drop(t, p)
+
+def String.get(s: String, n: Nat) -> Maybe<&2, Char>:
+  match s n:
+    case SNil{} _:
+      None{}
+    case SCon{h, t} 0n:
+      Some{h}
+    case SCon{h, t} 1n+p:
+      String.get(t, p)
+
+def String.to_list(s: String) -> List<&2, Char>:
+  match s:
+    case SNil{}:
+      Nil{}
+    case SCon{h, t}:
+      h <> String.to_list(t)
+
+def String.from_list(cs: List<&2, Char>) -> String:
+  match cs:
+    case Nil{}:
+      SNil{}
+    case h <> t:
+      SCon{h, String.from_list(t)}
+
+def String.concat(xs: List<&2, String>) -> String:
+  match xs:
+    case Nil{}:
+      SNil{}
+    case h <> t:
+      String.append(h, String.concat(t))
+
+def String.join.go(xs: List<&2, String>, h: String, +sep: String) -> String:
+  match xs:
+    case Nil{}:
+      h
+    case h2 <> t:
+      String.append(h, String.append(sep, String.join.go(t, h2, sep)))
+
+def String.join(xs: List<&2, String>, +sep: String) -> String:
+  match xs:
+    case Nil{}:
+      SNil{}
+    case h <> t:
+      String.join.go(t, h, sep)
+
+def String.split.push(c: Char, ps: List<&2, String>) -> List<&2, String>:
+  match ps:
+    case Nil{}:
+      [SCon{c, SNil{}}]
+    case h <> t:
+      SCon{c, h} <> t
+
+def String.split.fin(c: Char, r: List<&2, String>, cut: Bool) ->
+  List<&2, String>:
+  match cut:
+    case False{}:
+      String.split.push(c, r)
+    case True{}:
+      SNil{} <> r
+
+def String.split(s: String, +sep: Char) -> List<&2, String>:
+  match s:
+    case SNil{}:
+      [SNil{}]
+    case SCon{+h, t}:
+      String.split.fin(h, String.split(t, sep), Char.is_eq(h, sep))
+
+def String.lines(s: String) -> List<&2, String>:
+  String.split(s, '\n')
+
+def String.repeat(+s: String, n: Nat) -> String:
+  match n:
+    case 0n:
+      SNil{}
+    case 1n+p:
+      String.append(s, String.repeat(s, p))
+
+def String.to_upper(s: String) -> String:
+  match s:
+    case SNil{}:
+      SNil{}
+    case SCon{h, t}:
+      SCon{Char.to_upper(h), String.to_upper(t)}
+
+def String.to_lower(s: String) -> String:
+  match s:
+    case SNil{}:
+      SNil{}
+    case SCon{h, t}:
+      SCon{Char.to_lower(h), String.to_lower(t)}
+
+law String.trim_start:
+  for s: String
+  String
+
+def String.trim_start.if(h: Char, t: String, space: Bool) -> String:
+  match space:
+    case False{}:
+      SCon{h, t}
+    case True{}:
+      String.trim_start(t)
+
+def String.trim_start(s):
+  match s:
+    case SNil{}:
+      SNil{}
+    case SCon{+h, t}:
+      String.trim_start.if(h, t, Char.is_space(h))
+
+def String.trim_end(s: String) -> String:
+  String.reverse(String.trim_start(String.reverse(s)))
+
+def String.trim(s: String) -> String:
+  String.trim_end(String.trim_start(s))
 
 # Text
 # ----
@@ -1359,6 +2080,40 @@ def U32.read(s: String) -> Maybe<&2, U32>:
     case SCon{h, t}:
       U32.read.go(SCon{h, t}, 0)
 
+def Bool.show(b: Bool) -> String:
+  match b:
+    case False{}:
+      "False"
+    case True{}:
+      "True"
+
+def Char.show(c: Char) -> String:
+  SCon{c, SNil{}}
+
+def Maybe.show(~a: Quant, ~A: Kind(a), ~f: A -> String, m: Maybe<a, A>) ->
+  String:
+  match m:
+    case None{}:
+      "None"
+    case Some{x}:
+      "Some(" ++ f(x) ++ ")"
+
+def List.show.go(~a: Quant, ~A: Kind(a), ~f: A -> String, xs: List<a, A>) ->
+  String:
+  match xs:
+    case Nil{}:
+      "]"
+    case h <> t:
+      ", " ++ f(h) ++ List.show.go(~a, ~A, ~f, t)
+
+def List.show(~a: Quant, ~A: Kind(a), ~f: A -> String, xs: List<a, A>) ->
+  String:
+  match xs:
+    case Nil{}:
+      "[]"
+    case h <> t:
+      "[" ++ f(h) ++ List.show.go(~a, ~A, ~f, t)
+
 # Array
 # -----
 
@@ -1472,6 +2227,24 @@ def Array.get.at(-T: Data, i: U32, an: Array<T> & U32) -> Array<T> & T:
 
 def Array.get(-T: Data, a: Array<T>, +i: U32) -> Array<T> & T:
   Array.get.at(T, i, Array.size(T, a))
+
+def Array.to_list.go(~T: Type, a: Array<T>, acc: List<T>) -> List<T>:
+  match a:
+    case ALeaf{x}:
+      x <> acc
+    case ANode{xs, ys}:
+      Array.to_list.go(~T, xs, Array.to_list.go(~T, ys, acc))
+
+def Array.to_list(~T: Type, a: Array<T>) -> List<T>:
+  Array.to_list.go(~T, a, Nil{})
+
+def Array.map(~T: Type, ~U: Type, ~f: T -> U, a: Array<T>) -> Array<U>:
+  match a:
+    case ALeaf{x}:
+      ALeaf{f(x)}
+    case ANode{xs, ys}:
+      l r = Array.map(~T, ~U, ~f, xs) Array.map(~T, ~U, ~f, ys)
+      ANode{l, r}
 
 # Map
 # ---
@@ -1892,6 +2665,27 @@ def Map.from_list(a, -V: Kind(a), kvs: List<a, Sigma<&2, a, String, _ => V>>) ->
 def Map.union(a, -V: Kind(a), m: Map<a, V>, n: Map<a, V>) -> Map<a, V>:
   Map.from_list.go(a, V, Map.to_list(a, V, n), m)
 
+def Map.size(a, -V: Kind(a), m: Map<a, V>) -> Nat:
+  match m:
+    case MTip{}:
+      0n
+    case MLeaf{k, v}:
+      1n
+    case MNode{pos, lo, hi}:
+      Nat.add(Map.size(a, V, lo), Map.size(a, V, hi))
+
+def Map.values.go(a, -V: Kind(a), m: Map<a, V>, acc: List<a, V>) -> List<a, V>:
+  match m:
+    case MTip{}:
+      acc
+    case MLeaf{k, v}:
+      v <> acc
+    case MNode{pos, lo, hi}:
+      Map.values.go(a, V, lo, Map.values.go(a, V, hi, acc))
+
+def Map.values(a, -V: Kind(a), m: Map<a, V>) -> List<a, V>:
+  Map.values.go(a, V, m, Nil{})
+
 # Set
 # ---
 
@@ -1909,6 +2703,22 @@ def Set.has(s: Set(), key: String) -> Set() & Bool:
 
 def Set.del(s: Set(), key: String) -> Set():
   Map.del(&2, Unit, s, key)
+
+def Set.size(s: Set()) -> Nat:
+  Map.size(&2, Unit, s)
+
+def Set.to_list(s: Set()) -> List<&2, String>:
+  Map.keys(&2, Unit, s)
+
+def Set.from_list.go(keys: List<&2, String>, s: Set()) -> Set():
+  match keys:
+    case Nil{}:
+      s
+    case h <> t:
+      Set.from_list.go(t, Set.add(s, h))
+
+def Set.from_list(keys: List<&2, String>) -> Set():
+  Set.from_list.go(keys, Set.new())
 
 # Image
 # -----

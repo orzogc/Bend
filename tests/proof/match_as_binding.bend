@@ -10,12 +10,12 @@
 # ported from bend3: the golden is bend's own refusal
 import Base
 
-law Nat.is_eq:
+law nat_eq:
   for a: Nat
   for b: Nat
   Bool
 
-def Nat.is_eq(a, b):
+def nat_eq(a, b):
   Cmp.is_eq(Nat.cmp(a, b))
 
 law award:
@@ -24,7 +24,7 @@ law award:
   Nat
 
 def award(h, i):
-  match Nat.is_eq(h, i) as e:
+  match nat_eq(h, i) as e:
     case True{}:
       h
     case False{}:
@@ -41,7 +41,7 @@ def main():
 #|- observed : '
 #|'
 #|Location:
-#|27 |   match Nat.is_eq(h, i) as e:
+#|27 |   match nat_eq(h, i) as e:
 #|28>|     case True{}:
 #|29 |       h
 #|exit 1

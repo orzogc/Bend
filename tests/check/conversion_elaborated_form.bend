@@ -6,14 +6,6 @@
 # on the right)
 import Base
 
-law Nat.is_eq:
-  for a: Nat
-  for b: Nat
-  Bool
-
-def Nat.is_eq(a, b):
-  Cmp.is_eq(Nat.cmp(a, b))
-
 law hgo.go:
   for z: Bool
   Nat

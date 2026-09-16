@@ -12,17 +12,17 @@
 # ride + binders over Nat and List<&2, Nat>, both Data
 import Base
 
-law List.length:
+law LL.length:
   for -A : Data
   for xs : List<&2, A>
   Nat
 
-def List.length(A, xs):
+def LL.length(A, xs):
   match xs:
     case Nil{}:
       0n
     case h <> t:
-      1n+List.length(A, t)
+      1n+LL.length(A, t)
 
 law LE:
   for a: Nat
@@ -170,22 +170,22 @@ def sorted_isort(xs):
 law len_ins:
   for +x : Nat
   for xs : List<&2, Nat>
-  {1n+List.length(Nat, xs) == List.length(Nat, insert(x, xs)) : Nat}
+  {1n+LL.length(Nat, xs) == LL.length(Nat, insert(x, xs)) : Nat}
 
 law len_ins.fin:
   for -x  : Nat
   for -h  : Nat
   for -t  : List<&2, Nat>
-  for rec : {1n+List.length(Nat, t) == List.length(Nat, insert(x, t)) : Nat}
+  for rec : {1n+LL.length(Nat, t) == LL.length(Nat, insert(x, t)) : Nat}
   for c   : LEOr<x, h>
-  {1n+List.length(Nat, h <> t) == List.length(Nat, dec(x, h, t, insert(x, t), c)) : Nat}
+  {1n+LL.length(Nat, h <> t) == LL.length(Nat, dec(x, h, t, insert(x, t), c)) : Nat}
 
 def len_ins.fin(x, h, t, rec, c):
   match c:
     case OL{e}:
       {==}
     case OG{e}:
-      %rec : {2n+List.length(Nat, t) == 1n+_ : Nat}
+      %rec : {2n+LL.length(Nat, t) == 1n+_ : Nat}
       {==}
 
 def len_ins(x, xs):
@@ -197,15 +197,15 @@ def len_ins(x, xs):
 
 law len_isort:
   for +xs: List<&2, Nat>
-  {List.length(Nat, isort(xs)) == List.length(Nat, xs) : Nat}
+  {LL.length(Nat, isort(xs)) == LL.length(Nat, xs) : Nat}
 
 def len_isort(xs):
   match xs:
     case Nil{}:
       {==}
     case h <> t:
-      %len_ins(h, isort(t)) : {_ == 1n+List.length(Nat, t) : Nat}
-      %len_isort(t) : {1n+List.length(Nat, isort(t)) == 1n+_ : Nat}
+      %len_ins(h, isort(t)) : {_ == 1n+LL.length(Nat, t) : Nat}
+      %len_isort(t) : {1n+LL.length(Nat, isort(t)) == 1n+_ : Nat}
       {==}
 
 law s:

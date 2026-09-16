@@ -5,12 +5,12 @@
 # scrutinee, before any retyping question
 import Base
 
-law Nat.is_eq:
+law nat_eq:
   for a: Nat
   for b: Nat
   Bool
 
-def Nat.is_eq(a, b):
+def nat_eq(a, b):
   Cmp.is_eq(Nat.cmp(a, b))
 
 law use:
@@ -25,11 +25,11 @@ def use(a, b, h):
 law repro:
   for n: Nat
   for m: Nat
-  for h: {Bool.and(Nat.is_eq(n, m), False{}) == False{} : Bool}
+  for h: {Bool.and(nat_eq(n, m), False{}) == False{} : Bool}
   Bool
 
 def repro(n, m, h):
-  match Nat.is_eq(n, m) as e:
+  match nat_eq(n, m) as e:
     case True{}:
       use(True{}, False{}, h)
     case False{}:
@@ -46,7 +46,7 @@ def main():
 #|- observed : '
 #|'
 #|Location:
-#|32 |   match Nat.is_eq(n, m) as e:
+#|32 |   match nat_eq(n, m) as e:
 #|33>|     case True{}:
 #|34 |       use(True{}, False{}, h)
 #|exit 1

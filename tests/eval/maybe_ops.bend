@@ -4,20 +4,6 @@
 # (bend base has none); result 507 (bend3's golden) shown as a Nat
 import Base
 
-law Maybe.default:
-  for -a: Quant
-  for -A: Kind(a)
-  for  m: Maybe<a, A>
-  for  d: A
-  A
-
-def Maybe.default(a, A, m, d):
-  match m:
-    case None{}:
-      d
-    case Some{x}:
-      x
-
 law mmap:
   for f: @x:U32 -> U32
   for m: Maybe<&2, U32>

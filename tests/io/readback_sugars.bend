@@ -7,20 +7,6 @@
 # eval_deep_list_print (the interpreter's show overflows past ~100k)
 import Base
 
-law Nat.min:
-  for a: Nat
-  for b: Nat
-  Nat
-
-def Nat.min(a, b):
-  match a b:
-    case 0n y:
-      0n
-    case 1n+ap 0n:
-      0n
-    case 1n+ap 1n+bp:
-      1n+Nat.min(ap, bp)
-
 law Nat.pow2:
   for n: Nat
   Nat

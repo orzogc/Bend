@@ -22,97 +22,86 @@ def Char.eq.fin(w):
 def Char.eq(a, b):
   Char.eq.fin(Char.cmp(a, b))
 
-law String.split.push:
+law Str.split.push:
   for c  : Char
   for ps : List<&2, String>
   List<&2, String>
 
-def String.split.push(c, ps):
+def Str.split.push(c, ps):
   match ps:
     case Nil{}:
       [SCon{c, SNil{}}]
     case h <> t:
       SCon{c, h} <> t
 
-law String.split.fin:
+law Str.split.fin:
   for rec : (Char -> List<&2, String>)
   for w   : (Char & Char) & Bool
   List<&2, String>
 
-def String.split.fin(rec, w):
+def Str.split.fin(rec, w):
   ((h2, sep2), e) = w
   match e:
     case True{}:
       SNil{} <> rec(sep2)
     case False{}:
-      String.split.push(h2, rec(sep2))
+      Str.split.push(h2, rec(sep2))
 
-law String.split:
+law Str.split:
   for s: String
   Char -> List<&2, String>
 
-def String.split(s):
+def Str.split(s):
   match s:
     case SNil{}:
       sep => [SNil{}]
     case SCon{h, t}:
-      sep => String.split.fin(String.split(t), Char.eq(h, sep))
+      sep => Str.split.fin(Str.split(t), Char.eq(h, sep))
 
-law String.join.fin:
+law Str.join.fin:
   for h    : String
   for rec  : (String -> String)
   for +sep : String
   String
 
-def String.join.fin(h, rec, sep):
+def Str.join.fin(h, rec, sep):
   String.append(h, String.append(sep, rec(sep)))
 
-law String.join.go:
+law Str.join.go:
   for xs : List<&2, String>
   for h  : String
   String -> String
 
-def String.join.go(xs, h):
+def Str.join.go(xs, h):
   match xs:
     case Nil{}:
       sep => h
     case h2 <> t2:
-      sep => String.join.fin(h, String.join.go(t2, h2), sep)
+      sep => Str.join.fin(h, Str.join.go(t2, h2), sep)
 
-law String.join:
+law Str.join:
   for xs  : List<&2, String>
   for sep : String
   String
 
-def String.join(xs, sep):
+def Str.join(xs, sep):
   match xs:
     case Nil{}:
       SNil{}
     case h <> t:
-      String.join.go(t, h, sep)
+      Str.join.go(t, h, sep)
 
-law List.length:
+law LL.length:
   for -A : Data
   for xs : List<&2, A>
   Nat
 
-def List.length(A, xs):
+def LL.length(A, xs):
   match xs:
     case Nil{}:
       0n
     case h <> t:
-      1n+List.length(A, t)
-
-law String.length:
-  for s: String
-  Nat
-
-def String.length(s):
-  match s:
-    case SNil{}:
-      0n
-    case SCon{h, t}:
-      1n+String.length(t)
+      1n+LL.length(A, t)
 
 law main.out:
   String
@@ -146,14 +135,14 @@ law main.go:
 
 def main.go(w):
   (m2, got) = w
-  parts = String.split("a,bb,ccc", ',')
-  +joined = {String.join(parts, "-") : String}
+  parts = Str.split("a,bb,ccc", ',')
+  +joined = {Str.join(parts, "-") : String}
   n = String.length(joined)
   +x = (123 + 877 * 2 : U32)
   f = pickf(U32.is_lt(x, 2000), U32.is_eq(x, 2000))
   lst = {got <> [3, 4] : List<&2, U32>}
-  ln = Nat.show(List.length(U32, lst))
-  String.join([joined, Nat.show(n), U32.show(x), Nat.show(Nat.mul(7n, 6n)), f, "hel" ++ "lo", ln], " ")
+  ln = Nat.show(LL.length(U32, lst))
+  Str.join([joined, Nat.show(n), U32.show(x), Nat.show(Nat.mul(7n, 6n)), f, "hel" ++ "lo", ln], " ")
 
 def main.out():
   main.go(Map.get(U32, 0,

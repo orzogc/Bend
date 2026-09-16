@@ -4,20 +4,6 @@
 # and a List append is spelled List.append(a, A, ..)
 import Base
 
-law List.append:
-  for -a : Quant
-  for -A : Kind(a)
-  for xs : List<a, A>
-  for ys : List<a, A>
-  List<a, A>
-
-def List.append(a, A, xs, ys):
-  match xs:
-    case Nil{}:
-      ys
-    case h <> t:
-      h <> List.append(a, A, t, ys)
-
 law digits:
   for s: String
   U32

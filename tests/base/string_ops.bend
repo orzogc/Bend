@@ -9,33 +9,6 @@
 # needle bind + (U32 and String are Data)
 import Base
 
-law Maybe.is_some:
-  for -a: Quant
-  for -A: Kind(a)
-  for  m: Maybe<a, A>
-  Bool
-
-def Maybe.is_some(a, A, m):
-  match m:
-    case None{}:
-      False{}
-    case Some{x}:
-      True{}
-
-law Maybe.default:
-  for -a: Quant
-  for -A: Kind(a)
-  for  m: Maybe<a, A>
-  for  d: A
-  A
-
-def Maybe.default(a, A, m, d):
-  match m:
-    case None{}:
-      d
-    case Some{x}:
-      x
-
 law bu:
   for b: Bool
   U32

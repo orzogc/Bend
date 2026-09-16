@@ -2562,7 +2562,7 @@ def Sound.after(
   +prev: List<&2, Voice>, +now: Nat, r: Audio & U32
 ) -> Sound & Audio:
   (dev, +q) = r
-  (Sound{old, pcm, bank, R.Bool.pick(List<&2, Voice>, (q > 3584 : U32), prev, voices), prev, Nil{},
+  (Sound{old, pcm, bank, Bool.pick(List<&2, Voice>, (q > 3584 : U32), prev, voices), prev, Nil{},
     q, now}, dev)
 
 def Sound.write(dev: Audio, s: Sound, +now: Nat) -> IO(Sound & Audio):
