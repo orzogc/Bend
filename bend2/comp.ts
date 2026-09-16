@@ -1,3 +1,7 @@
+// NOTE: Bend's runtime was designed by humans, but this file was mostly written
+// by AI's, as it includes a ton of optimizations. It works and tests pass, yet,
+// bugs ARE expected. It will take some time for the compiler to be stable.
+
 import * as fs from "node:fs";
 
 import * as Bend from "./bend.ts";

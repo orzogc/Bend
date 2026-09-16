@@ -1,3 +1,11 @@
+-- NOTE: this file has two parts:
+-- 1. the specification, which is what humans must read and audit
+-- 2. the proofs, which were written by AI, and checked by Lean
+-- Even though we've reviewed the spec carefully, it doesn't fully match the
+-- implementation (bend.ts) yet. Bugs in the implementation COULD result in
+-- inconsistencies. Independent audits are needed to increase our confidence on
+-- bend.ts even further, and will be done over time. 
+-- 
 -- ============================================================================
 -- BEND-CORE — the bend2 calculus, as bend.ts implements it
 -- ============================================================================
