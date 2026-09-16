@@ -40,7 +40,7 @@ usage:
   bend guide                  print the Bend guide
   bend base [--types|<name>]  print Base, its types, or a name and its subnames
 
-Important: read the guide (`bend guide`) before writing Bend code.
+Important: read the guide (\`bend guide\`) before writing Bend code.
 
 exit: 0; 1 on an error; main's IO.die code.
 `;
