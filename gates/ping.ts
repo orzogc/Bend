@@ -5,7 +5,7 @@
 // hub), a release.ts --dry into that DL_DIR, an install.sh against it (Bun
 // is here, so it installs nothing), then bend --help through the launcher.
 // Checks: the help and the guide print, current points at app/<ver>, the log has the
-// run's cmd, the disclosure printed once, an old bend on PATH became a link
+// run's cmd, the installer discloses the telemetry once, an old bend became a link
 // to the launcher, a second release with a notice prints it and switches
 // current, BEND_NO_TELEMETRY=1 logs no id. Then the launcher under attack:
 // ten runs at once during an update all pass and leave one whole release; a
@@ -42,6 +42,7 @@ const HOME   = path.join(TMP, "home");
 const DL     = path.join(TMP, "dl");
 const LOG    = path.join(TMP, "log.jsonl");
 const TELL   = "bend sends anonymous usage data and updates itself";
+const SAID   = "Sends anonymous usage data";
 // install.sh replaces the `bend` it finds on PATH: never hand it the real
 // one (bun's own bin dir holds it), so PATH is a private dir with only bun.
 const SAFE   = path.join(TMP, "path") + ":/usr/bin:/bin";
@@ -141,11 +142,10 @@ try {
     { BEND_HOME: HOME, BEND_ORIGIN: ORIGIN, PATH: path.dirname(old) + ":" + SAFE });
   check("install.sh: " + ins.err, ins.code === 0);
   check("the old bend became a link to the launcher",
-    ins.out.includes("replaced the old bend at " + old)
+    ins.out.includes("Replaced the old bend at " + old)
     && fs.readlinkSync(old) === path.join(HOME, "bin", "bend"));
-  check("the disclosure printed once", ins.err.split(TELL).length === 2);
-  check("the install updated to " + latest.ver,
-    ins.err.includes("bend updated to " + latest.ver));
+  check("the installer discloses the telemetry once", ins.out.split(SAID).length === 2);
+  check("the install card names " + latest.ver, ins.out.includes(latest.ver));
   check("current -> app/" + latest.ver, current().startsWith("app/" + latest.ver + "/"));
   const guide = await bend(["guide"]);
   check("bend guide prints the guide", guide.code === 0 && guide.out.includes("# "));

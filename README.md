@@ -99,7 +99,7 @@ Build this project with Bend-Lang:
 
 ### 3. Enjoy bug-free, fast vibe-coded apps!
 
-Hints: ask it for a law on whatever must never go wrong, and to parallelize
+Hints: ask it for a **law** on whatever must never go wrong, and to **parallelize**
 whatever must be fast. Bend works best on the back-end, on Linux or macOS. On
 Windows, WSL works well too.
 
