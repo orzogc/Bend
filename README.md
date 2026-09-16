@@ -185,6 +185,7 @@ Currently, Bend works best for back-end projects on Linux / OSX.
 
 # Community
 
+- Website: https://bend-lang.com
 - Discord: https://discord.bend-lang.com
 - Twitter/X: https://x.com/bendlang
 - Reddit: https://www.reddit.com/r/bendlang/
