@@ -1,12 +1,16 @@
 # Bend
 
-A **fast** language that **blocks AI** from **making mistakes**. Bend is:
+A **fast** language that **blocks AI mistakes** via **proof**.
 
-- As **fast** as **C**.
+- Bend is as **fast** as **C**.
 
-- As **parallel** as **CUDA**.
+- Bend is as **parallel** as **CUDA**.
 
-- With **proofs**, like **Lean**.
+- Bend features **proofs**, like **Lean**.
+
+In an era where we stop writing and reading code, Bend is designed to be an
+ambiguity-free language that humans can use to communicate their intents to the
+AI's building the world around us, and computers can run at peak capacity.
 
 <p align="center"><img src="media/intro.gif" alt="Bend, in five minutes"></p>
 
