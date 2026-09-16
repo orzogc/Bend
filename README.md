@@ -16,12 +16,9 @@ That's it. Nothing else matters. Bend addresses both. And nothing else.
 
 <p align="center"><img src="media/runtime.gif" width="640" alt="Runtime benchmarks: Bend vs C, TypeScript, Lean, on 1 core, 16 cores and the GPU"></p>
 
-Strong types, linearity and purity let Bend compete with hand-written C on one
-core and scale to thousands of CPU or GPU threads, with near-ideal speedups at
-near-zero effort. It is up to 100x faster than Bend 1, with f32, u32, mutable
-arrays, 8 TB of heap and zero interaction-net overhead. The compiler is new:
-expect bugs and programs that under-perform C or CUDA. If you find one, please
-write an issue.
+Thanks to strong types, linearity and purity, Bend compiles to fast executables
+that compete with hand-written C (single-core) and CUDA (on GPUs). The entire
+language runs on the GPU, with full memory unification.
 
 ## Bend checks FAST
 
@@ -29,12 +26,10 @@ write an issue.
 
 <p align="center"><img src="media/checker.gif" width="640" alt="Checker benchmarks: Bend vs Isabelle, Agda, Lean, Rocq"></p>
 
-As AI models get faster, compile times become the bottleneck of software
-engineering. Other proof assistants take minutes on a mid-sized codebase, making
-proofs unviable. Bend is fully annotated, so checking is one linear
-bidirectional pass that scales to huge codebases, and proofs stay practical. The
-tradeoff is verbosity, but nobody writes code by hand anymore, and AI models
-like the annotations.
+Bend's compiler is so powerful it can verify mathematical proofs. Usually,
+proof checking is slow. Bend is not. It checks, in under a second, proofs
+that similar projects would take minutes, making formal verification way
+more practical.
 
 ## Bend BLOCKS mistakes
 
