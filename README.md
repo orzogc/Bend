@@ -38,6 +38,7 @@ like the annotations.
 
 ## Bend BLOCKS mistakes
 
+Suppose you wrote a game that must be unbeatable: if the player grabs the flag,
 you lose. In other languages, you'd write *tests*. But you can't test infinitely
 many sequences of moves. On Bend, you state the law in `LAWS.bend`:
 
