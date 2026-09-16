@@ -149,11 +149,13 @@ Build this project with Bend-Lang:
 - parallelize to make it fast!
 ```
 
-And that's it.
+And that's it! Hints:
 
 - Ask it to write laws for anything that can't go wrong.
 
 - Ask it to parallelize anything you want to be fast.
+
+- Bend is young. If anything goes wrong, ask it to open an issue. <3
 
 Currently, Bend works best for **back-end** projects.
 
