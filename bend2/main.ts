@@ -131,6 +131,9 @@ async function cli(): Promise<void> {
     cli_fail("--checkup takes no -o: a binary holds one main, so build each"
       + " import alone");
   }
+  if (outs.some((o) => path.resolve(o) === path.resolve(file))) {
+    cli_fail("-o " + file + " would overwrite the input");
+  }
   try {
     if (publish) {
       return await cli_publish(file);
@@ -431,6 +434,10 @@ function book_run(book: Bend.Book): number {
 
 function book_err(e: unknown): string {
   const err = e as Bend.Err;
+  if (e instanceof RangeError) {
+    return "Error: the machine stack overflowed (a deep recursion, or a"
+      + " literal too large to expand)";
+  }
   return err?.$ === "Err" ? Bend.err_show(err) : String(e);
 }
 
