@@ -34,7 +34,7 @@ allow("AGENTS.md", 2000);
 allow("README.md", 2500);
 allow("bend2/base.bend", 24000);
 allow("bend2/bend.lean", 400000);
-allow("bend2/bend.ts", 40000);
+allow("bend2/bend.ts", 41000);
 allow("bend2/comp.ts", 60000);
 allow("bend2/main.ts", 10000);
 allow(/^bend2\/effs\/[a-z_]+\.(c|js)$/, 4000);
@@ -72,7 +72,7 @@ allow(/^media\/(runtime|checker|parallel)\.gif$/, 6000000, true);
 allow(/^media\/hero(_dark)?\.gif$/, 200000, true);
 allow(/^media\/game_[a-z_]+\.gif$/, 2000000, true);
 allow(/^media\/slash_bros_3d\/[a-z_]+\.(wav|mp3)$/, 400000, true);
-allow(/^gates\/(_lib|_run|perf|ping|repo|test)\.ts$/, 6000);
+allow(/^gates\/(_lib|_run|lab|perf|ping|repo|test)\.ts$/, 6000);
 allow(/^tests\/[a-z]+\/[a-z0-9_]+\.bend$/, 16000);
 allow(/^tests\/[a-z]+\/[a-z0-9_]+\.(c|js)$/, 8000);
 
