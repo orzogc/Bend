@@ -72,7 +72,7 @@ def you_cant_win(moves):
 
 > We must stress what this means. This is not a test. This is not an audit.
 > This is a MATHEMATICAL PROOF. That your app has ZERO bugs. With Bend, the same
-> intelligence that disproved the Jacobian Conjecture will now prove that your
+> intelligence that proved the Navier-Stokes conjecture will now prove that your
 > vibe coded SaaS never displays an uncentered div again. And that's beautiful.
 
 `LAWS.bend` is `AGENTS.md` backed by **proof**: "make no mistakes" is now
