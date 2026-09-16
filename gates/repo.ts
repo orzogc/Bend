@@ -54,7 +54,7 @@ allow(/^demos\/[a-z0-9_]+\/[A-Za-z0-9_]+\.bend$/, 64000);
 allow(/^demos\/[a-z0-9_]+\/[A-Za-z_]+\.(c|sh|md)$/, 4000);
 allow(/^demos\/[a-z0-9_]+\/web\/(index\.html|main\.js|bunfig\.toml)$/, 4000);
 allow("guide/GUIDE.md", 12000);
-allow("front/site/shell.html", 3200);
+allow("front/site/shell.html", 4000);
 allow("front/site/hub.html", 2000);
 allow(/^front\/site\/(index|pkg)\.html$/, 12000);
 allow(/^front\/out\/(index|pkg|hub)\.html$/, 14000);

@@ -750,7 +750,7 @@ S.title = (u, dur) => {
     rich(s, px + ws[i]/2, 404, 26, INK, DIM); px += ws[i];
   });
   cx.globalAlpha = ease((u - 4.2)/0.4);
-  T("C speed · CUDA parallelism · Lean proofs", W/2, 440, 19, DIM, "center");
+  rich("*C* speed · *CUDA* parallelism · *Lean* proofs", W/2, 440, 19, INK, DIM);
   cx.globalAlpha = 1;
 };
 

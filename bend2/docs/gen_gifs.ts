@@ -96,7 +96,7 @@ function pages_runtime(): Page[] {
       { name: "TypeScript", secs: r.ts },
       { name: "Lean", secs: r.lean },
       { name: "C", secs: r.c },
-      { name: "Bend\n1 core", secs: r.seq, bend: true },
+      { name: "Bend\n1 core", secs: r.seq, bend: true, mul: "1x" },
       { name: "Bend\n16 cores", secs: r.par, bend: true,
         mul: times(r.seq / r.par) },
       { name: "Bend\nGPU", secs: r.gpu, bend: true,

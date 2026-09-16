@@ -105,7 +105,10 @@ function hero(name: string, ink: string, dim: string): void {
   const PITCH: [string, boolean][] = [["a ", false], ["fast", true],
     [" language that ", false], ["blocks AI mistakes", true],
     [" via ", false], ["proof", true]];
-  const CLAIMS = "C speed \u00b7 CUDA parallelism \u00b7 Lean proofs";
+  const DOT = " \u00b7 ";
+  const CLAIMS: [string, boolean][] = [["C", true], [" speed", false],
+    [DOT, false], ["CUDA", true], [" parallelism", false], [DOT, false],
+    ["Lean", true], [" proofs", false]];
   const cv = createCanvas(W, H);
   const cx = cv.getContext("2d");
   const font = (size: number, bold: boolean): string =>
@@ -141,7 +144,7 @@ function hero(name: string, ink: string, dim: string): void {
       cx.fillRect(tx + tw - bw, ty - TITLE * 0.86, bw, TITLE * 0.92);
     }
     run(PITCH, TITLE * 0.36, ty + TITLE * 0.89);
-    run([[CLAIMS, false]], TITLE * 0.264, ty + TITLE * 1.39);
+    run(CLAIMS, TITLE * 0.264, ty + TITLE * 1.39);
   }
   gif(name, cv, draw, [[0, 0.55], [0.6, 0.55]]);
 }
@@ -159,9 +162,22 @@ function parallel(): void {
   const LEVELS = 12;
   const D0 = 0.9;
   const HOLD1 = 0.5;
-  const ELEN = 0.9;
-  const ESPREAD = 1.1;
+  const EPRE = 0.4;
+  const DIVE = 1.8;
+  const EHOLD = 2.2;
+  const BACK = 0.8;
+  const ESTEP = 0.3;
+  const ZMAX = 64;
+  const MID = 32;
   const ZLEN = 1.2;
+  // what one core runs: pow2(8), call by call, the way a core runs it
+  const STEPS = 10;
+  const TRACE = ["pow2(8)"];
+  for (let d = 7; d >= 0; d--) {
+    TRACE.push(String(256 - (1 << (d + 1)) + (1 << d)) + "+pow2("
+      + String(d) + ")");
+  }
+  TRACE.push("256");
   const TILES = ["#b0aac4", "#a49dbe", "#988fb8", "#8b83b5", "#7d75a4",
     "#6e6694", "#5e5787"];
   const split_dur = (k: number): number => 0.75 * Math.pow(0.82, k);
@@ -180,14 +196,15 @@ function parallel(): void {
     const s = Math.sin(i * 12.9898) * 43758.5453;
     return s - Math.floor(s);
   };
+  // the core the camera dives on starts at once; the others scatter
   const phase = (c: number, r: number): number =>
-    rnd(c * 7919 + r * 104729) * ESPREAD;
+    c === MID && r === MID ? 1.4 : 0.9 + rnd(c * 7919 + r * 104729) * 1.0;
   let split_end = D0;
   for (let k = 0; k < LEVELS; k++) {
     split_end += split_dur(k);
   }
   const E0 = split_end + HOLD1;
-  const R0 = E0 + ELEN + ESPREAD + 0.5;
+  const R0 = E0 + EPRE + DIVE + EHOLD + BACK;
   let fold_end = R0;
   for (let j = 0; j < LEVELS; j++) {
     fold_end += fold_dur(j);
@@ -213,7 +230,7 @@ function parallel(): void {
   }
   function label(s: string, x: number, y: number, w: number, h: number,
     ink: string): void {
-    const fs = Math.min(Math.min(w, h) * 0.17, 44);
+    const fs = Math.min(Math.min(w, h) * 0.17, 64);
     if (fs < 7) {
       return;
     }
@@ -273,10 +290,25 @@ function parallel(): void {
         slots(k, 1);
       }
     } else if (u < R0) {
+      const v = u - E0;
+      const p = v < EPRE ? 0 : v < EPRE + DIVE ? ease((v - EPRE) / DIVE)
+        : v < EPRE + DIVE + EHOLD ? 1
+        : 1 - ease((v - EPRE - DIVE - EHOLD) / BACK);
+      const z = Math.exp(p * Math.log(ZMAX));
+      const zs = cs * z;
+      const ox = W / 2 - (MID + 0.5) * zs;
+      const oy = W / 2 - (MID + 0.5) * zs;
       for (let r = 0; r < N; r++) {
         for (let c = 0; c < N; c++) {
-          const j = clamp((u - E0 - phase(c, r)) / ELEN);
-          cell(c * cs, r * cs, cs, cs, HEAT[Math.round(j * 16)]);
+          const x = ox + c * zs;
+          const y = oy + r * zs;
+          if (x > W || y > W || x + zs < 0 || y + zs < 0) {
+            continue;
+          }
+          const j = Math.min(STEPS - 1,
+            Math.max(0, Math.floor((v - phase(c, r)) / ESTEP)));
+          cell(x, y, zs, zs, HEAT[Math.round(j * 16 / (STEPS - 1))]);
+          label(TRACE[j], x, y, zs, zs, j > 4 ? "#f2eee7" : "#4a4463");
         }
       }
     } else if (u < Z0) {
