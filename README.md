@@ -173,8 +173,9 @@ Tell your agent:
 # References
 
 - Guide: [GUIDE.md](guide/GUIDE.md), also printed by `bend guide`.
-- Paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf). Bend's core is [formalized in Lean](bend2/bend.lean).
+- Paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf).
 - Paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
+- Formalization: [bend.lean](bend2/bend.lean), Bend's core in Lean.
 
 # Community
 
