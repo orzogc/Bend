@@ -42,6 +42,7 @@ allow(/^bend2\/pack\/(\.gitignore|package\.json|tsconfig\.json|bun\.lock)$/, 100
 allow(/^bend2\/docs\/(BendRT|BendTT)\/(main\.typ|refs\.bib)$/, 60000);
 allow("bend2/docs/bend.sublime-syntax", 1000);
 allow("bend2/docs/gen_charts.ts", 4000);
+allow("bend2/docs/gen_gifs.ts", 4000);
 allow("bend2/docs/gen_pins.ts", 4000);
 allow(/^bend2\/docs\/intro\/[a-z.]+$/, 20000);
 allow(/^bench\/checker\/[a-z]+_[0-9]+\/main\.(bend|agda|lean|thy|v)$/, 3000000);
@@ -66,7 +67,7 @@ allow(/^front\/(build|shim)\.ts$/, 1500);
 allow("front/out/lab.js", 400000, true);
 allow(/^paper\/(BendRT|BendTT)\.pdf$/, 400000, true);
 allow(/^media\/intro\.(gif|mp4)$/, 25000000, true);
-allow(/^media\/[a-z_]+\.svg$/, 40000, true);
+allow(/^media\/(runtime|checker)\.gif$/, 6000000, true);
 allow(/^media\/slash_bros_3d\/[a-z_]+\.(wav|mp3)$/, 400000, true);
 allow(/^gates\/(_lib|_run|perf|ping|repo|test)\.ts$/, 6000);
 allow(/^tests\/[a-z]+\/[a-z0-9_]+\.bend$/, 16000);

@@ -14,7 +14,7 @@ That's it. Nothing else matters. Bend addresses both. And nothing else.
 
 **Target:** be as fast as C on the CPU, as fast as CUDA on the GPU. **Status:**
 
-![Single-core benchmarks](media/single_core.svg)
+<p align="center"><img src="media/runtime.gif" width="640" alt="Runtime benchmarks: Bend vs C, TypeScript, Lean, on 1 core, 16 cores and the GPU"></p>
 
 Strong types, linearity and purity let Bend compete with hand-written C on one
 core and scale to thousands of CPU or GPU threads, with near-ideal speedups at
@@ -27,7 +27,7 @@ write an issue.
 
 **Target:** outperform every proof assistant by several OOMs. **Status:**
 
-![Checker benchmarks](media/checker.svg)
+<p align="center"><img src="media/checker.gif" width="640" alt="Checker benchmarks: Bend vs Isabelle, Agda, Lean, Rocq"></p>
 
 As AI models get faster, compile times become the bottleneck of software
 engineering. Other proof assistants take minutes on a mid-sized codebase, making
