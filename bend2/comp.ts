@@ -2456,14 +2456,15 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
         bind_dead(fl, []);
         return emit_put(fl, dst, v);
       }
+      const ret = sig_def(fl, ck.k).ret;
       const once = fl.sites.get(ck.k) === 1 && !ck.bang
-        && !def_foreign(fl.book.tlds[ck.k]);
+        && !def_foreign(fl.book.tlds[ck.k])
+        && (!lay_box(ret) || lay_box(fl.seg.ret));
       if (fl.seg.def !== ck.k && (flat_call(fl, x) || (dst === null && once))) {
         return emit_fuse(fl, ck, dst, true);
       }
       // A jump's returns must agree, or both be one word (a box holds a
       // word as is): a call whose return disagrees is a cut converted here.
-      const ret = sig_def(fl, ck.k).ret;
       if (!lay_eq(fl.seg.ret, ret)
         && (fl.seg.ret.arms !== null || ret.arms !== null)) {
         const v = ty === null ? x : Bend.Ann(x, ty);
