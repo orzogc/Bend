@@ -183,24 +183,36 @@ Tell your agent: "run `bend`, read its guide, and build my next project in Bend"
 
 # Limitations
 
-- Bend is fully explicit: every type and quantity is annotated, so code is verbose, and nothing is inferred.
-- Proofs are written by hand (or by your AI): there are no tactics and no proof search, so proving takes longer than in Lean.
-- Values are affine: a closure can be called once and cannot be cloned (data and arrays can).
-- A `match` inspects a parameter or a pattern variable, never a computed value: bind it first.
-- Numbers are `Nat`, `U32` and `F32` only: no `U64`, `I64` or `F64` (Metal has no `f64`), and `F32` is axiomatic, with no proofs about it.
-- Base is small: expect to write helpers that other languages ship in their prelude.
+- Bend 2 is a new language: Bend 1 programs and HVM do not carry over, and there is no migration path.
+- Everything is annotated and nothing is inferred: types, quantities and motives are written by hand.
+- Proofs are written by hand or by your AI: there are no tactics, no proof search and no automation.
+- Proving a theorem in Bend takes more lines and more time than the same theorem in Lean or Rocq.
+- Values are affine: a closure is called at most once and cannot be cloned; only data and arrays can.
+- Recursion must be structural, mutual recursion is rejected, and every live function must terminate.
+- A `match` inspects a parameter or a pattern variable, never a computed value, and there is no `if`.
+- Numbers are `Nat`, `U32` and `F32`: no `U64`, `I64` or `F64`, since Metal has no double precision.
+- `F32` is axiomatic: its operations have no proofs, so nothing about floating point can be proven.
+- `U32` cannot be matched on, so loop counters are `Nat`s, and array indexes wrap around silently.
+- Strings are linked lists of characters, not packed bytes, so text processing is slow and heavy.
+- There is one universe and `Type : Type`, kept consistent by the live/dead wall, not by a hierarchy.
+- There are no type classes or traits, and no macros beyond compile-time templates.
+- Base is small: expect to write list, string and map helpers that other languages ship built in.
 - Effects are few: print, env, time, sleep, spawn, channels, files, TCP, UDP, a window and audio.
+- There is no TLS, HTTP library, JSON or regex; a new effect is C or JS that you write yourself.
 - Targets are C, Metal, CUDA and JavaScript; Lua, Luau and Python are planned, not present.
-- The JavaScript target runs on one core and has no graphics: `!` and Window are native only.
-- One GPU per program: multi-GPU setups are not supported.
-- The heap is at most 8 TB.
-- The compiler is far less mature than GCC or Clang: unusual code can under-perform, and benchmarks are few, especially for the checker.
-- The compiler is significantly AI-written, and the Lean formalization covers the core and may diverge from the TypeScript implementation.
-- Building a binary needs clang 19 or newer (the Apple clang of the current Xcode is fine); `!` needs Metal, or CUDA 12 on Linux.
-- No Windows: WSL works. On Linux, Window needs `libx11-dev` and Audio needs `libasound2-dev`.
-- The hub has no names, versions, accounts or search: a package is its content hash.
-- Error messages are terse, and there is no debugger, profiler, formatter or language server.
+- The JavaScript target runs on one core and has no graphics: `!`, Window and Audio are native only.
+- One GPU per program, one event loop per program, and no distributed or multi-machine execution.
+- The compiler emits one C file for the whole program: no separate compilation, no incremental builds.
+- The heap is one 8 TB reservation with no garbage collector; only `+` values are reference counted.
+- The compiler is far less mature than GCC or Clang, and unusual code can run well below C speed.
+- Benchmarks are few, especially for the checker; the numbers above are honest but narrow.
+- The compiler is significantly AI-written, and the Lean formalization covers the core only.
+- Building a binary needs clang 19 or newer; `!` needs Metal on macOS or CUDA 12 on Linux.
+- No Windows (WSL works); on Linux, Window needs `libx11-dev` and Audio needs `libasound2-dev`.
+- The hub has no names, versions, accounts or search: a package is its hash, capped at 16 MiB.
+- Error messages are terse; there is no debugger, profiler, formatter, REPL or language server.
+- There is no editor support, no test framework and no documentation beyond the guide.
 
-Most of these are being addressed: expect frequent releases, which `bend` installs by itself.
+Most of these limitations are being addressed and will improve over time.
 
 **BEND IS YOUNG. EXPECT BUGS AND [REPORT THEM](https://github.com/bendlang/bend/issues).**
