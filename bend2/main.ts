@@ -131,9 +131,6 @@ async function cli(): Promise<void> {
     cli_fail("--checkup takes no -o: a binary holds one main, so build each"
       + " import alone");
   }
-  if (outs.some((o) => path.resolve(o) === path.resolve(file))) {
-    cli_fail("-o " + file + " would overwrite the input");
-  }
   try {
     if (publish) {
       return await cli_publish(file);
@@ -141,11 +138,18 @@ async function cli(): Promise<void> {
     if (checkup) {
       return await cli_checkup(file);
     }
-    const book = await book_read(file);
+    const seen = new Map<string, string | null>();
+    const book = await book_read(file, undefined, seen);
     if (outs.length === 0) {
       process.exit(book_run(book));
     }
+    const ins = new Set([...seen.keys(), ...Object.values(book.tlds).flatMap((t) =>
+      t.$ === "Def" && t.i !== undefined ? t.i.map(path_real) : [])]);
     for (const out of outs) {
+      const at = path_real(out);
+      if (ins.has(at) || (fs.existsSync(at) && fs.statSync(at).isDirectory())) {
+        cli_fail("-o " + out + " is a file the program reads, or a directory");
+      }
       cli_emit(book, out);
     }
   } catch (e) {
@@ -155,9 +159,10 @@ async function cli(): Promise<void> {
 }
 
 // cli_checkup checks and runs each import of the file alone (Base read
-// once, seeded into every module that imports it).
+// once, seeded into every module that imports it); one that fails fails it.
 async function cli_checkup(file: string): Promise<void> {
   const base = await book_read(BASE);
+  let bad = false;
   for (const raw of fs.readFileSync(file, "utf8").split("\n")) {
     const m = /^import\s+(\S+)\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*$/
       .exec(raw.trim());
@@ -175,8 +180,16 @@ async function cli_checkup(file: string): Promise<void> {
     }
     if (code !== 0) {
       cli_say(1, "exit " + String(code) + "\n");
+      bad = true;
     }
   }
+  if (bad) {
+    process.exit(1);
+  }
+}
+
+function path_real(p: string): string {
+  return fs.existsSync(p) ? fs.realpathSync(p) : path.resolve(p);
 }
 
 function cli_emit(book: Bend.Book, out: string): void {
@@ -185,9 +198,14 @@ function cli_emit(book: Bend.Book, out: string): void {
   } else if (out.endsWith(".c")) {
     fs.writeFileSync(out, Comp.compile_book(book));
   } else {
-    const c = Comp.compile_book(book);
-    fs.writeFileSync(out + ".c", c);
-    cli_build(out, c);
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bend-"));
+    const c   = path.join(dir, path.basename(out) + ".c");
+    fs.writeFileSync(c, Comp.compile_book(book));
+    try {
+      cli_build(out, c);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
   }
 }
 
@@ -221,10 +239,12 @@ function cc_find(): string {
     + " --install";
 }
 
-// A `!` program builds with the GPU lane and writes its GPU program too.
-// On macOS a program with a framework (#import: a window, audio) builds
-// as Objective-C; on Linux it links the X11 and ALSA libraries it includes.
-function cli_build(bin: string, c: string): void {
+// cli_build builds the C file at `file` into the binary `bin`. A `!`
+// program builds with the GPU lane and writes its GPU program too. On macOS
+// a program with a framework (#import: a window, audio) builds as
+// Objective-C; on Linux it links the X11 and ALSA libraries it includes.
+function cli_build(bin: string, file: string): void {
+  const c     = fs.readFileSync(file, "utf8");
   const cc    = cc_find();
   const mac   = process.platform === "darwin";
   const bangs = !/^#define BANGS\s+0$/m.test(c);
@@ -232,8 +252,8 @@ function cli_build(bin: string, c: string): void {
     ? ["-x", "objective-c", "-fobjc-arc", "-fmodules"] : [];
   const libs  = [["X11", "X11"], ["alsa", "asound"]].flatMap(([h, l]) =>
     !mac && c.includes("#include <" + h + "/") ? ["-l" + l] : []);
-  const cpu = [...objc, "-std=c11", "-O3", bin + ".c", "-lpthread", "-lm",
-    ...libs, "-o", bin];
+  const cpu = [...objc, "-std=c11", "-O3", file, "-lpthread", "-lm",
+    ...libs, "-o", path.resolve(bin)];
   const gpu = mac ? ["-DBEND_METAL=1", ...cpu]
     : ["-DBEND_CUDA=1", "-I/usr/local/cuda/include",
       "-L/usr/local/cuda/lib64", ...cpu, "-lcuda", "-lnvrtc"];

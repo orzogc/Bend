@@ -42,9 +42,9 @@ let held = "";
 // ====
 
 export function exec(bin: string, args: string[], input?: Buffer | string,
-  timeout = 600_000, env?: Record<string, string>): Promise<Exec> {
+  timeout = 600_000, env?: Record<string, string>, cwd = ROOT): Promise<Exec> {
   return new Promise((resolve) => {
-    const kid = child.spawn(bin, args, { cwd: ROOT, env: { ...process.env,
+    const kid = child.spawn(bin, args, { cwd, env: { ...process.env,
       ...env }, stdio: ["pipe", "pipe", "pipe"] });
     const outs: Buffer[] = [];
     const errs: Buffer[] = [];

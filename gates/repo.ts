@@ -60,7 +60,7 @@ allow(/^front\/out\/(index|pkg|hub)\.html$/, 14000);
 allow("front/lab.ts", 12000);
 allow("front/lab.md", 4000);
 allow("front/hub.ts", 3000);
-allow("front/install.sh", 1400);
+allow("front/install.sh", 1600);
 allow(/^front\/(release|metrics)\.ts$/, 1200);
 allow(/^front\/(Caddyfile|bendhub\.service)$/, 700);
 allow(/^front\/(build|shim)\.ts$/, 1500);

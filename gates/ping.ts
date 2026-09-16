@@ -14,7 +14,14 @@
 // notice with newlines and escapes leave the installed release running; a
 // BEND_HOME with a space and a quote installs; a read-only BEND_HOME runs; a
 // current left dangling is installed again; a first run with nothing
-// installed and no origin says so in one line.
+// installed and no origin says so in one line; a reply whose sha256 is not
+// 64 hex digits installs nothing; a BEND_HOME with a backslash activates
+// the release (Bun itself cannot run from such a path); a
+// bunfig.toml preload in the cwd cannot hang the update; a real directory
+// at current is moved aside; a staging directory that cannot be made (app/<ver>
+// is a file) touches nothing (a .tgz in the cwd survives); a hub that is down still updates through /dl/latest.json;
+// a 2 KiB ping is refused and an unwritable log still answers; a reinstall
+// over a symlinked bin/bend leaves its target alone.
 
 import * as child from "node:child_process";
 import * as crypto from "node:crypto";
@@ -43,13 +50,15 @@ let total = 0;
 // ===
 
 // the runs are async: the gate's own server answers them meanwhile
-function run(bin: string, args: string[], env: Record<string, string>): Promise<lib.Exec> {
-  return lib.exec(bin, args, undefined, 25_000, env);
+function run(bin: string, args: string[], env: Record<string, string>,
+  cwd?: string): Promise<lib.Exec> {
+  return lib.exec(bin, args, undefined, 25_000, env, cwd);
 }
 
-function bend(args: string[], env: Record<string, string> = {}): Promise<lib.Exec> {
+function bend(args: string[], env: Record<string, string> = {},
+  cwd?: string): Promise<lib.Exec> {
   return run(path.join(HOME, "bin", "bend"), args,
-    { BEND_HOME: HOME, BEND_ORIGIN: ORIGIN, ...env });
+    { BEND_HOME: HOME, BEND_ORIGIN: ORIGIN, ...env }, cwd);
 }
 
 function check(what: string, ok: boolean): void {
@@ -86,6 +95,7 @@ async function hub_wait(): Promise<void> {
 }
 
 let html = false;
+let down = false;
 
 const caddy = Bun.serve({
   port: PORT,
@@ -94,12 +104,15 @@ const caddy = Bun.serve({
     if (html && at === "/ping") {
       return new Response("<html><body>maintenance</body></html>");
     }
+    if (down && at === "/ping") {
+      return new Response("bad gateway", { status: 502 });
+    }
     if (at.startsWith("/dl/")) {
       const file = path.join(DL, path.basename(at));
       return fs.existsSync(file) ? new Response(Bun.file(file))
         : new Response(null, { status: 404 });
     }
-    return fetch(HUB + at, { method: req.method, body: req.body });
+    return fetch(HUB + at, { method: req.method, headers: req.headers, body: req.body });
   },
 });
 
@@ -201,6 +214,65 @@ try {
   check("a current left dangling is installed again", back.code === 0
     && back.out.includes("usage:") && back.err.includes("bend updated to v3")
     && fs.existsSync(path.join(HOME, "current", "bend2", "main.ts")));
+  release("v4", ORIGIN + "/dl/v2.tar.gz", latest.sha256.slice(1));
+  const short = await bend(["--help"]);
+  release("v4", ORIGIN + "/dl/v2.tar.gz", "");
+  const nosha = await bend(["--help"]);
+  check("a sha256 that is not 64 hex digits installs nothing", short.code === 0
+    && nosha.code === 0 && current().startsWith("app/v3/"));
+  release("v3", ORIGIN + "/dl/v2.tar.gz", latest.sha256);
+  const bs = path.join(TMP, "back\\slash");
+  const ins3 = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
+    { BEND_HOME: bs, BEND_ORIGIN: ORIGIN });
+  check("a BEND_HOME with a backslash verifies and activates the release (Bun then"
+    + " cannot run from such a path): " + ins3.err,
+  fs.readlinkSync(path.join(bs, "current")).startsWith("app/v3/"));
+  const proj = path.join(TMP, "proj");
+  fs.mkdirSync(proj);
+  fs.writeFileSync(path.join(proj, "bunfig.toml"), "preload = [\"./pre.ts\"]\n");
+  fs.writeFileSync(path.join(proj, "pre.ts"),
+    "if (process.env.N) { await new Promise(() => {}); }\n");
+  release("v6", ORIGIN + "/dl/v2.tar.gz", latest.sha256);
+  const pre = await bend(["--help"], {}, proj);
+  check("a bunfig.toml preload in the cwd cannot hang the update", pre.code === 0
+    && pre.err.includes("bend updated to v6") && current().startsWith("app/v6/"));
+  fs.unlinkSync(path.join(HOME, "current"));
+  fs.mkdirSync(path.join(HOME, "current"));
+  release("v7", ORIGIN + "/dl/v2.tar.gz", latest.sha256);
+  const real = await bend(["--help"]);
+  check("a real directory at current is moved aside", real.code === 0
+    && current().startsWith("app/v7/") && fs.existsSync(path.join(HOME, "current.old"))
+    === false && fs.readdirSync(HOME).some((f) => f.startsWith("current.")));
+  fs.writeFileSync(path.join(HOME, "app", "v8"), "");
+  fs.writeFileSync(path.join(lib.ROOT, ".tgz"), "keep");
+  release("v8", ORIGIN + "/dl/v2.tar.gz", latest.sha256);
+  const full = await bend(["--help"]);
+  const kept = fs.readFileSync(path.join(lib.ROOT, ".tgz"), "utf8");
+  fs.unlinkSync(path.join(lib.ROOT, ".tgz"));
+  check("a staging directory that cannot be made touches nothing", full.code === 0 && kept === "keep"
+    && current().startsWith("app/v7/"));
+  down = true;
+  release("v9", ORIGIN + "/dl/v2.tar.gz", latest.sha256);
+  const fall = await bend(["--help"]);
+  down = false;
+  check("a hub that is down still updates through /dl/latest.json", fall.code === 0
+    && fall.err.includes("bend updated to v9") && current().startsWith("app/v9/"));
+  const big = await fetch(ORIGIN + "/ping", { method: "POST", body: "x".repeat(2048) });
+  fs.chmodSync(LOG, 0o444);
+  const nolog = await fetch(ORIGIN + "/ping", { method: "POST", body: "{}" });
+  const got = await nolog.json() as { ver?: string };
+  fs.chmodSync(LOG, 0o644);
+  check("a 2 KiB ping is refused and an unwritable log still answers",
+    big.status === 413 && nolog.status === 200 && got.ver === "v9");
+  const alt = path.join(TMP, "alt");
+  fs.mkdirSync(path.join(alt, "bin"), { recursive: true });
+  fs.writeFileSync(path.join(TMP, "target"), "#!/bin/sh\necho target\n");
+  fs.symlinkSync(path.join(TMP, "target"), path.join(alt, "bin", "bend"));
+  const ins4 = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
+    { BEND_HOME: alt, BEND_ORIGIN: ORIGIN });
+  check("a reinstall over a symlinked bin/bend leaves its target alone", ins4.code === 0
+    && fs.readFileSync(path.join(TMP, "target"), "utf8").includes("echo target")
+    && !fs.lstatSync(path.join(alt, "bin", "bend")).isSymbolicLink());
   const none = path.join(TMP, "none");
   fs.mkdirSync(path.join(none, "bin"), { recursive: true });
   fs.copyFileSync(path.join(HOME, "bin", "bend"), path.join(none, "bin", "bend"));
