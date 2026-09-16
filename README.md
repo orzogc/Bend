@@ -138,7 +138,7 @@ def add_zero(x):
 curl -fsSL https://bend-lang.com/install.sh | sh
 ```
 
-### 2. Save a Hello World:
+### 2. Write a file:
 
 ```python
 import Base
