@@ -166,14 +166,15 @@ bend hello.bend -o hello    # compile to a native binary (a ! needs Metal or CUD
 
 ### 4. Tell your agent to use Bend:
 
-```
-Build this project with Bend-Lang:
-- run `bend guide` to learn it
-- use **laws** to avoid mistakes
-- use **parallel** to make it fast
-```
+Tell your agent to use Bend:
 
-Currently, Bend works best for back-end projects on Linux / OSX.
+> Build this project with Bend-Lang:
+> - run `bend guide` to learn it
+> - write laws to avoid mistakes
+> - parallelize to make it fast!
+
+Currently, Bend works best for **back-end** projects.
+
 
 # References
 
@@ -193,6 +194,7 @@ Currently, Bend works best for back-end projects on Linux / OSX.
 
 # Limitations
 
+```
 - Bend 2 is a new language: Bend 1 programs and HVM do not carry over, and there is no migration path.
 - Everything is annotated and nothing is inferred: types, quantities and motives are written by hand.
 - Proofs are written by hand or by your AI: there are no tactics, no proof search and no automation.
@@ -223,6 +225,7 @@ Currently, Bend works best for back-end projects on Linux / OSX.
 - The hub has no names, versions, accounts or search: a package is its hash, capped at 16 MiB.
 - Error messages are terse; there is no debugger, profiler, formatter, REPL or language server.
 - There is no editor support, no test framework and no documentation beyond the guide.
+```
 
 Most of these limitations are being addressed and will improve over time.
 
