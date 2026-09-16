@@ -42,10 +42,10 @@ let held = "";
 // ====
 
 export function exec(bin: string, args: string[], input?: Buffer | string,
-  timeout = 600_000): Promise<Exec> {
+  timeout = 600_000, env?: Record<string, string>): Promise<Exec> {
   return new Promise((resolve) => {
-    const kid = child.spawn(bin, args, { cwd: ROOT,
-      stdio: ["pipe", "pipe", "pipe"] });
+    const kid = child.spawn(bin, args, { cwd: ROOT, env: { ...process.env,
+      ...env }, stdio: ["pipe", "pipe", "pipe"] });
     const outs: Buffer[] = [];
     const errs: Buffer[] = [];
     const bomb = setTimeout(() => kid.kill("SIGKILL"), timeout);

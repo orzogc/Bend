@@ -55,7 +55,8 @@ allow("front/lab.ts", 12000);
 allow("front/lab.md", 4000);
 allow("front/pkg.html", 4000);
 allow("front/hub.ts", 2500);
-allow("front/install.sh", 600);
+allow("front/install.sh", 1200);
+allow(/^front\/(release|metrics)\.ts$/, 1200);
 allow(/^front\/(Caddyfile|bendhub\.service)$/, 400);
 allow(/^front\/(build|shim)\.ts$/, 1500);
 allow("front/lab.js", 400000, true);
@@ -63,7 +64,7 @@ allow(/^paper\/(BendRT|BendTT)\.pdf$/, 400000, true);
 allow(/^media\/intro\.(gif|mp4)$/, 25000000, true);
 allow(/^media\/[a-z_]+\.svg$/, 40000, true);
 allow(/^media\/slash_bros_3d\/[a-z_]+\.(wav|mp3)$/, 400000, true);
-allow(/^gates\/(_lib|_run|perf|repo|test)\.ts$/, 6000);
+allow(/^gates\/(_lib|_run|perf|ping|repo|test)\.ts$/, 6000);
 allow(/^tests\/[a-z]+\/[a-z0-9_]+\.bend$/, 16000);
 allow(/^tests\/[a-z]+\/[a-z0-9_]+\.(c|js)$/, 8000);
 

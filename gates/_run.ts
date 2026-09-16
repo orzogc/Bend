@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Runs the three gates with --gate, side by side, and prints their verdicts.
+// Runs the four gates with --gate, side by side, and prints their verdicts.
 //
 // LAW: THE RUN HAS 30 SECONDS. When the gates are not all done at CAP, they
 // are killed and the run FAILS with "the gates ran past the 30 s cap". The
@@ -15,7 +15,7 @@ import * as path from "node:path";
 
 const CAP = 30_000;
 
-const kids = ["repo", "test", "perf"].map((gate) => [gate, child.spawn(
+const kids = ["repo", "test", "perf", "ping"].map((gate) => [gate, child.spawn(
   process.execPath, [path.join(import.meta.dirname, gate + ".ts"), "--gate"],
   { stdio: ["ignore", "pipe", "pipe"] })] as const);
 
