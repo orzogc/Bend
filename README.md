@@ -47,30 +47,23 @@ you lose. In other languages, you'd write *tests*. But you can't test infinitely
 many sequences of moves. On Bend, you state the law in `LAWS.bend`:
 
 ```python
-# LAW: no move sequence leads to victory.
-law you_cant_win:
+# LAW: (you write this)
+law you_cant_win:                 # "winning is impossible"
   for moves: List<Move>           # any sequence of moves
   board = replay(start(), moves)  # replayed from the start
   is_won(board) == False          # never leads to victory
-```
 
-Then ask your agent: "before stopping, **prove the code is correct**". It writes
-the proof into `PROOF.bend`, a certificate you neither write nor have to read:
-
-```python
-# PROOF: you_cant_win holds.
+# PROOF: (your AI writes this)
 def you_cant_win(moves):
-  # ... written by the AI
+  # ...
 ```
 
 Once the proof lands, your code is correct. Mathematically.
 
 > We must stress what this means. This is not a test. This is not an audit.
-> This is a MATHEMATICAL PROOF. This is hard to grasp because it is uncommon.
-> But that's what it is. Theorem proving is not new, just new to a super fast
-> language. With Bend, the same intelligence that disproved the Jacobian
-> Conjecture will now prove that your vibe coded SaaS never displays an
-> uncentered div again. And that's beautiful.
+> This is a MATHEMATICAL PROOF. That your app has ZERO bugs. With Bend, the same
+> intelligence that disproved the Jacobian Conjecture will now prove that your
+> vibe coded SaaS never displays an uncentered div again. And that's beautiful.
 
 **tl;dr with proofs, "make no mistakes" becomes enforceable**
 
