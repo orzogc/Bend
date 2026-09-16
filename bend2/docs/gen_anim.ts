@@ -8,10 +8,9 @@
 // results fold back pairwise; the view zooms on the one cell that holds
 // the answer.
 //
-// Both are drawn on a TRANSPARENT canvas, in the palette of the chart
-// gifs, so they read on the light and on the dark GitHub. A gif has
-// 1-bit alpha, so ffmpeg disposes every frame to the background and
-// nothing of the frame before shows through.
+// The hero is drawn on a transparent canvas, one file per GitHub theme.
+// The rest are drawn on the paper of the landing page, in the palette of
+// the landing page, so a reader who sees both sees one design.
 //
 // It needs node >= 22.18, the canvas package, ffmpeg and Menlo, which
 // this Mac lacks: render on cluster-9d, where ~/film has all four.
@@ -33,7 +32,10 @@ import { createCanvas } from "canvas";
 const ROOT = path.join(import.meta.dirname, "..", "..");
 const MONO = "Menlo, monospace";
 const PURPLE = "#8b83b5";
-const FPS = 12.5;
+const BG = "#f2eee7";
+const MIST = "#e6e1d8";
+const INK = "#5e5787";
+const FPS = 25;
 
 // Lib
 // ===
@@ -153,23 +155,24 @@ function hero(name: string, ink: string, dim: string): void {
 // ========
 
 // pow2(20) splits in two, in four, ..., one task per core; each core
-// works; the results fold back pairwise into the top-left cell, which
-// the view then zooms on. The purple ramp is cold to hot: both ends
-// read on white and on near-black.
+// works its own call; the results fold back pairwise into the top-left
+// cell, which the view then zooms on. It is the landing page's canvas,
+// beat for beat, on the page's own paper and palette, so the page and
+// the README read as one animation.
 function parallel(): void {
-  const W = 960;
+  const W = 620;
   const N = 64;
+  const MID = 32;
   const LEVELS = 12;
-  const D0 = 0.9;
+  const D0 = 0.5;
   const HOLD1 = 0.5;
   const EPRE = 0.4;
   const DIVE = 1.8;
-  const EHOLD = 2.2;
+  const EHOLD = 2.5;
   const BACK = 0.8;
-  const ESTEP = 0.3;
+  const ESTEP = 0.24;
   const ZMAX = 64;
-  const MID = 32;
-  const ZLEN = 1.2;
+  const ZLEN = 1.4;
   // what one core runs: pow2(8), call by call, the way a core runs it
   const STEPS = 10;
   const TRACE = ["pow2(8)"];
@@ -178,9 +181,10 @@ function parallel(): void {
       + String(d) + ")");
   }
   TRACE.push("256");
-  const TILES = ["#b0aac4", "#a49dbe", "#988fb8", "#8b83b5", "#7d75a4",
-    "#6e6694", "#5e5787"];
-  const split_dur = (k: number): number => 0.75 * Math.pow(0.82, k);
+  const TILES = ["#e4e1ec", "#d2cee1", "#bfb9d5", "#aca5c9", "#9a92be",
+    "#8b83b5", "#6e6694"];
+  const SKY = TILES[0];
+  const split_dur = (k: number): number => 0.8 * Math.pow(0.8, k);
   const fold_dur = (j: number): number => 0.4 * Math.pow(0.85, j);
   const rung = (t: number): string => {
     const i = Math.min(Math.floor(t), TILES.length - 2);
@@ -188,7 +192,7 @@ function parallel(): void {
   };
   const HEAT: string[] = [];
   for (let i = 0; i <= 16; i++) {
-    HEAT.push(rung(4 * i / 16));
+    HEAT.push(rung(2 * i / 16));
   }
   const dims = (k: number): [number, number] =>
     [1 << Math.ceil(k / 2), 1 << Math.floor(k / 2)];
@@ -196,9 +200,10 @@ function parallel(): void {
     const s = Math.sin(i * 12.9898) * 43758.5453;
     return s - Math.floor(s);
   };
-  // the core the camera dives on starts at once; the others scatter
-  const phase = (c: number, r: number): number =>
-    c === MID && r === MID ? 1.4 : 0.9 + rnd(c * 7919 + r * 104729) * 1.0;
+  // no core starts before the camera has landed, so nothing changes
+  // under the reader mid-dive; then they scatter by a beat
+  const phase = (c: number, r: number): number => EPRE + DIVE
+    + (c === MID && r === MID ? 0 : rnd(c * 7919 + r * 104729) * 0.5);
   let split_end = D0;
   for (let k = 0; k < LEVELS; k++) {
     split_end += split_dur(k);
@@ -222,59 +227,77 @@ function parallel(): void {
   };
   const cv = createCanvas(W, W);
   const cx = cv.getContext("2d");
+  const gap = (s: number): number => Math.min(Math.max(s * 0.1, 1), 6);
+  const fsz = (w: number, h: number): number =>
+    Math.min(Math.min(w, h) * 0.17, 50);
   function cell(x: number, y: number, w: number, h: number,
     fill: string): void {
-    const g = Math.min(Math.max(Math.min(w, h) * 0.1, 1), 6);
+    const g = gap(Math.min(w, h));
     cx.fillStyle = fill;
     cx.fillRect(x + g / 2, y + g / 2, w - g, h - g);
   }
   function label(s: string, x: number, y: number, w: number, h: number,
-    ink: string): void {
-    const fs = Math.min(Math.min(w, h) * 0.17, 64);
-    if (fs < 7) {
+    fs: number, ink: string, a: number): void {
+    if (fs < 7 || a <= 0) {
       return;
     }
     cx.font = "bold " + String(fs) + "px " + MONO;
     if (cx.measureText(s).width > w * 0.9) {
       return;
     }
+    cx.globalAlpha = a;
     cx.fillStyle = ink;
     cx.textAlign = "center";
     cx.fillText(s, x + w / 2, y + h / 2 + fs * 0.36);
+    cx.globalAlpha = 1;
   }
-  // the k-th generation of tasks, m of the way out of its parent's seat.
-  // A gif has 1-bit alpha, so nothing here fades. While the children
-  // still overlap their parent, the parent's label is the one that
-  // shows; once they are apart, each child names itself
+  // the k-th generation of tasks, with the seam of the cut that made it
+  // m of the way open. No cell moves: a cut is a seam that opens down
+  // the middle of its parent, so the picture is whole at every frame.
+  // The label divides with the cell: at the cut, two copies of the new
+  // call sit on the old one, and they ride apart into their own halves
   function slots(k: number, m: number): void {
     const [cols, rows] = dims(k);
     const w = W / cols;
     const h = W / rows;
     const [pc, pr] = k > 0 ? dims(k - 1) : [1, 1];
-    const at = (c: number, r: number): [number, number] => [
-      lerp((Math.floor(c * pc / cols) + 0.5) * (W / pc), (c + 0.5) * w, m)
-        - w / 2,
-      lerp((Math.floor(r * pr / rows) + 0.5) * (W / pr), (r + 0.5) * h, m)
-        - h / 2];
+    const pw = W / pc;
+    const ph = W / pr;
+    const vert = cols > pc;
+    const g = lerp(gap(Math.min(pw, ph)), gap(Math.min(w, h)), m) / 2;
+    cx.fillStyle = SKY;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
-        const [x, y] = at(c, r);
-        cell(x, y, w, h, TILES[0]);
+        const l = vert && c % 2 === 1 ? g * m : g;
+        const q = vert && c % 2 === 0 ? g * m : g;
+        const t = !vert && r % 2 === 1 ? g * m : g;
+        const b = !vert && r % 2 === 0 ? g * m : g;
+        cx.fillRect(c * w + l, r * h + t, w - l - q, h - t - b);
       }
     }
-    const out = m >= 0.55;
-    const name = "pow2(" + String(20 - (out ? k : k - 1)) + ")";
-    for (let r = 0; r < (out ? rows : pr); r++) {
-      for (let c = 0; c < (out ? cols : pc); c++) {
-        const [x, y] = out ? at(c, r) : [c * (W / pc), r * (W / pr)];
-        label(name, x, y, out ? w : W / pc, out ? h : W / pr, "#4a4463");
+    // the label dissolves at the cut: the old call fades out, and one
+    // new call fades in on each half, so no two ever overlap in full ink
+    const grid = (cs: number, rs: number, name: string, a: number): void => {
+      const gw = W / cs;
+      const gh = W / rs;
+      for (let r = 0; r < rs; r++) {
+        for (let c = 0; c < cs; c++) {
+          label(name, c * gw, r * gh, gw, gh, fsz(gw, gh), INK, a);
+        }
       }
+    };
+    if (k > 0) {
+      grid(pc, pr, "pow2(" + String(21 - k) + ")", 1 - ease(m / 0.45));
     }
+    grid(cols, rows, "pow2(" + String(20 - k) + ")",
+      k > 0 ? ease((m - 0.5) / 0.4) : 1);
   }
+
   function draw(u: number): void {
     const cs = W / N;
-    cx.clearRect(0, 0, W, W);
-    if (u < E0) {
+    cx.fillStyle = BG;
+    cx.fillRect(0, 0, W, W);
+    if (u < E0) {                                                  // split
       let k = 0;
       let s = D0;
       while (k < LEVELS && u >= s + split_dur(k)) {
@@ -282,55 +305,66 @@ function parallel(): void {
         k++;
       }
       const d = split_dur(k);
-      const cut = Math.min(0.5, d * 0.7);
+      const cut = Math.min(0.55, d * 0.75);
       const p = k < LEVELS ? ease((u - (s + d - cut)) / cut) : 0;
       if (p > 0) {
         slots(k + 1, p);
       } else {
         slots(k, 1);
       }
-    } else if (u < R0) {
+    } else if (u < R0) {                                           // eval
       const v = u - E0;
       const p = v < EPRE ? 0 : v < EPRE + DIVE ? ease((v - EPRE) / DIVE)
         : v < EPRE + DIVE + EHOLD ? 1
         : 1 - ease((v - EPRE - DIVE - EHOLD) / BACK);
-      const z = Math.exp(p * Math.log(ZMAX));
-      const zs = cs * z;
-      const ox = W / 2 - (MID + 0.5) * zs;
-      const oy = W / 2 - (MID + 0.5) * zs;
+      const zs = cs * Math.exp(p * Math.log(ZMAX));
+      const o = W / 2 - (MID + 0.5) * zs;
       for (let r = 0; r < N; r++) {
         for (let c = 0; c < N; c++) {
-          const x = ox + c * zs;
-          const y = oy + r * zs;
+          const x = o + c * zs;
+          const y = o + r * zs;
           if (x > W || y > W || x + zs < 0 || y + zs < 0) {
             continue;
           }
           const j = Math.min(STEPS - 1,
             Math.max(0, Math.floor((v - phase(c, r)) / ESTEP)));
           cell(x, y, zs, zs, HEAT[Math.round(j * 16 / (STEPS - 1))]);
-          label(TRACE[j], x, y, zs, zs, j > 4 ? "#f2eee7" : "#4a4463");
+          label(TRACE[j], x, y, zs, zs, fsz(zs, zs), INK, 1);
         }
       }
-    } else if (u < Z0) {
+    } else if (u < Z0) {                                           // fold
       const f = fold_at(u);
       const j = Math.floor(f);
       const m = ease(f - j);
       const k = LEVELS - j;
       const [w, h] = dims(k);
       const vert = k % 2 === 1;
-      const fill = rung(4 + 2 * f / LEVELS);
+      const fill = rung(2 + 4 * f / LEVELS);
+      for (let r = 0; r < N; r++) {
+        for (let c = 0; c < N; c++) {
+          cell(c * cs, r * cs, cs, cs, MIST);
+        }
+      }
       for (let r = 0; r < h; r++) {
         for (let c = 0; c < w; c++) {
           cell((vert ? lerp(c, c / 2, m) : c) * cs,
             (vert ? r : lerp(r, r / 2, m)) * cs, cs, cs, fill);
         }
       }
-    } else {
-      const zs = cs * Math.pow(N, ease((u - Z0) / ZLEN));
-      cell(0, 0, zs, zs, TILES[6]);
-      if (u > Z1 - 0.1) {
-        label("1048576", 0, 0, zs, zs, "#f2eee7");
+    } else {                                                       // zoom
+      const s = Math.pow(N, ease((u - Z0) / ZLEN));
+      const zs = cs * s;
+      const lim = Math.min(N, Math.ceil(N / s) + 1);
+      for (let r = 0; r < lim; r++) {
+        for (let c = 0; c < lim; c++) {
+          if (c > 0 || r > 0) {
+            cell(c * zs, r * zs, zs, zs, MIST);
+          }
+        }
       }
+      cell(0, 0, zs, zs, TILES[6]);
+      label("1048576", 0, 0, zs, zs, fsz(zs, zs), BG,
+        ease((u - Z1 + 0.2) / 0.5));
     }
   }
   const shots: [number, number][] = [];
@@ -360,8 +394,8 @@ const BUMP = 0.4;
 const BUMPS = 3;
 const LEAD = 0.6;
 const HOLD = 1.8;
-const PAL = { floor: ["#cfccc6", "#c4c1ba"], wall: "#8f8c88", cap: "#a09d99",
-  hit: "#c98f87", hitcap: "#d6a9a3", pole: "#87847d", cloth: "#7e9a5e",
+const PAL = { floor: ["#ebe8e2", "#e1ded7"], wall: "#8e8b87", cap: "#a8a5a1",
+  hit: "#d9a39c", hitcap: "#e8c4bf", pole: "#87847d", cloth: "#7e9a5e",
   skin: "#78c0e3", eye: "#2f3b4c", win: "#f6e4e1", rim: "#dfa9a2",
   winink: "#c46a60" };
 
@@ -458,7 +492,8 @@ function game(act: Act): void {
     } else if (v > 0) {
       [px, py] = at(v);
     }
-    cx.clearRect(0, 0, W, H);
+    cx.fillStyle = BG;
+    cx.fillRect(0, 0, W, H);
     for (let y = 0; y < GH; y++) {
       for (let x = 0; x < GW; x++) {
         const key = String(x) + "," + String(y);
@@ -507,7 +542,8 @@ function game(act: Act): void {
     cx.arc(cxp + 4.5 * k, cyp - 2 * k, 2.2 * k, 0, Math.PI * 2);
     cx.fill();
     cx.restore();
-    if (pop > 0.5 && act.pop !== undefined) {
+    if (pop > 0 && act.pop !== undefined) {
+      cx.globalAlpha = pop;
       const bw = TILE * 5.6;
       const bh = TILE * 1.5;
       const bx = (W - bw) / 2;
@@ -520,6 +556,7 @@ function game(act: Act): void {
       cx.font = "bold " + String(TILE * 0.6) + "px " + MONO;
       cx.textAlign = "center";
       cx.fillText(act.pop, W / 2, by + bh * 0.66);
+      cx.globalAlpha = 1;
     }
   }
   // the frames run to just past the verdict, and the rest is one still
