@@ -10,7 +10,7 @@ In the post-AGI economy, humans will eventually stop writing and reading code,
 but we still need an ambiguity-free language to communicate our intents to the
 AI's building the world around us. Bend is that language.
 
-With **laws**, intents can be made clearer than natural language. With
+With **laws**, intents can be more precise than natural language. With
 **proofs**, we can mechanically verify the AI implemented our prompts correctly.
 And with a **fast compiler**, we can run that code at peak compute.
 
