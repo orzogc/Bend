@@ -215,7 +215,8 @@ Currently, Bend works best for back-end projects on Linux / OSX.
 - The heap is one 8 TB reservation with no garbage collector; only `+` values are reference counted.
 - The compiler is far less mature than GCC or Clang, and unusual code can run well below C speed.
 - Benchmarks are few, especially for the checker; the numbers above are honest but narrow.
-- The compiler is significantly AI-written, and the Lean formalization covers the core only.
+- The compiler is significantly AI-written and has not been audited by humans.
+- The Lean formalization covers the core, not bend.ts itself, so consistency bugs are expected for now.
 - Building a binary needs clang 19 or newer; `!` needs Metal on macOS or CUDA 12 on Linux.
 - No Windows (WSL works); on Linux, Window needs `libx11-dev` and Audio needs `libasound2-dev`.
 - The hub has no names, versions, accounts or search: a package is its hash, capped at 16 MiB.
