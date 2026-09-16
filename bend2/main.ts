@@ -42,9 +42,6 @@ usage:
 
 READ THE GUIDE (bend guide) BEFORE YOU WRITE ANY BEND. IT IS NOT OPTIONAL.
 
-env:
-  BEND_HUB    the package hub    default https://hub.bend-lang.org
-
 exit: 0; 1 on an error; main's IO.die code.
 `;
 
