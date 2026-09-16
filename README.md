@@ -78,7 +78,7 @@ The full game, proof included: [demos/app_win_is_bug_2d](demos/app_win_is_bug_2d
 
 # Examples
 
-## Syntax == Python + dependent types
+### Syntax == Python + dependent types
 
 ```python
 import Base
@@ -90,7 +90,7 @@ def main() -> IO(Unit):
     IO.print("Hello, " ++ name)
 ```
 
-## Parallelism == divide-and-conquer
+### Parallelism == divide-and-conquer
 
 ```python
 import Base
@@ -110,7 +110,7 @@ def main() -> IO(Unit):
   IO.print(U32.show(result))
 ```
 
-## Theorems == laws, Proofs == defs
+### Theorems == laws, Proofs == defs
 
 ```python
 import Base
