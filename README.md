@@ -10,6 +10,8 @@ That's it. Nothing else matters. Bend addresses both. And nothing else.
 
 ![Bend, in five minutes](media/intro.gif)
 
+**BEND IS A NEW, COMPLEX PROJECT. EXPECT BUGS AND LIMITATIONS.**
+
 ## Bend4 runs FAST
 
 **Target:** be as fast as C on the CPU, as fast as CUDA on the GPU. **Status:**
@@ -174,18 +176,6 @@ Everything else you need is in [Bend's GUIDE.md](guide/GUIDE.md), also printed b
 
 ## Formalization
 
-- Bend's core is [formalized in Lean](bend2/bend.lean): the checker's rules, with kinds and `Data` copying, are proven confluent, sound, normalizing and consistent with `Type : Type` and negative datatypes. Read the paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf).
+- Bend's core is [formalized in Lean](bend2/bend.lean). Read the paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf).
 
-- The runtime's paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
-
-## Limitations (this section is a WIP)
-
-- F32 is still axiomatic
-
-- `bend.lean` doesn't match `bend.ts` fully
-
-- compiler is highly vibe-coded
-
-- no shaders on JS side (TODO WebGPU)
-
-- ...
+- Bend's runtime is also documented. Read the paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
