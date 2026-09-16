@@ -1,4 +1,4 @@
-# Bend4
+# Bend
 
 In the post-AGI economy, what still matters for a programming language? Two things:
 
@@ -10,9 +10,9 @@ That's it. Nothing else matters. Bend addresses both. And nothing else.
 
 ![Bend, in five minutes](media/intro.gif)
 
-**BEND IS A NEW, COMPLEX PROJECT. EXPECT BUGS AND LIMITATIONS.**
+**BEND IS YOUNG. EXPECT BUGS AND [REPORT THEM](https://github.com/HigherOrderCO/bend/issues).**
 
-## Bend4 runs FAST
+## Bend runs FAST
 
 **Target:** be as fast as C on the CPU, as fast as CUDA on the GPU. **Status:**
 
@@ -25,7 +25,7 @@ arrays, 8 TB of heap and zero interaction-net overhead. The compiler is new:
 expect bugs and programs that under-perform C or CUDA. If you find one, please
 write an issue.
 
-## Bend4 checks FAST
+## Bend checks FAST
 
 **Target:** outperform every proof assistant by several OOMs. **Status:**
 
@@ -38,7 +38,7 @@ bidirectional pass that scales to huge codebases, and proofs stay practical. The
 tradeoff is verbosity, but nobody writes code by hand anymore, and AI models
 like the annotations.
 
-## Bend4 vibe-coding WORKS (with proof!)
+## Bend vibe-coding WORKS (with proof!)
 
 **Q:** How can I **trust** AI code without **reading** it?
 
@@ -146,11 +146,7 @@ For more examples, check:
 ### 1. Install:
 
 ```bash
-# needs Bun 1.3+ (https://bun.com) and clang 19+; Metal or CUDA for the GPU
-# (Linux: CUDA 12 at /usr/local/cuda; libx11-dev, libasound2-dev for Window, Audio)
-git clone https://github.com/HigherOrderCO/bend4
-cd bend4
-ln -s "$PWD/bend2/main.ts" ~/.bun/bin/bend   # puts `bend` on the PATH
+curl -fsSL https://bend-lang.com/install.sh | sh
 ```
 
 ### 2. Save a Hello World:
@@ -170,12 +166,12 @@ bend hello.bend -o hello    # compile to a native binary (a ! needs Metal or CUD
 ./hello                     # run!
 ```
 
-### 4. Read the Guide:
+### 4. Ask your AI to use Bend:
 
-Everything else you need is in [Bend's GUIDE.md](guide/GUIDE.md), also printed by `bend guide`. Read it! `bend --help` lists the CLI, `bend base` prints the base library.
+Tell your agent: "run `bend`, read its guide, and build my next project in Bend".
 
-## Formalization
+# References
 
-- Bend's core is [formalized in Lean](bend2/bend.lean). Read the paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf).
-
-- Bend's runtime is also documented. Read the paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
+- Guide: [GUIDE.md](guide/GUIDE.md), also printed by `bend guide`.
+- Paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf). Bend's core is [formalized in Lean](bend2/bend.lean).
+- Paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).

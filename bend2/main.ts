@@ -40,13 +40,9 @@ usage:
   bend guide                  print the Bend guide
   bend base [--types|<name>]  print Base, its types, or a name and its subnames
 
-A file with no main just checks. A main that is not IO prints as a value. -o
-repeats. A binary holds one main, and with a ! keeps its GPU program beside
-it (<out>.gpu); see ./<out> --help for its options. --publish prints the
-package's hash and the import line others use.
+READ THE GUIDE (bend guide) BEFORE YOU WRITE ANY BEND. IT IS NOT OPTIONAL.
 
 env:
-  BEND_STORE  the package store  default ~/.bend/store
   BEND_HUB    the package hub    default https://hub.bend-lang.org
 
 exit: 0; 1 on an error; main's IO.die code.

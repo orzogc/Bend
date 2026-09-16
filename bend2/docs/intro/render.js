@@ -758,7 +758,7 @@ S.end = (u, dur) => {
   T("fast  ·  parallel  ·  no mistakes", W/2, 360, 24, GREEN, "center");
   cx.globalAlpha = ease((u - 1.8)/0.5);
   T("Python syntax · C speed · CPU and GPU · proofs", W/2, 430, 19, DIM, "center");
-  T("github.com/HigherOrderCO/bend4", W/2, 480, 22, PURPLE, "center");
+  T("bend-lang.com", W/2, 480, 22, PURPLE, "center");
   cx.globalAlpha = 1;
 };
 

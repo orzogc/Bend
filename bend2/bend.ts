@@ -78,7 +78,7 @@
 // line, so it stays free).
 // a file's namespace is its path without ".bend": an import's path
 // joins onto the importer's namespace dir; a "0x<hash>/" path is its
-// own namespace, read from BEND_STORE and fetched from BEND_HUB on a
+// own namespace, read from BEND_LIB and fetched from BEND_HUB on a
 // miss. "as Name" binds a per-file alias: Name.x resolves to the
 // file's canonical name, so two aliases of one file agree, and a def
 // of an aliased name fills it. "import Base" is the empty namespace.
@@ -976,7 +976,7 @@ export function book_adt(book: Book, tm: Extract<HTerm, { $: "ADT" }>, ctx: Ctx,
 }
 
 const BASE_BEND  = fs.realpathSync(url.fileURLToPath(new URL("./base.bend", import.meta.url)));
-const BEND_STORE = path.resolve(process.env.BEND_STORE ?? path.join(os.homedir(), ".bend", "store"));
+const BEND_LIB = path.resolve(process.env.BEND_LIB ?? path.join(os.homedir(), ".bend", "lib"));
 export const BEND_HUB   = process.env.BEND_HUB ?? "https://hub.bend-lang.org";
 
 async function hub_get(book: Book, sub: string, hash: string, spn?: Span): Promise<string> {
@@ -990,9 +990,9 @@ async function hub_get(book: Book, sub: string, hash: string, spn?: Span): Promi
 }
 
 export async function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>, spn?: Span): Promise<number> {
-  if (file.startsWith(BEND_STORE + "/") && !fs.existsSync(file)) {
-    const pkg = file.slice(BEND_STORE.length + 1).split("/")[0];
-    const dir = BEND_STORE + "/" + pkg + "/";
+  if (file.startsWith(BEND_LIB + "/") && !fs.existsSync(file)) {
+    const pkg = file.slice(BEND_LIB.length + 1).split("/")[0];
+    const dir = BEND_LIB + "/" + pkg + "/";
     const man = await hub_get(book, pkg + "/manifest", pkg.slice(2), spn);
     for (const [h, p] of man.trim().split("\n").map((l) => l.split(" "))) {
       fs.mkdirSync(path.dirname(dir + p), { recursive: true });
@@ -1042,7 +1042,7 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
           sub = rel;
         }
         if (/^0x[0-9a-f]+\//.test(rel)) {
-          at  = BEND_STORE + "/" + rel;
+          at  = BEND_LIB + "/" + rel;
           sub = rel;
         }
         al[h[2]] = sub.replace(/\.bend$/, "");
