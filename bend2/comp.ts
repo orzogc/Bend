@@ -504,7 +504,7 @@ static Term f32_read(Env e, Term s) {
   char* end;
   f32 v = strtof(text, &end);
   Term out = n > 0 && (u64)(end - text) == n && strpbrk(text, "xX(") == NULL
-    ? io_box(e, CID_SOME, f32_rewrap(v), 0) : term_pak(CID_NONE, 0);
+    ? io_box(e, CID_SOME, f32_rewrap(v)) : term_pak(CID_NONE, 0);
   free(text);
   return out;
 }
@@ -2746,7 +2746,7 @@ function compile_reqs(fl: File): void {
   }
 }
 
-const TABLES = ["CID_ARITY_T", "FID_ARITY_T", "FID_FLAG_T", "FID_RESW_T"];
+const TABLES = ["CID_ARITY_T", "CID_HOT_T", "FID_ARITY_T", "FID_FLAG_T", "FID_RESW_T"];
 
 // The datatypes whose constructors the runtime or the elaborator lays itself.
 const RUNTIME_ADTS = ["Sigma", "String", "Word.Con", "IO.OP", "Result",
@@ -2786,6 +2786,7 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
   table("FID_RESW_T", entries.map((s) =>
     s.frame === null ? 0 : s.params.length - s.frame.at.length));
   table("CID_ARITY_T", [...fl.cids.values()]);
+  table("CID_HOT_T", [...fl.cids.keys()].map((k) => Number(fl.hot.has(k))));
   defs.push(`#define STAT_LEN ${fl.img.length}`, "");
   // One bank for both lanes, as wide as the widest segment or return; rp
   // pads the host's twelfth slot so rax stays free for the tail call.
@@ -2799,9 +2800,7 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
     `    if ((N) <= ${i}) break; ${r} = e.mem[(A) + ${i}]; \\\n`).join("");
   const last = rs.map((r, i) =>
     `    case ${i}: ${r} = (X); \\\n      break; \\\n`).join("");
-  defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail Con Some".split(" ")
-    .reduce((m, k, i) => m | (fl.hot.has(k) ? 1 << i : 0), 0)}`, "",
-  `#define WL_RESW ${resw}`, `#define BANGS   ${fl.bangs.size}`, "",
+  defs.push(`#define WL_RESW ${resw}`, `#define BANGS   ${fl.bangs.size}`, "",
   `#define WL_BANK Term ${ws.join(", ")};`, "",
   `#define WL_LOAD(A, N) \\\n  do { \\\n${load}  } while (0);`, "",
   `#define WL_LAST(X) \\\n  switch (war) { \\\n${last}  }`, "",
@@ -3523,6 +3522,7 @@ static const char* CLI_HELP =
 // ===
 
 #define cid_arity(x) ((u32)CID_ARITY_T[x])
+#define cid_hot(x) ((bool)CID_HOT_T[x])
 
 // A32
 // ===
@@ -5365,12 +5365,12 @@ OUTLINE void io_errs(Env e, Term s) {
 
 #define io_nul(s, n) (strlen(s) != (n))
 
-#define io_seal(e, t, hot) ((hot) != 0 ? rfc_seal(e, t) : (t))
+#define io_seal(e, t, cid) (cid_hot(cid) ? rfc_seal(e, t) : (t))
 
-static Term io_node(Env e, u64 cid, Term a, Term b, int hot) {
+static Term io_node(Env e, u64 cid, Term a, Term b) {
   Loc l = heap_alloc(e, 1);
-  e.mem[l]     = io_seal(e, a, hot);
-  e.mem[l + 1] = io_seal(e, b, hot);
+  e.mem[l]     = io_seal(e, a, cid);
+  e.mem[l + 1] = io_seal(e, b, cid);
   return term_ctr(cid, l);
 }
 
@@ -5411,29 +5411,29 @@ static Term io_str(Env e, const char* p, u64 n) {
     if (hole == 0) {
       s = t;
     } else {
-      e.mem[hole] = io_seal(e, t, IO_HOTS & 1);
+      e.mem[hole] = io_seal(e, t, CID_SCON);
     }
     hole = l + 1;
   }
   if (hole != 0) {
-    e.mem[hole] = io_seal(e, term_pak(CID_SNIL, 0), IO_HOTS & 1);
+    e.mem[hole] = io_seal(e, term_pak(CID_SNIL, 0), CID_SCON);
   }
   return s;
 }
 
-#define io_tup(e, a, b) io_node(e, CID_TUPLE, a, b, IO_HOTS & 2)
-#define io_done(e, v)   io_box(e, CID_DONE, v, IO_HOTS & 4)
+#define io_tup(e, a, b) io_node(e, CID_TUPLE, a, b)
+#define io_done(e, v)   io_box(e, CID_DONE, v)
 
-static Term io_box(Env e, u64 cid, Term v, int hot) {
+static Term io_box(Env e, u64 cid, Term v) {
   Loc l = heap_alloc(e, 0);
-  e.mem[l] = io_seal(e, v, hot);
+  e.mem[l] = io_seal(e, v, cid);
   return term_ctr(cid, l);
 }
 
 static Term io_fail(Env e, u32 code, const char* text) {
   const char* s = text != NULL ? text : strerror((int)code);
   Term t = io_tup(e, code, io_str(e, s, strlen(s)));
-  return io_box(e, CID_FAIL, t, IO_HOTS & 8);
+  return io_box(e, CID_FAIL, t);
 }
 
 static lock           io_gate = PTHREAD_MUTEX_INITIALIZER;
@@ -5794,7 +5794,7 @@ static ChanRow* chan_rows;
 static u32      chan_len;
 static u32      chan_idle = ~0u;
 
-#define chan_some(e, v) io_box(e, CID_SOME, v, IO_HOTS & 32)
+#define chan_some(e, v) io_box(e, CID_SOME, v)
 #define chan_bool(b)    term_pak((b) ? CID_TRUE : CID_FALSE, 0)
 
 static Term chan_open(u32 room) {
