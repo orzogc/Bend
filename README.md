@@ -196,7 +196,7 @@ Currently, Bend works best for back-end projects on Linux / OSX.
 - Bend 2 is a new language: Bend 1 programs and HVM do not carry over, and there is no migration path.
 - Everything is annotated and nothing is inferred: types, quantities and motives are written by hand.
 - Proofs are written by hand or by your AI: there are no tactics, no proof search and no automation.
-- Proving a theorem in Bend takes more lines and more time than the same theorem in Lean or Rocq.
+- Proving a theorem in Bend takes more lines and more effort than the same theorem in Lean or Rocq.
 - Values are affine: a closure is called at most once and cannot be cloned; only data and arrays can.
 - Recursion must be structural, mutual recursion is rejected, and every live function must terminate.
 - A `match` inspects a parameter or a pattern variable, never a computed value, and there is no `if`.
