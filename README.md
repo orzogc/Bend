@@ -1,12 +1,14 @@
 # Bend
 
-In the post-AGI economy, what still matters for a programming language? Two things:
+A **fast** language that **blocks AI** from **making mistakes**. Bend is:
 
-1. It must be **fast**. Check and run on CPUs & GPUs at *lightning speed*.
+- As **fast** as **C**.
 
-2. Vibe-coding must **work**. Agents using it must produce *correct code*.
+- As **parallel** as **CUDA**.
 
-That's it. Nothing else matters. Bend addresses both. And nothing else.
+- With **proofs**, like **Lean**.
+
+And that's all.
 
 <p align="center"><img src="media/intro.gif" alt="Bend, in five minutes"></p>
 
