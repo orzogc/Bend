@@ -2,7 +2,8 @@
 // The shape of the repo: every tracked file must match one allow line,
 // and a textual file must stay under its ttok cap (a binary under its
 // byte cap). Anything else in the tree is a failure. evals/ is not
-// counted: it is the models' arena, not the repo's shape.
+// counted: it is the models' arena, not the repo's shape. README.md's
+// first line names the version bend --version prints.
 
 import * as child from "node:child_process";
 import * as fs from "node:fs";
@@ -28,6 +29,7 @@ function allow(at: string | RegExp, cap: number, bytes = false): void {
     .replace(/[.]/g, "\\.") + "$") : at, cap, bytes });
 }
 
+allow(/^\.github\/ISSUE_TEMPLATE\/(bug|config)\.yml$/, 600);
 allow(".gitattributes", 200);
 allow("AGENTS.md", 2000);
 allow("README.md", 2500);
@@ -97,6 +99,12 @@ function gate(): string[] {
       fails.push(file + ": " + String(n) + " > " + String(rule.cap)
         + (rule.bytes ? " bytes" : " ttok"));
     }
+  }
+  const ver  = child.execFileSync(process.execPath, [path.join(lib.ROOT, "bend2",
+    "main.ts"), "--version"], { encoding: "utf8" }).trim().replace(/^bend /, "");
+  const head = fs.readFileSync(path.join(lib.ROOT, "README.md"), "utf8").split("\n")[0];
+  if (head !== "# Bend " + ver) {
+    fails.push("README.md: the first line is not '# Bend " + ver + "'");
   }
   return fails;
 }

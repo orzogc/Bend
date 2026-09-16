@@ -5,8 +5,9 @@
 // hub), a release.ts --dry into that DL_DIR, an install.sh against it (Bun
 // is here, so it installs nothing), then bend --help through the launcher.
 // Checks: the help and the guide print, current points at app/<ver>, the log has the
-// run's cmd, the disclosure printed once, a second release with a notice
-// prints it and switches current, BEND_NO_TELEMETRY=1 logs no id.
+// run's cmd, the disclosure printed once, an old bend on PATH became a link
+// to the launcher, a second release with a notice prints it and switches
+// current, BEND_NO_TELEMETRY=1 logs no id.
 
 import * as child from "node:child_process";
 import * as fs from "node:fs";
@@ -72,7 +73,9 @@ const caddy = Bun.serve({
   fetch(req) {
     const at = new URL(req.url).pathname;
     if (at.startsWith("/dl/")) {
-      return new Response(Bun.file(path.join(DL, path.basename(at))));
+      const file = path.join(DL, path.basename(at));
+      return fs.existsSync(file) ? new Response(Bun.file(file))
+        : new Response(null, { status: 404 });
     }
     return fetch(HUB + at, { method: req.method, body: req.body });
   },
@@ -91,9 +94,15 @@ try {
   check("release.ts --dry: " + rel.err, rel.code === 0);
   const latest = JSON.parse(fs.readFileSync(path.join(DL, "latest.json"),
     "utf8")) as { ver: string; url: string; sha256: string };
+  const old = path.join(TMP, "old", "bend");
+  fs.mkdirSync(path.dirname(old));
+  fs.writeFileSync(old, "#!/bin/sh\necho bend 1\n", { mode: 0o755 });
   const ins = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
-    { BEND_HOME: HOME, BEND_ORIGIN: ORIGIN });
+    { BEND_HOME: HOME, BEND_ORIGIN: ORIGIN, PATH: path.dirname(old) + ":" + (process.env.PATH ?? "") });
   check("install.sh: " + ins.err, ins.code === 0);
+  check("the old bend became a link to the launcher",
+    ins.out.includes("replaced the old bend at " + old)
+    && fs.readlinkSync(old) === path.join(HOME, "bin", "bend"));
   check("the disclosure printed once", ins.err.split(TELL).length === 2);
   check("the install updated to " + latest.ver,
     ins.err.includes("bend updated to " + latest.ver));

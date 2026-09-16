@@ -1,4 +1,4 @@
-# Bend
+# Bend 2.0.0
 
 In the post-AGI economy, what still matters for a programming language? Two things:
 
@@ -9,8 +9,6 @@ In the post-AGI economy, what still matters for a programming language? Two thin
 That's it. Nothing else matters. Bend addresses both. And nothing else.
 
 ![Bend, in five minutes](media/intro.gif)
-
-**BEND IS YOUNG. EXPECT BUGS AND [REPORT THEM](https://github.com/bendlang/bend/issues).**
 
 ## Bend runs FAST
 
@@ -175,3 +173,21 @@ Tell your agent: "run `bend`, read its guide, and build my next project in Bend"
 - Guide: [GUIDE.md](guide/GUIDE.md), also printed by `bend guide`.
 - Paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf). Bend's core is [formalized in Lean](bend2/bend.lean).
 - Paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
+
+# Community
+
+- Discord: https://discord.bend-lang.com
+- X: https://x.com/bendlang
+- Reddit: https://www.reddit.com/r/bendlang/
+- Issues: https://github.com/bendlang/bend/issues
+
+# Limitations
+
+- No Windows. WSL works.
+- Building a binary needs clang 19 or newer (the Apple clang of the current Xcode is fine).
+- `!` (the GPU) needs Metal on macOS, or CUDA 12 at `/usr/local/cuda` on Linux.
+- On Linux, a Window needs `libx11-dev` and Audio needs `libasound2-dev`.
+- A `match` inspects a parameter or a pattern variable, never a computed value: bind it first.
+- The hub has no package names or versions: a package is its content hash.
+
+**BEND IS YOUNG. EXPECT BUGS AND [REPORT THEM](https://github.com/bendlang/bend/issues).**

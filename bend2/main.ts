@@ -39,9 +39,12 @@ usage:
   bend <page.html> -o <dir>   bundle a page that imports .bend files
   bend base [--types|<name>]  print Base, its types, or a name and its subnames
   bend guide                  print the Bend guide
+  bend --version              print the version
 
 Read the guide (\`bend guide\`) before writing Bend code.
 `;
+
+const VERSION = "2.0.0";
 
 const BASE = fs.realpathSync(path.join(import.meta.dirname, "base.bend"));
 
@@ -79,6 +82,9 @@ const PLUGIN: BunPlugin = {
 
 async function cli(): Promise<void> {
   const args = process.argv.slice(2);
+  if (args[0] === "--version" && args.length === 1) {
+    return cli_say(1, "bend " + VERSION + "\n");
+  }
   if (args[0] === "guide" && args.length === 1) {
     return cli_say(1, fs.readFileSync(GUIDE, "utf8"));
   }
@@ -182,10 +188,41 @@ function cli_emit(book: Bend.Book, out: string): void {
   }
 }
 
+// cc_find is $CC when set, else the first of clang and every clang-NN on
+// PATH (newest first), that is clang 19 or newer (Apple clang 17, which
+// ships LLVM 19): an older clang builds a runtime that dies at start.
+function cc_find(): string {
+  function dir_list(dir: string): string[] {
+    try {
+      return fs.readdirSync(dir);
+    } catch {
+      return [];
+    }
+  }
+  const dirs = (process.env.PATH ?? "").split(path.delimiter);
+  const nums = [...new Set(dirs.flatMap(dir_list).filter((f) =>
+    /^clang-\d+$/.test(f)))].sort((a, b) => Number(b.slice(6)) - Number(a.slice(6)));
+  const olds: string[] = [];
+  const ccs  = process.env.CC === undefined ? ["clang", ...nums] : [process.env.CC];
+  for (const cc of ccs) {
+    const out = child.spawnSync(cc, ["--version"], { encoding: "utf8" }).stdout ?? "";
+    const m   = /^(Apple )?(?:\w+ )?clang version (\d+)/m.exec(out);
+    if (m !== null && Number(m[2]) >= (m[1] === undefined ? 19 : 17)) {
+      return cc;
+    }
+    olds.push(m === null ? "no " + cc : "clang " + m[2] + " as " + cc);
+  }
+  throw "Error: bend needs clang 19 or newer to build binaries (found "
+    + olds.join(", ") + "); on Debian/Ubuntu: curl -fsSL"
+    + " https://apt.llvm.org/llvm.sh | sudo bash -s 19; on macOS: xcode-select"
+    + " --install";
+}
+
 // A `!` program builds with the GPU lane and writes its GPU program too.
 // On macOS a program with a framework (#import: a window, audio) builds
 // as Objective-C; on Linux it links the X11 and ALSA libraries it includes.
 function cli_build(bin: string, c: string): void {
+  const cc    = cc_find();
   const mac   = process.platform === "darwin";
   const bangs = !/^#define BANGS\s+0$/m.test(c);
   const objc  = mac && (bangs || /^#import /m.test(c))
@@ -198,7 +235,7 @@ function cli_build(bin: string, c: string): void {
     : ["-DBEND_CUDA=1", "-I/usr/local/cuda/include",
       "-L/usr/local/cuda/lib64", ...cpu, "-lcuda", "-lnvrtc"];
   const steps: [string, string[]][] = bangs
-    ? [["clang", gpu], [path.resolve(bin), ["--gpu-build"]]] : [["clang", cpu]];
+    ? [[cc, gpu], [path.resolve(bin), ["--gpu-build"]]] : [[cc, cpu]];
   for (const [cmd, args] of steps) {
     if (child.spawnSync(cmd, args, { stdio: "inherit" }).status !== 0) {
       throw "Error: " + path.basename(cmd) + " failed to build " + bin;
