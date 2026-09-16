@@ -26,10 +26,9 @@ language runs on the GPU, with full memory unification.
 
 <p align="center"><img src="media/checker.gif" width="640" alt="Checker benchmarks: Bend vs Isabelle, Agda, Lean, Rocq"></p>
 
-Bend's compiler is so powerful it can verify mathematical proofs. Usually,
-proof checking is slow. Bend is not. It checks, in under a second, proofs
-that similar projects would take minutes, making formal verification way
-more practical.
+Bend's compiler is so powerful it can verify mathematical proofs. Usually, this
+is slow. Bend is not. It checks, in under a second, files that other projects
+would take minutes, making proofs way more practical.
 
 ## Bend BLOCKS mistakes
 
