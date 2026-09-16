@@ -226,8 +226,8 @@ Currently, Bend works best for **back-end** projects.
 - The hub has no names, versions, accounts or search; packages are hashes.
 - Error messages are terse; no debugger, profiler, formatter, REPL or LSP.
 - No editor support, no test framework and no documentation beyond the guide.
-```
 
-Most of these limitations are being addressed and will improve over time.
+Most of these limitations are being addressed and will improve over time!
+```
 
 **BEND IS YOUNG. EXPECT BUGS AND [REPORT THEM](https://github.com/bendlang/bend/issues).**
