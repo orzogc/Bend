@@ -20,8 +20,8 @@ def main() -> IO(Unit):
     IO.print("Hello, world!")
 ```
 
-To run it, install [Bun](https://bun.com), clone `HigherOrderCO/bend`, symlink
-`bend2/main.ts` as `bend`, and type `bend hello.bend`.
+To run it, install Bend (`curl -fsSL https://bend-lang.com/install.sh | sh`)
+and type `bend hello.bend`.
 
 Bend is a *pure language*, with effects denoted via a Haskell-inspired [IO
 Monad]. It comes with a list of built-in effects for files, networking, audio,

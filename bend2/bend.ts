@@ -977,7 +977,7 @@ export function book_adt(book: Book, tm: Extract<HTerm, { $: "ADT" }>, ctx: Ctx,
 
 const BASE_BEND  = fs.realpathSync(url.fileURLToPath(new URL("./base.bend", import.meta.url)));
 const BEND_LIB = path.resolve(process.env.BEND_LIB ?? path.join(os.homedir(), ".bend", "lib"));
-export const BEND_HUB   = process.env.BEND_HUB ?? "https://hub.bend-lang.org";
+export const BEND_HUB   = process.env.BEND_HUB ?? "https://hub.bend-lang.com";
 
 async function hub_get(book: Book, sub: string, hash: string, spn?: Span): Promise<string> {
   const res = await fetch(BEND_HUB + "/" + sub);

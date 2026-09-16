@@ -10,7 +10,7 @@ That's it. Nothing else matters. Bend addresses both. And nothing else.
 
 ![Bend, in five minutes](media/intro.gif)
 
-**BEND IS YOUNG. EXPECT BUGS AND [REPORT THEM](https://github.com/HigherOrderCO/bend/issues).**
+**BEND IS YOUNG. EXPECT BUGS AND [REPORT THEM](https://github.com/bendlang/bend/issues).**
 
 ## Bend runs FAST
 
