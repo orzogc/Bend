@@ -78,7 +78,7 @@ The full game, proof included: [demos/app_win_is_bug_2d](demos/app_win_is_bug_2d
 
 # Examples
 
-Bend's **syntax** is, essentially, "Python with dependent types".
+## Syntax == Python + dependent types
 
 ```python
 import Base
@@ -90,9 +90,7 @@ def main() -> IO(Unit):
     IO.print("Hello, " ++ name)
 ```
 
-**Parallelism** is achieved via divide-and-conquer.
-
-`!` runs a call on the GPU. Host and device share one memory: nothing is copied.
+## Parallelism == divide-and-conquer
 
 ```python
 import Base
@@ -112,9 +110,7 @@ def main() -> IO(Unit):
   IO.print(U32.show(result))
 ```
 
-**Claims** are just laws with "for" and "exs" lines.
-
-**Proofs** use a direct, inductive style.
+## Theorems == laws, Proofs == defs
 
 ```python
 import Base
@@ -133,11 +129,6 @@ def add_zero(x):
       %add_zero(xp) : {1n+Nat.add(xp, 0n) == 1n+_ : Nat}
       {==}
 ```
-
-For more examples, check:
-- [demos](demos): some curated demos.
-- [bend2/base.bend](bend2/base.bend): the base library.
-- [bench/runtime](bench/runtime): all the benchmarks.
 
 # Get Started
 
