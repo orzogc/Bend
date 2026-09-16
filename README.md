@@ -183,11 +183,24 @@ Tell your agent: "run `bend`, read its guide, and build my next project in Bend"
 
 # Limitations
 
-- No Windows. WSL works.
-- Building a binary needs clang 19 or newer (the Apple clang of the current Xcode is fine).
-- `!` (the GPU) needs Metal on macOS, or CUDA 12 at `/usr/local/cuda` on Linux.
-- On Linux, a Window needs `libx11-dev` and Audio needs `libasound2-dev`.
+- Bend is fully explicit: every type and quantity is annotated, so code is verbose, and nothing is inferred.
+- Proofs are written by hand (or by your AI): there are no tactics and no proof search, so proving takes longer than in Lean.
+- Values are affine: a closure can be called once and cannot be cloned (data and arrays can).
 - A `match` inspects a parameter or a pattern variable, never a computed value: bind it first.
-- The hub has no package names or versions: a package is its content hash.
+- Numbers are `Nat`, `U32` and `F32` only: no `U64`, `I64` or `F64` (Metal has no `f64`), and `F32` is axiomatic, with no proofs about it.
+- Base is small: expect to write helpers that other languages ship in their prelude.
+- Effects are few: print, env, time, sleep, spawn, channels, files, TCP, UDP, a window and audio.
+- Targets are C, Metal, CUDA and JavaScript; Lua, Luau and Python are planned, not present.
+- The JavaScript target runs on one core and has no graphics: `!` and Window are native only.
+- One GPU per program: multi-GPU setups are not supported.
+- The heap is at most 8 TB.
+- The compiler is far less mature than GCC or Clang: unusual code can under-perform, and benchmarks are few, especially for the checker.
+- The compiler is significantly AI-written, and the Lean formalization covers the core and may diverge from the TypeScript implementation.
+- Building a binary needs clang 19 or newer (the Apple clang of the current Xcode is fine); `!` needs Metal, or CUDA 12 on Linux.
+- No Windows: WSL works. On Linux, Window needs `libx11-dev` and Audio needs `libasound2-dev`.
+- The hub has no names, versions, accounts or search: a package is its content hash.
+- Error messages are terse, and there is no debugger, profiler, formatter or language server.
+
+Most of these are being addressed: expect frequent releases, which `bend` installs by itself.
 
 **BEND IS YOUNG. EXPECT BUGS AND [REPORT THEM](https://github.com/bendlang/bend/issues).**
