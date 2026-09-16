@@ -69,6 +69,35 @@ Once the proof lands, your code is correct. Mathematically.
 
 The full game, proof included: [demos/app_win_is_bug_2d](demos/app_win_is_bug_2d).
 
+# Get Started
+
+### 1. Install:
+
+```bash
+curl -fsSL https://bend-lang.com/install.sh | sh
+```
+
+### 2. Tell your agent to use Bend:
+
+Copy / paste this to your AI:
+
+```
+Build this project with Bend-Lang:
+- run `bend guide` to learn it
+- write laws to avoid mistakes
+- parallelize to make it fast!
+```
+
+And that's it! Hints:
+
+- Ask it to write laws for anything that can't go wrong.
+
+- Ask it to parallelize anything you want to be fast.
+
+- If anything goes wrong, ask it to open an issue. <3
+
+Currently, Bend works best for **back-end** projects.
+
 # Examples
 
 ### Syntax == Python + dependent types
@@ -122,35 +151,6 @@ def add_zero(x):
       %add_zero(xp) : {1n+Nat.add(xp, 0n) == 1n+_ : Nat}
       {==}
 ```
-
-# Get Started
-
-### 1. Install:
-
-```bash
-curl -fsSL https://bend-lang.com/install.sh | sh
-```
-
-### 2. Tell your agent to use Bend:
-
-Copy / paste this to your AI:
-
-```
-Build this project with Bend-Lang:
-- run `bend guide` to learn it
-- write laws to avoid mistakes
-- parallelize to make it fast!
-```
-
-And that's it! Hints:
-
-- Ask it to write laws for anything that can't go wrong.
-
-- Ask it to parallelize anything you want to be fast.
-
-- If anything goes wrong, ask it to open an issue. <3
-
-Currently, Bend works best for **back-end** projects.
 
 # References
 
