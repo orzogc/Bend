@@ -1,7 +1,7 @@
 # bend3's ! computed mark suffixed only names and failed loudly
-# elsewhere; bend4's ! is the GPU bang glued before a call's parens,
+# elsewhere; bend's ! is the GPU bang glued before a call's parens,
 # so the postfix spelling on a completed call dies at parse the same
-# way, by bend4's own grammar
+# way, by bend's own grammar
 import Base
 
 law f:

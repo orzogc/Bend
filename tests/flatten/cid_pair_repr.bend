@@ -1,5 +1,5 @@
 # bend3's cid-pair ctor representation (boxed and word rows chosen per
-# field type variable); bend4's emitter has no cid pairs and the
+# field type variable); bend's emitter has no cid pairs and the
 # test's generic defs are ruled out with def<A> (collides with infix
 # <) -- the family's own head dies at parse
 import Base

@@ -1,8 +1,8 @@
 # comp-splice pin (spec_comp_capture_share): bend3's capture honesty,
 # positive side -- a spliced lambda's captured runtime var kept its true
-# multiplicity in the residual. bend4 has no comp surface (and its core
+# multiplicity in the residual. bend has no comp surface (and its core
 # is affine: a Many capture has no free contraction to ride); the ~
-# binder pins bend4's own parse refusal.
+# binder pins bend's own parse refusal.
 import Base
 
 type L is Data:

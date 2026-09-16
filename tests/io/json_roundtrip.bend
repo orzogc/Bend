@@ -1,7 +1,7 @@
 # io pin (io_json_roundtrip): bend3's JSON module -- read/show
 # roundtrip with escapes and nesting, located read errors, polite
-# accessors defaulting on misses. bend4 has no JSON module -- rt dies
-# first on the missing surface (List.get answers Maybe in bend4, so
+# accessors defaulting on misses. bend has no JSON module -- rt dies
+# first on the missing surface (List.get answers Maybe in bend, so
 # the accessor walk rides Maybe.default).
 import Base
 

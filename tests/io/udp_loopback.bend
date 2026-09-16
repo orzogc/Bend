@@ -1,6 +1,6 @@
 # io (io_udp_loopback): bend3 bound upward from a base port, sent one
 # datagram to self over loopback, recv'd it whole and printed the
-# payload; bend4's kit runs the same. Every op threads its handle
+# payload; bend's kit runs the same. Every op threads its handle
 # back OUTSIDE the Result (affinity's price, no path can lose it),
 # tuples destructure in their own helpers, and the bind retries
 # upward on Fail: the fallback action is built before the attempt,

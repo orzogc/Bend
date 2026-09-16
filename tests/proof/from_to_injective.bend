@@ -4,7 +4,7 @@
 # word-side one): to_nat is injective at EVERY width -- equal bits ride
 # double_inj through base's Nat.half_double, mixed bits die on parity
 # (Nat.even_double against even_double_succ), and the hypothesis stays
-# usable by returning it through a Pi after the split (bend4 matches
+# usable by returning it through a Pi after the split (bend matches
 # never specialize a context hypothesis). five_back keeps bend3's
 # closed instance, now closing by plain reduction where the axiom used
 # to be trusted.

@@ -1,5 +1,5 @@
 # bend3 scoped ctor tags per datatype (two types sharing K at
-# different arities); bend4 ctor names are global and unique by
+# different arities); bend ctor names are global and unique by
 # design, so the shared tag is refused at its second declaration
 import Base
 

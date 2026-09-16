@@ -1,6 +1,6 @@
-# `()` is not a term: bend4 has no empty-tuple sugar, so the closing
+# `()` is not a term: bend has no empty-tuple sugar, so the closing
 # paren fails at the term position.
-# ported from bend3: bend3 desugared () to U{}; bend4 pins the refusal
+# ported from bend3: bend3 desugared () to U{}; bend pins the refusal
 import Base
 
 law main:

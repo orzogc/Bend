@@ -1,4 +1,4 @@
-# bend3's buffer literal rejected duplicate keys; bend4 has no buffer
+# bend3's buffer literal rejected duplicate keys; bend has no buffer
 # literal -- [..] is the list literal, where a key's ':' has no
 # reading and the spelling dies at parse
 import Base

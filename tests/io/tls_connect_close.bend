@@ -1,5 +1,5 @@
 # io pin (io_tls_connect_close): bend3's IO/TLS minted tls_-prefixed
-# effect constructors and forwarded TCP-shaped aliases to them. bend4
+# effect constructors and forwarded TCP-shaped aliases to them. bend
 # has no TLS surface (only the bare Socket handle type) -- the do
 # block dies on the missing surface.
 import Base

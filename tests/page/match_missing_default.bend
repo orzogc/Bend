@@ -1,5 +1,5 @@
 # an empty match on U32 is not total. bend3's hint asked for the number
-# match's default case; bend4's U32 is a plain wrapper datatype, so the
+# match's default case; bend's U32 is a plain wrapper datatype, so the
 # same \{} asks for its one constructor instead
 import Base
 

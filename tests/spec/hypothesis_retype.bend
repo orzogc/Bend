@@ -1,5 +1,5 @@
 # bend3's specialization law retyped a hypothesis inside a computed
-# match's arm, with `as e` binding the equation beside it; bend4's
+# match's arm, with `as e` binding the equation beside it; bend's
 # computed match never specializes (check_computed_match_split pins
 # that) and has no as binder -- the spelling dies at the extra
 # scrutinee, before any retyping question

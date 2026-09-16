@@ -1,4 +1,4 @@
-# bend3's halt checker looked through Ann on the self-call head; bend4
+# bend3's halt checker looked through Ann on the self-call head; bend
 # rejects an Ann-wrapped self-call by design (infer-app demands the
 # bare Ref) -- the wrapped head refuses as an escaping self-reference
 import Base

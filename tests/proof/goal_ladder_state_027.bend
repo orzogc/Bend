@@ -1,7 +1,7 @@
 # goal ladder, div_spec fill 1n+p-arm: after destructuring the IH the
 # goal is the quotient/remainder sigma at 1n+p.
-# ported from bend3: the ladder rides the ported bend4 development, so
-# the pinned page is bend4's own goal at the same proof state
+# ported from bend3: the ladder rides the ported bend development, so
+# the pinned page is bend's own goal at the same proof state
 # FLAGSHIP: the division algorithm. For every n and positive divisor
 # 1n+d1 there are q and r with r <= d1 and n = q*(1n+d1) + r -- by
 # induction on n, deciding r = d1 with the Bool-inspect idiom

@@ -1,5 +1,5 @@
 # audit 002 inverted, carried: bend3's Lone binder of Data type could be
-# spent at any live quantity through the planted deep copy. bend4 spells
+# spent at any live quantity through the planted deep copy. bend spells
 # the same clone as twin's +x binder (N is Data), and the block proves the clone semantics end-to-end:
 # both copies of the tree are consumed independently.
 # ported from bend3: the numeric nat(n) match becomes U32.to_nat + Nat

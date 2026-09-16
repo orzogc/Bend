@@ -3,7 +3,7 @@
 # (the new binder eclipses the old). A constructor action takes the
 # uniform annotation {MkId{..} : Id<U32>}.
 # ported from bend3: Id(A) becomes Id<A>, binds carry their per-line
-# type (bend4 infers none), the bare discard line spells its yield type,
+# type (bend infers none), the bare discard line spells its yield type,
 # (e : T) becomes {e : T}, result 2809 = two*100 + one shown as a Nat
 import Base
 

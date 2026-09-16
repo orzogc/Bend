@@ -1,6 +1,6 @@
 # io pin (io_http_url_parse): bend3's read_url -- scheme dispatch
 # (http/https, others Fail), default and explicit ports, default and
-# query-carrying paths. bend4 has no HTTP library -- url_score dies
+# query-carrying paths. bend has no HTTP library -- url_score dies
 # first on the missing surface (a Url respells as its secure & host &
 # port & path tuple; secure rides Bool).
 import Base

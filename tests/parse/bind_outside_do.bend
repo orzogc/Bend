@@ -1,6 +1,6 @@
 # a `<-` bind line is do-block syntax ONLY: outside a do-block, `x <- e`
 # is not grammar.
-# ported from bend3: same law, bend4 error page
+# ported from bend3: same law, bend error page
 import Base
 
 law half:

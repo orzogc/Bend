@@ -1,6 +1,6 @@
 # a literal row and a default row
 # ported from bend3: the numeric column becomes a ctor column and the
-# literal results become ctors (bend4 has no number patterns)
+# literal results become ctors (bend has no number patterns)
 type W is Data:
   Z{}
   S{p: W}

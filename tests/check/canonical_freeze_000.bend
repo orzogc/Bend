@@ -1,6 +1,6 @@
 # bend3's freeze law: a canonical computed scrutinee must NOT rewrite
 # a coincidental spelling in a hypothesis (the (Z,Z) corner tautology
-# corruption); bend4 freezes unconditionally -- a computed scrutinee
+# corruption); bend freezes unconditionally -- a computed scrutinee
 # lives behind its own def whose assert states the goal, so the arms'
 # goal stays unrewritten and the ORIGINAL hypothesis discharges both,
 # the corruption unspellable

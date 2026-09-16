@@ -1,5 +1,5 @@
 # cons operator h<>t, in terms and patterns -- ported from bend3.
-# dialect divergence: bend4's String is its own SCon/SNil type, not
+# dialect divergence: bend's String is its own SCon/SNil type, not
 # List<&2, Char>, so <> builds List's Con only; lc respells a String as
 # List<&2, Char> with both sugars, and the '/'-pair test rides Char.eq
 # over cons PATTERNS (a char-literal pattern is a 32-ctor word tree,

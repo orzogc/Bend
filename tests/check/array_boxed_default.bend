@@ -1,7 +1,7 @@
 # slab-array pin (check_array_boxed_default): bend3 REJECTED a boxed
 # (multi-word) ctor as an array-literal default -- defaults are served
-# one-word constants. bend4 has no slab-array surface at all (base
-# Array is a tree, tocl makes it real); the ![ literal pins bend4's
+# one-word constants. bend has no slab-array surface at all (base
+# Array is a tree, tocl makes it real); the ![ literal pins bend's
 # own parse refusal.
 import Base
 

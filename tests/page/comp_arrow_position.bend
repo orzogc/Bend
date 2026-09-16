@@ -1,7 +1,7 @@
 # comp pin (page_comp_arrow_position): bend3's @~ comp-forall spelling
 # parsed and landed on the CompArrow page (a comp arrow lives only in
-# def signatures). bend4 has no comp arrows at all: its @ forall binds
-# a name (or an erased -name), and the ~ pins bend4's own parse refusal.
+# def signatures). bend has no comp arrows at all: its @ forall binds
+# a name (or an erased -name), and the ~ pins bend's own parse refusal.
 import Base
 
 law TT:

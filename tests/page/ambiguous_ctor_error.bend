@@ -1,4 +1,4 @@
-# a ctor tag with two owners: bend4 ctors are bare and globally
+# a ctor tag with two owners: bend ctors are bare and globally
 # unique, so the second owner is refused AT DECLARATION (bend3 nulled
 # the bare tag at use instead; the one-owner law carries)
 type A is Data:

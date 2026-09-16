@@ -1,7 +1,7 @@
 # comp-splice pin (spec_mint_count): bend3's comp-lambda mint-count cost
 # guard (a recursive template's knot tied structurally, counted under
-# --stats). bend4 has neither comp mints nor a stats surface; the ~
-# binder pins bend4's own parse refusal. (bend3's number switch on the
+# --stats). bend has neither comp mints nor a stats surface; the ~
+# binder pins bend's own parse refusal. (bend3's number switch on the
 # counter respells as base Nat recursion.)
 import Base
 

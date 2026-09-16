@@ -1,5 +1,5 @@
-# the left-shift roster, on bend4's own law (the ruled port of bend3's
-# 5-bit count mask kit: bend4's U32.shln takes a Nat count and shifts
+# the left-shift roster, on bend's own law (the ruled port of bend3's
+# 5-bit count mask kit: bend's U32.shln takes a Nat count and shifts
 # OUT past the width -- no mask exists, run_word_shifts verified it,
 # and here it is pinned as theorems): the one-step hom is definitional
 # (shln(1) IS shl), composition holds at ANY counts by base's
@@ -8,8 +8,8 @@
 # invert: 32 and 33 shift to zero, proved closed by plain reduction.
 # ported from bend3: main carries run_word_shifts' battery -- the five
 # in-range pins agree across dialects, the three mask-edge pins re-pin
-# to bend4's shift-out (1<<32 = 0 where bend3's mask said 1) -- and the
-# golden 8 carries; bend3's masked main (65) has no bend4 value
+# to bend's shift-out (1<<32 = 0 where bend3's mask said 1) -- and the
+# golden 8 carries; bend3's masked main (65) has no bend value
 import Base
 
 law Nat.even:

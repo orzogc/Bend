@@ -1,6 +1,6 @@
 # the do-head opens its type arguments with a GLUED angle group:
 # `do M<A>:` is the form (bend3 pinned the <> sugar over an
-# application head; bend4's grammar is the angle group itself).
+# application head; bend's grammar is the angle group itself).
 # ported from bend3
 type Nn3 is Data:
   Zz3{}

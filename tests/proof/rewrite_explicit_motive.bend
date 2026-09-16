@@ -1,7 +1,7 @@
 # %x@e : P is the explicit-motive rewrite (the J axiom): the motive
 # binds _ (the second endpoint) and x (the equation); the body follows
 # on its own line or the same one.
-# ported from bend3: the real-lambda motive `x => P` becomes bend4's
+# ported from bend3: the real-lambda motive `x => P` becomes bend's
 # _-bound motive term, S/Z ride the test's own N
 import Base
 

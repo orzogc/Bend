@@ -1,6 +1,6 @@
 # the wrap wall, respelled: 1 + x in an EXPRESSION is U32.add, never a
 # successor witness -- f(1 + 4294967295) wraps to f(0) = 7 at runtime,
-# so the free-x equation must stay stuck and {==} must refuse. bend4
+# so the free-x equation must stay stuck and {==} must refuse. bend
 # spells the arms as a literal-chain pattern and a catch-all; no Inc
 # exists anywhere to close the add
 import Base

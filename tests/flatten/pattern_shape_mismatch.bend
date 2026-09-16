@@ -1,5 +1,5 @@
 # mixed numeric/ctor columns: bend3 refused "mismatched pattern shapes
-# (this column matches numbers)". In bend4 a literal pattern IS a ctor
+# (this column matches numbers)". In bend a literal pattern IS a ctor
 # pattern (the U32 word chain), so the FZero row rides no word column,
 # drops from every branch, and the mix surfaces as the 0-chain's own
 # coverage hole

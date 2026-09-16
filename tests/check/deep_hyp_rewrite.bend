@@ -1,4 +1,4 @@
-# bend3's %e renormalized every ctx type at 3000 levels; bend4's
+# bend3's %e renormalized every ctx type at 3000 levels; bend's
 # rewrite is goal-only by ruling (ctx renormalization is on the
 # do-not-add list), so the class pins on the goal: a 3000-deep
 # equation rides one rewrite and closes, no host recursion anywhere

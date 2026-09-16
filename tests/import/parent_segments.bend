@@ -1,4 +1,4 @@
-# bend3's ../../ module ascent reached C-bodied defs; bend4 has
+# bend3's ../../ module ascent reached C-bodied defs; bend has
 # neither (imports open literal paths, C bodies are gone), and a module
 # import names a .bend file -- the ascent's target dies at the leading
 # line on its suffix, before any path is opened

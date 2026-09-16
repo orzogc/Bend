@@ -3,7 +3,7 @@
 # closes the tails -- specialization, computation and rewriting in one
 # proof.
 # ported from bend3: bend3's List module map becomes a local map over the
-# base List (bend4's base has no map); infix ops become U32.add/U32.mul;
+# base List (bend's base has no map); infix ops become U32.add/U32.mul;
 # map spends f per element, so f is a + binder: a closure is never Data,
 # so the mapped function is a Data code (Fn) applied by app, and the
 # proof checks strict

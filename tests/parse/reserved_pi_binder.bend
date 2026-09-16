@@ -1,4 +1,4 @@
-# bend3's binder-optional Pi domain (@Type -> ..); bend4's All always
+# bend3's binder-optional Pi domain (@Type -> ..); bend's All always
 # binds Name ':' Term, so the reserved head dies at the binder
 import Base
 

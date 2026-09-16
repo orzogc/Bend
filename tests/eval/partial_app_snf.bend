@@ -1,8 +1,8 @@
 # bend3's under-binder normalization of a partial application had no
 # stable golden here once (the trusted HOAS normalizer overflowed the
-# host); bend4's iterative print path renders it deterministically --
+# host); bend's iterative print path renders it deterministically --
 # the rebuilt binders carry their deferred snf thunk spelled as the
-# bare stuck call, bend4's own shape. The evaluator's recursion rides
+# bare stuck call, bend's own shape. The evaluator's recursion rides
 # a Nat fuel matched ahead of every self-call, and each computed
 # decision becomes a state constructor matched structurally one fuel
 # step later (a computed match is a banned form); the thunk sticks

@@ -1,6 +1,6 @@
 # word-switch ladder, state 0: the whole goal stuck on the open var --
 # both sides render as REF calls (never an internal match literal)
-# ported from bend3: the U32 switch (case 0 / case 1+n) has no bend4
+# ported from bend3: the U32 switch (case 0 / case 1+n) has no bend
 # surface, so the ladder counts on Nat (0n / 1n+n)
 import Base
 type MN is Data:

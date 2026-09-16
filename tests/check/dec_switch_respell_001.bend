@@ -1,6 +1,6 @@
 # bend3's dec-swi respelling pin, hit side: the value 1 reached the
 # second literal case as the pred 0 and a stuck pick(1,b) respelled as
-# pick(0,b). bend4 has no dec switch: the 0/1/2+p chain dies at its
+# pick(0,b). bend has no dec switch: the 0/1/2+p chain dies at its
 # K+ arm's parse, and no pred ever exists to misspell
 import Base
 

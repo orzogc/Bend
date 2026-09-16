@@ -1,5 +1,5 @@
 # bend3's mint-lowering alias witness (a split mint re-basing c^4 over
-# c^3); bend4 mints nothing and stores elaborated bodies once, so the
+# c^3); bend mints nothing and stores elaborated bodies once, so the
 # colliding-name shape has no machinery to alias: a field binder
 # shadowing its own param beside a forall of the same name checks and
 # the conversion closes

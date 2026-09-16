@@ -1,7 +1,7 @@
 # a def referencing a later def fails as undefined: resolution follows
 # book order, so prf cannot force seed's body before it exists.
 # ported from bend3: bend3's --no-halt forward door checked this
-# order; bend4 pins the refusal
+# order; bend pins the refusal
 import Base
 
 law prf:

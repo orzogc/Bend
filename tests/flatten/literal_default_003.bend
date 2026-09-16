@@ -1,7 +1,7 @@
 # literal ladder with a default: each literal splits the miss chain,
 # the default closes it
 # ported from bend3: 0/1/2 become Z/S{Z}/S{S{Z}} nested ctor patterns
-# and the arm values become ctors (bend4 has no number patterns)
+# and the arm values become ctors (bend has no number patterns)
 type W is Data:
   Z{}
   S{p: W}

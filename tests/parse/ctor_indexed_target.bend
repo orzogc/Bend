@@ -1,6 +1,6 @@
 # audit: constructor targets cannot change datatype parameters -- a ctor
 # row takes no result annotation at all.
-# ported from bend3: params move to bend4's angle group
+# ported from bend3: params move to bend's angle group
 type Dd<n: Nat, A: Type> is Data:
   Cc{} : Dd(n, @x: Type -> x)
 

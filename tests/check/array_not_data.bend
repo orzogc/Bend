@@ -1,8 +1,8 @@
 # slab-array pin (check_array_not_data): bend3's array boundary --
 # contraction is free on Data and arrays are not Data, so an aliased
-# array binder stayed a Usage error. bend4 has no [:T] array type --
-# the [: spelling in f's parameters pins bend4's own parse refusal
-# (bend4 is affine at every type; the capture twins pin that wall).
+# array binder stayed a Usage error. bend has no [:T] array type --
+# the [: spelling in f's parameters pins bend's own parse refusal
+# (bend is affine at every type; the capture twins pin that wall).
 import Base
 
 law f:

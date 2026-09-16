@@ -1,5 +1,5 @@
 # bend3's one-split pin: `match isz(n):` abstracted the call into the
-# motive and the proof closed per arm. bend4 bans the computed match
+# motive and the proof closed per arm. bend bans the computed match
 # outright (a lambda-match application is a banned form), so the same
 # spelling refuses at the flattener, and that refusal is the pin (the
 # frozen worker-split spelling is pinned positively by

@@ -3,7 +3,7 @@
 # the grade kernel reads the family's declared kind: CF and CF2 answer
 # Data, so a reusable dependent pair Sigma<&2, &2, U32, a => CF(a)> is
 # Data and the double reads ride +p, the family applied in the body
-# (a bare-ref second component has no bend4 spelling), ref and partial
+# (a bare-ref second component has no bend spelling), ref and partial
 # application alike, because each unfolds to U32.
 # ported from bend3: Pair(U32, CF) -> Sigma<&2, &2, U32, a => CF(a)>;
 # Pair(U32, CF2(1n)) applies the family at its Nat leg, CF2(1n, a)

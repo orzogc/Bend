@@ -1,7 +1,7 @@
 # consumed means gone: after `match a` opens a's column, an inner
 # `match a` in the Sw3 arm has no value left -- the scrutinee is
 # already a constructor there and the match is refused.
-# ported from bend3: the rebind let drops (bend4 lets cannot precede a
+# ported from bend3: the rebind let drops (bend lets cannot precede a
 # match), the refusal is the undestructed-scrutinee page
 type Nw3 is Data:
   Zw3{}

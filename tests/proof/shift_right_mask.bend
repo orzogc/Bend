@@ -1,4 +1,4 @@
-# the right-shift roster, on bend4's own law (the ruled port of bend3's
+# the right-shift roster, on bend's own law (the ruled port of bend3's
 # count-general SHR_HOM kit: no mask exists -- U32.shrn takes a Nat
 # count and shifts out past the width): the one-step hom is the real
 # theorem shr_half (a right shift halves the value, arm for arm through
@@ -7,7 +7,7 @@
 # counts by base's U32.shrn_add, and the mask edges invert: 32 and 33
 # shift to zero, proved closed.
 # ported from bend3: mask semantics diverge by ruling, so main's golden
-# is bend4's own 25000 (bend3 answered 25385 through the mask)
+# is bend's own 25000 (bend3 answered 25385 through the mask)
 import Base
 
 law Nat.half:

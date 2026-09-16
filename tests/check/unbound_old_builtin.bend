@@ -1,4 +1,4 @@
-# bend3's builtin rename audit (u2f dead); bend4 never had the old
+# bend3's builtin rename audit (u2f dead); bend never had the old
 # names -- u2f is an ordinary unbound name and dies as one
 import Base
 

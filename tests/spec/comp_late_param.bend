@@ -1,6 +1,6 @@
 # comp-splice pin (spec_comp_late_param): bend3 accepted a comp param
-# declared AFTER the matched column (the commuting application). bend4
-# has no comp surface; the ~ in the second binder position pins bend4's
+# declared AFTER the matched column (the commuting application). bend
+# has no comp surface; the ~ in the second binder position pins bend's
 # own parse refusal at that spot.
 import Base
 

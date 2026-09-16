@@ -1,4 +1,4 @@
-# bend3 pinned `P = e` as a statement AFTER a plain let; bend4 bans it:
+# bend3 pinned `P = e` as a statement AFTER a plain let; bend bans it:
 # destructuring a local binder is a lambda-match application, so the
 # flattener rejects and the destructure belongs in a worker def
 import Base

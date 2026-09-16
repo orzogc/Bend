@@ -1,7 +1,7 @@
 # slab-array pin (check_array_literal_capacity): bend3's entry-less
 # literal [_:d; n] capped capacity at the declared n, past-capacity
-# writes no-oping to the default. bend4 has no array literals -- the
-# ![ spelling pins bend4's own parse refusal.
+# writes no-oping to the default. bend has no array literals -- the
+# ![ spelling pins bend's own parse refusal.
 import Base
 
 law go:

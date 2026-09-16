@@ -1,6 +1,6 @@
 # size-change reject side carries: TWO call sites whose descents
 # disagree -- one shrinks a while growing b, the other the reverse --
-# and go(1n, 1n) really cycles. bend4's left-to-right law refuses the
+# and go(1n, 1n) really cycles. bend's left-to-right law refuses the
 # first site outright: column a is refined to Z{} there, and S{Z{}}
 # is no subterm of it.
 # ported from bend3: bare ctors S/Z (base owns Succ/Zero), Nat sugar

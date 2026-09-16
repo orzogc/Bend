@@ -1,6 +1,6 @@
 # slab-array pin (check_array_default_linear): bend3 rejected a linear
 # variable as an array default (a served default would duplicate it).
-# bend4 has no array literals -- the ![ spelling pins bend4's own
+# bend has no array literals -- the ![ spelling pins bend's own
 # parse refusal.
 import Base
 

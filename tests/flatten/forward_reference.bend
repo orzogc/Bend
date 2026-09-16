@@ -1,7 +1,7 @@
 # bend3's FORWARD references: the scrutinee head and the type declared
-# after use (forward ctor tags took qualification there); bend4's
+# after use (forward ctor tags took qualification there); bend's
 # parse-time ctor map is declare-before-use with no qualification, so
-# the forward tag pins bend4's own refusal
+# the forward tag pins bend's own refusal
 type Bl is Data:
   T{}
   F{}

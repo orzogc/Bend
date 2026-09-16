@@ -1,5 +1,5 @@
 # bend3 pinned that a LET-BOUND call result matches like the computed
-# call itself; bend4 bans both spellings alike: matching a local binder
+# call itself; bend bans both spellings alike: matching a local binder
 # is the same banned form, so the match moves to a worker def
 type Nt is Data:
   Zn{}

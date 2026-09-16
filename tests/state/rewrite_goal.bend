@@ -4,7 +4,7 @@
 # ported from bend3: the ~ comp param specializes into the ladder's
 # own successor step (a recursive combinator cannot bind a closure:
 # a function type owns no Copiable witness); statement flipped for
-# bend4's right-into-left rewrite
+# bend's right-into-left rewrite
 type MN is Data:
   Z{}
   S{p: MN}

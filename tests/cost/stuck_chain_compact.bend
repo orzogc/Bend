@@ -1,4 +1,4 @@
-# bend3's stuck-wnf tripwire, re-pinned as bend4's own live class: the
+# bend3's stuck-wnf tripwire, re-pinned as bend's own live class: the
 # 16-deep share chain's counter is gone (no --stats), but the compact-
 # chain claim itself fails here -- a division's result fed through a
 # multiplication, nested twice as a match's computed scrutinee, blows

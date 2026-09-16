@@ -1,6 +1,6 @@
 # list literals and <> need a `sugar List: Nil, Con` declaration, which
 # Base makes: without Base the sugar role is unbound and the parse fails
-# at it -- bend4's gating story (bend3 gated the parse on `import List`)
+# at it -- bend's gating story (bend3 gated the parse on `import List`)
 type Nx is Data:
   Zx{}
 

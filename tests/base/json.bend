@@ -1,4 +1,4 @@
-# bend3's JSON module is absent from bend4 by ruling (JSON is on the
+# bend3's JSON module is absent from bend by ruling (JSON is on the
 # do-not-add list): the head call is an undefined name
 import Base
 

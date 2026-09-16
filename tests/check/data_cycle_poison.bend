@@ -1,6 +1,6 @@
 # red-team pin inverted: bend3 needed a poison walk (a function field
 # anywhere in A -> B -> C nulls every member's table) to refuse sharing
-# an A whose own fields are innocent. bend4 needs no poison: core is
+# an A whose own fields are innocent. bend needs no poison: core is
 # affine for EVERY type, so use2(a, a) refuses outright, closure field
 # or not -- the wall the poison approximated is the default.
 # ported from bend3: names resolve upward only, so the chain declares

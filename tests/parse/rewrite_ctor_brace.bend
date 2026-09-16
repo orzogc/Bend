@@ -3,7 +3,7 @@
 # coerce it into an Opt(Unit)->Opt(Unit) goal. The type-checked motive
 # REJECTS this: the abstracted motive variable cannot have both carrier
 # types.
-# ported from bend3: bend4's rewrite spells the motive explicitly, and
+# ported from bend3: bend's rewrite spells the motive explicitly, and
 # the guard fires as the carrier mismatch
 type Emp8 is Data:
 

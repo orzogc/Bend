@@ -1,6 +1,6 @@
 # the twin surface, carried whole: an inequality field ({0 != 0 : U32})
 # is a FUNCTION into Empty from parse time -- bend3 derived a null Data
-# table over the desugared field and refused the duplication; bend4 is
+# table over the desugared field and refused the duplication; bend is
 # affine for every type and refuses the same double spend with the same
 # verdict, no table needed. The {a != b : T} sugar itself carries.
 # ported from bend3: the let-then-match bodies route through helper

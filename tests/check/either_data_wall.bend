@@ -1,6 +1,6 @@
 # bend3's family wall, both halves carried: an either of Data
 # components contracted freely while a closure-holding either refused
-# multi-use. bend4 is affine for every type, so the free half becomes
+# multi-use. bend is affine for every type, so the free half becomes
 # twice's explicit +e binder over the reusable Either<&2, &2, ..> -- and the wall
 # half lands
 # on the SAME def: leak's bare e spends twice and refuses at leak,

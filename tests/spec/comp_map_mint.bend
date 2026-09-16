@@ -1,7 +1,7 @@
 # comp-splice pin (spec_comp_map_mint): bend3's map story -- a ~ param
-# spliced at check time, minting one first-order def. bend4 rules the
+# spliced at check time, minting one first-order def. bend rules the
 # comp surface out (higher-order map is not checkable even once Data
-# lands); the ~ binder pins bend4's own parse refusal.
+# lands); the ~ binder pins bend's own parse refusal.
 import Base
 
 type L is Data:

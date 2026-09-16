@@ -1,4 +1,4 @@
-# bend3 refused the '_' motive in constructor discrimination; bend4
+# bend3 refused the '_' motive in constructor discrimination; bend
 # binds it, so the isZ transport CHECKS and 0n == 1n yields Empty --
 # the inverted law at a dependent motive
 import Base

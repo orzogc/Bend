@@ -1,5 +1,5 @@
 # bend3's lazy slab pages (mint-wipe on recycle) at 2^17 slots;
-# bend4's Array is a materialized 2^d tree with no pages to recycle --
+# bend's Array is a materialized 2^d tree with no pages to recycle --
 # the big slab literal's spelling is the refusal
 import Base
 

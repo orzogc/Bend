@@ -1,4 +1,4 @@
-# bend3 pinned match blocks as terms; bend4 lets inside a match arm,
+# bend3 pinned match blocks as terms; bend lets inside a match arm,
 # and the let's bare-constructor value cannot infer, so the spelling
 # pins that annotation demand (y = {S{x} : Nt} is the idiom)
 type Nt is Data:

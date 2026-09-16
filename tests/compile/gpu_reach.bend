@@ -1,5 +1,5 @@
 # bend3 pinned the embedded GPU program's reachability by csrc marks;
-# bend4's emitter has its own shapes, so the half that carries is the
+# bend's emitter has its own shapes, so the half that carries is the
 # mark's semantics: a host-computed argument feeds a marked root and
 # the value is the plain call's, on every lane (the countdown rides
 # Nat: no numeric patterns)

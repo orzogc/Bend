@@ -1,5 +1,5 @@
 # io (io_tcp_loopback): bend3 ran listen/connect/accept/send/recv over
-# loopback end to end; bend4's kit runs the same, sequentially -- the
+# loopback end to end; bend's kit runs the same, sequentially -- the
 # event loop blocks per op, and loopback completes each one at once.
 # Handles are affine, so every op threads its handle back OUTSIDE the
 # Result -- no path can lose it -- and each tuple destructures in its

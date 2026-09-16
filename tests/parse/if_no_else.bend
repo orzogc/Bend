@@ -1,4 +1,4 @@
-# the if sugar is gone from bend4 (a lambda-match application is a
+# the if sugar is gone from bend (a lambda-match application is a
 # banned form, and if desugared to one): 'if' is an ordinary name now,
 # so the old chain no longer parses as a branch -- pinned here
 import Base

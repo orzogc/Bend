@@ -1,5 +1,5 @@
 # Context rewriting: prove {x==b} from {x==a} and {a==b} by rewriting the HYPOTHESIS.
-# ported from bend3: bend4's rewrite is goal-only J with an explicit motive, and
+# ported from bend3: bend's rewrite is goal-only J with an explicit motive, and
 # the goal motive {x == _} already closes this -- the hypothesis y proves the
 # rewritten goal directly, no per-hypothesis context rewrite exists or is needed
 type N is Data:

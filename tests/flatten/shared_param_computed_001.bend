@@ -1,5 +1,5 @@
 # bend3 pinned `x = v; match x` (a let-var match is a computed match);
-# bend4 bans it: matching a local binder is a lambda-match application,
+# bend bans it: matching a local binder is a lambda-match application,
 # so the flattener rejects with a pointer to the worker-def port
 type Nt is Data:
   Z{}

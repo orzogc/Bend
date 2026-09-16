@@ -1,4 +1,4 @@
-# bend3 pinned elif alignment against its layout; bend4 is layout-free
+# bend3 pinned elif alignment against its layout; bend is layout-free
 # and any indentation reads the same case chain (the if sugar is gone:
 # a Bool branch is a match in its own def)
 import Base

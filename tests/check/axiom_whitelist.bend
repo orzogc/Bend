@@ -1,5 +1,5 @@
 # bend3 whitelisted exact canonical base axioms and warned on look-
-# alikes; bend4 has no census -- the only exemption IS base.bend, so a
+# alikes; bend has no census -- the only exemption IS base.bend, so a
 # user's bodiless assert under a base-looking name stays dead, and
 # its live use refuses at validation
 import Base

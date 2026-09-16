@@ -1,6 +1,6 @@
 # bend3 pinned that its NSI group rule may not pool a multi-argument
 # call's columns (grow shrinks only the SUM, so More's field x is no
-# smaller than column a -- accepting loop inhabits Empty). bend4 has no
+# smaller than column a -- accepting loop inhabits Empty). bend has no
 # group rule at all: x comes off the fallback's field, no smaller than
 # column a, so the self-call is refused as non-decreasing outright.
 # ported from bend3: bare ctors, Empty spelled as the base Empty

@@ -1,7 +1,7 @@
 # comp-splice pin (spec_comp_generic_dedupe): bend3's generic battery --
 # capture through a generic template, two type-pair instantiations,
-# per-site minting. bend4 has no comp surface; def<A,B> respells as
-# erased -A/-B binders and the ~ binder pins bend4's own parse refusal.
+# per-site minting. bend has no comp surface; def<A,B> respells as
+# erased -A/-B binders and the ~ binder pins bend's own parse refusal.
 import Base
 
 type L<-A: Type> is Type:

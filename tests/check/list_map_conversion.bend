@@ -1,8 +1,8 @@
 # comp pin (check_list_map_conversion): bend3 minted a comp-lambda spec
 # INSIDE a type (List.map over a ~ literal ran during conversion, refl
-# closed it). bend4 has list literals but no comp surface and no
+# closed it). bend has list literals but no comp surface and no
 # List.map (ruled out: not checkable even once Data lands); the ~
-# binder pins bend4's own parse refusal.
+# binder pins bend's own parse refusal.
 import Base
 
 law List.length:

@@ -1,6 +1,6 @@
 # io pin (io_http_chunked_bytes): bend3's HTTP byte layer -- chunked
 # decoding (hex sizes, extensions skipped) and the Bytes encode/decode
-# roundtrip. bend4 has no HTTP library, and Bytes is ruled to a plain
+# roundtrip. bend has no HTTP library, and Bytes is ruled to a plain
 # Array of U32 with no module -- the decode helper dies first on the
 # missing surface (a Bytes value respells as its length & data pair).
 import Base

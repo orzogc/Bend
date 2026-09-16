@@ -1,4 +1,4 @@
-# bend3 loaded a cyclic file pair as one book; bend4 REFUSES cycles by
+# bend3 loaded a cyclic file pair as one book; bend REFUSES cycles by
 # design (book_load's acyclic-graph law) -- the cycle itself needs a
 # second file the single-file corpus cannot hold, so the pinned half
 # is the eager leading-line load dying on its target

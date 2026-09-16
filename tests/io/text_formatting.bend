@@ -2,7 +2,7 @@
 # building (concat, join) as one built line
 # ported from bend3: no IO driver -- main returns the built text as a
 # pure String (the io corpus rides pure values); the F32.show entries
-# become a second U32.show entry (bend4 has no float text); the C
+# become a second U32.show entry (bend has no float text); the C
 # lanes await tocl's u32_copy/u32_cmp (reg_word_copy_native pins it);
 # the join separator wears + (String is Data, so it duplicates freely)
 import Base

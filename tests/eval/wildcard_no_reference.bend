@@ -1,6 +1,6 @@
 # _ is never referenceable: a wildcard binder does not capture it, so
 # a body naming _ is unbound and refused at check.
-# ported from bend3: unchanged shape; the golden is bend4's refusal
+# ported from bend3: unchanged shape; the golden is bend's refusal
 import Base
 
 law main:

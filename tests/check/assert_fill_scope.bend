@@ -1,6 +1,6 @@
 # an assert declares a DEAD claim: a def between the assert and its
 # fill cannot call the name live -- the fill must precede live use.
-# ported from bend3: bend3 ratified the forward call (C27); bend4 pins
+# ported from bend3: bend3 ratified the forward call (C27); bend pins
 # the opposite (an unfilled assert is dead-only, book order rules)
 type Nz is Data:
   Zn{}

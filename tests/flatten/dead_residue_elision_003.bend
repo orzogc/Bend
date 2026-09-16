@@ -1,6 +1,6 @@
 # bend3 pinned out-of-order nested matches (the reversed column order
-# leaves a row riding a dead, elided residue); bend4 BANS out-of-order
-# matches by ruling, so the same shape pins bend4's own refusal
+# leaves a row riding a dead, elided residue); bend BANS out-of-order
+# matches by ruling, so the same shape pins bend's own refusal
 type Bl is Data:
   T{}
   F{}

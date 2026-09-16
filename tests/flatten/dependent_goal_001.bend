@@ -1,6 +1,6 @@
 # bend3's nested dependent computed matches: the goal mentions both
-# scrutinees. bend4's computed match never specializes, by design, so
-# the applied spelling pins bend4's own refusal
+# scrutinees. bend's computed match never specializes, by design, so
+# the applied spelling pins bend's own refusal
 # ported from bend3: the numeric columns become ctor columns
 type Bl is Data:
   T{}

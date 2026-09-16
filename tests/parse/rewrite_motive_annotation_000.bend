@@ -1,4 +1,4 @@
-# bend3 refused '_' in rewrite motives ('a defined name'); bend4 binds
+# bend3 refused '_' in rewrite motives ('a defined name'); bend binds
 # '_' there by design, so the natural sym and cong spellings CHECK --
 # the inverted law, pinned positively
 import Base

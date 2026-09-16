@@ -1,7 +1,7 @@
 # drop-driven collection on shared values: peek reads only the left
 # spine of the shared tree (the right children drop), and waste never
 # uses its tree argument at all -- a whole-value drop. Values exact.
-# ported from bend3: the +Tree ascription becomes a + let (bend4's +
+# ported from bend3: the +Tree ascription becomes a + let (bend's +
 # is a binder over the Data-kinded Tree, not a type),
 # depth rides Nat
 import Base

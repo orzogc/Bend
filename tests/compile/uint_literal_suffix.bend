@@ -1,6 +1,6 @@
 # bend3's u32_lit emitted bare C ints and (5 - 7) >> 191 underflowed
 # SIGNED in a raw register (interp 2, C 42; the f32 head routed the
-# expression through a raw local). bend4's shifts take Nat counts and
+# expression through a raw local). bend's shifts take Nat counts and
 # words never ride raw C ints -- the pin is cross-lane agreement on
 # the wrap-and-shift itself (the f32 head is dropped: interp floats
 # are axioms)

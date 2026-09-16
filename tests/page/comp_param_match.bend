@@ -1,6 +1,6 @@
 # comp pin (page_comp_param_match): bend3's template body matching on
 # its ~ param died at spec mint with the cannot-be-matched-on page.
-# bend4 has no ~ params to mint; the ~ binder pins bend4's own parse
+# bend has no ~ params to mint; the ~ binder pins bend's own parse
 # refusal before any match is reached.
 import Base
 

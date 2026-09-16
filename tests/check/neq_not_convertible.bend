@@ -1,4 +1,4 @@
-# conversion must not equate {a != b} with {a == b}: bend4's
+# conversion must not equate {a != b} with {a == b}: bend's
 # inequality is the arrow into Empty from parse time, never
 # convertible with the equation itself
 import Base

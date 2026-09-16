@@ -1,5 +1,5 @@
 # bend3's red-team pin made duplicate ctor names across datatypes
-# LEGAL (resolution via the expected type); bend4 inverts the law by
+# LEGAL (resolution via the expected type); bend inverts the law by
 # design -- constructors are bare and globally unique, and the second
 # Mk dies at declaration
 import Base

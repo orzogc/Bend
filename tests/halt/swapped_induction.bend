@@ -1,6 +1,6 @@
 # the AI-loop's classic bad proof: an induction whose IH swaps the
 # columns is not a descent. bend3 refused it with a type mismatch off
-# its accepted swap; bend4 refuses the swap itself -- b sits in a's
+# its accepted swap; bend refuses the swap itself -- b sits in a's
 # column with no subterm relation, so the IH is refused as
 # non-decreasing. Never accepted in either dialect.
 # ported from bend3: bare ctors S/Z over the test's own N; add is

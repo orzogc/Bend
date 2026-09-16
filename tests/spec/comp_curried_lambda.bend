@@ -1,6 +1,6 @@
 # comp-splice pin (spec_comp_curried_lambda): bend3's curried comp arrows
-# took x => y => chains as spliced arguments. bend4 has no comp surface;
-# the ~ binder pins bend4's own parse refusal.
+# took x => y => chains as spliced arguments. bend has no comp surface;
+# the ~ binder pins bend's own parse refusal.
 import Base
 
 law app2:

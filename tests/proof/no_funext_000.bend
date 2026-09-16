@@ -1,6 +1,6 @@
 # no funext: a λ never checks against an equation between functions
 # (BendTT refuted the intro rule).
-# ported from bend3: bend3 pinned this under --no-halt; bend4 needs no
+# ported from bend3: bend3 pinned this under --no-halt; bend needs no
 # pragma at all -- every def here descends structurally, and the
 # refusal is the checker's own, strict
 type N is Data:

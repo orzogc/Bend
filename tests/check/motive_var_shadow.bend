@@ -1,7 +1,7 @@
 # the rewrite motive is one term binding `_` alone: an inner lambda in
 # the motive is an ordinary lambda, and only `_` names the rewritten
 # position.
-# ported from bend3: bend3's motive was a real lambda m => ..; bend4's
+# ported from bend3: bend3's motive was a real lambda m => ..; bend's
 # motive binds _ and folds the right side into the left
 import Base
 

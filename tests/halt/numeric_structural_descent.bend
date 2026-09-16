@@ -1,5 +1,5 @@
 # bend3 pinned numeric structural recursion (the miss branch of a
-# 0-switch knows the scrutinee non-zero, so d - 1 descends). bend4's
+# 0-switch knows the scrutinee non-zero, so d - 1 descends). bend's
 # counter is Nat and the descent carries (e off 1n+e): a binary node
 # spends the depth twice -- e in both children -- and the +Nat (Cop)
 # binder licenses that copy, so the file checks strict and pins the

@@ -1,5 +1,5 @@
 # evaluating a dependent forall TYPE prints the named-binder @ form
-# (bend4 spells a zero-arg family instance U32<>).
+# (bend spells a zero-arg family instance U32<>).
 # ported from bend3: the def becomes main (the CLI evaluates main only)
 import Base
 

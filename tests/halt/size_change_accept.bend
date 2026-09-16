@@ -1,5 +1,5 @@
 # bend3's size-change matrix composition accepted role-swapping
-# columns (interleave trades xs and ys); bend4's law is fixed
+# columns (interleave trades xs and ys); bend's law is fixed
 # left-to-right EQ-until-LT, so the swap refuses by design
 import Base
 

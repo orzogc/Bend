@@ -1,6 +1,6 @@
 # deep nesting traffic: a 4-deep right-nested tuple fully opened and
 # rebuilt reversed; a record-of-records rebuilt with one deep field bumped
-# ported from bend3: tuple destructures ride helper defs (a bend4
+# ported from bend3: tuple destructures ride helper defs (a bend
 # pattern-let wants a binder-consuming call on the right)
 import Base
 

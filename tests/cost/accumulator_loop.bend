@@ -1,7 +1,7 @@
 # bend3's interp cost guard (492 interactions at depth 24) loses its
-# counter -- bend4 has no --stats -- and keeps its value: the
+# counter -- bend has no --stats -- and keeps its value: the
 # accumulator loop rides a Nat countdown with a U32 mirror (the 1+n
-# arm re-used the pred, which affine bend4 spells as two arguments)
+# arm re-used the pred, which affine bend spells as two arguments)
 import Base
 
 law spin:

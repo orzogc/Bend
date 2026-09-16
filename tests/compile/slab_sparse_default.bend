@@ -1,5 +1,5 @@
 # bend3's absent-slab static default and the page-walking drop;
-# bend4's Array has neither slabs nor defaults -- the sparse defaulted
+# bend's Array has neither slabs nor defaults -- the sparse defaulted
 # slab literal's spelling is the refusal
 import Base
 

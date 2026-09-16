@@ -1,5 +1,5 @@
 # bend3's eta-absorption pin buried a numeric match-lambda tail under
-# a statement; bend4 has no numeric match-lambda -- the tail's own
+# a statement; bend has no numeric match-lambda -- the tail's own
 # spelling dies at parse, before any absorption question
 import Base
 

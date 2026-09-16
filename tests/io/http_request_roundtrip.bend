@@ -1,6 +1,6 @@
 # io pin (io_http_request_roundtrip): bend3's HTTP pure layer --
 # request/response head reading, serialization roundtrip, the
-# case-insensitive header lookup and tolerant line handling. bend4 has
+# case-insensitive header lookup and tolerant line handling. bend has
 # no HTTP library -- req_score dies first on the missing get_header (a
 # Request respells as its method & path & headers & length tuple).
 import Base

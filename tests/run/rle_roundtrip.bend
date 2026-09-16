@@ -1,6 +1,6 @@
 # run-length encoding: list -> (count, value) pairs -> expanded back;
 # the round trip is the pin
-# ported from bend3: bend-base's List helpers are inlined over bend4's
+# ported from bend3: bend-base's List helpers are inlined over bend's
 # List (Nil/Con); strict -- the run and expand helpers folded into
 # their callers' case trees, the shared code list a + binder over a
 # List<&2, ..> of reusable pairs

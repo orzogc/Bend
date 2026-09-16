@@ -1,6 +1,6 @@
 # bend3 pinned that a non-size-increasing def is the only legal
 # material source (loop mints 3 cells from 1, so loop(a(b)) had
-# nothing to spend). bend4 has no material accounting: a(b) rebuilds
+# nothing to spend). bend has no material accounting: a(b) rebuilds
 # through a HOAS application, no shrinking column, so loop(a(b)) is
 # refused as non-decreasing -- while loop(p) itself descends fine.
 # ported from bend3: bare ctors, main returns the test's own type

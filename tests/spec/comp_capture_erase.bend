@@ -1,8 +1,8 @@
 # comp-splice pin (spec_comp_capture_erase): bend3 took a capture's
 # quantity from the specialized body's own uses, so an all-erased
-# capture erased at the caller too. bend4 has no comp surface; the ~
-# binder pins bend4's own parse refusal. (bend3's () Unit literal is
-# respelled Unit{}: bend4 has no unit literal.)
+# capture erased at the caller too. bend has no comp surface; the ~
+# binder pins bend's own parse refusal. (bend3's () Unit literal is
+# respelled Unit{}: bend has no unit literal.)
 import Base
 
 type D is Data:

@@ -1,4 +1,4 @@
-# infix operators: bend3's ladder in bend4's dialect, loosest to
+# infix operators: bend3's ladder in bend's dialect, loosest to
 # tightest: || over && over < <= > over .|. over .^. over .&. over
 # << >> over + - over * /; value ops left-assoc, <> ++ right-assoc.
 # == != % are out: the Eql brace form owns ==/!= and % heads a rewrite

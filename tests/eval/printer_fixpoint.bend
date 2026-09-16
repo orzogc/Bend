@@ -2,7 +2,7 @@
 # lambda; this main is written exactly as the printer spells it (an
 # open Succ chain renders 1n+x), and shows back unchanged.
 # ported from bend3: the local IO type renames to Eff with fresh ctor
-# names (bend4 ctors are global), payloads become Nat
+# names (bend ctors are global), payloads become Nat
 import Base
 
 type Eff is Type:

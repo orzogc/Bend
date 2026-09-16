@@ -1,7 +1,7 @@
 # comp-splice pin (import_comp_splice_boundary): bend3 exported a ~
 # template across a module boundary and minted in the importer's book.
-# bend4 has no comp surface, and the corpus is flat self-contained
-# files, so the template inlines here and the ~ binder pins bend4's
+# bend has no comp surface, and the corpus is flat self-contained
+# files, so the template inlines here and the ~ binder pins bend's
 # own parse refusal.
 import Base
 

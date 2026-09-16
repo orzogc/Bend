@@ -1,7 +1,7 @@
 # base List: reverse is involutive and an insertion sort orders (dupes
 # kept) on concrete lists -- closed by conversion alone, no output.
 # ported from bend3: list literals become Con/Nil spines, bend3-base
-# List.sort becomes a local insertion sort (bend4 base has none); the
+# List.sort becomes a local insertion sort (bend base has none); the
 # compare-and-rebuild double use takes + binders (List<&2, U32> is
 # Data, so it duplicates)
 import Base

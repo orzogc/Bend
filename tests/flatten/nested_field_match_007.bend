@@ -1,6 +1,6 @@
 # nested field match whose inner arms use the SIBLING field: t stays
 # bound across the elimination of h
-# ported from bend3: a field binder cannot be re-matched inline (bend4's
+# ported from bend3: a field binder cannot be re-matched inline (bend's
 # binder-order law), so the fields route through a helper def
 type Nt is Data:
   Z{}

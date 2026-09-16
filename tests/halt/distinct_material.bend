@@ -1,4 +1,4 @@
-# bend3's distinctness pin meets a wall one rule earlier in bend4:
+# bend3's distinctness pin meets a wall one rule earlier in bend:
 # the self-call's argument bod(a2) is a HOAS application, not a
 # shrinking column, so infer-app refuses the recursion outright (the
 # computed-match spelling is gone with the ban; the beta row is a

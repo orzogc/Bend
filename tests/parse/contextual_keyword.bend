@@ -1,6 +1,6 @@
 # `as` is a contextual keyword: it marks an import alias only, and binds
 # like any name in term positions.
-# ported from bend3: bend3 reserved `as` everywhere; bend4 pins the
+# ported from bend3: bend3 reserved `as` everywhere; bend pins the
 # opposite (contextual) law
 type Vv is Data:
   Ok{}

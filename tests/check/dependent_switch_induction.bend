@@ -1,6 +1,6 @@
 # bend3's U32 induction: a switch against a dependent goal specialized
 # per arm, `1+p` binding the successor witness and the recursive call
-# the induction hypothesis. bend4 ruled the surface out -- U32 is a
+# the induction hypothesis. bend ruled the surface out -- U32 is a
 # wrapper datatype with no 1+ pattern (numeric induction rides Nat,
 # pinned by the nat_proofs ports); the spelling dies at the pattern
 import Base

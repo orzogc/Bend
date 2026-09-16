@@ -1,6 +1,6 @@
 # comp-splice pin (spec_comp_mint_dedupe): bend3's filter/fold shapes
-# with per-site mint counting. bend4 rules the comp surface out
-# (filter/map are not checkable libs); the ~ binder pins bend4's own
+# with per-site mint counting. bend rules the comp surface out
+# (filter/map are not checkable libs); the ~ binder pins bend's own
 # parse refusal. (bend3's `x % 2` oddness respells through U32.and.)
 import Base
 

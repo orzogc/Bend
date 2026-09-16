@@ -1,5 +1,5 @@
 # bend3's pin that erased numeric switching cannot inspect its
-# argument. bend4 spells the erased arrow as a - binder, and has no
+# argument. bend spells the erased arrow as a - binder, and has no
 # numeric match-lambda at all: the \{0: ...} key dies at parse before
 # erasure is even a question
 import Base

@@ -2,7 +2,7 @@
 # ever looked at -- the descent judgment lives inside infer-app, so the
 # self-application is refused as non-decreasing (no column shrinks).
 # ported from bend3: U32 becomes Nat; bend3 pinned its separate halt
-# phase beating a later type error, bend4 pins the in-checker ordering
+# phase beating a later type error, bend pins the in-checker ordering
 import Base
 
 law bad:

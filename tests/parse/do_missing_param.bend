@@ -1,6 +1,6 @@
 # error census: a do head with no type-argument group is refused -- the
 # monad head opens `<` right after its name (`do M<>:` is the empty form).
-# ported from bend3: same law, bend4 error page
+# ported from bend3: same law, bend error page
 import Base
 
 law main:

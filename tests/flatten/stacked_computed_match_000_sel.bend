@@ -1,4 +1,4 @@
-# two COMPUTED scrutinees: bend4's match takes bare scrutinees, so the
+# two COMPUTED scrutinees: bend's match takes bare scrutinees, so the
 # computed values feed a helper's pattern columns
 # ported from bend3: the numeric domain becomes a ctor word, literal
 # arm values become ctors

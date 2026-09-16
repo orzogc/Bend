@@ -1,7 +1,7 @@
 # Map + Set: the crit-bit map behaves -- from_list, get with default,
 # has, del, pop, right-biased union, code-point-ordered to_list, and
 # Set as the Map<&2, Unit> alias (add/has/del/to_list). bend3's
-# map_set_ops in bend4's dialect: Map.get wants a Data value (U32),
+# map_set_ops in bend's dialect: Map.get wants a Data value (U32),
 # and the order check rides Map.keys joined plus Map.values
 # folded to digits, since re-matching a match arm's field binder
 # (bend3's entry-by-entry destructure) is walled here. Five checks,

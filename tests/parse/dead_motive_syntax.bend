@@ -1,4 +1,4 @@
-# bend3's dead %[x => P] motive spelling died as list syntax; bend4's
+# bend3's dead %[x => P] motive spelling died as list syntax; bend's
 # rewrite is `%e : P` and [ after % has no reading at all -- the old
 # spelling dies at parse
 import Base

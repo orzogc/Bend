@@ -1,5 +1,5 @@
 # bend3's pin that fuel is dead: an inline dep match over a literal
-# depth computes at check time. bend4 never had fuel, and the staging
+# depth computes at check time. bend never had fuel, and the staging
 # spelling itself is ruled out -- the countdown's `1+d` pattern does
 # not exist on the wrapper U32; the port dies at the pattern
 import Base

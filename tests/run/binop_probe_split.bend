@@ -1,5 +1,5 @@
 # bend3's Op2 probe-reuse pin applied a NUMERIC match-lambda as the
-# left operand; bend4 match-lambdas take constructor keys only, so the
+# left operand; bend match-lambdas take constructor keys only, so the
 # probe's spelling dies at parse on the 0: key
 import Base
 

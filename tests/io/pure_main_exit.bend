@@ -1,9 +1,9 @@
 # a pure main through every backend, fork tree included: the built
 # binary prints the result word and exits 0.
-# ported from bend3: the fork depth becomes Nat fuel (bend4 has no
+# ported from bend3: the fork depth becomes Nat fuel (bend has no
 # word patterns), `a & b = x & y` becomes the parallel let,
 # shared binders take + Nat/+ U32 (both Data); bend3's result-word exit code
-# is bend3 CLI behavior -- bend4 binaries print and exit 0
+# is bend3 CLI behavior -- bend binaries print and exit 0
 import Base
 
 law leaf:

@@ -1,5 +1,5 @@
 # bend3's width-16 left-nested chain guarded the checker's exponential
-# Op2 arm by interaction count; bend4 has no --stats, so the guard
+# Op2 arm by interaction count; bend has no --stats, so the guard
 # keeps its half that still speaks: the chain checks and answers on
 # every lane through the infix ladder
 import Base

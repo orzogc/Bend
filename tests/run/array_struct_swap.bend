@@ -1,5 +1,5 @@
 # bend3's slab default-serving through the swap form (old = m[i] <-
-# new) on constructor elements; bend4's Array serves no defaults and
+# new) on constructor elements; bend's Array serves no defaults and
 # has no slab literal -- the defaulted ctor literal's spelling is the
 # refusal (the in-range swap form is covered by the ported reg_array
 # tests)

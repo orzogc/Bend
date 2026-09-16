@@ -1,6 +1,6 @@
 # type families: a match computing a Type, and a maker whose match
 # motive refines the family per arm -- the value normalizes whole.
-# ported from bend3: bend4 evaluates main only, so the value block is
+# ported from bend3: bend evaluates main only, so the value block is
 # the pin (the TYPE normal form has no CLI surface)
 import Base
 

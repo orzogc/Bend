@@ -1,7 +1,7 @@
 # audit: the frozen datatype declaration form is type-headed, with params
 # in ONE comma-separated angle group and shape-delimited ctor rows.
 # ported from bend3: parens params become angles, ctors bare and unique,
-# the literal scrutinee moves behind a def (bend4 refuses an
+# the literal scrutinee moves behind a def (bend refuses an
 # undestructed ctor scrutinee)
 type Pr<a, b, -A: Kind(a), -B: Kind(b)> is Kind(a <&> b):
   Mk{fst: A, snd: B}

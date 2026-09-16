@@ -1,7 +1,7 @@
 # slab-array pin (check_array_never_copyable): bend3 held arrays
-# linear, never Data -- over-using an array binder was BadUsage. bend4
+# linear, never Data -- over-using an array binder was BadUsage. bend
 # has no [:T] array type -- the [: spelling in dupa's parameter pins
-# bend4's own parse refusal (bend4's own affine wall on every type is
+# bend's own parse refusal (bend's own affine wall on every type is
 # pinned by the capture twins).
 import Base
 

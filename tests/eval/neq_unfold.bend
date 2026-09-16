@@ -1,6 +1,6 @@
 # {a != b : T} desugars at parse time to {a == b : T} -> Empty: no
 # negated Eql node and no minted def exist anywhere (bend3 minted
-# Empty.Not; bend4 unfolds structurally in the parser)
+# Empty.Not; bend unfolds structurally in the parser)
 import Base
 
 law NEQ01:

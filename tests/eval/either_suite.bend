@@ -1,5 +1,5 @@
 # Either coverage: A | B parses to Either<A, B>, & and | share one
-# precedence and right-nest in bend4 -- (U32 & U32) | U32 needs its
+# precedence and right-nest in bend -- (U32 & U32) | U32 needs its
 # parens -- a type argument parenthesizes: id((U32 | U32), ..), L/R
 # build, matches dispatch both arms, and an R-biased kit chains.
 # ported from bend3: Either.L/R become Inl/Inr, the bend3-base kit

@@ -1,5 +1,5 @@
 # bend3's slab-handle lazy allocation (pages minted on first write)
-# and past-capacity no-ops; bend4's Array has no slabs, handles or
+# and past-capacity no-ops; bend's Array has no slabs, handles or
 # capacity -- the sparse slab literal's spelling is the refusal
 import Base
 

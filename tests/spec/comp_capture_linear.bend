@@ -1,7 +1,7 @@
 # comp-splice pin (spec_comp_capture_linear): bend3's capture honesty,
 # negative side -- a recursive template capturing a closure-typed var
-# died BadUsage at the instantiation (closures never contract). bend4
-# has no comp surface at all; the ~ binder pins bend4's own parse
+# died BadUsage at the instantiation (closures never contract). bend
+# has no comp surface at all; the ~ binder pins bend's own parse
 # refusal (the affine wall itself is pinned by the capture twins).
 import Base
 

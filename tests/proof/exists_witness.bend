@@ -3,7 +3,7 @@
 # cong lemma, IH destructured from the recursive call; the witness
 # computes.
 # ported from bend3: bend3's `forall x where IsEven(x)` interleaved the
-# evidence as its own parameter, which bend4 spells as a second forall
+# evidence as its own parameter, which bend spells as a second forall
 # clause; the explicit-motive cong closes the step
 import Base
 

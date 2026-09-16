@@ -1,5 +1,5 @@
 # compile_join_verdict_000's agreement law from the other walk order
-# (the widest aux visited first, the 15-param failure band); bend4's
+# (the widest aux visited first, the 15-param failure band); bend's
 # tocl has no verdict machinery, so the threaded-f32-state loop itself
 # carries -- a float guard folded into each Nat countdown arm (the
 # binder-order law moves the dispatch),

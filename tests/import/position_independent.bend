@@ -1,4 +1,4 @@
-# bend3 imports parsed anywhere in the file; bend4 imports are leading
+# bend3 imports parsed anywhere in the file; bend imports are leading
 # lines only, by design -- one after a def dies at parse
 import Base
 

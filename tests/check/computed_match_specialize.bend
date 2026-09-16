@@ -4,7 +4,7 @@
 # spelling -- in each twin the arm's h still meets the goal, so both
 # proofs accept.
 # ported from bend3: bend3 specialized computed hypotheses per arm;
-# bend4 freezes the split-out worker's goal, and the twins accept
+# bend freezes the split-out worker's goal, and the twins accept
 type Nf is Data:
   Zf{}
   Sf{p: Nf}

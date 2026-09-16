@@ -1,5 +1,5 @@
 # bend3's --eval printed an unapplied def normalized UNDER its binders;
-# bend4's snf keeps a bare ref closed (eval_toplevel_ref_print pins
+# bend's snf keeps a bare ref closed (eval_toplevel_ref_print pins
 # that), and the open rendering lives on the --show lane: the parsed
 # body prints with its params peeled, exactly bend3's shape
 import Base

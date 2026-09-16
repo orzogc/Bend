@@ -1,7 +1,7 @@
 # switch on a computed value with a default row: the rows live in a
-# helper def (bend4's match takes bare scrutinees and a match heads a
+# helper def (bend's match takes bare scrutinees and a match heads a
 # def body), the computed call rides its application
-# ported from bend3: the numeric domain becomes a ctor word (bend4 has
+# ported from bend3: the numeric domain becomes a ctor word (bend has
 # no number patterns)
 type W is Data:
   Z{}

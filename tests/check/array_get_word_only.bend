@@ -1,7 +1,7 @@
 # slab-array pin (check_array_get_word_only): bend3 limited free reads
-# to word (U32/F32) elements -- a boxed element reads by swap. bend4
+# to word (U32/F32) elements -- a boxed element reads by swap. bend
 # has no [:T] array type -- the [: spelling in main's parameter pins
-# bend4's own parse refusal.
+# bend's own parse refusal.
 import Base
 
 type Box2 is Data:

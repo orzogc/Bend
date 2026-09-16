@@ -1,5 +1,5 @@
 # bend3 pinned that a list literal never satisfies an ARRAY goal;
-# bend4 has no [:T] array type at all -- the spelling dies at parse
+# bend has no [:T] array type at all -- the spelling dies at parse
 # before any goal exists
 import Base
 

@@ -1,7 +1,7 @@
 # slab-array pin (check_array_get_copy): bend3's word-element read is a
-# free copy (b@b1[0] contracts like a Lone word binder). bend4 has no
-# slab arrays or @-reads -- the ![ literal pins bend4's own parse
-# refusal (base Array.get with U32.copy is the bend4 spelling, pinned
+# free copy (b@b1[0] contracts like a Lone word binder). bend has no
+# slab arrays or @-reads -- the ![ literal pins bend's own parse
+# refusal (base Array.get with U32.copy is the bend spelling, pinned
 # by the ported array tests).
 import Base
 

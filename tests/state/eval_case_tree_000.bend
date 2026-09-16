@@ -1,7 +1,7 @@
 # word-switch ladder, complete: the IH rewrite closes the miss arm;
-# the checked proof's value displays as the REF chain (bend4's show
+# the checked proof's value displays as the REF chain (bend's show
 # refolds a stuck match to its ref -- bend3's --eval case-tree literal
-# has no bend4 face; main's eta form replaces the --eval lane)
+# has no bend face; main's eta form replaces the --eval lane)
 # ported from bend3: U32 switch -> Nat; rewrite takes its motive
 import Base
 type MN is Data:

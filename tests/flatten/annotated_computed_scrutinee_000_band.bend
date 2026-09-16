@@ -1,7 +1,7 @@
 # Python-shaped headers, nested matches, and `{E : T}` annotating a
 # computed scrutinee's type
 # ported from bend3: chars ride a Bool payload and words become ctor
-# nats (bend4 has no number patterns); the literal-plus-default rows
+# nats (bend has no number patterns); the literal-plus-default rows
 # live in a helper def and the computed decision folds through main
 # (an applied match-lambda is a banned form)
 type Bl is Data:

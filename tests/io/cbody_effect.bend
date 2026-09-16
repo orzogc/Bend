@@ -1,7 +1,7 @@
 # io pin (io_cbody_effect): bend3's C-BODIED DEF -- a def whose body is
 # `import ./x.c` minted an Op constructor and the driver ran the
-# effect natively. bend4 has no C-bodied defs -- imports are leading
-# lines only, so the effect-body spelling pins bend4's own parse
+# effect natively. bend has no C-bodied defs -- imports are leading
+# lines only, so the effect-body spelling pins bend's own parse
 # refusal.
 import Base
 

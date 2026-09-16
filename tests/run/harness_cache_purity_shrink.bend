@@ -1,6 +1,6 @@
 # bend3's harness-cache adversary, purity side: interleaved --eval
 # blocks of DIFFERENT defs repeated byte-identically off one cached
-# book. bend4's runner caches the checked book per file; interleaved
+# book. bend's runner caches the checked book per file; interleaved
 # --show pages of two defs and the value block must repeat unchanged
 import Base
 

@@ -1,5 +1,5 @@
 # bend3's C27 let a def between an assert and its fill call the
-# asserted name; bend4 refuses by design -- a def may not use a
+# asserted name; bend refuses by design -- a def may not use a
 # demanded name (only asserts may), and the refusal names the law
 import Base
 

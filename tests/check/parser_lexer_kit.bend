@@ -1,4 +1,4 @@
-# bend3's Parser lexer kit (char/digit/or/read) is absent from bend4's
+# bend3's Parser lexer kit (char/digit/or/read) is absent from bend's
 # base: the head call is an undefined name
 import Base
 

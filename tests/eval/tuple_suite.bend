@@ -3,7 +3,7 @@
 # generic swap through the dependent Pair -- pure, so the compiled
 # lanes cover the Tuple ctor through the C backend too.
 # ported from bend3: literal tuple patterns (case (4, 3)) become a
-# destructure plus U32.is_eq checks (bend4 has no word patterns);
+# destructure plus U32.is_eq checks (bend has no word patterns);
 # result 118 (bend3's golden) shown as a Nat
 import Base
 

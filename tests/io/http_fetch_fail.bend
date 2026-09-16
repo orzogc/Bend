@@ -1,6 +1,6 @@
 # io pin (io_http_fetch_fail): bend3's fetch died on DNS resolution of
 # an RFC-2606 .invalid host and exited with the ENOENT class word (2),
-# the Fail carried as a Result. bend4 has no HTTP library -- the do
+# the Fail carried as a Result. bend has no HTTP library -- the do
 # block dies on the missing HTTP.fetch.
 import Base
 

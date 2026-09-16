@@ -1,7 +1,7 @@
 # slab-array pin (check_array_default_distinct): bend3 held array
 # literals with equal entries but DIFFERENT defaults non-convertible
-# (reads past the keys distinguish them). bend4 has no array literals
-# -- the ![ spelling inside the equality goal pins bend4's own parse
+# (reads past the keys distinguish them). bend has no array literals
+# -- the ![ spelling inside the equality goal pins bend's own parse
 # refusal.
 import Base
 

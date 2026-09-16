@@ -1,6 +1,6 @@
 # refusal pin: bend3's --no-halt door let use2 duplicate a value of the
 # FORWARD datatype D, and the pin was that an unchecked datatype must
-# never certify Data-ness. bend4 has no --no-halt door: names resolve
+# never certify Data-ness. bend has no --no-halt door: names resolve
 # upward only in a strict file, so the forward D3 in Two's field is
 # itself the refusal -- the duplication in use2 is never weighed.
 # ported from bend3: the Pair.Pair redefinition half is pinned by

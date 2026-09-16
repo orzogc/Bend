@@ -1,7 +1,7 @@
 # literal sugar computes on every lane: strings as "..", nats as Nn,
 # chars as '.', lists as [..], in one tuple main printed field by field
 # ported from bend3: the def-per-block form becomes one tuple main
-# (bend4's CLI prints main only); the printer's own re-sugaring is
+# (bend's CLI prints main only); the printer's own re-sugaring is
 # pinned by tests/show
 import Base
 

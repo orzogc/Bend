@@ -1,5 +1,5 @@
 # bend3's found-column search accepted a growing accumulator BEFORE
-# the decreasing column; bend4's left-to-right law refuses a non-EQ
+# the decreasing column; bend's left-to-right law refuses a non-EQ
 # column ahead of the descent (halt_threaded_state_after pins the
 # accepted order)
 import Base

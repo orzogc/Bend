@@ -1,4 +1,4 @@
-# bend3's Heap/Queue/Deque container modules are absent from bend4's
+# bend3's Heap/Queue/Deque container modules are absent from bend's
 # base (Map and Set are its containers): the head call is an undefined
 # name
 import Base

@@ -3,7 +3,7 @@
 # Nat show sugar must walk a 131072-deep Succ chain to its digits, on
 # every lane (the C digit printer and the JS readback included).
 # ported from bend3: List(U32) zeros(4000) becomes Nat.pow2(17n) --
-# bend4 has no list literal, and the closed-chain digit render pins the
+# bend has no list literal, and the closed-chain digit render pins the
 # same deep, non-overflowing walk
 import Base
 

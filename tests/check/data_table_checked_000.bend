@@ -1,10 +1,10 @@
 # refusal pin: bend3's file redefined Pair.Pair to elaborate a raw
 # tuple field into a function type, and its own golden was the
 # duplicate-declaration refusal -- the negative-self-application Empty
-# never checked. bend4 hits the same first wall: a Base name cannot be
-# redeclared (and bend4 has no Data table for the redefinition to
+# never checked. bend hits the same first wall: a Base name cannot be
+# redeclared (and bend has no Data table for the redefinition to
 # poison; the D/delta skeleton below the dying line is inert).
-# ported from bend3: Pair.Pair -> String.eq (bend4's base owns no
+# ported from bend3: Pair.Pair -> String.eq (bend's base owns no
 # Pair; the wall is the name, not the signature)
 import Base
 

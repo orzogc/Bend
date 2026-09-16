@@ -1,7 +1,7 @@
 # comp-splice pin (comp_splice_tuple_goal): bend3's tuple-goal templates
-# (a generic ctor field holding a tuple of both worlds). bend4 has no
-# comp surface; the ~ binder pins bend4's own parse refusal. (bend3's
-# R.Done/R.Fail respell as bare RDone/RFail: bend4 ctor names are bare
+# (a generic ctor field holding a tuple of both worlds). bend has no
+# comp surface; the ~ binder pins bend's own parse refusal. (bend3's
+# R.Done/R.Fail respell as bare RDone/RFail: bend ctor names are bare
 # and Result owns Done/Fail.)
 import Base
 

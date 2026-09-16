@@ -1,4 +1,4 @@
-# bend3 loaded a diamond once per module identity; bend4 dedups by
+# bend3 loaded a diamond once per module identity; bend dedups by
 # realpath (Base imported twice below is one load) and the flat corpus
 # cannot spell the tree -- the absent diamond top dies at its line
 import Base

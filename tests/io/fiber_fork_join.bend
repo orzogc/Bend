@@ -1,4 +1,4 @@
-# io (io_fiber_fork_join): bend3's fiber protocol on bend4's surface:
+# io (io_fiber_fork_join): bend3's fiber protocol on bend's surface:
 # a fork of a sleep, its join, a detached spawn. There is no race:
 # a race is a channel two forks send to, in user code.
 import Base

@@ -1,6 +1,6 @@
-# the typed-let statement is not grammar: a bend4 let is `x = v`, and a
+# the typed-let statement is not grammar: a bend let is `x = v`, and a
 # typed value spells the Ann brace, `x = {v : T}`.
-# ported from bend3: bend3 ratified `x : T = v`; bend4 pins the refusal
+# ported from bend3: bend3 ratified `x : T = v`; bend pins the refusal
 import Base
 
 law main:

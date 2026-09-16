@@ -2,7 +2,7 @@
 # sym flips, trans chains, cong maps -- each usable with hypothesis
 # ARGUMENTS (e : {a == b : T} params) and on concretes, where the
 # proof computes to {==}.
-# ported from bend3: bend4's own base carries Equal.sym/trans/cong
+# ported from bend3: bend's own base carries Equal.sym/trans/cong
 import Base
 
 law flip:

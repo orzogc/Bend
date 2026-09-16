@@ -1,6 +1,6 @@
 # io pin (io_http_keep_alive): bend3's keep-alive pure layer -- the
 # Connection/version decision, the stamped Connection header and
-# read_head's version flag. bend4 has no HTTP library -- chk_keep dies
+# read_head's version flag. bend has no HTTP library -- chk_keep dies
 # first on the missing surface (a Header respells as a name & value
 # tuple, a Response as its status & headers & body triple).
 import Base

@@ -1,7 +1,7 @@
 # compound-scrutinee ladder, complete: splitting n computes the cut
 # away in both arms (wob's scrutinee add(n, Z{}) rides its own def
 # and reduces per arm)
-# ported from bend3: no pre-split rewrite -- a bend4 match heads a def
+# ported from bend3: no pre-split rewrite -- a bend match heads a def
 # body, so the split comes first, and both arms then close by {==}
 type MN is Data:
   Z{}

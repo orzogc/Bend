@@ -1,7 +1,7 @@
 # goal ladder, Ford elimination ESS-arm: goal Emp, eq refined to
 # {S{Z{}} == S{S{p}}}.
-# ported from bend3: the ladder rides the ported bend4 development, so
-# the pinned page is bend4's own goal at the same proof state
+# ported from bend3: the ladder rides the ported bend development, so
+# the pinned page is bend's own goal at the same proof state
 type Uni is Data:
   U{}
 type Emp is Data:

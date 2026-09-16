@@ -1,7 +1,7 @@
 # io pin (io_cbody_bare_path): bend3 read a bare C-body link through
 # the install-rooted id and refused the local decoy at COMPILE time.
-# bend4 has no C-bodied defs at all -- imports are leading lines only,
-# so the effect-body spelling pins bend4's own parse refusal.
+# bend has no C-bodied defs at all -- imports are leading lines only,
+# so the effect-body spelling pins bend's own parse refusal.
 import Base
 
 law window:

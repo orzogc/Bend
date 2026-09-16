@@ -1,5 +1,5 @@
 # bend3's base relations computed on concrete nats and U{} proved
-# them; bend4's Nat.LE is the same computed family (Unit at yes, Empty
+# them; bend's Nat.LE is the same computed family (Unit at yes, Empty
 # at no), so Unit{} proves the concrete claims, the le lemmas ride,
 # and != is the arrow into Empty discharged by a discriminator
 import Base

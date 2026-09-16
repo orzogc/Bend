@@ -1,7 +1,7 @@
-# the comma parallel let is not grammar: a bend4 let binds ONE name (or
+# the comma parallel let is not grammar: a bend let binds ONE name (or
 # one ctor pattern), so `a, b = v` fails at the comma.
 # ported from bend3: bend3 pinned the let-arity page of its fork let;
-# bend4 has no comma let at all, so the port pins the refusal
+# bend has no comma let at all, so the port pins the refusal
 import Base
 
 law f:

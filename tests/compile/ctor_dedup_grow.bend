@@ -1,5 +1,5 @@
 # bend3's C-name dedup grew suffixes past a_k_x_ collisions minted by
-# qualified names; bend4 ctor names are bare and globally unique, so
+# qualified names; bend ctor names are bare and globally unique, so
 # the colliding trio spells as three distinct bare ctors and the
 # emitter needs no dedup: the program answers on every lane
 import Base

@@ -1,6 +1,6 @@
 # a pure argument swap never shrinks: sw(b, S{p}) has b in a's column
 # -- no subterm relation either way -- and sw(S{Z{}}, S{Z{}}) really
-# loops. bend4 refuses it at the first non-EQ column.
+# loops. bend refuses it at the first non-EQ column.
 # ported from bend3: bare ctors S/Z, main returns the test's own type
 type N is Data:
   S{p: N}

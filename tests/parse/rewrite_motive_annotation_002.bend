@@ -1,4 +1,4 @@
-# bend3 refused the '_' motive at the Type carrier; bend4 binds it, so
+# bend3 refused the '_' motive at the Type carrier; bend binds it, so
 # symmetry at ANY carrier -- Type itself included -- and the transport
 # cast both CHECK: the inverted law at Type:Type
 import Base

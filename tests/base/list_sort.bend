@@ -1,5 +1,5 @@
 # List.sort (32-pass binary radix) on small, empty and high-bit inputs
-# ported from bend3: bend-base's radix sort is inlined over bend4's List
+# ported from bend3: bend-base's radix sort is inlined over bend's List
 # (Nil/Con) with the bit index as Nat; List.get becomes lget with a Nat
 # index; strict -- the helper defs folded into their callers' case
 # trees, shared words and bit indexes bind + (Data)

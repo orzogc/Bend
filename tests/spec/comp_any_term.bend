@@ -1,6 +1,6 @@
 # comp-splice pin (spec_comp_any_term): bend3 filled a comp (~) slot with
-# ANY term (a ref, a runtime-bound lambda var). bend4 has no comp surface
-# by ruling -- the ~ binder pins bend4's own parse refusal.
+# ANY term (a ref, a runtime-bound lambda var). bend has no comp surface
+# by ruling -- the ~ binder pins bend's own parse refusal.
 import Base
 
 law use:

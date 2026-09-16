@@ -1,7 +1,7 @@
 # an axiom (bodiless assert) is a DEAD claim: the rewrite below needs
 # live evidence, so validation refuses the use, not the claim.
 # ported from bend3: bend3 admitted axioms in later proofs with a
-# warning; bend4 pins the refusal (rewrite evidence is live)
+# warning; bend pins the refusal (rewrite evidence is live)
 import Base
 
 law plus_comm:

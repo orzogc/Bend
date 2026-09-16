@@ -1,7 +1,7 @@
 # base Maybe: pure/map compute through, None serves the default.
 # ported from bend3: Maybe.some/none become Some/None, Maybe.or becomes
-# Maybe.default (bend4's arg order: a, A, m, d), map becomes a local def
-# (bend4 base has none); result 507 (bend3's golden) shown as a Nat
+# Maybe.default (bend's arg order: a, A, m, d), map becomes a local def
+# (bend base has none); result 507 (bend3's golden) shown as a Nat
 import Base
 
 law Maybe.default:

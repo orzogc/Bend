@@ -1,7 +1,7 @@
 # tuple literals are UNGATED sugar over the Tuple constructor: with no
 # declaration in scope, (1, 2) fails as an unknown constructor, never
 # as a parse error.
-# ported from bend3: bend3 gated the literal on `import Pair`; bend4's
+# ported from bend3: bend3 gated the literal on `import Pair`; bend's
 # sugar always parses and resolves against the book
 law main:
   Type

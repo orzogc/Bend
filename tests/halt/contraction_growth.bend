@@ -1,5 +1,5 @@
 # contraction is growth: bend3's NSI ledger refused loop because
-# append(p, p) doubles what the match released. bend4 counts the same
+# append(p, p) doubles what the match released. bend counts the same
 # fact at the binder itself: p is affine, so its second spend in
 # append(p, p) is refused in grow (loop itself descends plainly).
 # ported from bend3: bare ctors, main returns the test's own type

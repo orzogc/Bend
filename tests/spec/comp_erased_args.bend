@@ -1,7 +1,7 @@
 # comp-splice pin (spec_comp_erased_args): bend3 checked erased template
 # args against the REAL earlier arguments (the %s placeholder soundness
-# hole, pinned rejected). bend4 has no comp surface to open that door;
-# the ~ binder pins bend4's own parse refusal. (bend3's local Nat rides
+# hole, pinned rejected). bend has no comp surface to open that door;
+# the ~ binder pins bend's own parse refusal. (bend3's local Nat rides
 # base's Nat; the fake proof would be {==} at 0n == 1n.)
 import Base
 

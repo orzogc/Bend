@@ -1,5 +1,5 @@
 # bend3's ADT dup guard scrutinized the same var twice in one group;
-# bend4's core is affine, so the same spelling pins bend4's own refusal
+# bend's core is affine, so the same spelling pins bend's own refusal
 type Nat is Data:
   Z{}
   S{p: Nat}

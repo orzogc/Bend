@@ -1,5 +1,5 @@
 # bend3 rejected a do line shallower than its head (the line-depth
-# page); bend4 blocks are layout-free by design, so the same shallow
+# page); bend blocks are layout-free by design, so the same shallow
 # line parses, binds, and the value proves it
 import Base
 

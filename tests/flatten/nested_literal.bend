@@ -1,7 +1,7 @@
 # nested ctor patterns with a literal inside: the inner column splits
 # under the outer one
 # ported from bend3: the numeric field becomes a ctor word, literal arm
-# values become ctors (bend4 has no number patterns)
+# values become ctors (bend has no number patterns)
 type W is Data:
   Z{}
   S{p: W}

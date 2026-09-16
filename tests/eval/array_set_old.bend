@@ -1,5 +1,5 @@
 # the displaced element: Array.swap moves the old value out beside the
-# written array -- bend4's affine respell of bend3's Set-moves-old law
+# written array -- bend's affine respell of bend3's Set-moves-old law
 # (the a[i] <- v sugar rides Array.set and drops the old element; swap
 # is the keeping form). the moved-out word shares via +
 import Base

@@ -1,5 +1,5 @@
 # a SELF scrutinee: a computed match on the def's own recursive call;
-# the literal-plus-default rows live in a helper def (bend4's idiom)
+# the literal-plus-default rows live in a helper def (bend's idiom)
 # ported from bend3: numerics become ctor words
 type Nt is Data:
   Zn{}

@@ -1,5 +1,5 @@
 # bend3 whitelisted base's axioms and printed no !! AXIOM line for
-# them; bend4's exemption IS base.bend -- its unfilled F32 asserts are
+# them; bend's exemption IS base.bend -- its unfilled F32 asserts are
 # usable silently (the assert-error rule stops at base's edge), and
 # the float arithmetic answers on the compiled lanes with no warning
 # text anywhere

@@ -1,5 +1,5 @@
 # bend3's capture attack named a local Not to launder the != desugar;
-# bend4's != builds the DATATYPE Empty as an explicit node (no lexical
+# bend's != builds the DATATYPE Empty as an explicit node (no lexical
 # lookup), so a binder named Empty cannot capture the codomain: sneaky's
 # own return type already means real inequality, and the launder dies at
 # its own definition, one fence earlier than the lookup spelling did

@@ -1,5 +1,5 @@
 # bend3 pinned the GPU program's dynamic-apply closure set by csrc
-# marks; bend4's emitter has its own shapes, so the semantic half
+# marks; bend's emitter has its own shapes, so the semantic half
 # carries: a marked root taking a host-built partial application
 # answers the plain call's value on every lane
 import Base

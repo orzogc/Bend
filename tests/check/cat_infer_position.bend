@@ -1,4 +1,4 @@
-# bend3's Cat read ++ at inferring positions over any List; bend4's ++
+# bend3's Cat read ++ at inferring positions over any List; bend's ++
 # reads String.append (the wider List reading stays pending the
 # author), so the string halves carry at plain lets (re-used strings
 # bind +: String is Data) and the lengths answer on

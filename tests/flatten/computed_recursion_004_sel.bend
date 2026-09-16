@@ -1,5 +1,5 @@
 # def-form: a computed match on the def's own recursive call; the rows
-# live in a helper def (bend4's idiom)
+# live in a helper def (bend's idiom)
 # ported from bend3: numerics become ctor words
 type Nt is Data:
   Zn{}

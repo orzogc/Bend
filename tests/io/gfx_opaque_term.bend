@@ -1,8 +1,8 @@
 # io pin (io_gfx_opaque_term): bend3 crossed a Data-kinded Image term
 # OPAQUE through the GFX effect boundary (Pix unboxed, no marshalling
-# anywhere in the emitted C). bend4 has no IO driver, no GFX and no
+# anywhere in the emitted C). bend has no IO driver, no GFX and no
 # Image -- the do block dies on the missing surface (the frame
-# respells through walled GFX builders: Image's ctors have no bend4
+# respells through walled GFX builders: Image's ctors have no bend
 # declaration to spell).
 import Base
 

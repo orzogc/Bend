@@ -1,5 +1,5 @@
 # a rewrite under dependent hypotheses about the same equation checks
-# clean -- no ill-typed-rebind page exists (bend4's rewrite is
+# clean -- no ill-typed-rebind page exists (bend's rewrite is
 # goal-only J, so h2/h3 are never rebound)
 import Base
 type N is Data:

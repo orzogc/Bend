@@ -1,7 +1,7 @@
 # slab-array pin (check_array_get_neutral): bend3 type-checked a read
 # of a NEUTRAL array parameter (the Get result must not stick as a
-# dependent type-former). bend4 has no [:T] array type -- the [:
-# spelling in main's parameter pins bend4's own parse refusal.
+# dependent type-former). bend has no [:T] array type -- the [:
+# spelling in main's parameter pins bend's own parse refusal.
 import Base
 
 law main:

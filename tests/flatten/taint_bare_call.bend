@@ -1,5 +1,5 @@
 # bend3's stale-taint bare-call variant (mid's recursion dies inside
-# its own unfold); bend4 has no taint bits to go stale, so the sibling
+# its own unfold); bend has no taint bits to go stale, so the sibling
 # shape carries end to end -- the countdown on a Nat mirror with a +
 # word binder (a copy destructure cannot feed a self-call), mid as a
 # plain pure binding in the fork: 10

@@ -1,7 +1,7 @@
 # comp pin (parse_comp_arrow_position): bend3's comp arrow -~> in a
-# term-level type position (a let's type) named its own page. bend4 has
+# term-level type position (a let's type) named its own page. bend has
 # no -~> arrow anywhere (and no typed let: the Ann brace {v : T} is the
-# spelling); the arrow pins bend4's own parse refusal.
+# spelling); the arrow pins bend's own parse refusal.
 import Base
 
 law f:

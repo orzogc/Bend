@@ -1,7 +1,7 @@
 # Result/Maybe plumbing: a do-block over Result, bind stops at Fail,
 # or/map serve defaults
 # ported from bend3: Result.or/map and Maybe.some/none/or become local
-# ror/rmap and Maybe ctors with Maybe.default; do-binds carry the bend4
+# ror/rmap and Maybe ctors with Maybe.default; do-binds carry the bend
 # type annotation
 import Base
 

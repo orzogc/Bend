@@ -1,7 +1,7 @@
 # comp-splice pin (spec_comp_let_split): bend3's let-bound generic
-# template call whose spec split a computed match. bend4 has no comp
+# template call whose spec split a computed match. bend has no comp
 # surface (and its computed matches never specialize, by design); the
-# ~ binder pins bend4's own parse refusal. (bend3's number switch in
+# ~ binder pins bend's own parse refusal. (bend3's number switch in
 # the predicate respells through U32.is_gt.)
 import Base
 

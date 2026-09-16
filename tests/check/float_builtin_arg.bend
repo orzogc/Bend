@@ -1,7 +1,7 @@
-# ported from bend3: unary float math rejects word operands. bend4's
+# ported from bend3: unary float math rejects word operands. bend's
 # F32.sqrt is a base axiom of the same type, and a strict file may call
 # it live, so the check fires on the operand: expected F32, observed
-# U32 (bend4 shows the word as its Word chain).
+# U32 (bend shows the word as its Word chain).
 import Base
 
 law main:

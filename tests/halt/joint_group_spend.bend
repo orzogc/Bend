@@ -1,5 +1,5 @@
 # bend3's NSI joint-group acceptance spent both matched fields of an
-# nsi call's result; bend4 has no material accounting and no computed
+# nsi call's result; bend has no material accounting and no computed
 # match -- the fields come off the P9 column and a(b) shrinks nothing,
 # so the shape is a plain non-decreasing self-call and refuses as one
 import Base

@@ -2,7 +2,7 @@
 # used three times, and a bare Data binder used twice -- identical
 # results on every lane
 # ported from bend3: bend3's checker-planted deep copies become explicit
-# + binders over the Data-kinded Tree (bend4 core has no implicit
+# + binders over the Data-kinded Tree (bend core has no implicit
 # duplication);
 # the bend3 `--eval --stats` block is bend3-only and is dropped
 import Base

@@ -1,5 +1,5 @@
 # bend3 refused duplicate def names across its one global namespace;
-# bend4 imports are namespaced per file and the wall moved: the
+# bend imports are namespaced per file and the wall moved: the
 # collision fires against the imported book itself -- redeclaring a
 # base def dies as an ordinary duplicate
 import Base

@@ -1,7 +1,7 @@
 # bend3's splice law made do-binds agree with their desugaring at
-# generic pair yields; bend4's do reads the bind types as spelled, and
+# generic pair yields; bend's do reads the bind types as spelled, and
 # the nested-pair yields ride Result whole (the ++ half was Cat over
-# a pair-element List: bend4's ++ is String.append, pending wider
+# a pair-element List: bend's ++ is String.append, pending wider
 # ruling, so that half stays out)
 import Base
 

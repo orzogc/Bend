@@ -1,4 +1,4 @@
-# bend3's Bag multiset module is absent from bend4's base: the head
+# bend3's Bag multiset module is absent from bend's base: the head
 # call is an undefined name
 import Base
 

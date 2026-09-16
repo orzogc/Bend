@@ -1,4 +1,4 @@
-# bend3's def<A,B> generics and f<A>(x) call sugar; bend4 TYPES take
+# bend3's def<A,B> generics and f<A>(x) call sugar; bend TYPES take
 # <> parameters (P6 below is legal) but defs never do -- def generics
 # are ruled out (they collide with infix <), and the decl head dies
 # at its '<'

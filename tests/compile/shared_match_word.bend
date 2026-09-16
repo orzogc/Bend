@@ -1,5 +1,5 @@
 # over-used scrutinee off one binder feeding two calls
-# ported from bend3: the U32 switch becomes a Nat match (bend4 words
+# ported from bend3: the U32 switch becomes a Nat match (bend words
 # carry no literal-pattern switch), the share a +let
 import Base
 

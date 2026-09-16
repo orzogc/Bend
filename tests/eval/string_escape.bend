@@ -1,6 +1,6 @@
 # string escapes are real characters: \n is one Char, \\ is one Char.
 # ported from bend3: List.length over Chars becomes a local String
-# walk returning Nat (bend4 base has no length)
+# walk returning Nat (bend base has no length)
 import Base
 
 law slen:

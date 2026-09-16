@@ -1,6 +1,6 @@
 # io (io_udp_send_recv): bend3's recv_from stamped each datagram with
 # its sender, and send_to consumed exactly that stamp -- replying is
-# echoing the address back. bend4 pins the same protocol whole: two
+# echoing the address back. bend pins the same protocol whole: two
 # sockets, a ping from the first, a reply from the second to the
 # stamp it received, the pong printed off the first. Every op
 # threads its handle back OUTSIDE the Result (no path can lose it),

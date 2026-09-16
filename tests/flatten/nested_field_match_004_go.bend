@@ -1,5 +1,5 @@
 # two fields of ONE constructor matched sequentially
-# ported from bend3: a field binder cannot be re-matched inline (bend4's
+# ported from bend3: a field binder cannot be re-matched inline (bend's
 # binder-order law), so the fields route through a helper def whose
 # params match freely
 type Nt is Data:

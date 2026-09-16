@@ -1,7 +1,7 @@
 # number <-> text: U32.show/read round trips (through U32.MAX), and
 # read rejects junk
 # ported from bend3: U32.read answers Maybe<&2, U32> (no Parser module),
-# so rejection reads None; the F32.show half is dropped (bend4 has no
+# so rejection reads None; the F32.show half is dropped (bend has no
 # float text); the interp lane is dropped (the evaluator has no u32
 # natives, so U32.MAX's show cannot reduce there)
 import Base

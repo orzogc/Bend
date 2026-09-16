@@ -1,7 +1,7 @@
 # io (io_print_write): print (newline) and write (raw) sequence in
 # order through the event loop, and U32.show feeds a computed string
 # to an effect. Ported from bend3; bend3's result-word exit code was
-# bend3 CLI behavior -- bend4's loop discards the Emit word, and the
+# bend3 CLI behavior -- bend's loop discards the Emit word, and the
 # interp lane pins no exit line.
 import Base
 

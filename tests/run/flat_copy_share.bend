@@ -2,7 +2,7 @@
 # every use of the words-held value must own its instance (a shared
 # box double-frees), and a copy of words is the words. 16-instead-of
 # -18 was the shared-box failure.
-# ported from bend3: f32 literals rebuild via U32.to_f32 (bend4 has
+# ported from bend3: f32 literals rebuild via U32.to_f32 (bend has
 # no float literal), the reused record takes a + binder, and the pair
 # lands in a worker def's parameter (a computed destructure is a
 # banned form); no interp lane (Base's F32 axioms are stuck there)

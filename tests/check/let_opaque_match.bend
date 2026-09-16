@@ -1,5 +1,5 @@
 # bend3's sealed-let pin: a match on a let-bound 1e9-deep call
-# dispatched on the abstract binder and never ran it. bend4 bans the
+# dispatched on the abstract binder and never ran it. bend bans the
 # let-then-match outright, so the dispatch moves behind its own def
 # and matches a parameter -- the literal-0 arm is a structural word
 # pattern, the catch-all takes the rest, and main answers 0

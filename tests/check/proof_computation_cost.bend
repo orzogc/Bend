@@ -1,6 +1,6 @@
 # bend3's gen_mixed miniature: a proof whose equation sides RUN plus
 # rewrite-closed lemmas. The counter is gone (no --stats); the proofs
-# carry with bend4's spelled motives (lemmas state the eliminated term
+# carry with bend's spelled motives (lemmas state the eliminated term
 # on the right), the arm's field feeding lemma, IH and goal rides the
 # +a binder (N6 is Data, so its fields inherit +), strict, and the
 # literal conversion closes by running

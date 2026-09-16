@@ -1,5 +1,5 @@
 # audit 023: reserved names cannot be used as datatype parameters.
-# ported from bend3: U32 is a library name in bend4, so the keyword
+# ported from bend3: U32 is a library name in bend, so the keyword
 # probe is `match`
 type Bad<match: Type>:
   Bb10{}

@@ -1,5 +1,5 @@
 # bend3's stale-taint fork grouping (a sibling whose taint dies in the
-# unfold); bend4 has no taint pass, so the shape itself carries -- the
+# unfold); bend has no taint pass, so the shape itself carries -- the
 # recursive sibling rides a Nat countdown with a +U32 mirror (a copy
 # destructure cannot feed a self-call), the pure sibling folds, and
 # the fork-let joins them: 9

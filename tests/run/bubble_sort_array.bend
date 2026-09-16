@@ -1,7 +1,7 @@
 # in-place bubble sort of an F32 array: word elements read/compare/swap
 # through the linear array, digest exact in f32
 # ported from bend3: f32 literals are rebuilt exactly via F32.div of
-# small integers; a read is a double Array.swap (bend4's generic array
+# small integers; a read is a double Array.swap (bend's generic array
 # op); a > b is spelled F32.is_lt(b, a); no interpreter lane (Base's
 # F32 axioms are stuck there)
 import Base

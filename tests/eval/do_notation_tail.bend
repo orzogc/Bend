@@ -2,7 +2,7 @@
 # as-is; a bind line's type B is per-line (here Unit) while the head's
 # last param stays the block's result type -- and the Fail
 # short-circuits through Result.bind.
-# ported from bend3: base Result (Done/Fail); bend4 has no match-in-do
+# ported from bend3: base Result (Done/Fail); bend has no match-in-do
 # (match heads a def body, not a term), so the bend3 tail's match
 # collapses to the pure tail it computed to; result 7 shown as a Nat
 import Base

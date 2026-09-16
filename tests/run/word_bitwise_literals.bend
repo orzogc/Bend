@@ -1,5 +1,5 @@
 # bitwise ops, strict &&/|| normalizing to 0/1, char-code words
-# ported from bend3: hex literals become decimals (bend4 has no hex),
+# ported from bend3: hex literals become decimals (bend has no hex),
 # && and || become land/lor over U32.is_ne, char words stay as codes
 # (nonzero is spelled not(is_eq(x, 0)): tocl lacks u32_is_ne, see
 # run_word_compare's yellow)

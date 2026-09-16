@@ -1,6 +1,6 @@
 # bend3's pin: a goal reduced through a checked def must meet the
 # rewrite motive in ONE stuck spelling (parsed-vs-elaborated bodies
-# once stranded two); bend4 stores one elaborated body by design and
+# once stranded two); bend stores one elaborated body by design and
 # refolds a stuck computed match to its ref, so both sides speak
 # hgo(n) and the motive lands (the lemma states the eliminated term
 # on the right)

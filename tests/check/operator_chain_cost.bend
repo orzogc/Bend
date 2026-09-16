@@ -1,5 +1,5 @@
 # bend3's width-8 left-nested chain pinned the Op2 infer arm
-# near-linear by interaction count; bend4 has no --stats, so the value
+# near-linear by interaction count; bend has no --stats, so the value
 # half carries: the chain checks and answers on every lane
 import Base
 

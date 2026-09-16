@@ -1,7 +1,7 @@
 # goal ladder, len_app cons-arm state 1 (after the IH rewrite) -- the
 # residual closes by conversion.
-# ported from bend3: the ladder rides the ported bend4 development, so
-# the pinned page is bend4's own goal at the same proof state
+# ported from bend3: the ladder rides the ported bend development, so
+# the pinned page is bend's own goal at the same proof state
 import Base
 
 type N is Data:

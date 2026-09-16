@@ -1,5 +1,5 @@
 # bend3's uninitialized padding slots and the drop walk's freed-node
-# aliasing; bend4's Array materializes every leaf and has no literal-
+# aliasing; bend's Array materializes every leaf and has no literal-
 # with-default -- the padded slab literal's spelling is the refusal
 import Base
 

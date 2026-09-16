@@ -1,5 +1,5 @@
 # check_chained_switch_conflation_000's sound ACCEPT twin rode the
-# Inc/ADD bridge under a nested 1+q arm. bend4 has neither Inc nor a
+# Inc/ADD bridge under a nested 1+q arm. bend has neither Inc nor a
 # 1+ pattern, so the accepting chain has no spelling either: the same
 # parse wall as its rejecting twin, on the reconstruction's own arm
 import Base

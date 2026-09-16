@@ -1,5 +1,5 @@
 # list literal sugar: [a,b,c] is Con/Nil, in terms and patterns --
-# ported from bend3; literals sit in checked positions (bend4 infers
+# ported from bend3; literals sit in checked positions (bend infers
 # no ctor), and the readback folds to one U32 (a List is not
 # C-showable)
 import Base

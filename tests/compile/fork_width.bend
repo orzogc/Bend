@@ -1,5 +1,5 @@
 # bend3's fork cap ACCEPTED its widest legal 32-sibling parallel let;
-# bend4's fork-let pairs right-nested with no cap at all (the
+# bend's fork-let pairs right-nested with no cap at all (the
 # dead-cap law carried, parse_fork_arity_cap_000), so the same 32
 # siblings join into one sum on every lane: sum(2i+1, i<32) = 1024
 import Base

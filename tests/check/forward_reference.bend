@@ -1,6 +1,6 @@
 # term-level forward references FAIL as undefined: resolution follows
 # book order.
-# ported from bend3: bend3 ratified forward refs (C27); bend4 pins the
+# ported from bend3: bend3 ratified forward refs (C27); bend pins the
 # refusal (the descent wall needs order)
 import Base
 

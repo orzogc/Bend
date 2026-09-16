@@ -2,7 +2,7 @@
 # dispatch, comparison-fed matches, and a Bool argument all emit plain
 # C branches -- the interpreter and every backend agree on 518.
 # ported from bend3: the word-case loop becomes Nat fuel with a + U32
-# mirror (U32 is Data; bend4 has no word patterns), if/else becomes a
+# mirror (U32 is Data; bend has no word patterns), if/else becomes a
 # worker def over the parity Bool, and bend3's Bool<->word bridge (case
 # 0:/case t: on a Bool) is bend3-only -- flip matches real ctors
 import Base

@@ -1,7 +1,7 @@
 # io pin (io_cbody_dup_effect): bend3 minted io_<name> from a C-bodied
-# def's bare name and refused two defs claiming one C symbol. bend4
+# def's bare name and refused two defs claiming one C symbol. bend
 # has no C-bodied defs -- imports are leading lines only, so the
-# effect-body spelling pins bend4's own parse refusal.
+# effect-body spelling pins bend's own parse refusal.
 import Base
 
 law print:

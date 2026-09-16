@@ -1,7 +1,7 @@
 # slab-array pin (check_array_literal_mismatch): bend3 reported an
 # array literal at a non-array goal as the ordinary mismatch, printed
-# in keyed form. bend4 has no array literals -- the ![ spelling pins
-# bend4's own parse refusal.
+# in keyed form. bend has no array literals -- the ![ spelling pins
+# bend's own parse refusal.
 import Base
 
 law main:

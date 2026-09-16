@@ -1,7 +1,7 @@
 # nested word switches, param x param: ctor arms and defaults at both
 # levels
 # ported from bend3: numeric columns become ctor columns, literal arm
-# values become ctors (bend4 has no number patterns)
+# values become ctors (bend has no number patterns)
 type W is Data:
   Z{}
   S{p: W}

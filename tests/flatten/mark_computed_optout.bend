@@ -1,5 +1,5 @@
 # bend3's `match a!` computed opt-out mark (ironically named for
-# bend4's parser); bend4's own ! is the GPU bang before a call's
+# bend's parser); bend's own ! is the GPU bang before a call's
 # parens and no scrutinee mark exists -- the spelling dies at parse
 import Base
 

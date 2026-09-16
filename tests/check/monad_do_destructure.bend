@@ -1,4 +1,4 @@
-# bend3's do-lets took tuple and ctor destructures on do lines; bend4's
+# bend3's do-lets took tuple and ctor destructures on do lines; bend's
 # DoStmt grammar admits only binds and typed lets (io_do_let_lines
 # pins the let) -- the tuple destructure dies inside the block
 import Base

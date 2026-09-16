@@ -1,5 +1,5 @@
 # a case naming a constructor no datatype declares: the error names
-# the case's tag (bend4 tags are global, so this is unknown-at-parse,
+# the case's tag (bend tags are global, so this is unknown-at-parse,
 # never an internal flattened match)
 type MB is Data:
   T{}

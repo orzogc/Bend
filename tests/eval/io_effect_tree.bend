@@ -3,7 +3,7 @@
 # threads through two later effects, and normalization dissolves the
 # share of a variable: the residual tree prints whole.
 # ported from bend3: the local IO type renames to Eff with fresh ctor
-# names (bend4 ctors are global), payloads become Nat for a readable
+# names (bend ctors are global), payloads become Nat for a readable
 # golden, the contraction takes a +Nat-annotated let (Cop)
 import Base
 

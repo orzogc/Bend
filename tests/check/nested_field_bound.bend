@@ -1,6 +1,6 @@
 # refusal pin: bend3 rejected a non-Data argument at a Data-bounded
 # datatype param inside another datatype's ctor field (dat_check
-# formation). bend4's grades keep the wall: Box7's T is bounded by
+# formation). bend's grades keep the wall: Box7's T is bounded by
 # Data (Kind(&2)), and a function type is Type (Kind(&1)), which never
 # fits Data, so Bad's field is refused at its own ctor.
 import Base

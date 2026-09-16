@@ -1,5 +1,5 @@
 # a var row between two rigid rows, with a rigid row BELOW the catch-all
-# (bend3 dropped the dead row silently; whatever bend4 rules is pinned)
+# (bend3 dropped the dead row silently; whatever bend rules is pinned)
 # ported from bend3: numeric rows become nested ctor rows, arm values
 # become ctors, the doubled default use goes affine
 type W is Data:

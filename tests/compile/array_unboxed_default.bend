@@ -1,4 +1,4 @@
-# bend3's unboxed-ctor static default served at OOB slots; bend4's
+# bend3's unboxed-ctor static default served at OOB slots; bend's
 # Array has no default and wraps OOB indexes -- the defaulted slab
 # literal's spelling is the refusal
 import Base

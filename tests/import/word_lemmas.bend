@@ -1,4 +1,4 @@
-# bend3's width-8 Word module and its on-import lemmas; bend4's base
+# bend3's width-8 Word module and its on-import lemmas; bend's base
 # Word is width-generic, so the same kit instantiates at 8n directly:
 # add computes (5 + 3 reads back 8n through Word.to_nat) and the
 # add_comm/add_zero lemmas check at the fixed width

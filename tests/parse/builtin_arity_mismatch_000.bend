@@ -1,6 +1,6 @@
 # ported from bend3: a float-builtin call with the wrong arity errors.
 # bend3's builtins were $-sigiled unary calls and the mismatch was a
-# parse error; bend4's F32.sqrt is an ordinary 1-ary base axiom, so the
+# parse error; bend's F32.sqrt is an ordinary 1-ary base axiom, so the
 # respelling is the checker's: the over-applied F32.sqrt(1.0) is an
 # F32, not a function.
 import Base

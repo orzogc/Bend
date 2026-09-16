@@ -1,5 +1,5 @@
 # bend3's zero-semantics mark: f!(x) is f(x) to checker and evaluator,
-# and marks in a parallel let ride as plain calls. bend4's bang
+# and marks in a parallel let ride as plain calls. bend's bang
 # carries the same law through its fork-let; the generic
 # pick!(x, y) half is gone with def<A> (ruled out, collides with
 # infix <). Countdowns ride +Nat (the fork re-uses its pred; Nat is

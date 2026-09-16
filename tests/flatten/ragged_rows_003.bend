@@ -2,7 +2,7 @@
 # the later columns (dominance), rigid rows below a default drive their
 # own subgroups -- the flow shape, pinned structurally
 # ported from bend3: numeric columns become ctor columns (W), literal
-# arm values become ctors (bend4 has no number patterns)
+# arm values become ctors (bend has no number patterns)
 type W is Data:
   WZ{}
   WS{p: W}

@@ -1,5 +1,5 @@
 # check_canonical_freeze_000's numeric flavor rode 0/1/2+ switches;
-# bend4 has no number switches and the same unconditional freeze --
+# bend has no number switches and the same unconditional freeze --
 # the is_eq dispatch's arms keep the frozen goal and the original
 # hypothesis closes them
 import Base

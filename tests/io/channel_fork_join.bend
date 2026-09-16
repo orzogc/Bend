@@ -1,4 +1,4 @@
-# io (io_channel_fork_join): bend3's channel round trip on bend4's
+# io (io_channel_fork_join): bend3's channel round trip on bend's
 # surface. A spawned producer sends 11 and 22 into a channel with
 # room for four and closes it; main receives both in order (Some) and
 # prints 1122, then forks a pure value and joins it. main's value is

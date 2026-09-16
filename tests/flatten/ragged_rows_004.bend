@@ -2,7 +2,7 @@
 # it matches; the rigid row fires only where the default row's own rigid
 # column fails
 # ported from bend3: numeric columns become ctor columns, literal arm
-# values become ctors (bend4 has no number patterns)
+# values become ctors (bend has no number patterns)
 type W is Data:
   Z{}
   S{p: W}

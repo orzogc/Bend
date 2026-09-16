@@ -1,4 +1,4 @@
-# bend3's `match x as e:` bound the split equation per arm; bend4 has
+# bend3's `match x as e:` bound the split equation per arm; bend has
 # no as binder -- the words read as extra scrutinees and the arm's
 # pattern count refuses, before any equation exists
 import Base

@@ -1,5 +1,5 @@
 # bend3's Data-kinded dup planted a deep copy BY VALUE: a call in the
-# duplicated position (dbl(3)) ran once and its value copied. bend4's
+# duplicated position (dbl(3)) ran once and its value copied. bend's
 # copy is the Data-licensed + binder and is by value the same way:
 # dup3's +x lands in MkPr4{x, x} and both copies read 6, so the
 # flattened readback doubles; Pr3 is Data, so the + binder

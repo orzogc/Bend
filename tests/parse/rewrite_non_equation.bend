@@ -1,6 +1,6 @@
 # rewrite with a non-equation premise is refused (a rewrite's evidence
 # must be an equation).
-# ported from bend3: bend4's rewrite takes a mandatory motive, and the
+# ported from bend3: bend's rewrite takes a mandatory motive, and the
 # refusal fires at the evidence
 import Base
 

@@ -1,4 +1,4 @@
-# bend3 chained a proof transitively over bare imports; bend4's flat
+# bend3 chained a proof transitively over bare imports; bend's flat
 # corpus has no module tree to chain across -- the leading-line load
 # dies on the absent file
 import Base

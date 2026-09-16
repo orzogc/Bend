@@ -1,6 +1,6 @@
 # conversion is up to ETA for functions: {(x => g(x)) == g} at a
 # function carrier closes by refl.
-# ported from bend3: bend3 refused eta; bend4 pins the opposite law
+# ported from bend3: bend3 refused eta; bend pins the opposite law
 import Base
 
 law f:

@@ -1,4 +1,4 @@
-# bend3's Queue/Deque/Heap interplay test rides modules bend4's base
+# bend3's Queue/Deque/Heap interplay test rides modules bend's base
 # does not have: the head call is an undefined name
 import Base
 

@@ -1,5 +1,5 @@
 # bend3's slab OOB laws (past-capacity writes no-op, OOB reads serve
-# the static default); bend4's Array<T> is a 2^d tree with wrapping
+# the static default); bend's Array<T> is a 2^d tree with wrapping
 # bit-walk indexing -- no capacity, no default -- and the slab literal
 # has no grammar: its spelling is the refusal
 import Base

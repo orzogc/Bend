@@ -1,6 +1,6 @@
-# bend3's `&x` share-binder let (`&y = v` binds y shared); bend4's core
+# bend3's `&x` share-binder let (`&y = v` binds y shared); bend's core
 # is affine and & prefixes only the exists sugar, so the share-binder
-# spelling pins bend4's own refusal (the array statement half lives in
+# spelling pins bend's own refusal (the array statement half lives in
 # flatten_array_statement)
 type Nt is Data:
   Z{}

@@ -1,4 +1,4 @@
-# bend3 reserved the type name U32 at declarations; in bend4 U32 is a
+# bend3 reserved the type name U32 at declarations; in bend U32 is a
 # Base library name, not a keyword -- redeclaring it dies as an
 # ordinary duplicate, which is the inverted law's own pin
 import Base

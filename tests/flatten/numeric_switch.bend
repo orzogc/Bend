@@ -1,5 +1,5 @@
 # audit 013 ported: bend3's numeric patterns compiled to numeric
-# switches; bend4 has no switch -- a literal pattern desugars to the
+# switches; bend has no switch -- a literal pattern desugars to the
 # structural U32 ctor chain and flattens like any ctor column, so the
 # 0-vs-catch-all match carries over and answers on every lane
 import Base

@@ -1,7 +1,7 @@
 # bend3's checker work pin (interactions under a flat budget) loses its
 # counter (no --stats) and keeps its content: the same Nat kit, the
 # add_zero ladder and the mul(8,9) == mul(9,8) conversion all close on
-# bend4's checker (mul's contracted operand rides a + binder)
+# bend's checker (mul's contracted operand rides a + binder)
 import Base
 
 type N7 is Data:

@@ -1,6 +1,6 @@
 # bend3's plain dup guard scrutinized the same var twice in one group
-# (words contract freely there); bend4's core is affine, so the same
-# spelling pins bend4's own refusal
+# (words contract freely there); bend's core is affine, so the same
+# spelling pins bend's own refusal
 # ported from bend3: the numeric column becomes a ctor column
 type W is Data:
   Z{}

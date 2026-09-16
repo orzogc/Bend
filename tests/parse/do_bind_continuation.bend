@@ -1,6 +1,6 @@
 # error census: a trailing bind line (no continuation) is rejected -- a
 # bind needs a rest to feed.
-# ported from bend3: Base's Result, bend4 error page
+# ported from bend3: Base's Result, bend error page
 import Base
 
 law f:

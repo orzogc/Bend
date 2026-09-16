@@ -1,4 +1,4 @@
-# {==} proves reflexivity, never {a != a}: bend4's inequality desugars
+# {==} proves reflexivity, never {a != a}: bend's inequality desugars
 # at parse to the arrow {a == b : T} -> Empty (bend3's Empty.Not law,
 # structurally), so Rfl rejects it on shape
 import Base

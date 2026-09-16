@@ -1,8 +1,8 @@
 # goal ladder, le_bump impossible-arm state: at r=d1=0n the eq
 # hypothesis is {True{} == False{}} and the goal is Empty; the whole
 # development descends structurally, so the ladder rides strict.
-# ported from bend3: the ladder rides the ported bend4 development, so
-# the pinned page is bend4's own goal at the same proof state
+# ported from bend3: the ladder rides the ported bend development, so
+# the pinned page is bend's own goal at the same proof state
 import Base
 
 law LE:

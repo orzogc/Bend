@@ -1,5 +1,5 @@
 # io (io_fiber_single_join): bend3's Task<A> was a LINEAR handle, so a
-# second join was refused by linearity. bend4's fork answers a Chan,
+# second join was refused by linearity. bend's fork answers a Chan,
 # a Data handle any code may copy, so the second join is well typed
 # and fails at run time instead: IO.join closed the channel after the
 # first value, the second recv answers None, and IO.join dies with

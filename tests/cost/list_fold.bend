@@ -1,5 +1,5 @@
 # bend3's interp cost guard for a linear 16-cons fold loses its counter
-# (no --stats in bend4) and keeps its value: build's 1+n arm becomes a
+# (no --stats in bend) and keeps its value: build's 1+n arm becomes a
 # Nat countdown with a U32 mirror, fold carries over verbatim
 import Base
 

@@ -1,4 +1,4 @@
-# bend3's NSI ledger closed this gate arm by arm; bend4 refuses the
+# bend3's NSI ledger closed this gate arm by arm; bend refuses the
 # same file at the descent wall: loop(f(y)) under the minted lambda is
 # a whole self-call whose argument f(y) shrinks no column.
 # ported from bend3: bare ctors, main returns the test's own type

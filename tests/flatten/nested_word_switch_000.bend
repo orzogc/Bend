@@ -1,6 +1,6 @@
 # match on row pattern variables, nested; expands to plain rows
 # ported from bend3: numeric columns become ctor columns, arm values
-# become ctor builds (bend4 has no number patterns)
+# become ctor builds (bend has no number patterns)
 type W is Data:
   Z{}
   S{p: W}

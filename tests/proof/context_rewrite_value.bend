@@ -1,5 +1,5 @@
 # Context rewriting also transports a VALUE hypothesis across a type-family equality.
-# ported from bend3: in bend4 the transport is the goal-only J rewrite at the
+# ported from bend3: in bend the transport is the goal-only J rewrite at the
 # type-family motive fam(_) -- the goal fam(b) rewrites to fam(a), which y proves
 type Uni is Data:
   U{}

@@ -1,5 +1,5 @@
 # operator chains are ordinary calls under the affine core: a binder
-# consumed by two operands is refused (bend3 priced the chain; bend4
+# consumed by two operands is refused (bend3 priced the chain; bend
 # walls it)
 import Base
 

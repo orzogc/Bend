@@ -1,4 +1,4 @@
-# bend3's Bytes module (encode/pack/to_list) has no bend4 surface: a
+# bend3's Bytes module (encode/pack/to_list) has no bend surface: a
 # Bytes value is an Array of U32 by ruling, and no Bytes namespace
 # exists in base -- the head call is an undefined name
 import Base

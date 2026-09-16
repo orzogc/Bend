@@ -1,5 +1,5 @@
 # bend3 refused `as` on a multi-scrutinee match (one name, two
-# columns); bend4 has no as binder at all -- the words read as extra
+# columns); bend has no as binder at all -- the words read as extra
 # scrutinees and the pattern count refuses at the same early spot
 import Base
 

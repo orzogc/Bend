@@ -1,7 +1,7 @@
 # base everyday lookups: List.get and List.set at Nat indexes, plus
 # find/contains/trim spelled over base String
 # ported from bend3: bend-base's List.get was default-first and
-# leftover-first ((xs, v) handed back); bend4's affine base List.get is
+# leftover-first ((xs, v) handed back); bend's affine base List.get is
 # consuming and Maybe-valued, so lookups rebuild their list and default
 # through Maybe.default. String.contains/trim/find are outside the
 # approved base kit (eq/length/split/join), so the port carries them as

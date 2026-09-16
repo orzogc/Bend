@@ -1,5 +1,5 @@
 # io pin (io_channel_send_recv): bend3's Chan<A> was a plain copyable
-# id, send/recv/close wrappers over the Chan* Op rows. bend4 dropped
+# id, send/recv/close wrappers over the Chan* Op rows. bend dropped
 # the channel protocol whole -- fibers and channels wait for V2 --
 # so Chan<A> respells as the Sender & Receiver pair and the do block
 # dies on the missing types.

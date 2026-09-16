@@ -1,4 +1,4 @@
-# bend3's Bytes.from_string/to_string roundtrip has no bend4 surface
+# bend3's Bytes.from_string/to_string roundtrip has no bend surface
 # (Bytes = an Array of U32 by ruling, no namespace in base): the head
 # call is an undefined name
 import Base

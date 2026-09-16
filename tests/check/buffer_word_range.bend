@@ -1,7 +1,7 @@
 # slab-array pin (check_buffer_word_range): bend3's buffer keys spanned
 # the full 32-bit word range (slab capacity is the whole u32 index
-# domain). bend4 has no buffer literals -- the ![ spelling pins bend4's
-# own parse refusal (bend4's Array is a tree with bit-walk indexing,
+# domain). bend has no buffer literals -- the ![ spelling pins bend's
+# own parse refusal (bend's Array is a tree with bit-walk indexing,
 # pinned by the ported array tests).
 import Base
 

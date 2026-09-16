@@ -1,7 +1,7 @@
 # the Ford trick (parameters + equation fields recover GADTs): Even(n)
 # evidence is built with {==} fields, and eliminated by matching -- each
 # arm's eq field specializes, refuted via motive transport + succ_inj.
-# ported from bend3: transport motives flip to bend4's right-into-left
+# ported from bend3: transport motives flip to bend's right-into-left
 # fold; the lambda motives become _-bound motive terms
 type Uni is Data:
   U{}

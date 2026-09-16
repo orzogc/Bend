@@ -1,5 +1,5 @@
 # bend3's comp_loops demotion-verdict/flip agreement pin (an 18-arg
-# split aux fused as a join member); bend4's tocl has no verdict
+# split aux fused as a join member); bend's tocl has no verdict
 # machinery, so the shape itself carries -- the wide F32 state record,
 # the record-returning helper and the countdown loop answer the same
 # 536 on the compiled lanes (floats are interp axioms; contraction

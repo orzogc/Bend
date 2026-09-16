@@ -1,8 +1,8 @@
 # comp-splice pin (spec_comp_generic_mint): bend3's generic template --
 # the exact List.map shape, one mint per site with the instantiation
-# baked in. bend4 rules the comp surface out (map is not checkable even
+# baked in. bend rules the comp surface out (map is not checkable even
 # once Data lands); bend3's def<A,B> respells as erased -A/-B binders
-# and the ~ binder pins bend4's own parse refusal.
+# and the ~ binder pins bend's own parse refusal.
 import Base
 
 type L<-A: Type> is Type:

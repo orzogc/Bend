@@ -1,13 +1,13 @@
 # `match E as e` bound each arm's own equation {E = pattern} in bend3
-# -- evidence minted by the elaborator, not by any parser. bend4's
+# -- evidence minted by the elaborator, not by any parser. bend's
 # match has no as-binder by ruling (the feature program admits it
 # "only if simple", and an equation binder needs the checker to mint
 # per-arm evidence: not a parser-and-shower sugar), so the surface
 # refuses: `as` parses as a second scrutinee and the arm arity law
-# rejects the shape. The proof idiom bend4 rules instead -- factor the
+# rejects the shape. The proof idiom bend rules instead -- factor the
 # branching decision into a helper def and cong over it -- is pinned
 # by the ported proof corpus (proof_parity_double_wrap's par2.go).
-# ported from bend3: the golden is bend4's own refusal
+# ported from bend3: the golden is bend's own refusal
 import Base
 
 law Nat.is_eq:

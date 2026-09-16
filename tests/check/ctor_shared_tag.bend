@@ -1,5 +1,5 @@
 # bend3 scoped ctor tags per datatype and resolved by expected type;
-# bend4's tags are global and unique by design -- the shared K dies at
+# bend's tags are global and unique by design -- the shared K dies at
 # its second declaration
 import Base
 

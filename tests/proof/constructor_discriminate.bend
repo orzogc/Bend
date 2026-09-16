@@ -1,8 +1,8 @@
 # constructor discrimination from scratch: a Type-computing predicate and
 # the explicit-motive transport turn {T2{} == F2{}} into Emp.
-# ported from bend3: bend4's rewrite folds right into left, so the raw
+# ported from bend3: bend's rewrite folds right into left, so the raw
 # hypothesis transports directly (no sym hop); sym stays as a lemma; the
-# != sugar bend4 dropped is spelled as the refuting arrow
+# != sugar bend dropped is spelled as the refuting arrow
 type Uni is Data:
   U{}
 type Emp is Data:

@@ -1,5 +1,5 @@
 # bend3's ':'-qualified canonical import names had to pass the C
-# sanitizer; bend4 imports alias whole files and the corpus is flat
+# sanitizer; bend imports alias whole files and the corpus is flat
 # single files, so no canonical name exists -- the value half carries:
 # the same fold over string chars answers on every lane
 import Base

@@ -1,6 +1,6 @@
-# computed scrutinee, comparison expression, as bend4 spells it: a
+# computed scrutinee, comparison expression, as bend spells it: a
 # worker def matching a Bool parameter, the call in argument position
-# ported from bend3: == is no operator in bend4 (U32.is_eq), literals
+# ported from bend3: == is no operator in bend (U32.is_eq), literals
 # become params (a U32 literal shows as its Word chain)
 import Base
 

@@ -1,5 +1,5 @@
 # bend3's JSON number formatting (JSON.show of as_u/as_f reads) is
-# absent from bend4 by ruling: the head call is an undefined name
+# absent from bend by ruling: the head call is an undefined name
 import Base
 
 law main:

@@ -1,5 +1,5 @@
 # bend3's prep_unfold redex hideouts (a Lone let's literal lam, and
-# statements commuting through value positions); bend4 has no such
+# statements commuting through value positions); bend has no such
 # pass and the shapes simply evaluate -- the computed scrutinee
 # routes through a worker def (a computed match is a banned form),
 # the lam let moves under the arm (a match heads a def body),

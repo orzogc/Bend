@@ -1,7 +1,7 @@
 # computed-match twin: the scrutinee is a call, the hypothesis h
 # mentions it, and the binder k still measures at the branch join --
 # computed and variable matches price identically.
-# ported from bend3: bend4 statement-lets cannot precede a match, so k
+# ported from bend3: bend statement-lets cannot precede a match, so k
 # spends inside the arms
 type Ne is Data:
   Ze{}

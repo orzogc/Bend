@@ -1,7 +1,7 @@
 # nat literals are UNGATED sugar over the Zero/Succ constructors: with
 # no declaration in scope, 2n fails as an unknown constructor, never as
 # a parse error.
-# ported from bend3: bend3 gated the literal on `import Nat`; bend4's
+# ported from bend3: bend3 gated the literal on `import Nat`; bend's
 # sugar always parses and resolves against the book
 law main:
   Type

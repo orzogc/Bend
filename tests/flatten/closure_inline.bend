@@ -1,5 +1,5 @@
 # bend3's term_leaf closure-inlining pin (partial applications of
-# known defs collapsing to direct calls); bend4's compiler has no such
+# known defs collapsing to direct calls); bend's compiler has no such
 # pass, so the SHAPES carry as plain closures: the boundary return,
 # the curried 2-stage chain, multi-arm consumption, the escaping
 # partial and the bare def reference all evaluate -- countdowns ride

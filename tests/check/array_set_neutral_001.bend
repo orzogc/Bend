@@ -1,7 +1,7 @@
 # slab-array pin (check_array_set_neutral_001): bend3's printer
 # rendered a stuck Set on a neutral array parameter as the braced
-# block spelling. bend4 has no [:T] array type -- the [: spelling in
-# main's parameter pins bend4's own parse refusal.
+# block spelling. bend has no [:T] array type -- the [: spelling in
+# main's parameter pins bend's own parse refusal.
 import Base
 
 law main:

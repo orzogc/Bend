@@ -1,5 +1,5 @@
 # bend3's GFX/Image/Bytes stack (a PPM codec over GFX.from_fn) is
-# absent from bend4 (no IO, no Bytes namespace): the head call is an
+# absent from bend (no IO, no Bytes namespace): the head call is an
 # undefined name
 import Base
 

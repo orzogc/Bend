@@ -1,5 +1,5 @@
 # bend3 erased a - parameter at EMISSION even when the body mentioned
-# it in dead positions; bend4's checker refuses every such mention
+# it in dead positions; bend's checker refuses every such mention
 # outright, so the emission cases cannot exist -- the dead let's
 # operand is the refusal
 import Base

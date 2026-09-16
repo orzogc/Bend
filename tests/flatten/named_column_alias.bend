@@ -1,6 +1,6 @@
 # bend3's named-column alias `match (k = x)` names a column over the
-# bare binder; bend4's match takes bare scrutinees only, so the alias
-# form pins bend4's own refusal
+# bare binder; bend's match takes bare scrutinees only, so the alias
+# form pins bend's own refusal
 # ported from bend3: the numeric column becomes a ctor column
 type W is Data:
   Z{}

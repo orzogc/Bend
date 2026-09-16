@@ -1,5 +1,5 @@
 # bend3's >2^16-slot slab representation and its past-capacity no-op
-# laws; bend4's Array is a materialized tree with no slab tier -- the
+# laws; bend's Array is a materialized tree with no slab tier -- the
 # big sparse literal's spelling is the refusal
 import Base
 

@@ -1,5 +1,5 @@
 # bend3's Rand/Bag modules (a PRNG feeding a multiset) are absent from
-# bend4's base: the head call is an undefined name
+# bend's base: the head call is an undefined name
 import Base
 
 law main:

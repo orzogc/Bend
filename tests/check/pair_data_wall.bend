@@ -1,6 +1,6 @@
 # bend3's pair wall, both halves carried: a pair of Data components
 # contracted freely while a closure-holding pair refused multi-use.
-# bend4 grades the pair: the free half is twice's +p binder over the
+# bend grades the pair: the free half is twice's +p binder over the
 # reusable pair Sigma<&2, &2, U32, _ => U32> (a Data type), and the
 # wall half refuses at leak -- an affine pair holding a closure is
 # Type, so leak's bare p spends twice.

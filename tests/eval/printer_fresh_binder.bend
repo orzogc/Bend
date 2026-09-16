@@ -1,4 +1,4 @@
-# bend3 pinned that minted binders print as valid source names; bend4's
+# bend3 pinned that minted binders print as valid source names; bend's
 # flattener mints them at nested patterns and the --show lane renders
 # them (_6 here), a name the parser takes back
 import Base

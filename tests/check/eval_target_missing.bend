@@ -1,6 +1,6 @@
 # a reference to a name the file does not define is refused with the
 # missing name.
-# ported from bend3: bend4 has no --eval target, so the missing name
+# ported from bend3: bend has no --eval target, so the missing name
 # sits in main's body
 import Base
 

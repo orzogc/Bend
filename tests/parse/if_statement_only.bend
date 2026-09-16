@@ -1,4 +1,4 @@
-# bend3 confined if to statement position; bend4 removes the if term
+# bend3 confined if to statement position; bend removes the if term
 # entirely (it desugared to a lambda-match application, a banned
 # form). a match applied in term position is the checker's refusal,
 # pinned here

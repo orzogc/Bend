@@ -1,4 +1,4 @@
-# bend3's () sugar for the Unit constructor, value and pattern; bend4
+# bend3's () sugar for the Unit constructor, value and pattern; bend
 # has no unit literal -- the pattern spelling dies at parse
 import Base
 

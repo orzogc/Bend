@@ -1,9 +1,9 @@
 # add_comm over a local Nat: m is spent twice -- once inside add_succ's
 # live position, once by the IH.
 # ported from bend3: the double spend bend3 allowed on any Data binder
-# is bend4's +m binder over the Data-kinded local N; add_succ is
+# is bend's +m binder over the Data-kinded local N; add_succ is
 # stated with the term each rewrite eliminates on the RIGHT, since a
-# bend4 rewrite folds the right endpoint back into the left
+# bend rewrite folds the right endpoint back into the left
 
 import Base
 type N is Data:

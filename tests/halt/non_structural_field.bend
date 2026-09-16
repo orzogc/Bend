@@ -1,6 +1,6 @@
 # audit: recursion on a constructor field applied to an argument (g(0n))
 # is not a structural subterm and is refused -- this is what blocks the
-# impredicative-ordinals / wellfoundedness paradox (bend4 has no
+# impredicative-ordinals / wellfoundedness paradox (bend has no
 # positivity check; this wall is the guard).
 # ported from bend3: bare ctors, U32 becomes Nat
 import Base

@@ -1,8 +1,8 @@
 # bend3's miss-arm guard: inside a 5-switch's miss arm the binder may
-# still be 0, so a stuck 0-switch must not take its miss branch. bend4
+# still be 0, so a stuck 0-switch must not take its miss branch. bend
 # respells both switches as literal-chain patterns; the catch-all arm's
 # goal specializes only to the open word chain, where literal-defined
-# isZ stays stuck, and the arm refuses: the same verdict, bend4's law
+# isZ stays stuck, and the arm refuses: the same verdict, bend's law
 import Base
 
 law isZ:

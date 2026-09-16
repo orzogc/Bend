@@ -4,7 +4,7 @@
 # any/all spells its worker inline as its own def; zip/reverse/head/
 # tail/set stay generic. reg_closure_keep_generic pins the kept-binder
 # residue at an erased type variable.
-# ported from bend3: bend-base's List helpers are inlined over bend4's
+# ported from bend3: bend-base's List helpers are inlined over bend's
 # List (Nil/Con); indexes and range counters become Nat; list literals
 # become explicit Con chains; the set and count continuation pairs
 # fold into single defs (mutual defs cannot tie), and every doubled

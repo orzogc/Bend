@@ -1,5 +1,5 @@
 # mixed group in argument order: a and b fuse as pattern columns, the
-# computed id(b) feeds a helper's unused third param (bend4's match
+# computed id(b) feeds a helper's unused third param (bend's match
 # takes bare scrutinees; the kept b wears +)
 # ported from bend3: literal arm values become ctors
 import Base

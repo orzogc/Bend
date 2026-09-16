@@ -1,5 +1,5 @@
 # bend3 pinned the marked partial call's runtime closure by csrc marks
-# (G_WALK aliases); bend4's emitter has its own closure shapes, so the
+# (G_WALK aliases); bend's emitter has its own closure shapes, so the
 # semantic half carries: a marked partial named call, ascribed and
 # passed as a closure, answers the plain chain's value (the countdown
 # rides Nat)

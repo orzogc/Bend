@@ -1,7 +1,7 @@
 # constructor names are global and unique across the whole book: a
 # later datatype cannot redeclare K at another arity.
 # ported from bend3: bend3's source-prefix book resolved the first K;
-# bend4 pins the refusal at the second declaration
+# bend pins the refusal at the second declaration
 type Un6 is Data:
   Uu6{}
 

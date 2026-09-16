@@ -1,5 +1,5 @@
 # Ackermann: lexicographic column descent -- the first column shrinks,
-# or stays while the second shrinks. bend4's descent law accepts both
+# or stays while the second shrinks. bend's descent law accepts both
 # self-calls (col0 LT, or col0 EQ then col1 LT); the inner
 # ack(1n+ m, n) spends m beside the outer call's m, and the +Nat (Cop)
 # binder licenses that copy -- so the file checks strict and pins the

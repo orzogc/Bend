@@ -1,5 +1,5 @@
 # bend3's slab bounds laws (total over u32 keys, defaults at unwritten
-# slots); bend4's Array<T> is a 2^d tree with wrapping bit-walk
+# slots); bend's Array<T> is a 2^d tree with wrapping bit-walk
 # indexing and no literal -- the slab literal's spelling is the
 # refusal (the in-range reads are covered by the ported array tests)
 import Base

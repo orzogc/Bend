@@ -1,4 +1,4 @@
-# three scrutinees mixing pattern columns and a COMPUTED middle; bend4's
+# three scrutinees mixing pattern columns and a COMPUTED middle; bend's
 # match takes bare scrutinees, so the computed value feeds a helper's
 # var column and the ctor rows flatten there
 # ported from bend3: literal arm values become ctors

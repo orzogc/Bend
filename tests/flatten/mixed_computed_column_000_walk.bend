@@ -1,4 +1,4 @@
-# a pattern column beside a computed value, in both orders; bend4's
+# a pattern column beside a computed value, in both orders; bend's
 # match takes bare scrutinees, so the value rides a var column (main)
 # or feeds a helper's pattern column (sel)
 # ported from bend3: numerics become ctor columns (W), x+1 becomes the

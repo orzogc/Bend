@@ -1,7 +1,7 @@
 # comp-splice pin (spec_comp_instantiation_error): bend3 surfaced a
 # template error AT THE INSTANTIATION (the spliced argument checked at
-# the site's concrete types). bend4 has no comp surface to instantiate;
-# the ~ binder pins bend4's own parse refusal.
+# the site's concrete types). bend has no comp surface to instantiate;
+# the ~ binder pins bend's own parse refusal.
 import Base
 
 type L<-A: Type> is Type:

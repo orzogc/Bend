@@ -1,5 +1,5 @@
 # bend3 SEARCHED column orders and accepted the swapped Ackermann;
-# bend4's descent law is fixed left-to-right and its match laws bind
+# bend's descent law is fixed left-to-right and its match laws bind
 # tighter still -- the swapped spelling dies at the nested match's
 # binder order, before any search could exist
 import Base

@@ -1,6 +1,6 @@
-# K+ density pin, respelled as bend4's wall: bend3's book-free
+# K+ density pin, respelled as bend's wall: bend3's book-free
 # flattener minted an absurd lane for the absent literal 1 and the
-# CHECKER refused coverage; bend4 has no K+ patterns at all -- `2+k`
+# CHECKER refused coverage; bend has no K+ patterns at all -- `2+k`
 # in a pattern is refused at parse, before any flattening exists
 import Base
 

@@ -1,4 +1,4 @@
-# bend3 glued the GPU mark before type arguments (pick<A>!(x)); bend4
+# bend3 glued the GPU mark before type arguments (pick<A>!(x)); bend
 # defs take no <> type arguments at all (def<A> generics are ruled
 # out: they collide with infix <), so the declaration dies first
 import Base

@@ -1,5 +1,5 @@
 # bend3's list_map_fold_ops intent -- map/filter/fold/any/all over a
-# list and map/fold over a Map -- in bend4's dialect. bend3 rode base
+# list and map/fold over a Map -- in bend's dialect. bend3 rode base
 # comp (~) templates; those are ruled out whole here, and generic
 # List.map is not affine-checkable, so each template call becomes a
 # local first-order recursion at U32 (the walk bend3's splice would

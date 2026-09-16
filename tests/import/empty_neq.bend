@@ -1,6 +1,6 @@
 # the != sugar needs a `sugar Not: Empty` declaration, which Base makes:
 # without Base the sugar role is unbound and the parse fails at it --
-# bend4's whole gating story (bend3 gated the parse on `import Empty`)
+# bend's whole gating story (bend3 gated the parse on `import Empty`)
 type Nx is Data:
   Zx{}
 

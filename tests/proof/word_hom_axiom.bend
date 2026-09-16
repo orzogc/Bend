@@ -1,5 +1,5 @@
 # bend3's blessed U32 reasoning route rode a whitelisted hom axiom into
-# Word; bend4 has no roster to bless -- U32 IS Word(32n), so the same
+# Word; bend has no roster to bless -- U32 IS Word(32n), so the same
 # machine-word statement is a plain THEOREM computed structurally:
 # adding zero is the identity, one cong per column over base's
 # Word.add_zero, with the U32 face (U32.add_zero) instantiating it at a

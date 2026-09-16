@@ -1,6 +1,6 @@
 # a rewrite stuck on an OPAQUE premise prints back as % with its
 # motive, under the open binders.
-# ported from bend3: bend4's motive is a term over _ (no lambda
+# ported from bend3: bend's motive is a term over _ (no lambda
 # motive), and the def body moves under lambdas in main (an unapplied
 # def stays closed)
 import Base

@@ -1,5 +1,5 @@
 # bend3's dependent computed match: the goal mentions the scrutinee
-# even(n) and the with-equality rewrites it. bend4 bans the applied
+# even(n) and the with-equality rewrites it. bend bans the applied
 # match outright, so the spelling pins the ban itself
 # ported from bend3: the numeric column becomes a ctor column
 type Bl is Data:

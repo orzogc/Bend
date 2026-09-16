@@ -1,6 +1,6 @@
 # THE PROOF IDIOM: an arm's field feeds the IH, a lemma premise and the
 # goal -- the one-field-many-premises shape bend3's Data contraction
-# existed to type. bend4 core is affine for every type, so the many
+# existed to type. bend core is affine for every type, so the many
 # spends ride a + scrutinee (N is Data). The value
 # block runs the program.
 # ported from bend3: rewrites carry explicit motives and fold right into

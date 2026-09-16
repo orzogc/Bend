@@ -1,5 +1,5 @@
 # bend3's C-namer livelock on machine-spelled locals (K_*, drop_*,
-# state_*, arm_*, t9); bend4's emitter namespaces user locals apart
+# state_*, arm_*, t9); bend's emitter namespaces user locals apart
 # from the machine's, so the same adversarial names compile and the
 # value answers on every lane
 import Base

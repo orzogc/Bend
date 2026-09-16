@@ -1,5 +1,5 @@
 # Map (string-keyed patricia tree): set/get/has/del/size/union --
-# bend3's base_map_ops in bend4's dialect: Map.get takes a Data V
+# bend3's base_map_ops in bend's dialect: Map.get takes a Data V
 # (U32) and a default, sizes are Nat, and
 # every op takes the map first. The seven checks and their sum are
 # the original's.

@@ -1,5 +1,5 @@
 # bend3's dec-swi conflation pin (stuck side) leaned on a 0/1/2+q
-# chain and the frame's carried original. bend4 has no dec switch and
+# chain and the frame's carried original. bend has no dec switch and
 # no K+ pattern to conflate: the chain's own spelling is refused at
 # parse, before any goal exists
 import Base

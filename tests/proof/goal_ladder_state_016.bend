@@ -1,6 +1,6 @@
 # goal ladder, len_app nil-arm state 0: RHS add(Z{}, len(ys)) reduces.
-# ported from bend3: the ladder rides the ported bend4 development, so
-# the pinned page is bend4's own goal at the same proof state
+# ported from bend3: the ladder rides the ported bend development, so
+# the pinned page is bend's own goal at the same proof state
 import Base
 
 type N is Data:

@@ -1,10 +1,10 @@
 # bend3 computed Data-ness from ctor field syntax, never from an
 # annotation: List(U32) shared by its table with no `: Data` spelled.
-# bend4 never classifies -- sum(xs) + sum(xs) is a double spend for any
+# bend never classifies -- sum(xs) + sum(xs) is a double spend for any
 # type, and it rides the explicit +xs binder, whose
 # annotation spells the reusable grade &2. The base List and the
 # [..] literal carry the surface.
-# ported from bend3: the local List type is bend4's base List (ctor
+# ported from bend3: the local List type is bend's base List (ctor
 # names are global: Con/Nil), the literal wears the brace Ann
 import Base
 

@@ -2,7 +2,7 @@
 # once in EACH arm of a variable match measures at the branch join
 # (pointwise max), so the affine program accepts; the bystander
 # hypothesis h rides dead and costs nothing.
-# ported from bend3: bend4 statement-lets cannot precede a match, so k
+# ported from bend3: bend statement-lets cannot precede a match, so k
 # spends inside the arms
 type Nd is Data:
   Zd{}

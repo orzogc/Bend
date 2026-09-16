@@ -1,6 +1,6 @@
 # comp pin (check_axiom_runtime_capture): bend3 smuggled an axiom into
-# runtime through a comp-lambda capture and died at erasure. bend4 has
-# no comp surface to open that door -- the ~ binder pins bend4's own
+# runtime through a comp-lambda capture and died at erasure. bend has
+# no comp surface to open that door -- the ~ binder pins bend's own
 # parse refusal (the runtime-axiom wall itself is pinned by
 # compile_axiom_runtime).
 import Base

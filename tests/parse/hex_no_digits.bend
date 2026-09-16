@@ -1,6 +1,6 @@
-# a bare 0x is not a number: bend4 literals are decimal only, so the
+# a bare 0x is not a number: bend literals are decimal only, so the
 # 'x' fails right after the 0 with the literal page.
-# ported from bend3: bend3 had hex and pinned the no-digit case; bend4
+# ported from bend3: bend3 had hex and pinned the no-digit case; bend
 # dropped hex whole
 import Base
 

@@ -1,5 +1,5 @@
 # bend3's census warned on a bodiless assert from an imported file;
-# bend4's law is file-blind: an unfilled assert is dead wherever it
+# bend's law is file-blind: an unfilled assert is dead wherever it
 # was stated, so its live use refuses at validation (the corpus is
 # single-file by the runner's law, so the assert stands in-file; an
 # import cannot change the verdict)

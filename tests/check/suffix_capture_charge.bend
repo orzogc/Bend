@@ -1,5 +1,5 @@
 # bend3 priced a suffix capture (a let-bound value re-charged at every
-# split leaf); bend4 has no splits and bans the let-then-match: the
+# split leaf); bend has no splits and bans the let-then-match: the
 # dispatch moves behind its own def, the affine wall owns the class
 # (the capture twins pin it), and main answers 0
 import Base

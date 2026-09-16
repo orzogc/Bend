@@ -1,5 +1,5 @@
 # bend3's T/F word-wrap misfired ctor patterns on a numeric scrutinee
-# and the page had to name the number; bend4 has no Bool wrap over
+# and the page had to name the number; bend has no Bool wrap over
 # words at all -- is_eq answers a real Bool through a worker def, and
 # a List row on it gets the constructor page naming Bool itself
 import Base

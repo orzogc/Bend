@@ -1,5 +1,5 @@
 # bend3's -o grouping lane re-minted let keys and this fuzz shape
-# caught a scope leak; bend4 has no grouping lane, and the shape's
+# caught a scope leak; bend has no grouping lane, and the shape's
 # arithmetic core computes: a spaced % is U32.mod
 import Base
 

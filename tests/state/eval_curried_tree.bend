@@ -3,7 +3,7 @@
 # own successor step (a recursive combinator cannot bind a closure: a
 # function type is never Data); the shared accumulator
 # wears + (MN is Data); the theorem is stated
-# flipped (bend4's rewrite folds right into left, so the eliminated
+# flipped (bend's rewrite folds right into left, so the eliminated
 # call sits on the RIGHT)
 import Base
 

@@ -1,4 +1,4 @@
-# bend3's Parser combinator module is absent from bend4's base (number
+# bend3's Parser combinator module is absent from bend's base (number
 # text rides U32.read/Nat.read): the head call is an undefined name
 import Base
 

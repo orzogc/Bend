@@ -1,5 +1,5 @@
 # bend3's literal-countdown peel (comp_loops C.unrl) pinned csrc
-# shapes bend4's tocl does not have (no peel pass, and the key
+# shapes bend's tocl does not have (no peel pass, and the key
 # dispatch's literal patterns are word views tocl refuses anyway);
 # the loop's VALUE carries on a Nat countdown, interp and js
 import Base

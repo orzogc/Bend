@@ -1,4 +1,4 @@
-# bend3's ++ died un-opened inside inferred types; bend4's ++ opens to
+# bend3's ++ died un-opened inside inferred types; bend's ++ opens to
 # String.append at parse, so an equation SPELLED with ++ meets its
 # rewrite motive written on the opened call -- the append identity
 # closes by induction through it (the comp ~ half of the original died

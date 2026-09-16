@@ -2,7 +2,7 @@
 # discharges the empty case by the empty match and steps DEFINITIONALLY
 # with the index (LT(S j, S p) = LT(j, p)); no default, total by the proof.
 # ported from bend3: bend3's Base Nat.LT becomes a local LT(n, i) family
-# (bend4 matches ride binder order, so the bound rides (n, i)); Nat
+# (bend matches ride binder order, so the bound rides (n, i)); Nat
 # payloads replace U32 so the answer prints literal
 import Base
 

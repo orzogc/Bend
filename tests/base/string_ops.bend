@@ -1,6 +1,6 @@
 # String at runtime: length/concat/reverse/eq/contains/trim/upper/split/
 # take/drop/join, each law one bit
-# ported from bend3: bend-base's String helpers are inlined over bend4's
+# ported from bend3: bend-base's String helpers are inlined over bend's
 # String (SNil/SCon, Chr codes); find yields Maybe<&2, U32>; split takes the
 # separator's char code; take/drop counts become Nat
 # (97 <= x is spelled U32.is_le(97, x): tocl lacks u32_is_ge, see

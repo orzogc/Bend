@@ -1,6 +1,6 @@
 # the textbook HOAS evaluator: beta is closure application, wnf feeds
 # bod(arg), snf rebuilds under a fresh binder. bend3's linear-descent
-# ledger certified this; bend4's descent law cannot (bod(arg) shrinks
+# ledger certified this; bend's descent law cannot (bod(arg) shrinks
 # no column), so a Nat fuel rides ahead of every self-call, and each
 # computed decision becomes a state constructor matched structurally
 # one fuel step later (a computed match is a banned form); the

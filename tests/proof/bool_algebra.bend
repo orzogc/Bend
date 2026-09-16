@@ -1,6 +1,6 @@
 # Base Bool algebra: proven laws (and_comm, not_not) instantiate at
 # concrete booleans like any theorem.
-# ported from bend3: bend4's base carries the OPERATIONS only, so the
+# ported from bend3: bend's base carries the OPERATIONS only, so the
 # laws are proved here over base Bool and then instantiated
 import Base
 

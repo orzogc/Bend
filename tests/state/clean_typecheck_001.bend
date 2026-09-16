@@ -1,6 +1,6 @@
 # Vec ladder, complete: rewriting the index by add_zero transports v
 # ported from bend3: the lemma is stated with add(n, 0n) on the RIGHT
-# (bend4's rewrite folds right into left) and takes explicit motives
+# (bend's rewrite folds right into left) and takes explicit motives
 import Base
 
 law Vec:

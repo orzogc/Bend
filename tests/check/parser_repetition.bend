@@ -1,5 +1,5 @@
 # bend3's Parser repetition combinators (many/sep_by) are absent from
-# bend4's base: the head call is an undefined name
+# bend's base: the head call is an undefined name
 import Base
 
 law main:

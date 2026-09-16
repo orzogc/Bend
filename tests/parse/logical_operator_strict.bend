@@ -1,6 +1,6 @@
 # && and || are Bool operators desugaring to Bool.and/Bool.or -- both
 # operands are values (strict, as bend3 pinned), and the operands are
-# Bool, not words (no U32-Bool bridge in bend4)
+# Bool, not words (no U32-Bool bridge in bend)
 import Base
 
 law bu:

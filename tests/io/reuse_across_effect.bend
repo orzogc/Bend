@@ -1,7 +1,7 @@
 # io pin (io_reuse_across_effect): bend3 pinned "a lambda owns what it
 # captures" across an escaping IO continuation -- a value read again
 # in a LATER do-statement lives inside a closure the driver runs after
-# the minting body returned. bend4's IO surface exists (IO.print is a
+# the minting body returned. bend's IO surface exists (IO.print is a
 # foreign def), so the block checks -- and dies on the affine wall:
 # t and xs are plain binders read by two do-statements, and the usage
 # cap never switches off. The pure builders port faithfully: depth

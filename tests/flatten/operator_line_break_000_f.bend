@@ -1,7 +1,7 @@
 # an operator never heads a continuation line: a multi-line expression
 # breaks AFTER the operator
 # ported from bend3: doubled operands and word literals become params
-# (bend4's core is affine; a U32 literal shows as its Word chain)
+# (bend's core is affine; a U32 literal shows as its Word chain)
 import Base
 
 law main:

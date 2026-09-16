@@ -1,5 +1,5 @@
 # duplication through the deferred path: bend3 pinned x spent twice
-# in f(x, x). bend4's descent judgment crosses the minted lambda and
+# in f(x, x). bend's descent judgment crosses the minted lambda and
 # still demands a shrinking column: f(x, x) is no subterm of t, so the
 # self-call is refused as non-decreasing before any spend is measured.
 # ported from bend3: bare ctors, main returns the test's own type

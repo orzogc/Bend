@@ -1,5 +1,5 @@
 # bend3's dec-swi respelling pin, unsound side: a 1+p miss substituted
-# the DECREMENTED scrutinee and a false nth equation PROVED. bend4 has
+# the DECREMENTED scrutinee and a false nth equation PROVED. bend has
 # no dec switch and no pred substitution -- the inner counter match's
 # `1+p` arm is refused at parse, so the unsound lane cannot be spelled
 import Base

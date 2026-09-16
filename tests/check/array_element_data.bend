@@ -1,7 +1,7 @@
 # slab-array pin (check_array_element_data): bend3 refused a non-Data
 # (arrow) element type AT THE LITERAL while the array type itself
-# stayed well-formed. bend4 has neither the [:T] array type nor the
-# literal -- the [: spelling in the signature pins bend4's own parse
+# stayed well-formed. bend has neither the [:T] array type nor the
+# literal -- the [: spelling in the signature pins bend's own parse
 # refusal.
 import Base
 
