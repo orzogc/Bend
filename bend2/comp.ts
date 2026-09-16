@@ -2592,18 +2592,14 @@ function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
 }
 
 function emit_tab(fl: File, rows: Chain | null, ty: HTerm): number | null {
-  const ret = lay_of(fl.book, ty);
-  const ls = rows === null || ret.ks.length !== 1 || ret.ks[0] === "box"
+  const ls = rows === null || WORDS[ty_adt(fl.book, ty)?.k ?? ""] === undefined
     ? [null] : rows.map(([t]) => emit_row(fl, t, ty));
-  const vs = ls.includes(null) || fl.decl === "const" ? ls
-    : Function("return [" + ls + "]")().map((v: unknown) =>
-      typeof v === "object" || typeof v === "string" ? null : v);
-  if (vs.includes(null)) {
+  if (ls.includes(null)) {
     return null;
   }
-  const key = fl.decl === "const" ? ls.join(", ") : vs.map((v: number) =>
-    (ty_adt(fl.book, ty)?.k === "F32" ? Bend.f32_to_bits(v) : BigInt(v))
-    + "ull").join(", ");
+  const key = fl.decl === "const" ? ls.join(", ") : Function("return ["
+    + ls + "]")().map((v: number) => (ty_adt(fl.book, ty)?.k === "F32"
+    ? Bend.f32_to_bits(v) : BigInt(v)) + "ull").join(", ");
   const id = fl.tabs.get(key) ?? fl.tabs.size;
   fl.tabs.set(key, id);
   return id;
