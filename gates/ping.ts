@@ -5,7 +5,8 @@
 // hub), a release.ts --dry into that DL_DIR, an install.sh against it (Bun
 // is here, so it installs nothing), then bend --help through the launcher.
 // Checks: the help and the guide print, current points at app/<ver>, the log has the
-// run's cmd, the installer discloses the telemetry once, an old bend became a link
+// run's cmd, the installer discloses the telemetry once and puts bin on the
+// PATH of the shell's rc, an old bend became a link
 // to the launcher, a second release with a notice prints it and switches
 // current, BEND_NO_TELEMETRY=1 logs no id. Then the launcher under attack:
 // ten runs at once during an update all pass and leave one whole release; a
@@ -42,7 +43,7 @@ const HOME   = path.join(TMP, "home");
 const DL     = path.join(TMP, "dl");
 const LOG    = path.join(TMP, "log.jsonl");
 const TELL   = "bend sends anonymous usage data and updates itself";
-const SAID   = "Sends anonymous usage data";
+const SAID   = "Bend sends anonymous usage data";
 // install.sh replaces the `bend` it finds on PATH: never hand it the real
 // one (bun's own bin dir holds it), so PATH is a private dir with only bun.
 const SAFE   = path.join(TMP, "path") + ":/usr/bin:/bin";
@@ -138,14 +139,19 @@ try {
   const old = path.join(TMP, "old", "bend");
   fs.mkdirSync(path.dirname(old));
   fs.writeFileSync(old, "#!/bin/sh\necho bend 1\n", { mode: 0o755 });
+  // HOME is the temp dir too: install.sh writes the PATH line into its rc
   const ins = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
-    { BEND_HOME: HOME, BEND_ORIGIN: ORIGIN, PATH: path.dirname(old) + ":" + SAFE });
+    { HOME: TMP, SHELL: "/bin/zsh", BEND_HOME: HOME, BEND_ORIGIN: ORIGIN,
+      PATH: path.dirname(old) + ":" + SAFE });
   check("install.sh: " + ins.err, ins.code === 0);
   check("the old bend became a link to the launcher",
     ins.out.includes("Replaced the old bend at " + old)
     && fs.readlinkSync(old) === path.join(HOME, "bin", "bend"));
   check("the installer discloses the telemetry once", ins.out.split(SAID).length === 2);
   check("the install card names " + latest.ver, ins.out.includes(latest.ver));
+  check("the shell rc got bin on PATH",
+    fs.readFileSync(path.join(TMP, ".zshrc"), "utf8")
+      .includes('export PATH="' + HOME + '/bin:$PATH"'));
   check("current -> app/" + latest.ver, current().startsWith("app/" + latest.ver + "/"));
   const guide = await bend(["guide"]);
   check("bend guide prints the guide", guide.code === 0 && guide.out.includes("# "));
