@@ -42,6 +42,11 @@ const HOME   = path.join(TMP, "home");
 const DL     = path.join(TMP, "dl");
 const LOG    = path.join(TMP, "log.jsonl");
 const TELL   = "bend sends anonymous usage data and updates itself";
+// install.sh replaces the `bend` it finds on PATH: never hand it the real
+// one (bun's own bin dir holds it), so PATH is a private dir with only bun.
+const SAFE   = path.join(TMP, "path") + ":/usr/bin:/bin";
+fs.mkdirSync(path.join(TMP, "path"));
+fs.symlinkSync(process.execPath, path.join(TMP, "path", "bun"));
 
 const fails: string[] = [];
 let total = 0;
@@ -133,7 +138,7 @@ try {
   fs.mkdirSync(path.dirname(old));
   fs.writeFileSync(old, "#!/bin/sh\necho bend 1\n", { mode: 0o755 });
   const ins = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
-    { BEND_HOME: HOME, BEND_ORIGIN: ORIGIN, PATH: path.dirname(old) + ":" + (process.env.PATH ?? "") });
+    { BEND_HOME: HOME, BEND_ORIGIN: ORIGIN, PATH: path.dirname(old) + ":" + SAFE });
   check("install.sh: " + ins.err, ins.code === 0);
   check("the old bend became a link to the launcher",
     ins.out.includes("replaced the old bend at " + old)
@@ -201,7 +206,7 @@ try {
     && dead.out.includes("usage:"));
   const odd = path.join(TMP, "we ird's home");
   const ins2 = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
-    { BEND_HOME: odd, BEND_ORIGIN: ORIGIN });
+    { BEND_HOME: odd, BEND_ORIGIN: ORIGIN, PATH: SAFE });
   check("a BEND_HOME with a space and a quote installs: " + ins2.err, ins2.code === 0
     && fs.readlinkSync(path.join(odd, "current")).startsWith("app/v3/"));
   fs.chmodSync(HOME, 0o555);
@@ -223,7 +228,7 @@ try {
   release("v3", ORIGIN + "/dl/v2.tar.gz", latest.sha256);
   const bs = path.join(TMP, "back\\slash");
   const ins3 = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
-    { BEND_HOME: bs, BEND_ORIGIN: ORIGIN });
+    { BEND_HOME: bs, BEND_ORIGIN: ORIGIN, PATH: SAFE });
   check("a BEND_HOME with a backslash verifies and activates the release (Bun then"
     + " cannot run from such a path): " + ins3.err,
   fs.readlinkSync(path.join(bs, "current")).startsWith("app/v3/"));
@@ -269,7 +274,7 @@ try {
   fs.writeFileSync(path.join(TMP, "target"), "#!/bin/sh\necho target\n");
   fs.symlinkSync(path.join(TMP, "target"), path.join(alt, "bin", "bend"));
   const ins4 = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
-    { BEND_HOME: alt, BEND_ORIGIN: ORIGIN });
+    { BEND_HOME: alt, BEND_ORIGIN: ORIGIN, PATH: SAFE });
   check("a reinstall over a symlinked bin/bend leaves its target alone", ins4.code === 0
     && fs.readFileSync(path.join(TMP, "target"), "utf8").includes("echo target")
     && !fs.lstatSync(path.join(alt, "bin", "bend")).isSymbolicLink());

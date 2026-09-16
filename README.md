@@ -1,4 +1,4 @@
-# Bend 2.0.0
+# Bend
 
 In the post-AGI economy, what still matters for a programming language? Two things:
 

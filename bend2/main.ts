@@ -29,7 +29,9 @@ import * as Comp from "./comp.ts";
 // Constants
 // =========
 
-const HELP = `Bend: check, run, build and publish Bend programs.
+const VERSION = "2.0.0";
+
+const HELP = `Bend ${VERSION}: check, run, build and publish Bend programs.
 
 usage:
   bend <file.bend>            check the file, then run main
@@ -44,7 +46,6 @@ usage:
 Read the guide (\`bend guide\`) before writing Bend code.
 `;
 
-const VERSION = "2.0.0";
 
 const BASE = fs.realpathSync(path.join(import.meta.dirname, "base.bend"));
 
