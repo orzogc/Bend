@@ -37,8 +37,8 @@ usage:
   bend <file.bend> --checkup  check and run each import alone
   bend <file.bend> --publish  publish the file and its imports to the hub
   bend <page.html> -o <dir>   bundle a page that imports .bend files
-  bend guide                  print the Bend guide
   bend base [--types|<name>]  print Base, its types, or a name and its subnames
+  bend guide                  print the Bend guide
 
 Read the guide (\`bend guide\`) before writing Bend code.
 `;
