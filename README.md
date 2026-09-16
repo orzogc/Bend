@@ -164,11 +164,15 @@ bend hello.bend -o hello    # compile to a native binary (a ! needs Metal or CUD
 ./hello                     # run!
 ```
 
-### 4. Ask your AI to use Bend:
+### 4. Tell your agent to use Bend:
 
-Tell your agent:
+> build this project using Bend:
+> - run the `bend` command
+> - read its guide (`bend guide`)
+> - use laws to enforce correctness
+> - use parallel lets to make it fast
 
-> *run `bend`, read its guide, and build my next project in Bend.*
+Currently, Bend works best for **back-end projects** on Linux / OSX.
 
 # References
 
