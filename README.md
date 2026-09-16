@@ -178,6 +178,7 @@ Currently, Bend works best for back-end projects on Linux / OSX.
 # References
 
 - Guide: [GUIDE.md](guide/GUIDE.md), also printed by `bend guide`.
+- Base: [base.bend](bend2/base.bend), the base library, also printed by `bend base`.
 - Paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf).
 - Paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
 - Formalization: [bend.lean](bend2/bend.lean), Bend's core in Lean.
