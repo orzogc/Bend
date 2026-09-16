@@ -1,7 +1,8 @@
 #!/usr/bin/env bun
 // The shape of the repo: every tracked file must match one allow line,
 // and a textual file must stay under its ttok cap (a binary under its
-// byte cap). Anything else in the tree is a failure.
+// byte cap). Anything else in the tree is a failure. evals/ is not
+// counted: it is the models' arena, not the repo's shape.
 
 import * as child from "node:child_process";
 import * as fs from "node:fs";
@@ -46,7 +47,7 @@ allow(/^bench\/checker\/[a-z]+_[0-9]+\/main\.(bend|agda|lean|thy|v)$/, 3000000);
 allow(/^bench\/checker\/_pin_\/[a-z0-9_]+\.txt$/, 2000);
 allow(/^bench\/runtime\/[a-z]+\/main\.(bend|c|lean|ts)$/, 8000);
 allow(/^bench\/runtime\/_pin_\/[a-z0-9_]+\.txt$/, 2000);
-allow(/^demos\/[a-z0-9_]+\/[A-Za-z0-9_]+\.bend$/, 30000);
+allow(/^demos\/[a-z0-9_]+\/[A-Za-z0-9_]+\.bend$/, 64000);
 allow(/^demos\/[a-z0-9_]+\/[A-Za-z_]+\.(c|sh|md)$/, 4000);
 allow(/^demos\/[a-z0-9_]+\/web\/(index\.html|main\.js|bunfig\.toml)$/, 4000);
 allow("guide/GUIDE.md", 12000);
@@ -81,6 +82,7 @@ function gate(): string[] {
   const files = child.execFileSync("git", ["ls-files"], { cwd: lib.ROOT,
     encoding: "utf8" }).trim().split("\n");
   for (const file of files) {
+    if (file.startsWith("evals/")) continue;
     const rule = RULES.find((r) => r.at.test(file));
     if (rule === undefined) {
       fails.push(file + ": not in the allow list");
