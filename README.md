@@ -36,13 +36,8 @@ bidirectional pass that scales to huge codebases, and proofs stay practical. The
 tradeoff is verbosity, but nobody writes code by hand anymore, and AI models
 like the annotations.
 
-## Bend vibe-coding WORKS (with proof!)
+## Bend BLOCKS mistakes
 
-**Q:** How can I **trust** AI code without **reading** it?
-
-**A:** Just ask your agent to write a **proof**.
-
-Suppose you wrote a game that must be unbeatable: if the player grabs the flag,
 you lose. In other languages, you'd write *tests*. But you can't test infinitely
 many sequences of moves. On Bend, you state the law in `LAWS.bend`:
 
@@ -66,8 +61,6 @@ Once the proof lands, your code is correct. Mathematically.
 > vibe coded SaaS never displays an uncentered div again. And that's beautiful.
 
 **tl;dr with proofs, "make no mistakes" becomes enforceable**
-
-The full game, proof included: [demos/app_win_is_bug_2d](demos/app_win_is_bug_2d).
 
 # Get Started
 
