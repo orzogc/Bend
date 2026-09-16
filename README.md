@@ -166,13 +166,14 @@ bend hello.bend -o hello    # compile to a native binary (a ! needs Metal or CUD
 
 ### 4. Tell your agent to use Bend:
 
-> build this project using Bend:
-> - run the `bend` command
-> - read its guide (`bend guide`)
-> - use laws to enforce correctness
-> - use parallel lets to make it fast
+```
+Build this project with Bend-Lang:
+- run `bend guide` to learn it
+- use **laws** to avoid mistakes
+- use **parallel** to make it fast
+```
 
-Currently, Bend works best for **back-end projects** on Linux / OSX.
+Currently, Bend works best for back-end projects on Linux / OSX.
 
 # References
 
