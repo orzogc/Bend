@@ -147,7 +147,7 @@ def main() -> IO(Unit):
   IO.print("Hello, world!")
 ```
 
-### 3. Check, Compile, Run:
+### 3. Check, compile, run:
 
 ```bash
 bend hello.bend             # check + run
@@ -155,7 +155,7 @@ bend hello.bend -o hello    # compile to a native binary (a ! needs Metal or CUD
 ./hello                     # run!
 ```
 
-### 4. Tell your agent to use Bend:
+### 4. Tell your agent to use it:
 
 Tell your agent to use Bend:
 
