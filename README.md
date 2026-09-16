@@ -155,7 +155,7 @@ And that's it! Hints:
 
 - Ask it to parallelize anything you want to be fast.
 
-- Bend is young. If anything goes wrong, ask it to open an issue. <3
+- If anything goes wrong, ask it to open an issue. <3
 
 Currently, Bend works best for **back-end** projects.
 
