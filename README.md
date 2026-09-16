@@ -168,10 +168,12 @@ bend hello.bend -o hello    # compile to a native binary (a ! needs Metal or CUD
 
 Tell your agent to use Bend:
 
-> Build this project with Bend-Lang:
-> - run `bend guide` to learn it
-> - write laws to avoid mistakes
-> - parallelize to make it fast!
+```
+Build this project with Bend-Lang:
+- run `bend guide` to learn it
+- write laws to avoid mistakes
+- parallelize to make it fast!
+```
 
 Currently, Bend works best for **back-end** projects.
 
