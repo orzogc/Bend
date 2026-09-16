@@ -8,7 +8,7 @@ In the post-AGI economy, what still matters for a programming language? Two thin
 
 That's it. Nothing else matters. Bend addresses both. And nothing else.
 
-![Bend, in five minutes](media/intro.gif)
+<p align="center"><img src="media/intro.gif" alt="Bend, in five minutes"></p>
 
 ## Bend runs FAST
 

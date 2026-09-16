@@ -8,8 +8,10 @@
 // A page turn glides every bar to its new height (0.6 s, ease-out) and
 // crossfades its number; then the page holds 2.9 s as ONE gif frame, so
 // each bench is 3.5 s and the files stay small. Drawn at 2x (1280 px
-// wide); the README embeds them at 640. This script measures NOTHING:
-// every bar is a pin read by gen_charts.ts, every title the site's.
+// wide) on a TRANSPARENT canvas, in colors that read on the light and
+// the dark GitHub, which embeds them at 640. This script measures
+// NOTHING: every bar is a pin read by gen_charts.ts, the titles are
+// the site's.
 //
 // It needs node >= 22.18, the canvas package, ffmpeg and Menlo, which
 // this Mac lacks: render on cluster-9d, where ~/film has all four.
@@ -53,11 +55,8 @@ const NAME_H = 2.6 * BAR_EM;
 const FPS = 25;
 const GLIDE = 0.6;
 const HOLD = 2.9;
-const BG = "#f2eee7";
 const INK = "#87847d";
-const TEXT = "#69665f";
-const FAINT = "#a9a59d";
-const GRAY = "#cdc7bc";
+const GRAY = "#a5a29a";
 const PURPLE = "#8b83b5";
 const GREEN = "#7e9a5e";
 const MONO = "Menlo, monospace";
@@ -147,13 +146,11 @@ function text(s: string, x: number, y: number, size: number, color: string,
 }
 
 function hatch(x: number, y: number, w: number, h: number): void {
-  cx.fillStyle = "#efebe4";
-  cx.fillRect(x, y, w, h);
   cx.save();
   cx.beginPath();
   cx.rect(x, y, w, h);
   cx.clip();
-  cx.strokeStyle = "#e2dcd1";
+  cx.strokeStyle = GRAY;
   cx.lineWidth = 5.5;
   cx.beginPath();
   for (let d = -h; d < w; d += 12.7) {
@@ -170,7 +167,7 @@ function label(lines: string[], alpha: number, x: number, top: number): void {
   cx.globalAlpha = alpha;
   lines.forEach((line, ln): void => {
     const y = top - 5 - (lines.length - ln - 0.5) * 1.25 * BAR_EM;
-    text(line, x, y, BAR_EM, lines.length === 2 && ln === 0 ? GREEN : TEXT);
+    text(line, x, y, BAR_EM, lines.length === 2 && ln === 0 ? GREEN : INK);
   });
   cx.globalAlpha = 1;
 }
@@ -182,8 +179,7 @@ function frame(a: Page, b: Page, t: number, at: number, n: number): void {
   const hb = page_heights(b);
   const bw = (35 * EM - (b.bars.length - 1) * GAP) / b.bars.length;
   const x0 = (W - 35 * EM) / 2;
-  cx.fillStyle = BG;
-  cx.fillRect(0, 0, W, H);
+  cx.clearRect(0, 0, W, H);
   text(b.title, W / 2, 1.8 * EM, EM, INK, true);
   b.bars.forEach((bar, i): void => {
     const x = x0 + i * (bw + GAP);
@@ -210,9 +206,9 @@ function frame(a: Page, b: Page, t: number, at: number, n: number): void {
   });
   for (let i = 0; i < n; i++) {
     const x = W / 2 + (i - (n - 1) / 2) * 1.6 * 0.87 * EM;
-    text(i === at ? "●" : "○", x, 17.4 * EM, 0.87 * EM, i === at ? PURPLE : FAINT);
+    text(i === at ? "●" : "○", x, 17.4 * EM, 0.87 * EM, i === at ? PURPLE : INK);
   }
-  text(MACHINE, W / 2, 19.5 * EM, 0.87 * EM, FAINT);
+  text(MACHINE, W / 2, 19.5 * EM, 0.87 * EM, INK);
 }
 
 // Gif
@@ -221,7 +217,12 @@ function frame(a: Page, b: Page, t: number, at: number, n: number): void {
 // every turn is GLIDE seconds of frames at FPS; the last frame of each
 // turn is the page itself, and lasts HOLD seconds more. The frames go
 // to ffmpeg through a concat list, which keeps every duration, so each
-// hold is one frame with a long delay; one 64-colour palette, no dither
+// hold is one frame with a long delay; one palette of 63 colours plus
+// the transparent slot, no dither. A smaller palette makes a smaller
+// file, but it drops the green of the speedups. A gif has 1-bit alpha:
+// a pixel is opaque (alpha >= 128) or clear. Because every frame keeps
+// clear pixels, ffmpeg disposes each one to the background, so no bar
+// of the page before shows through
 function gif(name: string, pages: Page[]): void {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), name + "-"));
   const steps = Math.round(GLIDE * FPS);
@@ -241,7 +242,7 @@ function gif(name: string, pages: Page[]): void {
   const out = path.join(charts.ROOT, "media", name + ".gif");
   const got = child.spawnSync("ffmpeg", ["-y", "-loglevel", "error", "-f", "concat",
     "-safe", "0", "-i", path.join(dir, "list.txt"), "-vf",
-    "split[a][b];[a]palettegen=max_colors=64:reserve_transparent=0[p];[b][p]paletteuse=dither=none:diff_mode=rectangle",
+    "split[a][b];[a]palettegen=max_colors=63:reserve_transparent=1[p];[b][p]paletteuse=dither=none:alpha_threshold=128",
     "-fps_mode", "vfr", "-loop", "0", out], { stdio: "inherit" });
   if (got.status !== 0) {
     throw new Error("ffmpeg failed on " + name);
