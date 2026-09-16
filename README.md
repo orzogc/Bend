@@ -8,8 +8,6 @@ A **fast** language that **blocks AI** from **making mistakes**. Bend is:
 
 - With **proofs**, like **Lean**.
 
-And that's all.
-
 <p align="center"><img src="media/intro.gif" alt="Bend, in five minutes"></p>
 
 ## Bend runs FAST
