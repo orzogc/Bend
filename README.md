@@ -138,26 +138,9 @@ def add_zero(x):
 curl -fsSL https://bend-lang.com/install.sh | sh
 ```
 
-### 2. Write a file:
+### 2. Tell your agent to use Bend:
 
-```python
-import Base
-
-def main() -> IO(Unit):
-  IO.print("Hello, world!")
-```
-
-### 3. Check, compile, run:
-
-```bash
-bend hello.bend             # check + run
-bend hello.bend -o hello    # compile to a native binary (a ! needs Metal or CUDA)
-./hello                     # run!
-```
-
-### 4. Tell your agent to use it:
-
-Tell your agent to use Bend:
+Copy / paste this to your AI:
 
 ```
 Build this project with Bend-Lang:
