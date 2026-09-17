@@ -68,21 +68,21 @@ Using `LAWS.bend` is simple.
 
 1. Ask your AI to write your app's rules to `LAWS.bend`. Example:
 
-    - LAW: *"the sum of all balances must be zero"*
+    - Claude, add a LAW: *"the sum of all balances must be zero"*
 
-    - LAW: *"players can never pass through solid walls"*
+    - GPT, add a LAW: *"players can never pass through solid walls"*
 
-    - LAW: *"list_sort() must always return ascending numbers"*
+    - Grok, add a LAW: *"list_sort() must always return ascending numbers"*
 
-    - LAW: *"array_set() may never be called out-of-bounds"*
+    - Qwen, add a LAW: *"array_set() may never be called out-of-bounds"*
 
-    - LAW: *"winning is impossible"* (the demo above!)
+    - DeepSeek, add a LAW: *"winning is impossible"* (the demo above!)
 
     - And so on. Anything you can spell can become a law.
 
-2. Ask your AI to keep `PROOF.bend` updated, and use `bend` to check it.
+2. Ask your AI: "always keep `PROOF.bend` updated, and run `bend PROOF.bend` before merging".
 
-3. That's it. Your app will magically never again violate a rule.
+3. That's it. Enjoy as your app never again breaks or violates your rules.
 
 Any bug covered by your rules becomes **mathematically impossible**. If any edit
 breaks a rule, Bend will detect it, and your AI will be forced to fix your code,
