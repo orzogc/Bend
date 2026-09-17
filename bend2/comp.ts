@@ -398,11 +398,18 @@ const OPTIMIZED: Record<Bend.Name, Native> = Object.setPrototypeOf({
 // ------
 
 const SHIMS = "sqrt exp log log2 log10 sin cos tan pow fmod".split(" ")
-  .map((n) => "#define " + n.padEnd(5) + " precise::" + n).join("\n");
+  .map((n) => "#define " + n.padEnd(5) + " precise::" + n).join("\n")
+  + "\n#define atan2 atan2_c99";
 
 const NATIVE = {
   C: String.raw`
 #ifdef __METAL_VERSION__
+// Metal's atan2 answers NaN at the origin, where libm answers +-0 for
+// x >= +0 and +-pi for x <= -0, y's sign carried
+INLINE f32 atan2_c99(f32 y, f32 x) {
+  return y == 0.0f && x == x
+    ? copysign(signbit(x) ? M_PI_F : 0.0f, y) : atan2(y, x);
+}
 ${SHIMS}
 #endif
 
@@ -3171,8 +3178,16 @@ using namespace metal;
 // =======
 
 #ifdef __METAL_VERSION__
+// coherent(device) (MSL 3.2, macOS 15): without it, plain device stores
+// by one threadgroup may stay invisible to others within a dispatch;
+// M4-class parts tolerate this, M1-class parts return wrong checksums
+#if __METAL_VERSION__ >= 320
+#define DEV     coherent(device) device
+#define DEVL    coherent(device) device
+#else
 #define DEV     device
 #define DEVL    device
+#endif
 #define GA32    threadgroup atomic_uint
 #define THR     thread
 #define INLINE  inline
@@ -3211,7 +3226,14 @@ using namespace metal;
   { __threadfence(); __syncthreads(); }
 #else
 #define DEV
-#define OUTLINE static __attribute__((noinline, cold, preserve_most))
+// The compilers with both (clang 19+) are those whose preserve_most is
+// sound: clang 14-16 miscompile it, gcc 15 has preserve_none alone.
+#if __has_attribute(preserve_none) && __has_attribute(preserve_most)
+#define PRESERVE(A) __attribute__((A))
+#else
+#define PRESERVE(A)
+#endif
+#define OUTLINE static __attribute__((noinline, cold)) PRESERVE(preserve_most)
 #define DEVICE  0
 #define CLZ(x)  (u32)__builtin_clz(x)
 #endif
@@ -3230,7 +3252,7 @@ using namespace metal;
 #else
 #define LOCK(l)    while (__atomic_exchange_n(&(l), 1, __ATOMIC_ACQUIRE)) {}
 #define UNLOCK(l)  __atomic_store_n(&(l), 0, __ATOMIC_RELEASE)
-#define WL_FN      static __attribute__((preserve_none, noinline)) Reply
+#define WL_FN      static PRESERVE(preserve_none) __attribute__((noinline)) Reply
 #define WL_CASE(F) WL_FN WL_##F(WL_SIG)
 #define WL_OPEN    { WL_BANK u32 rn;
 #define WL_JMP(F)  __attribute__((musttail)) return WL_##F(WL_ALL)
@@ -3473,7 +3495,11 @@ static const char* CLI_HELP =
 
 #ifdef __METAL_VERSION__
 
-#define a32_load(p)      atomic_load_explicit(A32(p), RLX)
+// the load lands in a volatile local: else the M1-class AGX backend folds
+// the zext into the atomic load, which it cannot legalize, and the
+// pipeline build dies (XPC_ERROR_CONNECTION_INTERRUPTED)
+#define a32_load(p)      \
+  ({ volatile thread u32 _a32v = atomic_load_explicit(A32(p), RLX); _a32v; })
 #define a32_store(p, v)  atomic_store_explicit(A32(p), v, RLX)
 #define a32_add(p, v)    atomic_fetch_add_explicit(A32(p), v, RLX)
 #define a32_sub(p, v)    atomic_fetch_sub_explicit(A32(p), v, RLX)
@@ -4220,7 +4246,7 @@ static u32 root_take(Corpus H, THR Term* v) {
 #define WL_SPUN
 #define WL_AGAIN(F) __attribute__((musttail)) return WL_##F(WL_ALL)
 
-typedef Reply (__attribute__((preserve_none)) *WlFn)(WL_SIG);
+typedef Reply (PRESERVE(preserve_none) *WlFn)(WL_SIG);
 #define WL_X(F) WL_FN WL_##F(WL_SIG);
 WL_TABLE WL_X(FID_ENTER)
 #undef WL_X
@@ -4695,9 +4721,14 @@ static id<MTLComputePipelineState> gpu_pipe(MTLComputePipelineDescriptor* d,
   id<MTLBinaryArchive> ar) {
   NSError* err = nil;
   d.binaryArchives = ar ? @[ar] : @[];
-  return [gpu_dev newComputePipelineStateWithDescriptor:d
+  id<MTLComputePipelineState> pso = [gpu_dev
+    newComputePipelineStateWithDescriptor:d
     options:ar ? MTLPipelineOptionFailOnBinaryArchiveMiss : 0 reflection:nil
     error:&err];
+  if (!pso && !ar) {
+    err_fail([[err localizedDescription] UTF8String]);
+  }
+  return pso;
 }
 
 static u64 gpu_span(void) {
@@ -4726,9 +4757,6 @@ static void gpu_load(u64 bytes) {
     if (!gpu_pso) {
       gpu_note(path);
       gpu_pso = gpu_pipe(d, nil);
-    }
-    if (!gpu_pso) {
-      err_fail("cannot load the GPU program");
     }
   }
 }
@@ -4783,7 +4811,12 @@ static Corpus gpu_map(u64 bytes) {
   if (cuMemAllocManaged(&p, bytes, CU_MEM_ATTACH_GLOBAL) != CUDA_SUCCESS) {
     err_fail("corpus reservation failed");
   }
+#if CUDA_VERSION >= 13000
+  cuMemAdvise(p, bytes, CU_MEM_ADVISE_SET_PREFERRED_LOCATION,
+    (CUmemLocation){ CU_MEM_LOCATION_TYPE_DEVICE, gpu_dev });
+#else
   cuMemAdvise(p, bytes, CU_MEM_ADVISE_SET_PREFERRED_LOCATION, gpu_dev);
+#endif
   return (Corpus)(uintptr_t)p;
 }
 
@@ -4945,7 +4978,8 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
   Corpus H  = CORPUS;
 #if BEND_CUDA
   if (gpu) {
-    memset(H, 0, STAK_OFF * 8);
+    cuMemsetD8((CUdeviceptr)(uintptr_t)H, 0, STAK_OFF * 8);
+    cuCtxSynchronize();
   }
 #endif
   memcpy(H + STAT_OFF, STAT_IMG, STAT_LEN * sizeof(u64));

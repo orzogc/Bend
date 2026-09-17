@@ -211,9 +211,10 @@ function cli_emit(book: Bend.Book, out: string): void {
 }
 
 // cc_find is $CC when set, else the first of clang and every clang-NN on
-// PATH (newest first), that is clang 19 or newer (Apple clang 17, which
-// ships LLVM 19): an older clang builds a runtime that dies at start.
-function cc_find(): string {
+// PATH (newest first), that is new enough: clang 14 for a CPU build, and
+// for a GPU build clang 19 (Apple clang 17, which ships LLVM 19), whose
+// #embed carries the device program.
+function cc_find(gpu: boolean): string {
   function dir_list(dir: string): string[] {
     try {
       return fs.readdirSync(dir);
@@ -229,26 +230,30 @@ function cc_find(): string {
   for (const cc of ccs) {
     const out = child.spawnSync(cc, ["--version"], { encoding: "utf8" }).stdout ?? "";
     const m   = /^(Apple )?(?:\w+ )?clang version (\d+)/m.exec(out);
-    if (m !== null && Number(m[2]) >= (m[1] === undefined ? 19 : 17)) {
+    const need = gpu ? (m?.[1] === undefined ? 19 : 17) : 14;
+    if (m !== null && Number(m[2]) >= need) {
       return cc;
     }
     olds.push(m === null ? "no " + cc : "clang " + m[2] + " as " + cc);
   }
-  throw "Error: bend needs clang 19 or newer to build binaries (found "
+  throw "Error: bend needs clang " + (gpu ? "19 (Apple clang 17)" : "14")
+    + " or newer to build " + (gpu ? "a GPU program" : "binaries") + " (found "
     + olds.join(", ") + "); on Debian/Ubuntu: curl -fsSL"
     + " https://apt.llvm.org/llvm.sh | sudo bash -s 19; on macOS: xcode-select"
     + " --install";
 }
 
 // cli_build builds the C file at `file` into the binary `bin`. A `!`
-// program builds with the GPU lane and writes its GPU program too. On macOS
+// program builds with the GPU lane and writes its GPU program too (on Linux
+// only with CUDA at /usr/local/cuda; else the ! runs on the cores). On macOS
 // a program with a framework (#import: a window, audio) builds as
 // Objective-C; on Linux it links the X11 and ALSA libraries it includes.
 function cli_build(bin: string, file: string): void {
   const c     = fs.readFileSync(file, "utf8");
-  const cc    = cc_find();
   const mac   = process.platform === "darwin";
-  const bangs = !/^#define BANGS\s+0$/m.test(c);
+  const bangs = !/^#define BANGS\s+0$/m.test(c)
+    && (mac || fs.existsSync("/usr/local/cuda/include/nvrtc.h"));
+  const cc    = cc_find(bangs);
   const objc  = mac && (bangs || /^#import /m.test(c))
     ? ["-x", "objective-c", "-fobjc-arc", "-fmodules"] : [];
   const libs  = [["X11", "X11"], ["alsa", "asound"]].flatMap(([h, l]) =>
