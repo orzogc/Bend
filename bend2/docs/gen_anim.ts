@@ -111,7 +111,8 @@ function hero(name: string, ink: string, dim: string): void {
   const DOT = " \u00b7 ";
   const CLAIMS: [string, boolean][] = [["C", true], [" speed", false],
     [DOT, false], ["CUDA", true], [" parallelism", false], [DOT, false],
-    ["Lean", true], [" proofs", false]];
+    ["Lean", true], [" proofs", false], [DOT, false], ["Python", true],
+    [" syntax", false]];
   const cv = createCanvas(W, H);
   const cx = cv.getContext("2d");
   const font = (size: number, bold: boolean): string =>
