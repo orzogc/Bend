@@ -59,11 +59,17 @@ consider a game with one law: *winning is impossible*. Here's how it plays out:
 
 Without `LAWS.bend`, a bug was merged. With it, the AI had to retry, until no
 bugs were left! In this case, it added a wall, but it could have moved the flag,
-made the room kill you, or whatever. The only thing it can't do is merge a bug,
+made the room kill you, or whatever. The only thing it can't do is commit a bug,
 because it is **mathematically impossible** to break laws in `LAWS.bend`. The
 compiler *enforces* it.
 
 Using `LAWS.bend` is simple.
+
+1. Add this to your `AGENTS.md`:
+
+    ```
+    run `bend PROOF.bend` before committing
+    ```
 
 1. Ask your AI to include your rules in `LAWS.bend`. Example:
 
@@ -78,8 +84,6 @@ Using `LAWS.bend` is simple.
     - Please, add a LAW: *"winning is impossible"* (the demo above!)
 
     - And so on. Anything you can spell can become a law.
-
-2. Ask your AI: *"always keep `PROOF.bend` updated, and run `bend PROOF.bend` before merging"*.
 
 3. That's it. Enjoy as your app never again breaks or violates your rules.
 
@@ -115,14 +119,17 @@ curl -fsSL https://bend-lang.com/install.sh | sh
 
 ### 2. Tell your agent to use Bend:
 
-Copy / paste this to your AI:
+Add this to your `AGENTS.md`:
 
 ```
-Build this project with Bend-Lang:
+When using Bend:
 - run `bend guide` to learn it
-- write laws to avoid mistakes
-- parallelize to make it fast!
+- include important rules on `LAWS.bend`
+- run `bend PROOF.bend` before committing
+- parallelize the code whenever possible
 ```
+
+Then, just ask your AI to use Bend!
 
 ### 3. Enjoy bug-free, fast vibe-coded apps!
 
