@@ -61,7 +61,7 @@ than once, if the variable is Data-kinded.
 Bend does almost no inference, meaning it requires more annotations than similar
 languages. This is what allows Bend's checker to be significantly faster than
 other provers, and its error messages more precise, at the expense of programs
-and proofs being more verbose. This is by design.
+and proofs being more verbose.
 
 ### Closures
 
