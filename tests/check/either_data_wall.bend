@@ -64,7 +64,7 @@ def main(): twice(Inr{2})
 #|- expected : e
 #|- observed : e (consumed more than once)
 #|Location: leak
-#|56 | 
+#|54 | 
 #|55>| def leak(e):
 #|56 |   leak.go(e, la(e))
 #|exit 1
