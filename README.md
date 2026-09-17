@@ -79,7 +79,10 @@ Using `LAWS.bend` is simple.
 
 3. That's it. Your app will magically never again violate a rule.
 
-Any bug covered by your rules becomes **mathematically impossible**.
+Any bug covered by your rules becomes **mathematically impossible**. If any edit
+breaks a rule, Bend will detect it, and your AI will be forced to fix your code,
+on the spot. The tradeoff is this may consume *AI time*; but AI time is cheap,
+while bugs cost human time, which is not.
 
 > We must stress what this means. This is not a test. This is not an audit.
 > This is a MATHEMATICAL PROOF. That your app has ZERO bugs. With Bend, the same
