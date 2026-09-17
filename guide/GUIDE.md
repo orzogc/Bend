@@ -81,7 +81,8 @@ def main() -> U32:
 
 A closure is affine: it can be called at most once, even when everything it
 captures is `Data`. Only top-level definitions can be called freely. Partial
-applications like `U32.add(2)` are closures too.
+applications like `U32.add(2)` are closures too. A let must be inferable:
+annotate a literal, as in `x = {3 : U32}`.
 
 ### Recursion and Termination
 
@@ -103,9 +104,10 @@ def main() -> U32:
 
 Here, `t` has one fewer element than `xs`, so `sum` eventually reaches the
 empty list. Bend verifies termination by requiring recursive calls to use
-smaller parts of their inputs, obtained through pattern matching. Machine words
-like `U32` cannot be matched on, so loop counters are `Nat`s: `case 1n+p:` hands
-you a smaller `p` to recurse on, and a `Nat` is still a machine word at runtime.
+smaller parts of their inputs, obtained through pattern matching. A `U32` has no
+`1+p` pattern, so loop counters are `Nat`s: `case 1n+p:` hands you a smaller `p`
+to recurse on, and a `Nat` is still a machine word at runtime (a program aborts
+past 2^48-1).
 There is no `if`: a branch is a `match` on `True{}` and `False{}`.
 
 Termination is mandatory and mutual recursion is not allowed. Both restrictions
@@ -117,9 +119,11 @@ freely, but falls outside Bend's proof guarantees.
 
 One more restriction is the most common source of frustration when learning
 Bend: for now, a `match` can only inspect a parameter or a variable bound by a
-pattern, never a computed value, so `match sum(xs, 0):` is rejected. Compute the
-value first and pass it to a helper that matches on it. This keeps Bend's first
-compiler substantially simpler and faster, and will be lifted in a future update.
+pattern, never a computed value, so `match sum(xs, 0):` is rejected. Scrutinees
+follow binder order, and a `let` may not precede a `match` on a parameter.
+Compute the value first and pass it to a helper that matches on it. This keeps
+Bend's first compiler substantially simpler and faster, and will be lifted in a
+future update.
 
 ### Parallelism
 
@@ -136,8 +140,8 @@ def pow2(+n: Nat) -> U32:
       a b = pow2(p) pow2(p) # parallel call
       (a + b : U32)
 
-def main() -> U32:
-  pow2!(20n) # `!` runs on GPU
+def main() -> IO(Unit):
+  IO.print(U32.show(pow2!(20n))) # `!` runs on GPU
 ```
 
 A parallel call promises the compiler two things:
@@ -171,7 +175,7 @@ import Base
 def main() -> Array<U32> & U32:
   a = [0 : U32*8n] # new array with 8 copies of 0
   a[5] <- 42       # performs an in-place rewrite
-  a[5]             # reads the 5th element
+  a[5]             # reads index 5
 ```
 
 An `Array<T>` is a `Type`, so it has exactly one owner at all times. That is
@@ -183,8 +187,9 @@ line is `a = a[5] <- 42`. As the last statement it is the written array. The
 slot count after `*` is a power of two; `[0 : U32^3n]` names the depth instead.
 
 For now, the `a[i]` sugar assumes `Array<U32>`. For other element types, call
-`Array.get` and `Array.set` directly, and `Array.clone` when you need two
-copies. Read Bend's Base for reference. This will be generalized soon!
+`Array.get` (`Data` elements; else `Array.swap`) and `Array.set` directly, and
+`Array.clone` when you need two copies. Read Bend's Base for reference. This
+will be generalized soon!
 
 ### Quantities
 
@@ -432,13 +437,15 @@ def main() -> String:
 
 Every def is named `Type.verb`, and the same verbs recur across `Nat`, `U32`
 and `F32`: `add sub mul div mod` for arithmetic, `and or xor not shl shr` for
-bits, `cmp` (returning `Cmp`) and `is_eq is_ne is_lt is_le is_gt is_ge`
-(returning `Bool`) for comparisons, `show` to `String` and `read` back from it
-(answering a `Maybe`). Operators and `<`-style comparisons are just sugar for
-these. Beyond numbers there are `Bool`, `Cmp`, `Maybe`, `Result`, `List`,
-`Array`, a string-keyed `Map` (`new set get has del keys`), `Set` on top of it,
-the `Equal` lemmas, and the effects. `bend base` prints all of it, `bend base
---types` only the types, and `bend base Map` one name and everything under it.
+bits (`U32` only), `cmp` (returning `Cmp`, not on `F32`) and `is_eq is_ne is_lt
+is_le is_gt is_ge` (returning `Bool`) for comparisons, `show` to `String` and
+`read` back from it (answering a `Maybe`). Operators and `<`-style comparisons
+are just sugar for these. Beyond numbers there are `Bool`, `Cmp`, `Maybe`,
+`Result`, `List`, `Array`, a string-keyed `Map` (`new set get has del keys`;
+`get` takes a default, and `get` and `has` hand the map back beside their
+result), `Set` on top of it, the `Equal` lemmas, and the effects. `bend base`
+prints all of it, `bend base --types` only the types, and `bend base Map` one
+name and everything under it.
 
 ### Modules
 
@@ -474,7 +481,7 @@ Bend is a single command:
 
 ```bash
 bend file.bend            # check the file, then run main on the JS backend
-bend file.bend -o file    # compile to a native binary (needs clang 19+)
+bend file.bend -o file    # compile to a native binary (clang 14+; 19+ with `!`)
 bend file.bend -o file.c  # emit the C source instead
 bend file.bend -o file.js # emit the JS source instead
 bend page.html -o dist    # bundle a web page that imports .bend files
@@ -482,10 +489,11 @@ bend page.html -o dist    # bundle a web page that imports .bend files
 ./file --gpu 4GB          # enables the GPU, with max 4GB memory
 ```
 
-A `main` that returns `IO` runs; one that returns a value prints it; a file with
-no `main` just checks. A binary that uses `!` builds its GPU program too, as
-`file.gpu`, which must stay beside it: on macOS it needs Metal, on Linux CUDA 12
-at `/usr/local/cuda`. On Linux a program with a Window needs `libx11-dev`, one
+A `main` that returns `IO` runs compiled; one that returns a value is normalized
+by the checker (slow for big work) and printed; a file with no `main` just
+checks. A binary that uses `!` builds its GPU program too, as `file.gpu`, which
+must stay beside it: on macOS it needs Metal, on Linux CUDA 12 at
+`/usr/local/cuda`. On Linux a program with a Window needs `libx11-dev`, one
 with Audio `libasound2-dev`. `bend base` prints the Base library
 (`bend base Map` prints one name and everything under it), `bend guide` prints
 this text, and `bend --help` lists the rest.
@@ -506,7 +514,7 @@ def f(x, y):                             # fills the law named f
 def t(~g: A -> B, x: A) -> B:            # a template
 law f:                                   # a claim, proven by def f
   for x: A                               # a parameter (also for -x, for +x)
-  for y: B where P(y)                    # a parameter with evidence
+  for y: B where P(y)                    # y is then the pair (y, P(y) proof)
   exs z: C                               # a witness the proof must return
   T                                      # the claim
 @unsafe def f(x: A) -> T:                # skips the termination check
@@ -551,9 +559,10 @@ do M<xs.., R>:                           # a monadic block over M.bind, M.pure
   return v                               # the result
 ```
 
-Inside `(.. : T)`, `+ - * / %` call `T.add` through `T.mod`, `.&. .|. .^. <<
->>` the bit operations, and `< <= > >=` the `T.is_lt` family; without a `: T`
-they belong to `Nat`. `&& ||` work on `Bool` and `++` on `String` anywhere.
+Inside `(.. : T)`, `+ - * / %` call `T.add` through `T.mod`, `.&. .|. .^.` the
+bit operations, `<< >>` the shifts (by a `Nat`), and `< <= > >=` the `T.is_lt`
+family; without a `: T` they belong to `Nat`. `&& ||` work on `Bool` and `++` on
+`String` anywhere. Operators need spaces on both sides.
 Equality of values is a call, `T.is_eq(a, b)`; `==` is only the type.
 
 ## Under the Hood
@@ -576,8 +585,8 @@ and a datatype may recurse on the left of an arrow. What keeps this consistent
 is a wall between two checking modes. Code that runs is checked *live*; types,
 erased arguments and equations are checked *dead*. Dead code may loop forever or
 inhabit `Empty`, but nothing dead ever counts as live evidence, and live
-recursion must terminate. `bend2/bend.lean` mechanizes this as the checker runs
-it; `paper/BendTT.pdf` is the paper.
+recursion must terminate. `bend2/bend.lean` mechanizes this, though it lags
+`bend.ts`; `paper/BendTT.pdf` is the paper.
 
 ## Further Reading
 

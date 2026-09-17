@@ -15,11 +15,11 @@ law you_cant_win:
 
 If you ever see the win screen, the type checker is broken. File a bug.
 
-**Play it:** https://victortaelin.github.io/winning_is_a_bug
+**Play it:** https://bend-lang.com/#lab
 
 ## How to work with Bend
 
-This repo is a working example of the intended division of labor:
+This demo is a working example of the intended division of labor:
 
 - [`main.bend`](main.bend) — the **game**. The whole program, nothing
   else.
@@ -52,8 +52,8 @@ through `Game.replay`. The browser never decides anything.
 ```bash
 cd web
 bun index.html              # serves the page, .bend imports and all
-bend index.html -o ../docs  # bundles it (needs bend on the PATH)
-bend ../PROOF.bend --check   # every law must be filled
+bend index.html -o out      # bundles it (needs bend on the PATH)
+bend ../PROOF.bend          # every law must be filled
 ```
 
 ## The level
@@ -64,16 +64,14 @@ the room's other two walls? On the far edges of the screen — on a torus,
 that IS the other side of the room.
 
 ```
-....#........#
-.F..#........#
-....#........#
-#####........#
-..............
-..............
-.........P....
-..............
-..............
-#####.........
+...#.......#
+.F.#.......#
+...#.......#
+####.......#
+............
+........P...
+............
+####........
 ```
 
 ## The proof

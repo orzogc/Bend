@@ -1,7 +1,6 @@
 # an assert never filled is an OPEN CLAIM: the checker validates the
 # asserted type, keeps the entry dead, and counts it as a TODO (the
-# CLI report says so; --to refuses); a run still prints main, since
-# nothing live touches the claim. base.bend keeps its axioms (the
+# CLI refuses the file, main or not). base.bend keeps its axioms (the
 # bodiless-native idiom). Live use stays pinned by check_axiom_use.
 # ported from bend3: bend3 warned one line per axiom and accepted
 type Nz1 is Data:
@@ -17,4 +16,6 @@ law main:
 
 def main(): Zn1{}
 
-#|Zn1{}
+#|Error: 1 TODO found.
+#|The code is incomplete, and not a valid proof yet.
+#|exit 1

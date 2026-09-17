@@ -1984,8 +1984,9 @@ def Nat.show.go(f, n, acc):
     case 1n+g:
       Nat.show.fin(g, acc, Nat.show.put(Nat.divmod(n, 10n)))
 
-def Nat.show(+n: Nat) -> String:
-  Nat.show.fin(n, SNil{}, Nat.show.put(Nat.divmod(n, 10n)))
+def Nat.show(n: Nat) -> String:
+  +m = n
+  Nat.show.fin(m, SNil{}, Nat.show.put(Nat.divmod(m, 10n)))
 
 law Nat.read.go:
   for s   : String
@@ -2050,8 +2051,9 @@ def U32.show.if(a: U32, z: Bool) -> String:
     case False{}:
       U32.show.go(10n, a, SNil{})
 
-def U32.show(+a: U32) -> String:
-  U32.show.if(a, U32.is_zero(a))
+def U32.show(a: U32) -> String:
+  +b = a
+  U32.show.if(b, U32.is_zero(b))
 
 law U32.read.go:
   for s   : String

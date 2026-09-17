@@ -10,9 +10,9 @@
 // built as the gate builds it (the cc lines of gates/perf.ts) in each of
 // its three modes, one warm run then the timed one under /usr/bin/time
 // -l (a fresh binary's first GPU run compiles its shader); then the
-// native twins, main.c under cc -O3 -ffp-contract=off -fno-slp-vectorize,
-// main.ts under bun and under node (the faster), main.lean under lean -c
-// and leanc -O3, one run each. A checker row: one cold check under
+// twins, warm then timed: main.c under the same cc line (an f32 sum is
+// not checked: -O3 fuses a*b+c), main.ts under bun and node (the faster),
+// main.lean under lean -c and leanc -O3. A checker row: one cold check under
 // Isabelle, Agda, Lean, Rocq and Bend, 300 s each, a timeout written as
 // >300s. Run it whole or one file at a time; --keep <lang> carries a
 // checker column forward from the file as it is, unmeasured (a prover
@@ -24,7 +24,7 @@ import * as child from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { BUILD, FLAGS, MEMORY, MODES } from "../../gates/perf.ts";
+import { BUILD, CC, FLAGS, MEMORY, MODES } from "../../gates/perf.ts";
 
 // Constants
 // =========
@@ -43,8 +43,6 @@ const HW = child.spawnSync("sysctl", ["-n", "machdep.cpu.brand_string"],
 const RUN_TIMEOUT = 600;
 
 const CHECK_TIMEOUT = 300;
-
-const TWIN_CC = ["cc", "-O3", "-ffp-contract=off", "-fno-slp-vectorize"];
 
 const LANGS = ["isabelle", "agda", "lean", "rocq", "bend"];
 
@@ -197,8 +195,8 @@ function pin_outs(): Map<string, string> {
 // Runtime
 // =======
 
-type Built = { bench: string; want: string; cpu: string; gpu: string;
-  cbin: string; lbin: string };
+type Built = { bench: string; want: string; f32: boolean; cpu: string;
+  gpu: string; cbin: string; lbin: string };
 
 async function runtime_build(bench: string, want: string,
   dir: string): Promise<Built> {
@@ -210,13 +208,16 @@ async function runtime_build(bench: string, want: string,
     "-o", "main.c"], at, RUN_TIMEOUT);
   await exec_run(["sh", "-c", BUILD[0] + " -o cpu"], at, RUN_TIMEOUT);
   await exec_run(["sh", "-c", BUILD[2] + " -o gpu"], at, RUN_TIMEOUT);
-  await exec_run([...TWIN_CC, path.join(home, "main.c"), "-o", "twin_c"],
-    at, RUN_TIMEOUT);
+  await exec_run(["sh", "-c", CC + " " + path.join(home, "main.c")
+    + " -o twin_c"], at, RUN_TIMEOUT);
   await exec_run(["lean", "main.lean", "-c", "lean.c"], at, RUN_TIMEOUT);
   await exec_run(["leanc", "-O3", "-DNDEBUG", "lean.c", "-o", "twin_lean"],
     at, RUN_TIMEOUT);
-  return { bench, want, cpu: path.join(at, "cpu"), gpu: path.join(at, "gpu"),
-    cbin: path.join(at, "twin_c"), lbin: path.join(at, "twin_lean") };
+  const f32 = fs.readFileSync(path.join(home, "main.bend"), "utf8")
+    .includes("F32");
+  return { bench, want, f32, cpu: path.join(at, "cpu"),
+    gpu: path.join(at, "gpu"), cbin: path.join(at, "twin_c"),
+    lbin: path.join(at, "twin_lean") };
 }
 
 function runtime_check(b: Built, what: string, got: Ran): Ran {
@@ -245,8 +246,10 @@ async function runtime_cell(b: Built, mode: number): Promise<Ran> {
 
 async function runtime_ts(b: Built, dir: string): Promise<number> {
   const file = path.join(RUNTIME, b.bench, "main.ts");
+  await exec_run([process.execPath, file], dir, RUN_TIMEOUT);
   const bun = runtime_check(b, "main.ts under bun",
     await exec_run([process.execPath, file], dir, RUN_TIMEOUT));
+  await exec_run(["node", file], dir, RUN_TIMEOUT, true);
   const node = await exec_run(["node", file], dir, RUN_TIMEOUT, true);
   return node.secs >= 0 && node.out.trim().endsWith(b.want)
     ? Math.min(bun.secs, node.secs) : bun.secs;
@@ -272,9 +275,13 @@ async function runtime_rows(): Promise<string[][]> {
     for (let mode = 0; mode < 3; mode += 1) {
       runs.push(await runtime_cell(b, mode));
     }
-    const c = runtime_check(b, "main.c", await exec_run([b.cbin], dir,
-      RUN_TIMEOUT));
+    await exec_run([b.cbin], dir, RUN_TIMEOUT);
+    const c = await exec_run([b.cbin], dir, RUN_TIMEOUT);
+    if (!b.f32) {
+      runtime_check(b, "main.c", c);
+    }
     const ts = await runtime_ts(b, dir);
+    await exec_run([b.lbin], dir, RUN_TIMEOUT);
     const lean = runtime_check(b, "main.lean", await exec_run([b.lbin], dir,
       RUN_TIMEOUT));
     rows.push([b.bench, ...runs.map(fmt_meas), fmt_secs(c.secs),

@@ -145,7 +145,7 @@ def key(+k: U32) -> Maybe<Move>:
         pick(Maybe<Move>, U32.is_eq(k, 100), Some{Right{}}, None{}))))
 
 # The worker takes the list first: the guard wants the shrinking argument
-# in the first live column. `apply` is the API: a board, then its moves.
+# in the first live column. `replay` is the API: a board, then its moves.
 def run(moves: List<Move>, g: Game) -> Game:
   match moves:
     case Nil{}:

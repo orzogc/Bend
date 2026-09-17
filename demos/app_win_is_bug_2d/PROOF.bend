@@ -1,7 +1,7 @@
 # Winning Is Impossible -- the certificate.
 #
 # The proofs. This file imports the game (as Game) and the claims (as
-# Laws) and fills every assert the laws make -- an unfilled assert is an
+# Laws) and fills every law they state -- an unfilled law is an
 # error, so `bend PROOF.bend` is the whole verification. Everything here
 # is AI-written scaffolding for two defs: Laws.you_cant_win and
 # Laws.never_on_flag.

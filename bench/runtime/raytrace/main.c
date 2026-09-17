@@ -1,4 +1,4 @@
-// par_raytrace: single-threaded C twin of main.bend. Same
+// Single-threaded C twin of main.bend. Same
 // scene of 9 spheres + one point light at (-3,8,1), same 2x2
 // supersampled pixels (four primary rays at (0.25,0.75) offsets),
 // nearest-hit + Lambertian shadow shading + mirror bounce on a
@@ -7,11 +7,10 @@
 // acc + (w*lum); nearest folds spheres 8 down to 0 with strict <. The
 // Bend row-fork reduction is a plain row loop here (u32 wrapping sum,
 // associative). All f32, one operation per statement order preserved.
-// Build: clang -O3 -DNDEBUG -ffp-contract=off par_raytrace.c -lm
-// (-ffp-contract=off keeps clang from fusing a*b+c into fma, which
-// changes f32 bits vs Bend's uncontracted code.)
-// Expected at ROWS=12, WIDTH=6000: 1924309504 (ROWS=6, WIDTH=80:
-// 402971).
+// Build: cc -O3 main.c -lm.
+// Expected at ROWS=12, WIDTH=6000: 1924309504 with -ffp-contract=off
+// (Bend's uncontracted f32 bits; plain -O3 fuses a*b+c into fma and
+// prints 1924309520); ROWS=6, WIDTH=80: 402971.
 
 #include <stdint.h>
 #include <stdio.h>

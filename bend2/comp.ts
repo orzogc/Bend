@@ -1205,7 +1205,8 @@ function show_main(book: Bend.Book): Show | null {
   const main = book.tlds["main"];
   if (main?.$ !== "Def" || (main.v === null && main.i === undefined)
     || book.tlds["IO"] === undefined) {
-    die("no main to run");
+    die(book.tlds["IO"] === undefined ? "a build needs import Base"
+      : "no main to run");
   }
   if (io_type(book) !== null) {
     return null;
@@ -2577,12 +2578,15 @@ function emit_tab(fl: File, rows: Chain | null, ty: HTerm): number | null {
   const ret = lay_of(fl.book, ty);
   const ls = rows === null || ret.ks.length !== 1 || ret.ks[0] === "box"
     ? [null] : rows.map(([t]) => emit_row(fl, t, ty));
-  if (ls.includes(null)) {
+  const vs = ls.includes(null) || fl.decl === "const" ? ls
+    : Function("return [" + ls + "]")().map((v: unknown) =>
+      typeof v === "object" || typeof v === "string" ? null : v);
+  if (vs.includes(null)) {
     return null;
   }
-  const key = fl.decl === "const" ? ls.join(", ") : Function("return ["
-    + ls + "]")().map((v: number) => (ty_adt(fl.book, ty)?.k === "F32"
-    ? Bend.f32_to_bits(v) : BigInt(v)) + "ull").join(", ");
+  const key = fl.decl === "const" ? ls.join(", ") : vs.map((v: number) =>
+    (ty_adt(fl.book, ty)?.k === "F32" ? Bend.f32_to_bits(v) : BigInt(v))
+    + "ull").join(", ");
   const id = fl.tabs.get(key) ?? fl.tabs.size;
   fl.tabs.set(key, id);
   return id;
@@ -5548,7 +5552,9 @@ static void show_arr(Env e, u32 d, Term t, u32 lo, u32 c) {
 static void show_val(Env e, u32 d, const Term* w, char chain) {
   const u32* D = SHOW_DESC;
   Term one;
-  switch (D[d]) {
+  char zs[4];
+  u32  zn = 0;
+  for (bool tail = true; tail;) switch (tail = false, D[d]) {
     case 0: printf("%u", (u32)w[0]); break;
     case 1: show_f32((u32)w[0]); break;
     case 2: printf("%llun", (unsigned long long)w[0]); break;
@@ -5599,16 +5605,26 @@ static void show_val(Env e, u32 d, const Term* w, char chain) {
       } else if (chain != o) {
         putchar(o);
       }
+      if (o == '{' || chain != o) {
+        zs[zn++] = z;
+      }
       for (u32 j = 0; j < D[a + 2]; j += 1) {
         if (o == '[' ? j == 0 && chain == o : j > 0) {
           fputs(", ", stdout);
         }
-        show_val(e, D[a + 4 + 2 * j], w + D[a + 3 + 2 * j], j == 1 && o != '{' ? o : 0);
-      }
-      if (o == '{' || chain != o) {
-        putchar(z);
+        if (j == 1 && o != '{') {
+          tail  = true;
+          chain = o;
+          d     = D[a + 4 + 2 * j];
+          w     = w + D[a + 3 + 2 * j];
+        } else {
+          show_val(e, D[a + 4 + 2 * j], w + D[a + 3 + 2 * j], 0);
+        }
       }
     }
+  }
+  while (zn > 0) {
+    putchar(zs[--zn]);
   }
 }
 

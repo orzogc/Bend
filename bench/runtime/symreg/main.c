@@ -1,4 +1,4 @@
-// par_symreg: single-threaded C twin of main.bend. Same
+// Single-threaded C twin of main.bend. Same
 // algorithms over the same expression-tree ADT: expr_gen materializes
 // each depth-5 candidate AST from the xorshift32 stream into a bump
 // arena (reset per candidate, no per-node malloc; nodes hold child
@@ -8,7 +8,7 @@
 // the parsimony penalty, batch_run folds the tournament over the
 // population, seed_climb hill-climbs the winner. Checksum printed as
 // one u32.
-// Build: clang -O3 -DNDEBUG -ffp-contract=off par_symreg.c -lm
+// Build: cc -O3 main.c
 // Expected at SIZE=18, PTS=110: 2383953211.
 
 #include <stdint.h>

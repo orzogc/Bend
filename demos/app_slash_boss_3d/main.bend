@@ -1,4 +1,4 @@
-# Slash Bros 3D over Bend3D (bend3d.bend): each frame the game builds
+# Slash Boss 3D over Bend3D (bend3d.bend): each frame the game builds
 # the scene from the library's surfaces under its own camera and hands
 # the library its lights, materials, sky and shapes as data and hooks
 # (the Stage.* and Sky.* defs). The sim is the original's hero side at
@@ -12,7 +12,7 @@
 # SLASH_WAV=path writes the mix there as text; SLASH_VOICES=N adds N
 # looping voices.
 #
-#   bend demos/app_slash_bros_3d/main.bend -o slash && ./slash
+#   bend demos/app_slash_boss_3d/main.bend -o slash && ./slash
 import Base
 import ./bend3d.bend as R
 
@@ -862,7 +862,7 @@ def Boss.touch(+b: Boss, +a: R.Vec, +tip: R.Vec) -> Bool:
     || (Vec.seg(grip, a, tip) < 0.45 : F32)
     || (Vec.seg(R.Vec.mix(chest, grip, 0.5), a, tip) < 0.4 : F32))
 
-# The strike lands on its hit tick when the needle's segment (reach
+# The strike lands on its hit tick when the blade's segment (reach
 # 2.15, 2.7 a side, 3.8 a special) touches the boss or a radial attack
 # reaches its waist.
 def Fighter.strike(+f: Fighter, +b: Boss) -> F32:
@@ -1138,7 +1138,7 @@ def Game.cat(a: List<Event>, b: List<Event>) -> List<Event>:
 # Hero
 # ----
 
-# The needle's angle: a swing over the attack's progress (raised for
+# The blade's angle: a swing over the attack's progress (raised for
 # an upward attack, straight down for a downward one, reversed for a
 # back air), 2.2 charging, -0.32 at rest.
 def Hero.angle(+act: U32, +age: U32) -> F32:
@@ -1207,9 +1207,9 @@ def Hero.head(
       0.082, 0.024), Mat.bead(593179, 0.0), 8, 4, at, face, view)
   R.Cells.merge(R.Cells.m4(a, b, c, d), R.Cells.merge(e, f))
 
-# The arm to the hand, the needle from the hand at its angle (glowing
+# The arm to the hand, the blade from the hand at its angle (glowing
 # when charged), the hand's bead, the grip behind it.
-def Hero.needle(
+def Hero.blade(
   +lean: F32, +crouch: F32, +theta: F32, +white: U32, +charge: U32, +at: R.Vec,
   +face: F32, +view: View
 ) -> R.Cells:
@@ -1229,7 +1229,7 @@ def Hero.needle(
   R.Cells.m4(a, b, c, d)
 
 # The hero at a time: body and mask over the legs (a run cycle by his
-# speed), leaning into his motion, the needle, his shadow.
+# speed), leaning into his motion, the blade, his shadow.
 def Hero.build(+f: Fighter, +t: F32, +view: View) -> R.Cells:
   Fighter{p, v, face, _, _, _, act, age, inv, _, _, _, charge} = f
   R.Vec{x, y, _} = p
@@ -1247,7 +1247,7 @@ def Hero.build(+f: Fighter, +t: F32, +view: View) -> R.Cells:
       Mat.paint(987159, 0.6, 0.0, 0.0), 12, 8, p, face, view)
     Hero.leg(run, 1.0, air, crouch, dodge, p, face, view)
     Hero.leg((0.0 - run : F32), (0.0 - 1.0 : F32), air, crouch, dodge, p, face, view)
-    Hero.needle(lean, crouch, Hero.angle(act, age), white, charge, p, face, view)
+    Hero.blade(lean, crouch, Hero.angle(act, age), white, charge, p, face, view)
     Shadow.build(x, y, 0.70, view)
   R.Cells.merge(R.Cells.m4(a, b, c, d), R.Cells.merge(e, g))
 
@@ -1588,7 +1588,7 @@ def Fx.thread(
     Fx.rib(Fx.nat(n), 0.0, (1.0 / n : F32), kind, phase, r, 0.055, p, face, col, (al * 0.12 : F32),
       view, acc))
 
-# The swing's arcs at the needle's angle: the cut (radius 2.9 heavy,
+# The swing's arcs at the blade's angle: the cut (radius 2.9 heavy,
 # 1.78 else), its halo, a thin inner line.
 def Fx.cut(+heavy: Bool, +angle: F32, +col: U32, +p: R.Vec, +face: F32, +view: View) -> R.Cells:
   +r = R.pick(heavy, 2.9, 1.78)
@@ -1854,7 +1854,7 @@ def Hud.text(
 def Move.name(act: U32) -> String:
   match act:
     case 2:
-      "Silk snare"
+      "Moon snare"
     case 3:
       "Guard"
     case 6:
@@ -1862,19 +1862,19 @@ def Move.name(act: U32) -> String:
     case 7:
       "Crouch"
     case 20:
-      "Needle dash"
+      "Blade dash"
     case 21:
-      "Loom ascent"
+      "Moon ascent"
     case 22:
-      "Thorn bloom"
+      "Crescent bloom"
     case 23:
-      "Silk cyclone"
+      "Moon cyclone"
     case 24:
-      "Needle dive"
+      "Blade dive"
     case 25:
-      "Loom ascent"
+      "Moon ascent"
     case 26:
-      "Crimson fall"
+      "Comet fall"
     case 30:
       "Charging side smash"
     case 31:
@@ -1882,7 +1882,7 @@ def Move.name(act: U32) -> String:
     case 32:
       "Charging low smash"
     case _:
-      "J  Needle     K  Silk"
+      "J  Blade      K  Moon"
 
 def Hud.parry(on: Bool, cells: R.Cells) -> R.Cells:
   match on:
@@ -1900,7 +1900,7 @@ def Hud.fight(+g: Game, cells: R.Cells) -> R.Cells:
   Boss{_, _, _, hp, stun, strain, _, _, _, _, _} = boss
   Hud.rect(0.0, 549.0, 1024.0, 91.0, 592914, 1, 0.82, 1000.0,
     Hud.rect(36.0, 549.0, 952.0, 0.6, 3753540, 0, 1.0, 2000.0,
-      Hud.text(37.0, 557.0, 11.0, 2, 15120588, "THE NEEDLE",
+      Hud.text(37.0, 557.0, 11.0, 2, 15120588, "THE BLADE",
         Hud.text(34.0, 571.0, 42.0, 1, R.word((damage > 80.0 : F32), 15572866, 15920620),
           U32.show(F32.to_u32(damage)) ++ "%",
           Hud.text(155.0, 578.0, 16.0, 1, 12434368, U32.show(stocks) ++ " lives",
@@ -1923,10 +1923,10 @@ def Hud.fight(+g: Game, cells: R.Cells) -> R.Cells:
 
 # The title: the name, a rule and the tagline, the button, the help.
 def Hud.title(cells: R.Cells) -> R.Cells:
-  Hud.text(41.0, 115.0, 75.0, 1, 15920360, "Moon",
-    Hud.text(41.0, 181.0, 75.0, 1, 15920360, "Sever",
+  Hud.text(41.0, 115.0, 75.0, 1, 15920360, "Slash",
+    Hud.text(41.0, 181.0, 75.0, 1, 15920360, "Boss",
       Hud.rect(48.0, 270.0, 43.0, 1.0, 12694169, 1, 0.8, 1000.0,
-        Hud.text(47.0, 286.0, 16.0, 1, 12107707, "One needle. One severing blade.",
+        Hud.text(47.0, 286.0, 16.0, 1, 12107707, "One blade. One severing cut.",
           Hud.rect(375.0, 503.0, 274.0, 39.0, 987680, 1, 0.83, 1000.0,
             Hud.rect(375.0, 503.0, 274.0, 1.0, 8155507, 0, 1.0, 2000.0,
               Hud.text(395.0, 511.0, 18.0, 2, 15064013, "L",
@@ -1953,10 +1953,10 @@ def Hud.screen(title: Bool, won: Bool, lost: Bool, paused: Bool, +g: Game, cells
     case True{} _ _ _:
       Hud.title(cells)
     case False{} True{} _ _:
-      Hud.end(327.0, 15135440, "Thread unbroken", 369.0, "The blade falls silent. One final cut.",
+      Hud.end(327.0, 15135440, "Moon unbroken", 369.0, "The blade falls silent. One final cut.",
         Hud.fight(g, cells))
     case False{} False{} True{} _:
-      Hud.end(373.0, 15049618, "Silk undone", 391.0, "Rise again. Learn its rhythm.",
+      Hud.end(373.0, 15049618, "Blade undone", 391.0, "Rise again. Learn its rhythm.",
         Hud.fight(g, cells))
     case False{} False{} False{} True{}:
       Hud.pause(Hud.fight(g, cells))
@@ -1966,7 +1966,7 @@ def Hud.screen(title: Bool, won: Bool, lost: Bool, paused: Bool, +g: Game, cells
 # The HUD of a game: the name and the boss's, then its mode's screen.
 def Hud.build(+g: Game, cells: R.Cells) -> R.Cells:
   Game{_, _, _, mode, hero, boss, _, _, _, _, _} = g
-  Hud.text(34.0, 22.0, 20.0, 1, 14801615, "MOON SEVER",
+  Hud.text(34.0, 22.0, 20.0, 1, 14801615, "SLASH BOSS",
     Hud.text(35.0, 46.0, 8.5, 2, 9019827, Boss.name(),
       Hud.screen(U32.is_eq(mode, 0), U32.is_eq(mode, 2), U32.is_eq(mode, 3), U32.is_eq(mode, 4), g,
         cells)))
@@ -2095,7 +2095,7 @@ def Play.frame(cells: R.Cells, old: Image) -> Image & R.Cells:
 # -----
 
 # The sound: 14 clips synthesized at launch and 7 read from WAV files
-# (media/slash_bros_3d) into one store of samples; a mixer of up to 24
+# (media/slash_boss_3d) into one store of samples; a mixer of up to 24
 # voices renders 512-frame stereo blocks at 48 kHz. A clip: its first
 # sample in the store, its frames, its rate, its channels.
 type Clip is Data:
@@ -2106,7 +2106,7 @@ type Clip is Data:
 type Voice is Data:
   Voice{clip: Clip, pos: F32, step: F32, gl: F32, gr: F32, loop: Bool}
 
-# A cue: the clip (0-13 synthesized, 14 guarana, 15 sha, 16 needle, 17
+# A cue: the clip (0-13 synthesized, 14 bell, 15 whoosh, 16 blade, 17
 # dash, 18 parry), its gain, pan, rate, looping.
 type Cue is Data:
   Cue{kind: U32, gain: F32, pan: F32, rate: F32, loop: Bool}
@@ -2312,12 +2312,12 @@ def Asset.opened(
         IO.pure(List<&2, U32>, Nil{})
     case 1n+k Fail{_}:
       do IO<List<&2, U32>>:
-        r2 : Result<&1, &1, U32 & String, File> <- File.open("../../media/slash_bros_3d/" ++ name, "r")
+        r2 : Result<&1, &1, U32 & String, File> <- File.open("../../media/slash_boss_3d/" ++ name, "r")
         Asset.opened(k, name, r2)
 
 def Asset.bytes(+name: String) -> IO(List<&2, U32>):
   do IO<List<&2, U32>>:
-    r : Result<&1, &1, U32 & String, File> <- File.open("media/slash_bros_3d/" ++ name, "r")
+    r : Result<&1, &1, U32 & String, File> <- File.open("media/slash_boss_3d/" ++ name, "r")
     Asset.opened(1n, name, r)
 
 def Clip.size(+c: Clip) -> U32:
@@ -2355,14 +2355,14 @@ def Bank.synth(+n: Nat, rest: List<&2, Clip>) -> List<&2, Clip>:
       Bank.synth(k, Clip{(U32.from_nat(k) * 65536 : U32), 65536, 48000, 1} <> rest)
 
 # The bank by kind from the files loaded (last first, after the
-# synthesized region's stand-in): the three guarana parts are one
+# synthesized region's stand-in): the three bell parts are one
 # gapless clip.
 def Bank.build(files: List<&2, Clip>) -> List<&2, Clip>:
   match files:
-    case parry <> dash <> needle <> sha <> c <> b <> a <> _:
+    case parry <> dash <> blade <> whoosh <> c <> b <> a <> _:
       Clip{start, fa, rate, ch} = a
-      Bank.synth(14n, [Clip{start, (fa + Clip.frames(b) + Clip.frames(c) : U32), rate, ch}, sha,
-        needle, dash, parry])
+      Bank.synth(14n, [Clip{start, (fa + Clip.frames(b) + Clip.frames(c) : U32), rate, ch}, whoosh,
+        blade, dash, parry])
     case _:
       Bank.synth(14n, Nil{})
 
@@ -2627,8 +2627,8 @@ def Sound.open() -> IO(Sound):
   do IO<Sound>:
     r : Result<&1, &1, U32 & String, Audio> <- Audio.open(48000)
     dev : Maybe<Audio> <- Sound.device(r)
-    loaded : Array<F32> & List<&2, Clip> <- Asset.each(["guarana_a.wav", "guarana_b.wav",
-        "guarana_c.wav", "sha_pcm.wav", "needle.wav", "dash.wav", "parry.wav"], 0, Nil{},
+    loaded : Array<F32> & List<&2, Clip> <- Asset.each(["bell_a.wav", "bell_b.wav",
+        "bell_c.wav", "whoosh.wav", "blade.wav", "dash.wav", "parry.wav"], 0, Nil{},
       (Synth.all(14n, [0.0 : F32^21n]), Clip{0, 917504, 48000, 1}))
     IO.pure(Sound, Sound.made(dev, loaded))
 
@@ -2642,8 +2642,8 @@ def Cue.add(
       acc
 
 # The cues of a tick from a to b, panned by x / 15: swings and the
-# needle, the parry, hits, jumps, landings, dodges, deaths, the boss's
-# voice, the guarana call, sha, the slam, the draw.
+# blade, the parry, hits, jumps, landings, dodges, deaths, the boss's
+# voice, the bell, the whoosh, the slam, the draw.
 def Cue.list(+a: Game, +b: Game, acc: List<&2, Cue>) -> List<&2, Cue>:
   Game{t0, _, _, m0, hero0, boss0, f0, _, _, _, _} = a
   Fighter{p1, v1, face1, damage1, guard1, jumps1, action1, age1, inv1, stocks1, grace1, queued1,
@@ -2762,7 +2762,7 @@ def Play.pace(
     case False{}:
       k(window, begin, count)
     case True{}:
-      IO.bind(Window, Unit, Window.set_title(window, "MOON SEVER | Super Slash Boss 3D | "
+      IO.bind(Window, Unit, Window.set_title(window, "Slash Boss 3D | "
         ++ U32.show(((count * 1000 + ms / 2) / ms : U32)) ++ " FPS"), w => k(w, now, 0))
 
 # The frame's cues into the sound and the device fed (silent in a
@@ -2836,7 +2836,7 @@ def Play.loop(window: Window, +s: Live, snd: Sound, last: Image & R.Cells) -> IO
 
 def Play.run() -> IO(Unit):
   do IO<Unit>:
-    window : Window <- IO.try(Window, Window.open("Moon Sever", 1920, 1200))
+    window : Window <- IO.try(Window, Window.open("Slash Boss 3D", 1920, 1200))
     snd : Sound <- Sound.open()
     +stamp : Nat <- IO.now()
     Play.loop(window, Live{Game.init(), Game.init(), stamp, 0, stamp, 0, Nil{}}, snd,

@@ -322,10 +322,6 @@ async function cli_bundle(page: string, dir: string): Promise<void> {
 async function cli_publish(file: string): Promise<void> {
   const seen = new Map<string, string | null>();
   const book = await book_read(file, undefined, seen);
-  if (book.hols > 0) {
-    throw "Error: " + String(book.hols) + " TODO" + (book.hols === 1 ? ""
-      : "s") + " to fill before publishing";
-  }
   const files = pkg_files(file, book, seen);
   const paths = Object.keys(files).sort();
   const bytes = paths.reduce((n, p) => n + Buffer.byteLength(files[p]), 0);
@@ -398,16 +394,20 @@ async function pow_mine(hash: string, bytes: number): Promise<number> {
 function cli_report(book: Bend.Book): void {
   const uns  = Object.values(book.tlds).filter((t) =>
     t.$ === "Def" && t.u === true).length;
-  const hols = book.hols + book.open;
-  const s    = (n: number): string => n === 1 ? "" : "s";
-  cli_say(1, hols > 0 ? `${hols} TODO${s(hols)} found.\nThe code is incomplete,`
-    + " and not a valid proof yet.\n" : uns > 0 ? `${uns} term${s(uns)}`
+  cli_say(1, uns > 0 ? `${uns} term${uns === 1 ? "" : "s"}`
     + " annotated as unsafe.\nThe code is well-typed, but may contain logical"
     + " paradoxes.\n" : "All terms check.\n");
 }
 
 function cli_say(fd: number, text: string): void {
-  fs.writeSync(fd, text);
+  try {
+    fs.writeSync(fd, text);
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EPIPE") {
+      throw e;
+    }
+    process.exit(0);
+  }
 }
 
 function cli_fail(msg: string): never {
@@ -426,6 +426,11 @@ async function book_read(file: string, base?: Bend.Book,
   }
   await Bend.book_load(book, file, "", seen);
   Bend.book_valid(book, base?.order.length ?? 0);
+  const hols = book.hols + book.open;
+  if (hols > 0) {
+    throw "Error: " + String(hols) + " TODO" + (hols === 1 ? "" : "s")
+      + " found.\nThe code is incomplete, and not a valid proof yet.";
+  }
   return book;
 }
 
@@ -476,9 +481,6 @@ async function load_js(path: string): Promise<string> {
     book = await book_read(path);
   } catch (e) {
     throw new Error(book_err(e));
-  }
-  if (book.hols + book.open > 0) {
-    throw new Error(path + " has TODOs and cannot compile");
   }
   const outs = [...new Set(book.order)].filter((k) => {
     const tld = book.tlds[k];

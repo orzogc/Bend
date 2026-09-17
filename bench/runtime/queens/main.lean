@@ -1,4 +1,4 @@
--- par_queens: single-threaded Lean twin of main.bend. Same
+-- Single-threaded Lean twin of main.bend. Same
 -- algorithm, same shape: 4-row prefix decode + bitmask legality, then
 -- the bitmask backtracker over the remaining rows threading per-branch
 -- Stats{sols, nodes}; the Bend fork tree's smerge reduction is a plain

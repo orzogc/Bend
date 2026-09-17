@@ -1,4 +1,4 @@
--- par_raytrace: single-threaded Lean twin of main.bend. Same
+-- Single-threaded Lean twin of main.bend. Same
 -- scene of 9 spheres + one point light at (-3,8,1), same 2x2
 -- supersampled pixels, nearest-hit + Lambertian shadow shading +
 -- mirror bounce on a countdown depth (4). ray_trace is in the bench's

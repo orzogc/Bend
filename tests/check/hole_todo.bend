@@ -1,5 +1,5 @@
-# ?TODO is the quiet hole: it checks at any goal, so an unfinished
-# proof still checks (the CLI notes the TODO on a plain run)
+# ?TODO is the quiet hole: it checks at any goal, but an unfinished
+# proof is incomplete: the CLI refuses the file, main or not
 import Base
 
 law th:
@@ -14,4 +14,6 @@ law main:
 
 def main(): 7
 
-#|7
+#|Error: 1 TODO found.
+#|The code is incomplete, and not a valid proof yet.
+#|exit 1

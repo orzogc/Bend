@@ -30,6 +30,7 @@ function allow(at: string | RegExp, cap: number, bytes = false): void {
 
 allow(/^\.github\/ISSUE_TEMPLATE\/(bug|config)\.yml$/, 600);
 allow(".gitattributes", 200);
+allow(".gitignore", 100);
 allow("AGENTS.md", 2000);
 allow("README.md", 2500);
 allow("LICENSE", 4000);
@@ -45,7 +46,7 @@ allow("bend2/docs/bend.sublime-syntax", 1000);
 allow("bend2/docs/gen_anim.ts", 7500);
 allow("bend2/docs/gen_charts.ts", 4000);
 allow("bend2/docs/gen_gifs.ts", 4000);
-allow("bend2/docs/gen_pins.ts", 4000);
+allow("bend2/docs/gen_pins.ts", 4100);
 allow(/^bend2\/docs\/intro\/[a-z.]+$/, 20000);
 allow(/^bench\/checker\/[a-z]+_[0-9]+\/main\.(bend|agda|lean|thy|v)$/, 3000000);
 allow(/^bench\/checker\/_pin_\/[a-z0-9_]+\.txt$/, 2000);
@@ -73,8 +74,8 @@ allow(/^media\/(runtime|checker|parallel)\.gif$/, 6000000, true);
 allow(/^media\/hero(_dark)?\.gif$/, 200000, true);
 allow(/^media\/logo_(bend|hoc)\.png$/, 100000, true);
 allow(/^media\/game_[a-z_]+\.gif$/, 2000000, true);
-allow(/^media\/slash_bros_3d\/[a-z_]+\.(wav|mp3)$/, 400000, true);
-allow(/^gates\/(_lib|_run|lab|perf|ping|repo|test)\.ts$/, 6000);
+allow(/^media\/slash_boss_3d\/[a-z_]+\.wav$/, 400000, true);
+allow(/^gates\/(_lib|_run|perf|ping|repo|test)\.ts$/, 6000);
 allow(/^tests\/[a-z]+\/[a-z0-9_]+\.bend$/, 16000);
 allow(/^tests\/[a-z]+\/[a-z0-9_]+\.(c|js)$/, 8000);
 

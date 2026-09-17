@@ -1,4 +1,4 @@
-# Slash Bros 3D -- the laws. Claims about the sim's pure logic, the
+# Slash Boss 3D -- the laws. Claims about the sim's pure logic, the
 # part the interpreter can evaluate without F32 arithmetic: the pause
 # freezes the world for any number of ticks, pausing twice restores
 # the pause state of any game, an Esc anywhere in a frame's events

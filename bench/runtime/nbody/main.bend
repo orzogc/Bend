@@ -17,9 +17,7 @@ import Base
 # Sizes (SY, ST): small (7n, 300n) expect 2215450620 (verified against
 # a Bend3 C run on the cluster; the JS backend agrees), big (17n, 300n)
 # expect 3516450380 (from the Bend3 header, verified on the cluster in
-# seq and par modes). The metal mode answers wrong today: the runtime's
-# GPU F32.sqrt is not bit-exact vs the host (a compiler bug, not a
-# bench property).
+# seq, par and metal modes).
 
 type Hs is Data:
   Hl{h0: U32, h1: U32, h2: U32, h3: U32, h4: U32, h5: U32, h6: U32, h7: U32, cs: U32}

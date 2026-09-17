@@ -12,12 +12,11 @@ import Base
 # Checksum sums the restarts' final-centroid mixes. Round, chunk and
 # depth counters are Nats (no U32 match in Bend4).
 #
-# NO TUNING: this file is the elegant spelling BY LAW (bench.ts
-# header). A flat-24-scalar-record rewrite of the stats merge
-# (cca3d150) measured GPU 0.65 -> 0.17s and was REVERTED on Taelin's
-# order 2026-07-24: it tuned the bench, not the compiler. The gap is
-# the seq-machine frame class on the boxed merge (RULES.md (runtime registry)
-# fork-granularity entry) -- a COMPILER TODO, not a bench edit.
+# NO TUNING: this file is the elegant spelling. A flat-24-scalar-record
+# rewrite of the stats merge measured GPU 0.65 -> 0.17s and was
+# reverted: it tuned the bench, not the compiler. The gap is the
+# seq-machine frame class on the boxed merge -- a COMPILER TODO, not a
+# bench edit.
 #
 # Sizes (SIZE): small (7n) expect 4219097976 (verified against a
 # Bend3 C run on the cluster), big (19n) expect 1616398086 (from the

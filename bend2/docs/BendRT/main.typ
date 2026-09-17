@@ -1,5 +1,5 @@
 // BendRT: A Parallel Runtime for CPUs and GPUs
-// Build: typst compile --root .. main.typ ../../../docs/BendRT.pdf
+// Build: typst compile --root .. main.typ ../../../paper/BendRT.pdf
 //
 // Solarized-light theme for the site build. Set solarized = false for a
 // plain black-on-white document: colors revert and NOTHING else changes.
@@ -112,7 +112,7 @@ Tasks live in a _cube_, a fixed 128 by 128 grid of rings that forks
 along its rows in a grow phase and drains along its columns in a work
 phase, with no shared queue, no lock and no work stealing. The price
 is a contract: the program's forks must split their work evenly. On an
-Apple M4 Max the sequential build runs within 0.8 to 1.5 times the
+Apple M4 Max (pin of 2026-08-31) the sequential build runs within 0.8 to 1.5 times the
 time of hand-written C, sixteen threads give 9 to 12 times over one,
 and the integrated GPU up to 67 times.
 

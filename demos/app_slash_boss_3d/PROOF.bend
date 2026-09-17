@@ -1,4 +1,4 @@
-# Slash Bros 3D -- the proofs. This file imports the game (as Slash)
+# Slash Boss 3D -- the proofs. This file imports the game (as Slash)
 # and the claims (as Laws) and fills every law. pause_freezes is an
 # induction over the ticks: one tick of a paused game with no key
 # tapped routes to the rest (no flag is up: the taps are 0 and the

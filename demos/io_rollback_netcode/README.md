@@ -15,7 +15,7 @@ predictions; a late input rolls the state back and replays.
 
 ## Run
 
-Build and run each file (`R` in vim does both). The relay prints one
+Build and run each file. The relay prints one
 line and waits. The demo opens a 512 x 512 window per player; run it
 again for another player. Your square appears at once, where your id
 puts it; WASD or the arrows move it; Esc quits. The id is the clock at

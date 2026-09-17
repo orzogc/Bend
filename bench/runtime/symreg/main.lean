@@ -1,4 +1,4 @@
--- par_symreg: single-threaded Lean twin of main.bend. Same
+-- Single-threaded Lean twin of main.bend. Same
 -- algorithms over the same expression-tree ADT: expr_gen materializes
 -- each depth-5 candidate AST from the xorshift32 stream (inductive
 -- Expr), expr_eval is the recursive pattern-matching interpreter

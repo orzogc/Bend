@@ -12,10 +12,9 @@ import Base
 # fork tree. Knobs: SIZE (2^SIZE tiles, 2x per notch), EPASS
 # (relaxation sweeps per tile, the fine linear knob).
 #
-# NO TUNING: this file is the elegant spelling BY LAW (bench.ts
-# header). A register-threading rewrite of the erode sweep (carrying
-# prev/cur across the recursion to cut 2 array reads, cca3d150) was
-# REVERTED on Taelin's order 2026-07-24: it tuned the bench, not the
+# NO TUNING: this file is the elegant spelling. A register-threading
+# rewrite of the erode sweep (carrying prev/cur across the recursion
+# to cut 2 array reads) was reverted: it tuned the bench, not the
 # compiler. The sweep's memory-bound GPU profile is the honest result.
 #
 # Port deviations from the Bend3 source (semantics preserved exactly):

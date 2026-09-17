@@ -1,5 +1,5 @@
 // BendTT: An Affine Dependent Type Theory
-// Build: typst compile --root .. main.typ ../../../docs/BendTT.pdf
+// Build: typst compile --root .. main.typ ../../../paper/BendTT.pdf
 //
 // Solarized-light theme for the site build. Set solarized = false for a
 // plain black-on-white document: colors revert and NOTHING else changes.
@@ -119,7 +119,7 @@ test. Erased code is free and may diverge; nothing promotes it to
 live. Proofs are ordinary definitions: the match
 is the eliminator and there are no tactics. We state the calculus, show
 how each attack dies, and describe a Lean 4 mechanization of the
-all-affine fragment.
+core.
 
 = Introduction <sec:intro>
 
@@ -200,7 +200,7 @@ identity, $0$ absorbs, two literals meet, and a stuck side stays stuck.
 
 A _book_ is an ordered list of declarations. A `type` declares a family
 with parameters and a kind, then its constructors, each a telescope of
-fields tipped at the family. An `law` declares a name at a closed type
+fields tipped at the family. A `law` declares a name at a closed type
 and a later `def` fills it. Until its fill a name is an _axiom_: it may
 appear in types and other dead positions, and live code may not consume
 it. A definition may reference itself only through the descent rule of
@@ -501,7 +501,7 @@ of the claims above is waived.
 
 = Proofs Without Tactics <sec:proofs>
 
-A claim is an `law` and a proof is the `def` that fills it. `for`
+A claim is a `law` and a proof is the `def` that fills it. `for`
 folds to a function type, `exs` to a dependent pair, `where` packs a
 hypothesis onto a binder; `{a != b : T}` is a function into `Empty`.
 
@@ -572,22 +572,17 @@ reduction (#co[subject_reduction_holds]) and, at the live demand,
 progress (#co[progress_holds]), weak normalization
 (#co[normalization_holds]) and consistency (#co[consistency_holds]).
 
-The scope is narrower than the language, and the model has drifted
-from the shipped checker. The file mechanizes the _all-affine_
-fragment: no `+` binder, no #Da, no kinds and no meet; $omega$ exists
-only inside the measure, where it is always a violation. The Data layer
-of @sec:kinds is argued in @sec:price and audited by the tests, not
-proven; and `bend.ts` has moved past the model in places, some listed
-in the file (the empty match under a live emptied binder, descent
-skipped at dead demand), some not. We are resyncing the two and
-extending the proof to the full core. What the file proves stands: a
+The model covers the core of @sec:kinds, with the `+` binder, kinds,
+#Da and the meet, but it does not yet fully match the shipped checker:
+the file lists where `bend.ts` and the model differ, and we are
+resyncing the two. What the file proves stands: a
 calculus with #Ty : #Ty and negative datatypes, consistent and
 normalizing, guarded by affinity alone. Normalization and consistency are proven with
 recursive definitions included, by a Dershowitz--Manna multiset measure
 @dershowitzmanna1979 over pending references. The dead boundary is
-a witness, not a caveat (#co[consistency_none_boundary]): in a
+a witness, not a caveat: in a
 well-formed book with a negative type, Curry's self-application term
-checks _dead_ at an empty family (#co[dead_omega_check]) and provably
+checks _dead_ at an empty family and, by #co[consistency_holds],
 never live.
 
 = Discussion <sec:discussion>
@@ -621,8 +616,8 @@ mechanized metatheories of practical kernels @abel2018 @sozeau2020
 @carneiro2024, ours proves normalization rather than assuming it.
 
 _Limitations._ The consistency result is syntactic, relative to Lean's
-own foundation, with no semantic model. The mechanization covers the
-all-affine fragment and lags the shipped checker (@sec:mech). Equality is intensional, with no extensionality
+own foundation, with no semantic model. The mechanization
+lags the shipped checker (@sec:mech). Equality is intensional, with no extensionality
 principle. And the theorems are about the calculus, not the code.
 
 BendTT buys consistency with affinity instead of a universe hierarchy,
