@@ -38,7 +38,7 @@ spreads the calls over every core it can find, then joins them back. Below,
 
 <p align="center"><img src="media/parallel.gif" width="440" alt="pow2 splitting over 4,096 GPU cores, then folding back"></p>
 
-## Bend BLOCKS mistakes (with proof!)
+## Bend BLOCKS mistakes (with proof)
 
 Q: How can you **trust** code you never read?
 
