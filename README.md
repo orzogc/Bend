@@ -183,38 +183,37 @@ def add_zero(x):
 # Limitations
 
 ```
-- Bend 2 is a new language: Bend 1 programs and HVM do not carry over.
+- Bend 2 is a new language. Bend 1 programs and HVM do not carry over.
 - Everything is annotated and nothing is inferred, so code is verbose.
-- Proofs are written by hand or by your AI: no tactics, no proof search.
-- Proving a theorem takes more lines and more effort than in Lean or Rocq.
-- Values are affine: a closure is called once and cannot be cloned.
-- Recursion must be structural and terminate; mutual recursion is rejected.
-- A match inspects a parameter or a pattern variable, never a computed value.
-- There is no if: a branch is a match on True and False.
+- No type classes, no traits, and no macros beyond compile-time templates.
+- Bend has no tactics or proof search; proving theorems takes extra effort.
+- Values are affine: closures and arrays cannot be shared or cloned at runtime.
+- Recursion must be terminating. (Use `@unsafe` to disable this checker.)
+- Computed matches (`match f(x)`) aren't supported. Must split it manually.
+- There is no syntax for if-then-else: a branch is a match on True and False.
 - Numbers are Nat, U32 and F32 only: no U64, I64 or F64 (Metal has no f64).
 - F32 is axiomatic: nothing about floating point can be proven.
-- U32 cannot be matched on, and array indexes wrap around silently.
 - Strings are linked lists of characters, so text processing is slow.
-- One universe and Type : Type, kept consistent by the live/dead wall.
-- No type classes, no traits, and no macros beyond compile-time templates.
 - Base is small: expect to write helpers other languages ship built in.
 - Effects are few: print, env, time, sleep, spawn, channels, files, TCP, UDP.
-- No TLS, HTTP library, JSON or regex; new effects are C or JS you write.
+- No TLS, HTTP library, JSON or regex for now (but you can add them as foreigns).
 - Targets are C, Metal, CUDA and JavaScript; Lua, Luau and Python are planned.
 - The JavaScript target runs on one core and has no graphics or audio.
-- Parallelism requires balanced calls; more modes will be added later.
-- One GPU per program, one event loop, and no multi-machine execution.
+- Parallelism requires balanced calls. Flexible parallelism will be added later.
+- Sharing arrays with atomics across threads is experimental and needs `@unsafe`.
+- One GPU per program, one event loop, and no multi-machine execution yet.
 - One C file per program: no separate compilation, no incremental builds.
-- The heap is one 8 TB reservation with no garbage collector.
-- The compiler is far less mature than GCC or Clang; odd code runs slower.
-- Benchmarks are few, especially for the checker.
-- The compiler is significantly AI-written and has not been audited by humans.
-- The Lean formalization covers the core, not bend.ts: expect consistency bugs.
+- Compiling to native is slow (GCC, NVCC, Metal). For fast development, use JS.
+- The compiler is young and has blind spots (unusualy slow programs). Report.
+- We don't have as many benchmarks as we'd like yet, specially for the checker.
+- The compiler (not kernel) is 99% AI-written and has not been fully audited yet.
+- The Lean formalization and bend.ts mismatch. Early consistency bugs may occur.
 - Building a binary needs clang 19+; ! needs Metal on macOS or CUDA 12 on Linux.
 - No Windows (WSL works); on Linux, Window and Audio need X11 and ALSA headers.
-- The hub has no names, versions, accounts or search; packages are hashes.
+- The hub has no names, versions, accounts or search yet. Packages are hashes.
 - Error messages are terse; no debugger, profiler, formatter, REPL or LSP.
 - No editor support, no test framework and no documentation beyond the guide.
+- And more that escape me. Be patient, report bugs and request features!
 
 Most of these limitations are being addressed and will improve over time!
 ```
