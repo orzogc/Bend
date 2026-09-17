@@ -58,7 +58,7 @@ Here's how it plays out:
 
 <p align="center"><b>With LAWS.bend:</b><br><img src="media/game_law_kept.gif" width="480" alt="A wall on the far edge stops the player"><br><i>Laws intact. AI mistake: <b>blocked</b>!</i></p>
 
-In short, without LAWS.bend: a bug went live. With LAWS.bend: the AI had to retry until no bugs were left.
+Without LAWS.bend, a bug went live. With LAWS.bend: the AI had to retry until no bugs were left.
 
 ```python
 # LAWS.bend
