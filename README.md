@@ -57,7 +57,9 @@ consider a game with one law: *winning is impossible*. Here's how it plays out:
 
 <p align="center"><b>With LAWS.bend:</b><br><img src="media/game_law_kept.gif" width="480" alt="A wall on the far edge stops the player"><br><i>Laws intact. AI mistake: <b>blocked</b>!</i></p>
 
-Using LAWS.bend is simple.
+Without `LAWS.bend`, a bug was merged. With it, the AI had to retry, until zero bugs were left!
+
+Using `LAWS.bend` is simple.
 
 1. Ask your add to write your app's rules to `LAWS.bend`. Example:
 
