@@ -45,10 +45,9 @@ Q: How can you **trust** code you never read?
 A: By demanding a **proof**.
 
 Bend introduces `LAWS.bend`, a file where you declare invariants that your app
-must follow. Bend's compiler then **guarantees** that your laws always hold, by
-demanding, to anyone that edits your codebase, **mathematical proof** that this
-is the case. For example, consider a game with one law: *winning is impossible*.
-Here's how it plays out:
+must follow. Bend's compiler then **guarantees** that these laws always hold, by
+demanding **mathematical proof** whenever your code is edited. For example,
+consider a game with one law: *winning is impossible*. Here's how it plays out:
 
 <p align="center"><b>Law</b>: winning is <b>impossible</b><br><img src="media/game_law.gif" width="480" alt="The player walks up and bumps the wall of the flag's room"><br><i>So far, it works!</i></p>
 
@@ -58,7 +57,29 @@ Here's how it plays out:
 
 <p align="center"><b>With LAWS.bend:</b><br><img src="media/game_law_kept.gif" width="480" alt="A wall on the far edge stops the player"><br><i>Laws intact. AI mistake: <b>blocked</b>!</i></p>
 
-Without LAWS.bend, a bug went live. With LAWS.bend: the AI had to retry until no bugs were left.
+Using LAWS.bend is simple.
+
+1. Ask your add to write your app's rules to `LAWS.bend`. Example:
+
+    - LAW: *"the sum of all balances must be zero"*
+
+    - LAW: *"players can never pass through solid walls"*
+
+    - LAW: *"list_sort() must always return ascending numbers"*
+
+    - LAW: *"array_set() may never be called out-of-bounds"
+
+    - LAW: *"winning is impossible"* (the demo above!)
+
+    - And so on. Anything you can spell can become a law.
+
+2. Ask your AI to keep PROOF.bend updated and checking.
+
+3. That's it. Your app will magically never again violate a rule.
+
+Any bug covered by your rules becomes **mathematically impossible**.
+
+You can also edit `LAWS.bend` yourself. Here's how it looks:
 
 ```python
 # LAWS.bend
@@ -79,13 +100,11 @@ def you_cant_win(moves):
 > intelligence that proved the Navier-Stokes conjecture will now prove that your
 > vibe coded SaaS never displays an uncentered div again. And that's beautiful.
 
-In short: merging code that violates LAWS.bend is **mathematically impossible**.
-
-`LAWS.bend` is `AGENTS.md` backed by **proof**.
+In short, `LAWS.bend` is `AGENTS.md` backed by **proof**.
 
 With `LAWS.bend`, *"make no mistakes"* becomes enforceable.
 
-[Don't believe us? Edit the game and try to win!](https://bend-lang.com/#lab).
+[Skeptical? Edit the demo's code and break the you_cant_win law!](https://bend-lang.com/#lab).
 
 # Get Started
 
