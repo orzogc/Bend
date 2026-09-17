@@ -45,10 +45,10 @@ Q: How can you **trust** code you never read?
 A: By demanding a **proof**.
 
 Bend introduces `LAWS.bend`, a file where you declare invariants that your app
-must follow. Bend then **guarantees** that these laws always hold, by demanding,
-to anyone that edits your codebase, mathematical proof that this is the case.
-For example, consider a game with one law: *winning is impossible*. Here's how
-it plays out:
+must follow. Bend's compiler then **guarantees** that your laws always hold, by
+demanding, to anyone that edits your codebase, **mathematical proof** that this
+is the case. For example, consider a game with one law: *winning is impossible*.
+Here's how it plays out:
 
 <p align="center"><b>Law</b>: winning is <b>impossible</b><br><img src="media/game_law.gif" width="480" alt="The player walks up and bumps the wall of the flag's room"><br><i>So far, it works!</i></p>
 
