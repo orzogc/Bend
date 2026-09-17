@@ -99,7 +99,7 @@ Build this project with Bend-Lang:
 
 ### 3. Enjoy bug-free, fast vibe-coded apps!
 
-And that's it! Hints:
+Hints:
 
 - Ask it to write laws for anything that can't go wrong.
 
