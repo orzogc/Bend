@@ -8,9 +8,11 @@
 // results fold back pairwise; the view zooms on the one cell that holds
 // the answer.
 //
-// The hero is drawn on a transparent canvas, one file per GitHub theme.
-// The rest are drawn on the paper of the landing page, in the palette of
-// the landing page, so a reader who sees both sees one design.
+// Everything is drawn on a TRANSPARENT canvas, in the palette of the
+// landing page, so the tiles float on the reader's own page, light or
+// dark, and a reader who sees both the page and the README sees one
+// design. A gif has 1-bit alpha, so nothing here fades: draw or do not
+// draw. The hero needs an ink per theme, so it has one file per theme.
 //
 // It needs node >= 22.18, the canvas package, ffmpeg and Menlo, which
 // this Mac lacks: render on cluster-9d, where ~/film has all four.
@@ -33,7 +35,6 @@ const ROOT = path.join(import.meta.dirname, "..", "..");
 const MONO = "Menlo, monospace";
 const PURPLE = "#8b83b5";
 const BG = "#f2eee7";
-const MIST = "#e6e1d8";
 const INK = "#5e5787";
 const FPS = 25;
 
@@ -170,6 +171,7 @@ function parallel(): void {
   const DIVE = 1.8;
   const EHOLD = 2.5;
   const BACK = 0.8;
+  const RHOLD = 0.7;
   const ESTEP = 0.24;
   const ZMAX = 64;
   const ZLEN = 1.4;
@@ -209,7 +211,7 @@ function parallel(): void {
     split_end += split_dur(k);
   }
   const E0 = split_end + HOLD1;
-  const R0 = E0 + EPRE + DIVE + EHOLD + BACK;
+  const R0 = E0 + EPRE + DIVE + EHOLD + BACK + RHOLD;
   let fold_end = R0;
   for (let j = 0; j < LEVELS; j++) {
     fold_end += fold_dur(j);
@@ -275,8 +277,8 @@ function parallel(): void {
         cx.fillRect(c * w + l, r * h + t, w - l - q, h - t - b);
       }
     }
-    // the label dissolves at the cut: the old call fades out, and one
-    // new call fades in on each half, so no two ever overlap in full ink
+    // the label cannot dissolve on a gif, so the new call takes the cell
+    // when the seam is half open, and the old one holds until then
     const grid = (cs: number, rs: number, name: string, a: number): void => {
       const gw = W / cs;
       const gh = W / rs;
@@ -286,17 +288,16 @@ function parallel(): void {
         }
       }
     };
-    if (k > 0) {
-      grid(pc, pr, "pow2(" + String(21 - k) + ")", 1 - ease(m / 0.45));
+    if (k > 0 && m < 0.5) {
+      grid(pc, pr, "pow2(" + String(21 - k) + ")", 1);
+    } else {
+      grid(cols, rows, "pow2(" + String(20 - k) + ")", 1);
     }
-    grid(cols, rows, "pow2(" + String(20 - k) + ")",
-      k > 0 ? ease((m - 0.5) / 0.4) : 1);
   }
 
   function draw(u: number): void {
     const cs = W / N;
-    cx.fillStyle = BG;
-    cx.fillRect(0, 0, W, W);
+    cx.clearRect(0, 0, W, W);
     if (u < E0) {                                                  // split
       let k = 0;
       let s = D0;
@@ -340,11 +341,6 @@ function parallel(): void {
       const [w, h] = dims(k);
       const vert = k % 2 === 1;
       const fill = rung(2 + 4 * f / LEVELS);
-      for (let r = 0; r < N; r++) {
-        for (let c = 0; c < N; c++) {
-          cell(c * cs, r * cs, cs, cs, MIST);
-        }
-      }
       for (let r = 0; r < h; r++) {
         for (let c = 0; c < w; c++) {
           cell((vert ? lerp(c, c / 2, m) : c) * cs,
@@ -352,19 +348,9 @@ function parallel(): void {
         }
       }
     } else {                                                       // zoom
-      const s = Math.pow(N, ease((u - Z0) / ZLEN));
-      const zs = cs * s;
-      const lim = Math.min(N, Math.ceil(N / s) + 1);
-      for (let r = 0; r < lim; r++) {
-        for (let c = 0; c < lim; c++) {
-          if (c > 0 || r > 0) {
-            cell(c * zs, r * zs, zs, zs, MIST);
-          }
-        }
-      }
+      const zs = cs * Math.pow(N, ease((u - Z0) / ZLEN));
       cell(0, 0, zs, zs, TILES[6]);
-      label("1048576", 0, 0, zs, zs, fsz(zs, zs), BG,
-        ease((u - Z1 + 0.2) / 0.5));
+      label("1048576", 0, 0, zs, zs, fsz(zs, zs), BG, u > Z1 - 0.1 ? 1 : 0);
     }
   }
   const shots: [number, number][] = [];
@@ -388,7 +374,7 @@ function parallel(): void {
 // the same walk stops there.
 const GW = 12;
 const GH = 8;
-const TILE = 80;
+const TILE = 64;
 const STEP = 0.2;
 const BUMP = 0.4;
 const BUMPS = 3;
@@ -492,8 +478,7 @@ function game(act: Act): void {
     } else if (v > 0) {
       [px, py] = at(v);
     }
-    cx.fillStyle = BG;
-    cx.fillRect(0, 0, W, H);
+    cx.clearRect(0, 0, W, H);
     for (let y = 0; y < GH; y++) {
       for (let x = 0; x < GW; x++) {
         const key = String(x) + "," + String(y);
@@ -542,8 +527,7 @@ function game(act: Act): void {
     cx.arc(cxp + 4.5 * k, cyp - 2 * k, 2.2 * k, 0, Math.PI * 2);
     cx.fill();
     cx.restore();
-    if (pop > 0 && act.pop !== undefined) {
-      cx.globalAlpha = pop;
+    if (pop > 0.5 && act.pop !== undefined) {
       const bw = TILE * 5.6;
       const bh = TILE * 1.5;
       const bx = (W - bw) / 2;
@@ -556,7 +540,6 @@ function game(act: Act): void {
       cx.font = "bold " + String(TILE * 0.6) + "px " + MONO;
       cx.textAlign = "center";
       cx.fillText(act.pop, W / 2, by + bh * 0.66);
-      cx.globalAlpha = 1;
     }
   }
   // the frames run to just past the verdict, and the rest is one still
