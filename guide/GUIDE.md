@@ -117,13 +117,10 @@ anything. A loop bounded by the outside world, like a server's, counts down a
 with an extra argument selecting which to run. A `def` marked `@unsafe` recurses
 freely, but falls outside Bend's proof guarantees.
 
-One more restriction is the most common source of frustration when learning
-Bend: for now, a `match` can only inspect a parameter or a variable bound by a
-pattern, never a computed value, so `match sum(xs, 0):` is rejected. Scrutinees
-follow binder order, and a `let` may not precede a `match` on a parameter.
-Compute the value first and pass it to a helper that matches on it. This keeps
-Bend's first compiler substantially simpler and faster, and will be lifted in a
-future update.
+A `match` inspects a parameter or a variable bound by a pattern, never a
+computed value: `match sum(xs, 0):` is rejected. Scrutinees follow binder order,
+and a `let` may not precede a `match` on a parameter. To match on a computed
+value, pass it to a helper that matches on its parameter.
 
 ### Parallelism
 
