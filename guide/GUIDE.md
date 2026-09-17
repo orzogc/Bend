@@ -544,11 +544,11 @@ D<A>  +D<A>  D<&2, A>                    # a datatype; + makes it reusable
 ```python
 # Terms
 42  1.5  3n  'c'  "s"                    # U32, F32, Nat, Char, String
-[a, b]  h <> t  (a, b)  [v : T*n]  [v : T^d]  # list, cons, tuple, array of n or 2^d slots
+[a, b]  h <> t  (a, b)                   # a list, a cons, a tuple
 K{a, b}  x => e  +x => e                 # a constructor, a lambda
 f(a, b)  f!(a)  t(~g, a)                 # a call, on the GPU, of a template
 (a + b * c : T)  {x : T}                 # operators over T; an annotation
-a[i]  a[i] <- v                          # array read and write (a statement re-binds a)
+[v : T*n]  [v : T^d]  a[i]  a[i] <- v    # an array of n or 2^d slots; a read, a write
 {==}  %e : P; e2  %e@E : P; e2           # reflexivity, a rewrite, a named one
 ?name  ?TODO                             # print the goal; leave it open
 ```
