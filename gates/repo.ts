@@ -70,6 +70,7 @@ allow(/^paper\/(BendRT|BendTT)\.pdf$/, 400000, true);
 allow(/^media\/intro\.(gif|mp4)$/, 25000000, true);
 allow(/^media\/(runtime|checker|parallel)\.gif$/, 6000000, true);
 allow(/^media\/hero(_dark)?\.gif$/, 200000, true);
+allow(/^media\/logo_(bend|hoc)\.png$/, 100000, true);
 allow(/^media\/game_[a-z_]+\.gif$/, 2000000, true);
 allow(/^media\/slash_bros_3d\/[a-z_]+\.(wav|mp3)$/, 400000, true);
 allow(/^gates\/(_lib|_run|lab|perf|ping|repo|test)\.ts$/, 6000);
