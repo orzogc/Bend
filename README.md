@@ -195,6 +195,7 @@ def add_zero(x):
 - No TLS, HTTP library, JSON or regex; new effects are C or JS you write.
 - Targets are C, Metal, CUDA and JavaScript; Lua, Luau and Python are planned.
 - The JavaScript target runs on one core and has no graphics or audio.
+- Parallelism requires balanced calls; more modes will be added later.
 - One GPU per program, one event loop, and no multi-machine execution.
 - One C file per program: no separate compilation, no incremental builds.
 - The heap is one 8 TB reservation with no garbage collector.
