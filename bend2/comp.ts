@@ -22,7 +22,7 @@ type Field = { at: number; lay: Lay };
 
 type Val = { ws: string[]; lay: Lay; stat: boolean };
 
-type Bind = { val: Val; n: number; A: HTerm | null };
+type Bind = { val: Val; n: number; A: HTerm };
 
 type Dst = Val | null;
 
@@ -1928,30 +1928,22 @@ function bind_pop(fl: File, x: HTerm): Val {
     fl.uses.delete(p);
     return b.val;
   }
-  fl.uses.set(p, { ...b, n: b.n - 1 });
-  b.val.ws.forEach((w, j) => {
-    if (b.val.lay.ks[j] === "box" && !fl.brwl.has(w)) {
+  const lay = lay_of(fl.book, b.A);
+  const v = lay_box(b.val.lay) && !lay_box(lay) && !val_brw(fl, b.val)
+    ? val_unbox(fl, b.val, lay) : b.val;
+  fl.uses.set(p, { ...b, val: v, n: b.n - 1 });
+  v.ws.forEach((w, j) => {
+    if (v.lay.ks[j] === "box" && !fl.brwl.has(w)) {
       file_push(fl, `${w} = term_keep(e, ${w});`);
       facts_hot(fl, b.A, true);
     }
   });
-  return b.val;
+  return v;
 }
 
-function bind_uses(fl: File, p: Probe, v: Val, rest: HTerm[],
-  A: HTerm | null = null): void {
+function bind_uses(fl: File, p: Probe, v: Val, rest: HTerm[], A: HTerm): void {
   const n = rest_use(fl, rest, p);
-  if (A !== null) {
-    // A shared box of a flat type (a closure's or a polymorphic def's result)
-    // unboxes before its first share: its words copy, its node does not.
-    if (n > 1 && lay_box(v.lay) && !val_brw(fl, v)) {
-      const lay = lay_of(fl.book, A);
-      if (!lay_box(lay)) {
-        v = val_unbox(fl, v, lay);
-      }
-    }
-    facts_hot(fl, A, fl.hot.has("*"));
-  }
+  facts_hot(fl, A, fl.hot.has("*"));
   if (n > 0) {
     fl.uses.set(p, { val: v, n, A });
   } else {
@@ -2405,7 +2397,7 @@ function emit_zero(fl: File, ty: HTerm | null): Val {
 // A let's one value, emitted and bound over its body.
 function emit_let(fl: File, x: HLet, o: { ps: Probe[]; b: HTerm }): void {
   const v = val_hold(fl, emit_expr(fl, x.v[0], null, null), x.k[0]);
-  bind_uses(fl, o.ps[0], v, [o.b], ty_ann(x.v[0]));
+  bind_uses(fl, o.ps[0], v, [o.b], ty_ann(x.v[0]) ?? die("an unannotated let"));
 }
 
 function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
@@ -2467,7 +2459,7 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
       // word as is): a call whose return disagrees is a cut converted here.
       if (!lay_eq(fl.seg.ret, ret)
         && (fl.seg.ret.arms !== null || ret.arms !== null)) {
-        const v = ty === null ? x : Bend.Ann(x, ty);
+        const v = Bend.Ann(x, ty ?? die("an untyped cut"));
         return emit_body(fl, Bend.Let(["r"], [0], [v], (xs) => xs[0]), ty,
           ers, args, dst);
       }
@@ -2559,7 +2551,8 @@ function emit_fork(fl: File, x: HLet, ers: HTerm[]): void {
     const ret = sig_def(fl, c.k).ret;
     const rs = seg_open(fl, kn, fl.seg.ret, { pop: last ? depth : 0, at },
       held, o.ps[i].k, ret.ks, rests[i]);
-    bind_uses(fl, o.ps[i], val_new(rs, ret), rests[i], ty_ann(x.v[i]));
+    bind_uses(fl, o.ps[i], val_new(rs, ret), rests[i],
+      ty_ann(x.v[i]) ?? die("an unannotated let"));
   });
   if (fork) {
     const live = [...fl.uses];
