@@ -58,11 +58,7 @@ Here's how it plays out:
 
 <p align="center"><b>With LAWS.bend:</b><br><img src="media/game_law_kept.gif" width="480" alt="A wall on the far edge stops the player"><br><i>Laws intact. AI mistake: <b>blocked</b>!</i></p>
 
-- Without LAWS.bend: a bug went live.
-
-- With LAWS.bend: the AI had to retry until no bugs were left.
-
-Merging code that violates LAWS.bend is **mathematically impossible**.
+In short, without LAWS.bend: a bug went live. With LAWS.bend: the AI had to retry until no bugs were left.
 
 ```python
 # LAWS.bend
@@ -83,8 +79,11 @@ def you_cant_win(moves):
 > intelligence that proved the Navier-Stokes conjecture will now prove that your
 > vibe coded SaaS never displays an uncentered div again. And that's beautiful.
 
+In short: merging code that violates LAWS.bend is **mathematically impossible**.
+
 `LAWS.bend` is `AGENTS.md` backed by **proof**.
-With `LAWS.bend`, "make no mistakes" is enforced.
+
+With `LAWS.bend`, *"make no mistakes"* becomes enforceable.
 
 [Don't believe us? Edit the game and try to win!](https://bend-lang.com/#lab).
 
