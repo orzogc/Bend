@@ -42,39 +42,21 @@ type Mode is Data:
   InNm{v: U32}
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-law prng:
-  for +x: U32
-  U32
-
-def prng(x):
+def prng(+x: U32) -> U32:
   +b = U32.xor(x, U32.shln(x, 13n))
   +d = U32.xor(b, U32.shrn(b, 17n))
   U32.xor(d, U32.shln(d, 5n))
 
 # line seed: hash of the line index
-law seed:
-  for i: U32
-  U32
-
-def seed(i):
+def seed(i: U32) -> U32:
   prng(((i + 1) * 2654435761 : U32))
 
 # placeholder seed: the line seed salted by the template position
-law salt:
-  for s: U32
-  for k: U32
-  U32
-
-def salt(s, k):
+def salt(s: U32, k: U32) -> U32:
   prng(U32.xor(s, (k * 2654435761 : U32)))
 
 # the operator: + - * / by the two low bits of the seed
-law op.pick:
-  for b1: Bool
-  for b0: Bool
-  Char
-
-def op.pick(b1, b0):
+def op.pick(b1: Bool, b0: Bool) -> Char:
   match b1 b0:
     case False{} False{}:
       '+'
@@ -85,22 +67,11 @@ def op.pick(b1, b0):
     case True{} True{}:
       '/'
 
-law op:
-  for +t: U32
-  for rest: String
-  String
-
-def op(t, rest):
+def op(+t: U32, rest: String) -> String:
   SCon{op.pick(U32.is_ne(U32.and(t, 2), 0), U32.is_ne(U32.and(t, 1), 0)), rest}
 
 # an identifier: n random lowercase letters, one prng step each
-law ident:
-  for n: Nat
-  for t: U32
-  for rest: String
-  String
-
-def ident(n, t, rest):
+def ident(n: Nat, t: U32, rest: String) -> String:
   match n:
     case 0n:
       rest
@@ -109,13 +80,7 @@ def ident(n, t, rest):
       SCon{Chr{(97 + u % 26 : U32)}, ident(p, u, rest)}
 
 # a number: n random decimal digits, one prng step each
-law num:
-  for n: Nat
-  for t: U32
-  for rest: String
-  String
-
-def num(n, t, rest):
+def num(n: Nat, t: U32, rest: String) -> String:
   match n:
     case 0n:
       rest
@@ -126,14 +91,7 @@ def num(n, t, rest):
 # one placeholder in front of the rest of the line: an identifier of
 # 1 + (t & 7) letters, a number of 1 + t % 6 digits, an operator, or
 # the template character itself
-law expand:
-  for sl: Slot
-  for c: U32
-  for +t: U32
-  for rest: String
-  String
-
-def expand(sl, c, t, rest):
+def expand(sl: Slot, c: U32, +t: U32, rest: String) -> String:
   match sl:
     case Id{}:
       ident(U32.to_nat((1 + U32.and(t, 7) : U32)), t, rest)
@@ -145,13 +103,7 @@ def expand(sl, c, t, rest):
       SCon{Chr{c}, rest}
 
 # the slot of a template character: i, n, o, or a literal
-law slot.go:
-  for i: Bool
-  for n: Bool
-  for o: Bool
-  Slot
-
-def slot.go(i, n, o):
+def slot.go(i: Bool, n: Bool, o: Bool) -> Slot:
   match i n o:
     case True{} _ _:
       Id{}
@@ -162,52 +114,27 @@ def slot.go(i, n, o):
     case _ _ _:
       Lit{}
 
-law slot:
-  for +c: U32
-  Slot
-
-def slot(c):
+def slot(+c: U32) -> Slot:
   slot.go(U32.is_eq(c, 105), U32.is_eq(c, 110), U32.is_eq(c, 111))
 
 # one template character, read twice: for its slot and as a literal
-law gen.at:
-  for +c: U32
-  for t: U32
-  for rest: String
-  String
-
-def gen.at(c, t, rest):
+def gen.at(+c: U32, t: U32, rest: String) -> String:
   expand(slot(c), c, t, rest)
 
 # the line: the template expanded character by character, placeholder
 # k seeded by salt(s, k), each expansion consed onto the built tail
-law gen:
-  for tpl: String
-  for +s: U32
-  for +k: U32
-  String
-
-def gen(tpl, s, k):
+def gen(tpl: String, +s: U32, +k: U32) -> String:
   match tpl:
     case SNil{}:
       SNil{}
     case SCon{Chr{c}, u}:
       gen.at(c, salt(s, k), gen(u, s, (k + 1 : U32)))
 
-law tpl:
-  String
-
-def tpl():
+def tpl() -> String:
   "i = ( n o i ) o ( n o i ) o ( n o i ) ;"
 
 # the class of a source character
-law cls.go:
-  for l: Bool
-  for d: Bool
-  for s: Bool
-  Cls
-
-def cls.go(l, d, s):
+def cls.go(l: Bool, d: Bool, s: Bool) -> Cls:
   match l d s:
     case True{} _ _:
       Letter{}
@@ -218,44 +145,22 @@ def cls.go(l, d, s):
     case _ _ _:
       Punct{}
 
-law cls:
-  for +c: U32
-  Cls
-
-def cls(c):
+def cls(+c: U32) -> Cls:
   cls.go(U32.is_le(97, c) && U32.is_le(c, 122),
     U32.is_le(48, c) && U32.is_le(c, 57), U32.is_eq(c, 32))
 
 # one token into the line checksum
-law mix:
-  for acc: U32
-  for kind: U32
-  for x: U32
-  U32
-
-def mix(acc, kind, x):
+def mix(acc: U32, kind: U32, x: U32) -> U32:
   U32.xor((acc * 2654435761 : U32), (kind * 40503 + x : U32))
 
 # FNV-1a: one letter into the identifier hash
-law fnv:
-  for h: U32
-  for c: U32
-  U32
-
-def fnv(h, c):
+def fnv(h: U32, c: U32) -> U32:
   (U32.xor(h, c) * 16777619 : U32)
 
 # the machine: (mode, acc) steps over one classified character; a
 # letter extends an identifier, a digit a number, and anything else
 # closes the open token, then starts what the character begins
-law step.at:
-  for m: Mode
-  for k: Cls
-  for c: U32
-  for acc: U32
-  Mode & U32
-
-def step.at(m, k, c, acc):
+def step.at(m: Mode, k: Cls, c: U32, acc: U32) -> Mode & U32:
   match m k:
     case Gap{} Letter{}:
       (InId{fnv(2166136261, c)}, acc)
@@ -282,22 +187,11 @@ def step.at(m, k, c, acc):
     case InNm{v} Punct{}:
       (Gap{}, mix(mix(acc, 2, v), 3, c))
 
-law step:
-  for m: Mode
-  for +c: U32
-  for acc: U32
-  Mode & U32
-
-def step(m, c, acc):
+def step(m: Mode, +c: U32, acc: U32) -> Mode & U32:
   step.at(m, cls(c), c, acc)
 
 # end of line: close the open token
-law flush:
-  for m: Mode
-  for acc: U32
-  U32
-
-def flush(m, acc):
+def flush(m: Mode, acc: U32) -> U32:
   match m:
     case Gap{}:
       acc
@@ -307,12 +201,7 @@ def flush(m, acc):
       mix(acc, 2, v)
 
 # the lexer: one step per character, (mode, acc) riding as r
-law lex:
-  for s: String
-  for r: Mode & U32
-  U32
-
-def lex(s, r):
+def lex(s: String, r: Mode & U32) -> U32:
   match s:
     case SNil{}:
       (m, acc) = r
@@ -322,20 +211,11 @@ def lex(s, r):
       lex(t, step(m, c, acc))
 
 # one line: generate it, then lex it
-law line:
-  for i: U32
-  U32
-
-def line(i):
+def line(i: U32) -> U32:
   lex(gen(tpl(), seed(i), 0), (Gap{}, 0))
 
 # batch tree over the line index space; line checksums sum
-law batch:
-  for +d: Nat
-  for +i: U32
-  U32
-
-def batch(d, i):
+def batch(+d: Nat, +i: U32) -> U32:
   match d:
     case 0n:
       line(i)
@@ -343,32 +223,17 @@ def batch(d, i):
       a b = batch(p, i) batch(p, (i + U32.shln(1, p) : U32))
       (a + b : U32)
 
-law size.small:
-  Nat
-
-def size.small():
+def size.small() -> Nat:
   8n
 
-law expect.small:
-  U32
-
-def expect.small():
+def expect.small() -> U32:
   1822208108
 
-law size.big:
-  Nat
-
-def size.big():
+def size.big() -> Nat:
   23n
 
-law expect.big:
-  U32
-
-def expect.big():
+def expect.big() -> U32:
   2401049475
 
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print(U32.show(batch!(size.big(), 0)))

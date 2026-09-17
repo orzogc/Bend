@@ -40,11 +40,7 @@ type Chain is Data:
   CNil{}
   CCons{k: U32, t: Chain}
 
-law b2u:
-  for b: Bool
-  U32
-
-def b2u(b):
+def b2u(b: Bool) -> U32:
   match b:
     case False{}:
       0
@@ -52,34 +48,19 @@ def b2u(b):
       1
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-law prng:
-  for +x: U32
-  U32
-
-def prng(x):
+def prng(+x: U32) -> U32:
   +b = U32.xor(x, U32.shln(x, 13n))
   +d = U32.xor(b, U32.shrn(b, 17n))
   U32.xor(d, U32.shln(d, 5n))
 
 # a key: the hash of a seed and a draw index, masked to 20 bits
-law key:
-  for s: U32
-  for j: U32
-  U32
-
-def key(s, j):
+def key(s: U32, j: U32) -> U32:
   h = prng(U32.xor(U32.mul(U32.inc(j), 2654435761), U32.mul(s, 340573321)))
   U32.and(h, 1048575)
 
 # the chain walk: the last comparison rides in as f, so the walk
 # stops one node past a found key
-law has:
-  for c: Chain
-  for +k: U32
-  for f: Bool
-  Bool
-
-def has(c, k, f):
+def has(c: Chain, +k: U32, f: Bool) -> Bool:
   match c f:
     case _ True{}:
       True{}
@@ -89,12 +70,7 @@ def has(c, k, f):
       has(t, k, U32.is_eq(h, k))
 
 # a chain's length
-law len:
-  for c: Chain
-  for acc: U32
-  U32
-
-def len(c, acc):
+def len(c: Chain, acc: U32) -> U32:
   match c:
     case CNil{}:
       acc
@@ -103,15 +79,8 @@ def len(c, acc):
 
 # the insert's decision: a present key leaves the bucket untouched,
 # an absent one is consed onto the chain and written back
-law ins.put:
-  for a: Array<Chain>
-  for b: U32
-  for k: U32
-  for c: Chain
-  for found: Bool
-  Array<Chain>
-
-def ins.put(a, b, k, c, found):
+def ins.put(a: Array<Chain>, b: U32, k: U32, c: Chain,
+            found: Bool) -> Array<Chain>:
   match found:
     case True{}:
       a
@@ -121,25 +90,12 @@ def ins.put(a, b, k, c, found):
 # one insert: the bucket's (array, chain) read pair arrives as a
 # parameter; the chain is walked, then consed onto when the key is
 # absent
-law ins:
-  for +b: U32
-  for +k: U32
-  for r: Array<Chain> & Chain
-  Array<Chain>
-
-def ins(b, k, r):
+def ins(+b: U32, +k: U32, r: Array<Chain> & Chain) -> Array<Chain>:
   (a, +c0) = r
   ins.put(a, b, k, c0, has(c0, k, False{}))
 
 # phase 1: D inserts, key j from the table seed
-law fill:
-  for n: Nat
-  for +s: U32
-  for +j: U32
-  for a: Array<Chain>
-  Array<Chain>
-
-def fill(n, s, j, a):
+def fill(n: Nat, +s: U32, +j: U32, a: Array<Chain>) -> Array<Chain>:
   match n:
     case 0n:
       a
@@ -149,26 +105,13 @@ def fill(n, s, j, a):
       fill(p, s, U32.inc(j), ins(b, k, Array.get(Chain, a, b)))
 
 # one lookup: walk the bucket's chain, count a hit
-law probe:
-  for k: U32
-  for hits: U32
-  for r: Array<Chain> & Chain
-  Array<Chain> & U32
-
-def probe(k, hits, r):
+def probe(k: U32, hits: U32, r: Array<Chain> & Chain) -> Array<Chain> & U32:
   (a, c) = r
   (a, U32.add(hits, b2u(has(c, k, False{}))))
 
 # phase 2: D lookups, probe key j from the second seed; the (array,
 # hits) pair rides as r
-law look:
-  for n: Nat
-  for +s: U32
-  for +j: U32
-  for r: Array<Chain> & U32
-  Array<Chain> & U32
-
-def look(n, s, j, r):
+def look(n: Nat, +s: U32, +j: U32, r: Array<Chain> & U32) -> Array<Chain> & U32:
   match n:
     case 0n:
       r
@@ -180,14 +123,8 @@ def look(n, s, j, r):
 
 # one bucket into the sweep: its length adds to the distinct count
 # and mixes position-weighted into acc
-law bmix:
-  for i: U32
-  for cnt: U32
-  for acc: U32
-  for r: Array<Chain> & Chain
-  Array<Chain> & U32 & U32
-
-def bmix(i, cnt, acc, r):
+def bmix(i: U32, cnt: U32, acc: U32,
+         r: Array<Chain> & Chain) -> Array<Chain> & U32 & U32:
   (a, c) = r
   +l = len(c, 0)
   m = U32.xor(U32.mul(acc, 2654435761), U32.mul(l, U32.add(i, 3)))
@@ -195,13 +132,7 @@ def bmix(i, cnt, acc, r):
 
 # the bucket sweep, ascending: the (array, distinct, acc) triple rides
 # as r
-law sweep:
-  for n: Nat
-  for +i: U32
-  for r: Array<Chain> & U32 & U32
-  U32 & U32
-
-def sweep(n, i, r):
+def sweep(n: Nat, +i: U32, r: Array<Chain> & U32 & U32) -> U32 & U32:
   match n:
     case 0n:
       (a, cnt, acc) = r
@@ -212,43 +143,23 @@ def sweep(n, i, r):
 
 # the table checksum: the sweep's (distinct, acc) pair mixed with the
 # hit count
-law finish:
-  for hits: U32
-  for m: U32 & U32
-  U32
-
-def finish(hits, m):
+def finish(hits: U32, m: U32 & U32) -> U32:
   (cnt, acc) = m
   U32.add(U32.xor(acc, U32.mul(hits, 2654435761)), U32.mul(cnt, 340573321))
 
-law table.fin:
-  for r: Array<Chain> & U32
-  U32
-
-def table.fin(r):
+def table.fin(r: Array<Chain> & U32) -> U32:
   (a, hits) = r
   finish(hits, sweep(4096n, 0, (a, 0, 0)))
 
 # one table: a fresh 4096-bucket array, D inserts from the table seed,
 # D lookups from the second seed, the bucket sweep
-law table:
-  for t: U32
-  for +d: Nat
-  U32
-
-def table(t, d):
+def table(t: U32, +d: Nat) -> U32:
   +s = U32.mul(U32.inc(t), 2654435761)
   a = fill(d, s, 0, [CNil{} : Chain*4096n])
   table.fin(look(d, prng(s), 0, (a, 0)))
 
 # batch tree over the table index space: table checksums sum up
-law batch:
-  for +p: Nat
-  for +t: U32
-  for +d: Nat
-  U32
-
-def batch(p, t, d):
+def batch(+p: Nat, +t: U32, +d: Nat) -> U32:
   match p:
     case 0n:
       table(t, d)
@@ -256,22 +167,13 @@ def batch(p, t, d):
       a b = batch(q, t, d) batch(q, U32.add(t, U32.shln(1, q)), d)
       U32.add(a, b)
 
-law tables:
-  Nat
-
-def tables():
+def tables() -> Nat:
   11n
 
-law keys:
-  Nat
-
-def keys():
+def keys() -> Nat:
   U32.to_nat(16384)
 
 # small: batch!(2n, 0, U32.to_nat(256)) expect 4206244792; big:
 # batch!(tables(), 0, keys()) expect 1307803744
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print(U32.show(batch!(tables(), 0, keys())))

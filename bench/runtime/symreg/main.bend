@@ -31,81 +31,42 @@ type Expr is Data:
 type Sel is Data:
   Sel{fit: U32, seed: U32, sum: U32}
 
-law Sel.fit:
-  for v: Sel
-  U32
-
-def Sel.fit(v):
+def Sel.fit(v: Sel) -> U32:
   match v:
     case Sel{f, s, c}:
       f
 
-law Sel.seed:
-  for v: Sel
-  U32
-
-def Sel.seed(v):
+def Sel.seed(v: Sel) -> U32:
   match v:
     case Sel{f, s, c}:
       s
 
-law b2u:
-  for b: Bool
-  U32
-
-def b2u(b):
+def b2u(b: Bool) -> U32:
   match b:
     case False{}:
       0
     case True{}:
       1
 
-law prng:
-  for +x: U32
-  U32
-
-def prng(x):
+def prng(+x: U32) -> U32:
   +b = U32.xor(x, U32.shln(x, 13n))
   +d = U32.xor(b, U32.shrn(b, 17n))
   U32.xor(d, U32.shln(d, 5n))
 
-law sel.go:
-  for x: U32
-  for y: U32
-  for z: Bool
-  U32
-
-def sel.go(x, y, z):
+def sel.go(x: U32, y: U32, z: Bool) -> U32:
   match z:
     case True{}:
       x
     case False{}:
       y
 
-law sel:
-  for t: U32
-  for x: U32
-  for y: U32
-  U32
-
-def sel(t, x, y):
+def sel(t: U32, x: U32, y: U32) -> U32:
   sel.go(x, y, U32.is_zero(t))
 
-law adiff:
-  for +a: U32
-  for +b: U32
-  U32
-
-def adiff(a, b):
+def adiff(+a: U32, +b: U32) -> U32:
   sel(b2u(U32.is_lt(a, b)), U32.sub(a, b), U32.sub(b, a))
 
-law node:
-  for o: Nat
-  for a: Expr
-  for b: Expr
-  Expr
-
-def node(o, a, b):
+def node(o: Nat, a: Expr, b: Expr) -> Expr:
   match o:
     case 0n:
       Add{a, b}
@@ -117,24 +78,14 @@ def node(o, a, b):
       Xor{a, b}
 
 # materialize a candidate AST straight off the hash stream
-law gen.leaf:
-  for +h: U32
-  for z: Bool
-  Expr
-
-law gen:
-  for +d: Nat
-  for +h: U32
-  Expr
-
-def gen.leaf(h, z):
+def gen.leaf(+h: U32, z: Bool) -> Expr:
   match z:
     case True{}:
       Var{}
     case False{}:
       Lit{U32.and(h, 255)}
 
-def gen(d, h):
+def gen(+d: Nat, +h: U32) -> Expr:
   match d:
     case 0n:
       gen.leaf(h, U32.is_zero(U32.and(U32.shrn(h, 8n), 1)))
@@ -144,12 +95,7 @@ def gen(d, h):
       node(U32.to_nat(U32.mod(h, 4)), a, b)
 
 # pattern-matching interpreter reading the shared tree
-law eval:
-  for e: Expr
-  for +x: U32
-  U32
-
-def eval(e, x):
+def eval(e: Expr, +x: U32) -> U32:
   match e:
     case Var{}:
       x
@@ -165,11 +111,7 @@ def eval(e, x):
       U32.xor(eval(a, x), eval(b, x))
 
 # parsimony: AST node count off the shared tree
-law esize:
-  for e: Expr
-  U32
-
-def esize(e):
+def esize(e: Expr) -> U32:
   match e:
     case Var{}:
       1
@@ -185,13 +127,7 @@ def esize(e):
       U32.add(1, U32.add(esize(a), esize(b)))
 
 # dataset fold: error sum over x = 0..j-1, then the parsimony penalty
-law floop:
-  for +j: Nat
-  for +e: Expr
-  for acc: U32
-  U32
-
-def floop(j, e, acc):
+def floop(+j: Nat, +e: Expr, acc: U32) -> U32:
   match j:
     case 0n:
       U32.add(acc, U32.mul(esize(e), 8))
@@ -201,35 +137,19 @@ def floop(j, e, acc):
       t = U32.add(U32.mul(xx, xx), U32.add(U32.mul(3, xx), 7))
       floop(p, e, U32.add(acc, adiff(v, t)))
 
-law cand:
-  for +s: U32
-  for pts: Nat
-  Sel
-
-def cand(s, pts):
+def cand(+s: U32, pts: Nat) -> Sel:
   t = gen(5n, prng(s))
   +f = floop(pts, t, 0)
   Sel{f, s, U32.xor(f, U32.mul(s, 2654435761))}
 
 # tournament: keep the lower-fitness candidate, sum the checksums
-law pick:
-  for a: Sel
-  for b: Sel
-  Sel
-
-def pick(a, b):
+def pick(a: Sel, b: Sel) -> Sel:
   match a b:
     case Sel{+f1, s1, c1} Sel{+f2, s2, c2}:
       +w = b2u(U32.is_lt(f1, f2))
       Sel{sel(w, f2, f1), sel(w, s2, s1), U32.add(c1, c2)}
 
-law batch:
-  for +d: Nat
-  for +s: U32
-  for +pts: Nat
-  Sel
-
-def batch(d, s, pts):
+def batch(+d: Nat, +s: U32, +pts: Nat) -> Sel:
   match d:
     case 0n:
       cand(prng(s), pts)
@@ -238,14 +158,7 @@ def batch(d, s, pts):
       pick(a, b)
 
 # hill-climb the tournament winner: mutate the seed, keep improvements
-law climb:
-  for +r: Nat
-  for +bs: U32
-  for +bf: U32
-  for +pts: Nat
-  U32
-
-def climb(r, bs, bf, pts):
+def climb(+r: Nat, +bs: U32, +bf: U32, +pts: Nat) -> U32:
   match r:
     case 0n:
       U32.xor(bf, U32.mul(bs, 2654435761))
@@ -255,42 +168,20 @@ def climb(r, bs, bf, pts):
       +w = b2u(U32.is_lt(ff, bf))
       climb(p, sel(w, bs, Sel.seed(cn)), sel(w, bf, ff), pts)
 
-law run.fin:
-  for r: Nat
-  for +p: Nat
-  for t: Sel
-  U32
-
-law run:
-  for d: Nat
-  for s0: U32
-  for r: Nat
-  for +p: Nat
-  U32
-
-def run.fin(r, p, t):
+def run.fin(r: Nat, +p: Nat, t: Sel) -> U32:
   match t:
     case Sel{f, s, c}:
       U32.add(climb(r, s, f, p), c)
 
-def run(d, s0, r, p):
+def run(d: Nat, s0: U32, r: Nat, +p: Nat) -> U32:
   run.fin(r, p, batch(d, s0, p))
 
-law size:
-  Nat
-
-def size():
+def size() -> Nat:
   18n
 
-law pts:
-  Nat
-
-def pts():
+def pts() -> Nat:
   110n
 
 # small: run!(6n, 42, 32n, 16n) expect 2490246820; big expect 2383953211
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print(U32.show(run!(size(), 42, 32n, pts())))

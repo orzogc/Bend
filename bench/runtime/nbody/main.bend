@@ -27,105 +27,50 @@ type Hs is Data:
 type V2 is Data:
   V2{cs: U32, eb: U32}
 
-law V2.cs:
-  for v: V2
-  U32
-
-def V2.cs(v):
+def V2.cs(v: V2) -> U32:
   match v:
     case V2{c, b}:
       c
 
-law V2.eb:
-  for v: V2
-  U32
-
-def V2.eb(v):
+def V2.eb(v: V2) -> U32:
   match v:
     case V2{c, b}:
       b
 
-law b2u:
-  for b: Bool
-  U32
-
-def b2u(b):
+def b2u(b: Bool) -> U32:
   match b:
     case False{}:
       0
     case True{}:
       1
 
-law prng:
-  for +x: U32
-  U32
-
-def prng(x):
+def prng(+x: U32) -> U32:
   +b = U32.xor(x, U32.shln(x, 13n))
   +d = U32.xor(b, U32.shrn(b, 17n))
   U32.xor(d, U32.shln(d, 5n))
 
-law sel.go:
-  for x: U32
-  for y: U32
-  for z: Bool
-  U32
-
-def sel.go(x, y, z):
+def sel.go(x: U32, y: U32, z: Bool) -> U32:
   match z:
     case True{}:
       x
     case False{}:
       y
 
-law sel:
-  for t: U32
-  for x: U32
-  for y: U32
-  U32
-
-def sel(t, x, y):
+def sel(t: U32, x: U32, y: U32) -> U32:
   sel.go(x, y, U32.is_zero(t))
 
 # a float literal n/d (one correctly-rounded division of two exact
 # u32 conversions -- bit-exact vs the Bend3 C literal)
-law fl:
-  for n: U32
-  for d: U32
-  F32
-
-def fl(n, d):
+def fl(n: U32, d: U32) -> F32:
   F32.div(U32.to_f32(n), U32.to_f32(d))
 
 # ST integration steps over one system's 21 f32 state registers; at 0,
 # digest: position hash + total energy (kinetic - softened potential)
 # bucketed by its bound magnitude
-law loop3:
-  for s: Nat
-  for +x0: F32
-  for +y0: F32
-  for +z0: F32
-  for +x1: F32
-  for +y1: F32
-  for +z1: F32
-  for +x2: F32
-  for +y2: F32
-  for +z2: F32
-  for +vx0: F32
-  for +vy0: F32
-  for +vz0: F32
-  for +vx1: F32
-  for +vy1: F32
-  for +vz1: F32
-  for +vx2: F32
-  for +vy2: F32
-  for +vz2: F32
-  for +m0: F32
-  for +m1: F32
-  for +m2: F32
-  V2
-
-def loop3(s, x0, y0, z0, x1, y1, z1, x2, y2, z2, vx0, vy0, vz0, vx1, vy1, vz1, vx2, vy2, vz2, m0, m1, m2):
+def loop3(s: Nat, +x0: F32, +y0: F32, +z0: F32, +x1: F32, +y1: F32, +z1: F32,
+          +x2: F32, +y2: F32, +z2: F32, +vx0: F32, +vy0: F32, +vz0: F32,
+          +vx1: F32, +vy1: F32, +vz1: F32, +vx2: F32, +vy2: F32, +vz2: F32,
+          +m0: F32, +m1: F32, +m2: F32) -> V2:
   match s:
     case 0n:
       s0 = F32.add(F32.mul(vx0, vx0), F32.add(F32.mul(vy0, vy0), F32.mul(vz0, vz0)))
@@ -207,12 +152,7 @@ def loop3(s, x0, y0, z0, x1, y1, z1, x2, y2, z2, vx0, vy0, vz0, vx1, vy1, vz1, v
             nvx0, nvy0, nvz0, nvx1, nvy1, nvz1, nvx2, nvy2, nvz2, m0, m1, m2)
 
 # one random system: three seeded bodies, ST steps, digest
-law sim:
-  for +sd: U32
-  for st: Nat
-  V2
-
-def sim(sd, st):
+def sim(+sd: U32, st: Nat) -> V2:
   a1 = prng(U32.mul(U32.inc(U32.mul(sd, 12)), 2654435761))
   a2 = prng(U32.mul(U32.add(U32.mul(sd, 12), 2), 2654435761))
   a3 = prng(U32.mul(U32.add(U32.mul(sd, 12), 3), 2654435761))
@@ -248,22 +188,8 @@ def sim(sd, st):
 
 # fork leaf: 8 systems; outcome histogram in 8 scalar counters plus a
 # position-weighted digest accumulator
-law chunk:
-  for +j: Nat
-  for +i: U32
-  for +st: Nat
-  for h0: U32
-  for h1: U32
-  for h2: U32
-  for h3: U32
-  for h4: U32
-  for h5: U32
-  for h6: U32
-  for h7: U32
-  for cs: U32
-  Hs
-
-def chunk(j, i, st, h0, h1, h2, h3, h4, h5, h6, h7, cs):
+def chunk(+j: Nat, +i: U32, +st: Nat, h0: U32, h1: U32, h2: U32, h3: U32,
+          h4: U32, h5: U32, h6: U32, h7: U32, cs: U32) -> Hs:
   match j:
     case 0n:
       Hl{h0, h1, h2, h3, h4, h5, h6, h7, cs}
@@ -284,23 +210,12 @@ def chunk(j, i, st, h0, h1, h2, h3, h4, h5, h6, h7, cs):
             U32.add(h4, m4), U32.add(h5, m5), U32.add(h6, m6), U32.add(h7, m7),
             U32.add(cs, U32.mul(V2.cs(w), U32.inc(U32.mul(sy, 2654435761)))))
 
-law hzip:
-  for a: Hs
-  for b: Hs
-  Hs
-
-def hzip(a, b):
+def hzip(a: Hs, b: Hs) -> Hs:
   match a b:
     case Hl{a0, a1, a2, a3, a4, a5, a6, a7, ac} Hl{b0, b1, b2, b3, b4, b5, b6, b7, bc}:
       Hl{U32.add(a0, b0), U32.add(a1, b1), U32.add(a2, b2), U32.add(a3, b3), U32.add(a4, b4), U32.add(a5, b5), U32.add(a6, b6), U32.add(a7, b7), U32.add(ac, bc)}
 
-law batch:
-  for +d: Nat
-  for +i: U32
-  for +st: Nat
-  Hs
-
-def batch(d, i, st):
+def batch(+d: Nat, +i: U32, +st: Nat) -> Hs:
   match d:
     case 0n:
       chunk(8n, i, st, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -308,11 +223,7 @@ def batch(d, i, st):
       a b = batch(p, i, st) batch(p, U32.add(i, U32.shln(8, p)), st)
       hzip(a, b)
 
-law run.fin:
-  for t: Hs
-  U32
-
-def run.fin(t):
+def run.fin(t: Hs) -> U32:
   match t:
     case Hl{h0, h1, h2, h3, h4, h5, h6, h7, cs}:
       g1 = U32.add(U32.mul(h0, 2654435761), h1)
@@ -324,29 +235,15 @@ def run.fin(t):
       g7 = U32.add(U32.mul(g6, 2654435761), h7)
       U32.add(U32.mul(g7, 2654435761), cs)
 
-law run:
-  for d: Nat
-  for ts: Nat
-  U32
-
-def run(d, ts):
+def run(d: Nat, ts: Nat) -> U32:
   run.fin(batch(d, 0, ts))
 
-law sy:
-  Nat
-
-def sy():
+def sy() -> Nat:
   17n
 
-law st:
-  Nat
-
-def st():
+def st() -> Nat:
   300n
 
 # small: run!(7n, st()) expect 2215450620; big run!(sy(), st()) expect 3516450380
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print(U32.show(run!(sy(), st())))

@@ -26,23 +26,14 @@ type Vec is Data:
   Vl{v: U32}
   Vn{l: Vec, r: Vec}
 
-law b2u:
-  for b: Bool
-  U32
-
-def b2u(b):
+def b2u(b: Bool) -> U32:
   match b:
     case False{}:
       0
     case True{}:
       1
 
-law gen:
-  for +d: Nat
-  for +s: U32
-  Mat
-
-def gen(d, s):
+def gen(+d: Nat, +s: U32) -> Mat:
   match d:
     case 0n:
       Lf{U32.mod(s, 100)}
@@ -50,12 +41,7 @@ def gen(d, s):
       a b c e = gen(p, U32.inc(U32.mul(s, 1664525))) gen(p, U32.add(U32.mul(s, 214013), 3)) gen(p, U32.add(U32.mul(s, 16843009), 5)) gen(p, U32.add(U32.mul(s, 48271), 7))
       Qd{a, b, c, e}
 
-law vgen:
-  for +d: Nat
-  for +s: U32
-  Vec
-
-def vgen(d, s):
+def vgen(+d: Nat, +s: U32) -> Vec:
   match d:
     case 0n:
       Vl{U32.inc(U32.mod(U32.mul(s, 2654435761), 100))}
@@ -63,12 +49,7 @@ def vgen(d, s):
       l r = vgen(p, U32.inc(U32.mul(s, 1664525))) vgen(p, U32.add(U32.mul(s, 214013), 3))
       Vn{l, r}
 
-law add:
-  for a: Mat
-  for b: Mat
-  Mat
-
-def add(a, b):
+def add(a: Mat, b: Mat) -> Mat:
   match a b:
     case Lf{x} Lf{y}:
       Lf{U32.add(x, y)}
@@ -82,29 +63,14 @@ def add(a, b):
 
 # join of one mul burst: C_ij = P_ij + Q_ij, all four quadrant sums
 # in one balanced fork
-law add4:
-  for p0: Mat
-  for q0: Mat
-  for p1: Mat
-  for q1: Mat
-  for p2: Mat
-  for q2: Mat
-  for p3: Mat
-  for q3: Mat
-  Mat
-
-def add4(p0, q0, p1, q1, p2, q2, p3, q3):
+def add4(p0: Mat, q0: Mat, p1: Mat, q1: Mat, p2: Mat, q2: Mat,
+         p3: Mat, q3: Mat) -> Mat:
   c0 c1 c2 c3 = add(p0, q0) add(p1, q1) add(p2, q2) add(p3, q3)
   Qd{c0, c1, c2, c3}
 
 # each node spawns its whole 8-product burst as ONE 8-way fork,
 # then joins through add4's single add burst
-law mul:
-  for +a: Mat
-  for +b: Mat
-  Mat
-
-def mul(a, b):
+def mul(+a: Mat, +b: Mat) -> Mat:
   match a b:
     case Lf{x} Lf{y}:
       Lf{U32.mul(x, y)}
@@ -116,12 +82,7 @@ def mul(a, b):
       p0 q0 p1 q1 p2 q2 p3 q3 = mul(a0, b0) mul(a1, b2) mul(a0, b1) mul(a1, b3) mul(a2, b0) mul(a3, b2) mul(a2, b1) mul(a3, b3)
       add4(p0, q0, p1, q1, p2, q2, p3, q3)
 
-law vadd:
-  for x: Vec
-  for y: Vec
-  Vec
-
-def vadd(x, y):
+def vadd(x: Vec, y: Vec) -> Vec:
   match x y:
     case Vl{a} Vl{b}:
       Vl{U32.add(a, b)}
@@ -134,24 +95,12 @@ def vadd(x, y):
       Vn{l, r}
 
 # join of one mvm burst: both half-sums in one fork
-law vadd2:
-  for t0: Vec
-  for t1: Vec
-  for t2: Vec
-  for t3: Vec
-  Vec
-
-def vadd2(t0, t1, t2, t3):
+def vadd2(t0: Vec, t1: Vec, t2: Vec, t3: Vec) -> Vec:
   top bot = vadd(t0, t1) vadd(t2, t3)
   Vn{top, bot}
 
 # [[a,b],[c,d]] * (l,h) = (a*l + b*h, c*l + d*h)
-law mvm:
-  for m: Mat
-  for +v: Vec
-  Vec
-
-def mvm(m, v):
+def mvm(m: Mat, +v: Vec) -> Vec:
   match m v:
     case Lf{x} Vl{y}:
       Vl{U32.mul(x, y)}
@@ -163,11 +112,7 @@ def mvm(m, v):
       t0 t1 t2 t3 = mvm(a, l) mvm(b, h) mvm(c, l) mvm(d, h)
       vadd2(t0, t1, t2, t3)
 
-law cksum:
-  for m: Mat
-  U32
-
-def cksum(m):
+def cksum(m: Mat) -> U32:
   match m:
     case Lf{x}:
       x
@@ -176,12 +121,7 @@ def cksum(m):
       U32.add(U32.add(U32.add(p, q), r), s)
 
 # or-fold of elementwise xor: 0 iff the vectors are identical
-law vdif:
-  for x: Vec
-  for y: Vec
-  U32
-
-def vdif(x, y):
+def vdif(x: Vec, y: Vec) -> U32:
   match x y:
     case Vl{a} Vl{b}:
       U32.xor(a, b)
@@ -194,12 +134,7 @@ def vdif(x, y):
       U32.or(l, r)
 
 # one round: generate A, B, r; C = A*B; Freivalds-verify C*r == A*(B*r)
-law round:
-  for +d: Nat
-  for +s: U32
-  U32
-
-def round(d, s):
+def round(+d: Nat, +s: U32) -> U32:
   +a +b = gen(d, U32.inc(s)) gen(d, U32.add(s, 2))
   +r = vgen(d, U32.add(s, 3))
   +c = mul(a, b)
@@ -208,41 +143,21 @@ def round(d, s):
   t2 = mvm(a, mvm(b, r))
   U32.add(U32.xor(k, U32.mul(s, 2654435761)), b2u(U32.is_zero(vdif(t1, t2))))
 
-law batch.leaf.go:
-  for t: Bool
-  for d: Nat
-  for pp: U32
-  U32
-
-law batch.leaf:
-  for +pp: U32
-  for n: U32
-  for d: Nat
-  U32
-
-def batch.leaf.go(t, d, pp):
+def batch.leaf.go(t: Bool, d: Nat, pp: U32) -> U32:
   match t:
     case False{}:
       0
     case True{}:
       round(d, U32.mul(pp, 2654435761))
 
-def batch.leaf(pp, n, d):
+def batch.leaf(+pp: U32, n: U32, d: Nat) -> U32:
   batch.leaf.go(U32.is_lt(pp, n), d, pp)
 
 # batch tree over the round index space: leaf i runs one round when
 # p < nchain, p = the leaf's odd-multiplier permuted index (seed =
 # hashed p, so the live chain set -- and the checksum -- is the same
 # for any spread)
-law batch:
-  for +bg: Nat
-  for +i: U32
-  for +n: U32
-  for +m: U32
-  for +d: Nat
-  U32
-
-def batch(bg, i, n, m, d):
+def batch(+bg: Nat, +i: U32, +n: U32, +m: U32, +d: Nat) -> U32:
   match bg:
     case 0n:
       batch.leaf(U32.and(U32.mul(i, 2654435761), m), n, d)
@@ -250,28 +165,16 @@ def batch(bg, i, n, m, d):
       x y = batch(p, i, n, m, d) batch(p, U32.add(i, U32.shln(1, p)), n, m, d)
       U32.add(x, y)
 
-law size:
-  Nat
-
-def size():
+def size() -> Nat:
   7n
 
-law blog:
-  Nat
-
-def blog():
+def blog() -> Nat:
   9n
 
-law nchain:
-  U32
-
-def nchain():
+def nchain() -> U32:
   384
 
 # small: size 3n blog 2n nchain 3 expect 4292995302; big expect 3797651056
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   mm = U32.sub(U32.shln(1, blog()), 1)
   IO.print(U32.show(batch!(blog(), 0, nchain(), mm, size())))

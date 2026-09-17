@@ -37,29 +37,16 @@ type Sph is Data:
 type Hit is Data:
   Hit{ms: Bool, t: F32, i: U32}
 
-law Hit.t:
-  for h: Hit
-  F32
-
-def Hit.t(h):
+def Hit.t(h: Hit) -> F32:
   match h:
     case Hit{m, t, i}:
       t
 
 # float literal n/d (Bend4 has no float literal syntax)
-law fl:
-  for n: U32
-  for d: U32
-  F32
-
-def fl(n, d):
+def fl(n: U32, d: U32) -> F32:
   F32.div(U32.to_f32(n), U32.to_f32(d))
 
-law sphere:
-  for i: Nat
-  Sph
-
-def sphere(i):
+def sphere(i: Nat) -> Sph:
   match i:
     case 0n:
       Sph{U32.to_f32(0), F32.sub(U32.to_f32(0), U32.to_f32(10001)), U32.to_f32(5), U32.to_f32(10000), fl(3, 10)}
@@ -80,72 +67,36 @@ def sphere(i):
     case 8n+k:
       Sph{F32.sub(U32.to_f32(0), fl(35, 10)), fl(2, 10), U32.to_f32(8), U32.to_f32(1), fl(6, 10)}
 
-law isect.t2:
-  for t: F32
-  for z: Bool
-  F32
-
-def isect.t2(t, z):
+def isect.t2(t: F32, z: Bool) -> F32:
   match z:
     case True{}:
       U32.to_f32(1000000000)
     case False{}:
       t
 
-law isect.t:
-  for +t: F32
-  F32
-
-def isect.t(t):
+def isect.t(+t: F32) -> F32:
   isect.t2(t, F32.is_lt(t, fl(1, 1000)))
 
-law isect.go2:
-  for b: F32
-  for disc: F32
-  for z: Bool
-  F32
-
-def isect.go2(b, disc, z):
+def isect.go2(b: F32, disc: F32, z: Bool) -> F32:
   match z:
     case True{}:
       U32.to_f32(1000000000)
     case False{}:
       isect.t(F32.sub(F32.sub(U32.to_f32(0), b), F32.sqrt(disc)))
 
-law isect.go:
-  for b: F32
-  for +disc: F32
-  F32
-
-def isect.go(b, disc):
+def isect.go(b: F32, +disc: F32) -> F32:
   isect.go2(b, disc, F32.is_lt(disc, U32.to_f32(0)))
 
 # ray-sphere: t of the near root, or 1e9 for a miss (disc < 0 or t < eps)
-law isect5:
-  for cx: F32
-  for cy: F32
-  for cz: F32
-  for +r: F32
-  for ox: F32
-  for oy: F32
-  for oz: F32
-  for dx: F32
-  for dy: F32
-  for dz: F32
-  F32
-
-def isect5(cx, cy, cz, r, ox, oy, oz, dx, dy, dz):
+def isect5(cx: F32, cy: F32, cz: F32, +r: F32, ox: F32, oy: F32,
+           oz: F32, dx: F32, dy: F32, dz: F32) -> F32:
   +px = F32.sub(ox, cx)
   +py = F32.sub(oy, cy)
   +pz = F32.sub(oz, cz)
   +b = F32.add(F32.add(F32.mul(px, dx), F32.mul(py, dy)), F32.mul(pz, dz))
   isect.go(b, F32.sub(F32.mul(b, b), F32.sub(F32.add(F32.add(F32.mul(px, px), F32.mul(py, py)), F32.mul(pz, pz)), F32.mul(r, r))))
 
-law sx:
-  for i: Nat
-  F32
-
-def sx(i):
+def sx(i: Nat) -> F32:
   match i:
     case 0n: U32.to_f32(0)
     case 1n: U32.to_f32(0)
@@ -157,11 +108,7 @@ def sx(i):
     case 7n: fl(35, 10)
     case 8n+k: F32.sub(U32.to_f32(0), fl(35, 10))
 
-law sy:
-  for i: Nat
-  F32
-
-def sy(i):
+def sy(i: Nat) -> F32:
   match i:
     case 0n: F32.sub(U32.to_f32(0), U32.to_f32(10001))
     case 1n: U32.to_f32(0)
@@ -173,11 +120,7 @@ def sy(i):
     case 7n: fl(2, 10)
     case 8n+k: fl(2, 10)
 
-law sz:
-  for i: Nat
-  F32
-
-def sz(i):
+def sz(i: Nat) -> F32:
   match i:
     case 0n: U32.to_f32(5)
     case 1n: U32.to_f32(5)
@@ -189,11 +132,7 @@ def sz(i):
     case 7n: U32.to_f32(8)
     case 8n+k: U32.to_f32(8)
 
-law sr:
-  for i: Nat
-  F32
-
-def sr(i):
+def sr(i: Nat) -> F32:
   match i:
     case 0n: U32.to_f32(10000)
     case 1n: U32.to_f32(1)
@@ -205,11 +144,7 @@ def sr(i):
     case 7n: U32.to_f32(1)
     case 8n+k: U32.to_f32(1)
 
-law skr:
-  for i: Nat
-  F32
-
-def skr(i):
+def skr(i: Nat) -> F32:
   match i:
     case 0n: fl(3, 10)
     case 1n: fl(7, 10)
@@ -225,22 +160,9 @@ def skr(i):
 # 0 with strict <. the previous iteration's compare rides in as the
 # lt column (guard shift): pt/pk hold the pending candidate, and each
 # arm first applies the pending verdict, then tests its own sphere
-law nearest:
-  for +i: Nat
-  for +ox: F32
-  for +oy: F32
-  for +oz: F32
-  for +dx: F32
-  for +dy: F32
-  for +dz: F32
-  for +pt: F32
-  for +pk: U32
-  for +bt: F32
-  for +bi: U32
-  for lt: Bool
-  Hit
-
-def nearest(i, ox, oy, oz, dx, dy, dz, pt, pk, bt, bi, lt):
+def nearest(+i: Nat, +ox: F32, +oy: F32, +oz: F32, +dx: F32, +dy: F32,
+            +dz: F32, +pt: F32, +pk: U32, +bt: F32, +bi: U32,
+            lt: Bool) -> Hit:
   match i lt:
     case 0n False{}:
       Hit{U32.is_eq(bi, 9), bt, bi}
@@ -253,90 +175,45 @@ def nearest(i, ox, oy, oz, dx, dy, dz, pt, pk, bt, bi, lt):
       +t = isect5(sx(k), sy(k), sz(k), sr(k), ox, oy, oz, dx, dy, dz)
       nearest(k, ox, oy, oz, dx, dy, dz, t, U32.from_nat(k), pt, pk, F32.is_lt(t, pt))
 
-law fmax0.go:
-  for x: F32
-  for z: Bool
-  F32
-
-def fmax0.go(x, z):
+def fmax0.go(x: F32, z: Bool) -> F32:
   match z:
     case True{}:
       U32.to_f32(0)
     case False{}:
       x
 
-law fmax0:
-  for +x: F32
-  F32
-
-def fmax0(x):
+def fmax0(+x: F32) -> F32:
   fmax0.go(x, F32.is_lt(x, U32.to_f32(0)))
 
 # diffuse term, zeroed when the shadow ray hits something before the light
-law shade:
-  for st: F32
-  for ll: F32
-  for df: F32
-  F32
-
-def shade(st, ll, df):
+def shade(st: F32, ll: F32, df: F32) -> F32:
   fmax0.go(df, F32.is_lt(st, ll))
 
-law clamp01.hi.go:
-  for x: F32
-  for z: Bool
-  F32
-
-law clamp01.hi:
-  for +x: F32
-  F32
-
-def clamp01.hi.go(x, z):
+def clamp01.hi.go(x: F32, z: Bool) -> F32:
   match z:
     case True{}:
       U32.to_f32(1)
     case False{}:
       x
 
-def clamp01.hi(x):
+def clamp01.hi(+x: F32) -> F32:
   clamp01.hi.go(x, F32.is_lt(U32.to_f32(1), x))
 
-law clamp01.go:
-  for x: F32
-  for z: Bool
-  F32
-
-law clamp01:
-  for +x: F32
-  F32
-
-def clamp01.go(x, z):
+def clamp01.go(x: F32, z: Bool) -> F32:
   match z:
     case True{}:
       U32.to_f32(0)
     case False{}:
       clamp01.hi(x)
 
-def clamp01(x):
+def clamp01(+x: F32) -> F32:
   clamp01.go(x, F32.is_lt(x, U32.to_f32(0)))
 
 # t-only nearest for the shadow probe: same fold, answers the bare
 # min distance (a machine word, so the whole probe fuses into the
 # caller's segment with no Hit node and no continuation)
-law nearest.t:
-  for +i: Nat
-  for +ox: F32
-  for +oy: F32
-  for +oz: F32
-  for +dx: F32
-  for +dy: F32
-  for +dz: F32
-  for +pt: F32
-  for +bt: F32
-  for lt: Bool
-  F32
-
-def nearest.t(i, ox, oy, oz, dx, dy, dz, pt, bt, lt):
+def nearest.t(+i: Nat, +ox: F32, +oy: F32, +oz: F32, +dx: F32, +dy: F32,
+              +dz: F32, +pt: F32, +bt: F32, lt: Bool) -> F32:
   match i lt:
     case 0n False{}:
       bt
@@ -359,20 +236,8 @@ def nearest.t(i, ox, oy, oz, dx, dy, dz, pt, bt, lt):
 # on the depth's pred with that Hit riding as an argument. subray
 # issues the primary ray's nearest itself (the fake zeroth bounce's
 # algebra is exact: acc 0, w 1), so entry depth is 4n for 5 bounces.
-law trace:
-  for dep: Nat
-  for ht: Hit
-  for +sox: F32
-  for +soy: F32
-  for +soz: F32
-  for +rdx: F32
-  for +rdy: F32
-  for +rdz: F32
-  for acc: F32
-  for +w: F32
-  F32
-
-def trace(dep, ht, sox, soy, soz, rdx, rdy, rdz, acc, w):
+def trace(dep: Nat, ht: Hit, +sox: F32, +soy: F32, +soz: F32, +rdx: F32,
+          +rdy: F32, +rdz: F32, acc: F32, +w: F32) -> F32:
   match dep ht:
     case d2 Hit{True{}, mt, mi}:
       acc
@@ -429,12 +294,7 @@ def trace(dep, ht, sox, soy, soz, rdx, rdy, rdz, acc, w):
       trace(k, php, sox2, soy2, soz2, rd2x, rd2y, rd2z,
         F32.add(acc, F32.mul(F32.mul(w, lum2), F32.sub(U32.to_f32(1), kr2))), F32.mul(w, kr2))
 
-law subray:
-  for +fx: F32
-  for +fy: F32
-  F32
-
-def subray(fx, fy):
+def subray(+fx: F32, +fy: F32) -> F32:
   +dl = F32.sqrt(F32.add(F32.add(F32.mul(fx, fx), F32.mul(fy, fy)), U32.to_f32(1)))
   +dx = F32.div(fx, dl)
   +dy = F32.div(fy, dl)
@@ -442,14 +302,7 @@ def subray(fx, fy):
   php = nearest(9n, U32.to_f32(0), U32.to_f32(0), U32.to_f32(0), dx, dy, dz, U32.to_f32(1000000000), 9, U32.to_f32(1000000000), 9, False{})
   trace(4n, php, U32.to_f32(0), U32.to_f32(0), U32.to_f32(0), dx, dy, dz, U32.to_f32(0), U32.to_f32(1))
 
-law pixel:
-  for x: U32
-  for y: U32
-  for +hw: F32
-  for +hh: F32
-  U32
-
-def pixel(x, y, hw, hh):
+def pixel(x: U32, y: U32, +hw: F32, +hh: F32) -> U32:
   +xf = U32.to_f32(x)
   +yf = U32.to_f32(y)
   l1 = subray(F32.div(F32.sub(F32.add(xf, fl(1, 4)), hw), hw), F32.div(F32.sub(hh, F32.add(yf, fl(1, 4))), hw))
@@ -458,42 +311,17 @@ def pixel(x, y, hw, hh):
   l4 = subray(F32.div(F32.sub(F32.add(xf, fl(3, 4)), hw), hw), F32.div(F32.sub(hh, F32.add(yf, fl(3, 4))), hw))
   F32.to_u32(F32.mul(U32.to_f32(255), clamp01(F32.mul(F32.add(F32.add(l1, l2), F32.add(l3, l4)), fl(1, 4)))))
 
-law colf.px.go:
-  for t: Bool
-  for xx: U32
-  for y: U32
-  for hw: F32
-  for hh: F32
-  U32
-
-law colf.px:
-  for +xx: U32
-  for y: U32
-  for w: U32
-  for hw: F32
-  for hh: F32
-  U32
-
-def colf.px.go(t, xx, y, hw, hh):
+def colf.px.go(t: Bool, xx: U32, y: U32, hw: F32, hh: F32) -> U32:
   match t:
     case False{}:
       0
     case True{}:
       pixel(xx, y, hw, hh)
 
-def colf.px(xx, y, w, hw, hh):
+def colf.px(+xx: U32, y: U32, w: U32, hw: F32, hh: F32) -> U32:
   colf.px.go(U32.is_lt(xx, w), xx, y, hw, hh)
 
-law colf:
-  for +d: Nat
-  for +x: U32
-  for +y: U32
-  for +w: U32
-  for +hw: F32
-  for +hh: F32
-  U32
-
-def colf(d, x, y, w, hw, hh):
+def colf(+d: Nat, +x: U32, +y: U32, +w: U32, +hw: F32, +hh: F32) -> U32:
   match d:
     case 0n:
       colf.px(U32.and(U32.mul(x, 2654435761), 16383), y, w, hw, hh)
@@ -501,16 +329,7 @@ def colf(d, x, y, w, hw, hh):
       a b = colf(p, x, y, w, hw, hh) colf(p, U32.add(x, U32.shln(1, p)), y, w, hw, hh)
       U32.add(a, b)
 
-law rowf:
-  for +d: Nat
-  for +y: U32
-  for +m: U32
-  for +w: U32
-  for +hw: F32
-  for +hh: F32
-  U32
-
-def rowf(d, y, m, w, hw, hh):
+def rowf(+d: Nat, +y: U32, +m: U32, +w: U32, +hw: F32, +hh: F32) -> U32:
   match d:
     case 0n:
       colf(14n, 0, U32.and(U32.mul(y, 1588635697), m), w, hw, hh)
@@ -518,23 +337,14 @@ def rowf(d, y, m, w, hw, hh):
       a b = rowf(p, y, m, w, hw, hh) rowf(p, U32.add(y, U32.shln(1, p)), m, w, hw, hh)
       U32.add(a, b)
 
-law rows:
-  Nat
-
-def rows():
+def rows() -> Nat:
   12n
 
-law width:
-  U32
-
-def width():
+def width() -> U32:
   6000
 
 # small: rows 6n width 80 expect 402971; big expect 1924309504
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   +rr = rows()
   +w = width()
   hw = U32.to_f32(U32.div(w, 2))

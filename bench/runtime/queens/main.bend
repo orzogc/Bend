@@ -39,68 +39,33 @@ type Stats is Data:
   Stat0{}
   Stats{sols: U32, nodes: U32}
 
-law b2u:
-  for b: Bool
-  U32
-
-def b2u(b):
+def b2u(b: Bool) -> U32:
   match b:
     case False{}:
       0
     case True{}:
       1
 
-law sel.go:
-  for x: U32
-  for y: U32
-  for z: Bool
-  U32
-
-def sel.go(x, y, z):
+def sel.go(x: U32, y: U32, z: Bool) -> U32:
   match z:
     case True{}:
       x
     case False{}:
       y
 
-law sel:
-  for t: U32
-  for x: U32
-  for y: U32
-  U32
-
-def sel(t, x, y):
+def sel(t: U32, x: U32, y: U32) -> U32:
   sel.go(x, y, U32.is_zero(t))
 
-law sq:
-  for +x: U32
-  U32
-
-def sq(x):
+def sq(+x: U32) -> U32:
   U32.mul(x, x)
 
 # the classic bitmask backtracker: descend on the child candidate
 # word (the natural non-tail call), then tail-loop on the sibling set;
 # the fuel f is the structure the descent rides, one unit per frame;
 # z = is_zero(cand) and e = is_eq(nc, full) arrive precomputed
-law solve:
-  for +f: Nat
-  for z: Bool
-  for e: Bool
-  for +sib: U32
-  for +nc: U32
-  for +nl: U32
-  for +nr: U32
-  for +cols: U32
-  for +ld: U32
-  for +rd: U32
-  for +full: U32
-  for ret: Stats
-  for sols: U32
-  for nodes: U32
-  Stats
-
-def solve(f, z, e, sib, nc, nl, nr, cols, ld, rd, full, ret, sols, nodes):
+def solve(+f: Nat, z: Bool, e: Bool, +sib: U32, +nc: U32, +nl: U32, +nr: U32,
+          +cols: U32, +ld: U32, +rd: U32, +full: U32, ret: Stats, sols: U32,
+          nodes: U32) -> Stats:
   match f z e ret:
     case 0n z0 e0 Stat0{}:
       Stats{sols, nodes}
@@ -152,17 +117,8 @@ def solve(f, z, e, sib, nc, nl, nr, cols, ld, rd, full, ret, sols, nodes):
 # the 2^d space), decode the column quad, filter illegal placements,
 # solve the remaining rows; each stage matches the bool its caller
 # computed
-law pfx.s3:
-  for t: Bool
-  for +nn2: U32
-  for +full: U32
-  for +b3: U32
-  for +c3: U32
-  for +l3: U32
-  for +r3: U32
-  Stats
-
-def pfx.s3(t, nn2, full, b3, c3, l3, r3):
+def pfx.s3(t: Bool, +nn2: U32, +full: U32, +b3: U32, +c3: U32, +l3: U32,
+           +r3: U32) -> Stats:
   match t:
     case False{}:
       Stats{0, 0}
@@ -177,19 +133,8 @@ def pfx.s3(t, nn2, full, b3, c3, l3, r3):
         U32.shl(U32.or(l4, cb)), U32.shr(U32.or(r4, cb)),
         c4, l4, r4, full, Stat0{}, 0, 0)
 
-law pfx.s2:
-  for t: Bool
-  for +nn2: U32
-  for +i: U32
-  for +nn: U32
-  for +full: U32
-  for +b2: U32
-  for +c2: U32
-  for +l2: U32
-  for +r2: U32
-  Stats
-
-def pfx.s2(t, nn2, i, nn, full, b2, c2, l2, r2):
+def pfx.s2(t: Bool, +nn2: U32, +i: U32, +nn: U32, +full: U32, +b2: U32,
+           +c2: U32, +l2: U32, +r2: U32) -> Stats:
   match t:
     case False{}:
       Stats{0, 0}
@@ -201,17 +146,8 @@ def pfx.s2(t, nn2, i, nn, full, b2, c2, l2, r2):
       pfx.s3(U32.is_eq(U32.and(b3, U32.or(c3, U32.or(l3, r3))), 0),
         nn2, full, b3, c3, l3, r3)
 
-law pfx.s1:
-  for t: Bool
-  for +nn2: U32
-  for +i: U32
-  for +nn: U32
-  for +full: U32
-  for +b0: U32
-  for +b1: U32
-  Stats
-
-def pfx.s1(t, nn2, i, nn, full, b0, b1):
+def pfx.s1(t: Bool, +nn2: U32, +i: U32, +nn: U32, +full: U32, +b0: U32,
+           +b1: U32) -> Stats:
   match t:
     case False{}:
       Stats{0, 0}
@@ -223,60 +159,26 @@ def pfx.s1(t, nn2, i, nn, full, b0, b1):
       pfx.s2(U32.is_eq(U32.and(b2, U32.or(c2, U32.or(l2, r2))), 0),
         nn2, i, nn, full, b2, c2, l2, r2)
 
-law pfx.d:
-  for +nn2: U32
-  for +i: U32
-  for +nn: U32
-  for +full: U32
-  Stats
-
-def pfx.d(nn2, i, nn, full):
+def pfx.d(+nn2: U32, +i: U32, +nn: U32, +full: U32) -> Stats:
   +b0 = U32.shln(1, U32.to_nat(U32.div(i, U32.mul(nn2, nn))))
   +b1 = U32.shln(1, U32.to_nat(U32.mod(U32.div(i, nn2), nn)))
   pfx.s1(U32.is_eq(U32.and(b1, U32.or(b0, U32.or(U32.shl(b0), U32.shr(b0)))), 0),
     nn2, i, nn, full, b0, b1)
 
-law pfx.go2:
-  for t: Bool
-  for +i: U32
-  for +nn: U32
-  for full: U32
-  Stats
-
-def pfx.go2(t, i, nn, full):
+def pfx.go2(t: Bool, +i: U32, +nn: U32, full: U32) -> Stats:
   match t:
     case False{}:
       Stats{0, 0}
     case True{}:
       pfx.d(U32.mul(nn, nn), i, nn, full)
 
-law pfx.go:
-  for +i: U32
-  for +nn: U32
-  for full: U32
-  for bound: U32
-  Stats
-
-def pfx.go(i, nn, full, bound):
+def pfx.go(+i: U32, +nn: U32, full: U32, bound: U32) -> Stats:
   pfx.go2(U32.is_lt(i, bound), i, nn, full)
 
-law pfx:
-  for j: U32
-  for +m: U32
-  for nn: U32
-  for full: U32
-  for bound: U32
-  Stats
-
-def pfx(j, m, nn, full, bound):
+def pfx(j: U32, +m: U32, nn: U32, full: U32, bound: U32) -> Stats:
   pfx.go(U32.and(U32.mul(j, 2654435761), m), nn, full, bound)
 
-law smerge:
-  for a: Stats
-  for b: Stats
-  Stats
-
-def smerge(a, b):
+def smerge(a: Stats, b: Stats) -> Stats:
   match a b:
     case Stats{s1, n1} Stats{s2, n2}:
       Stats{U32.add(s1, s2), U32.add(n1, n2)}
@@ -287,16 +189,8 @@ def smerge(a, b):
     case Stat0{} Stat0{}:
       Stat0{}
 
-law batch:
-  for +d: Nat
-  for +i: U32
-  for +m: U32
-  for +nn: U32
-  for +full: U32
-  for +bound: U32
-  Stats
-
-def batch(d, i, m, nn, full, bound):
+def batch(+d: Nat, +i: U32, +m: U32, +nn: U32, +full: U32,
+          +bound: U32) -> Stats:
   match d:
     case 0n:
       pfx(i, m, nn, full, bound)
@@ -304,45 +198,26 @@ def batch(d, i, m, nn, full, bound):
       a b = batch(p, i, m, nn, full, bound) batch(p, U32.add(i, U32.shln(1, p)), m, nn, full, bound)
       smerge(a, b)
 
-law run.fin:
-  for st: Stats
-  U32
-
-def run.fin(st):
+def run.fin(st: Stats) -> U32:
   match st:
     case Stat0{}:
       0
     case Stats{s, w}:
       U32.xor(U32.mul(s, 2654435761), w)
 
-law run:
-  for +d: Nat
-  for +n: U32
-  for +lim: U32
-  U32
-
-def run(d, n, lim):
+def run(+d: Nat, +n: U32, +lim: U32) -> U32:
   +nnnn = sq(sq(n))
   full = U32.sub(U32.shln(1, U32.to_nat(n)), 1)
   # bound = min-like clamp: lim when lim < n^4, else n^4
   run.fin(batch(d, 0, U32.sub(U32.shln(1, d), 1), n, full,
     sel(b2u(U32.is_lt(lim, nnnn)), nnnn, lim)))
 
-law size:
-  U32
-
-def size():
+def size() -> U32:
   17
 
-law limit:
-  U32
-
-def limit():
+def limit() -> U32:
   11730
 
 # small: run!(10n, 5, 625) expect 774553824; big expect 2063750025
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print(U32.show(run!(17n, size(), limit())))

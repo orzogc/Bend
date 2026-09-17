@@ -32,11 +32,7 @@ import Base
 type St is Type:
   St{g: Array<U32>, q: Array<U32>, d: Array<U32>, +head: U32, +tail: U32}
 
-law b2u:
-  for b: Bool
-  U32
-
-def b2u(b):
+def b2u(b: Bool) -> U32:
   match b:
     case False{}:
       0
@@ -44,34 +40,19 @@ def b2u(b):
       1
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-law prng:
-  for +x: U32
-  U32
-
-def prng(x):
+def prng(+x: U32) -> U32:
   +b = U32.xor(x, U32.shln(x, 13n))
   +d = U32.xor(b, U32.shrn(b, 17n))
   U32.xor(d, U32.shln(d, 5n))
 
 # 1 when cell c of the maze seeded s is open: the start always, any
 # other cell when its hash mod 100 is 30 or more (30% walls)
-law open:
-  for s: U32
-  for +c: U32
-  U32
-
-def open(s, c):
+def open(s: U32, +c: U32) -> U32:
   h = prng(U32.xor(s, U32.mul(U32.inc(c), 340573321)))
   b2u(Bool.or(U32.is_zero(c), U32.is_ge(U32.mod(h, 100), 30)))
 
 # fill the grid: one write per cell, ascending
-law fill:
-  for +j: Nat
-  for +s: U32
-  for g: Array<U32>
-  Array<U32>
-
-def fill(j, s, g):
+def fill(+j: Nat, +s: U32, g: Array<U32>) -> Array<U32>:
   match j:
     case 0n:
       g
@@ -81,14 +62,7 @@ def fill(j, s, g):
 
 # the neighbour is open: push it unless seen (stamp its distance,
 # queue it at the tail)
-law look.push:
-  for +n: U32
-  for v: U32
-  for seen: Bool
-  for st: St
-  St
-
-def look.push(n, v, seen, st):
+def look.push(+n: U32, v: U32, seen: Bool, st: St) -> St:
   match seen:
     case True{}:
       st
@@ -96,29 +70,13 @@ def look.push(n, v, seen, st):
       St{g, q, d, head, tail} = st
       St{g, q[tail] <- n, d[n] <- v, head, U32.inc(tail)}
 
-law look.seen:
-  for +n: U32
-  for v: U32
-  for g: Array<U32>
-  for q: Array<U32>
-  for head: U32
-  for tail: U32
-  for r: Array<U32> & U32
-  St
-
-def look.seen(n, v, g, q, head, tail, r):
+def look.seen(+n: U32, v: U32, g: Array<U32>, q: Array<U32>, head: U32,
+              tail: U32, r: Array<U32> & U32) -> St:
   (d, dn) = r
   look.push(n, v, U32.is_ne(dn, 4294967295), St{g, q, d, head, tail})
 
 # the neighbour is in bounds: skip a wall, else read its distance
-law look.wall:
-  for +n: U32
-  for v: U32
-  for wall: Bool
-  for st: St
-  St
-
-def look.wall(n, v, wall, st):
+def look.wall(+n: U32, v: U32, wall: Bool, st: St) -> St:
   match wall:
     case True{}:
       st
@@ -126,30 +84,14 @@ def look.wall(n, v, wall, st):
       St{g, q, d, head, tail} = st
       look.seen(n, v, g, q, head, tail, d[n])
 
-law look.open:
-  for +n: U32
-  for v: U32
-  for q: Array<U32>
-  for d: Array<U32>
-  for head: U32
-  for tail: U32
-  for r: Array<U32> & U32
-  St
-
-def look.open(n, v, q, d, head, tail, r):
+def look.open(+n: U32, v: U32, q: Array<U32>, d: Array<U32>, head: U32,
+              tail: U32, r: Array<U32> & U32) -> St:
   (g, o) = r
   look.wall(n, v, U32.is_zero(o), St{g, q, d, head, tail})
 
 # one neighbour n at distance v: skip it out of bounds, a wall or
 # seen; else stamp its distance and push it
-law look:
-  for +n: U32
-  for v: U32
-  for inb: Bool
-  for st: St
-  St
-
-def look(n, v, inb, st):
+def look(+n: U32, v: U32, inb: Bool, st: St) -> St:
   match inb:
     case False{}:
       st
@@ -158,13 +100,7 @@ def look(n, v, inb, st):
       look.open(n, v, q, d, head, tail, g[n])
 
 # the four neighbours of cell c at distance v: left, right, up, down
-law look4:
-  for +c: U32
-  for +v: U32
-  for st: St
-  St
-
-def look4(c, v, st):
+def look4(+c: U32, +v: U32, st: St) -> St:
   +x = U32.and(c, 31)
   +y = U32.shrn(c, 5n)
   s1 = look(U32.sub(c, 1), v, U32.is_gt(x, 0), st)
@@ -173,57 +109,29 @@ def look4(c, v, st):
   look(U32.add(c, 32), v, U32.is_lt(y, 31), s3)
 
 # the pop's answer: the state, and whether the queue still holds a cell
-law pop.done:
-  for st: St
-  St & Bool
-
-def pop.done(st):
+def pop.done(st: St) -> St & Bool:
   St{g, q, d, head, tail} = st
   (St{g, q, d, head, tail}, U32.is_lt(head, tail))
 
-law pop.dist:
-  for g: Array<U32>
-  for q: Array<U32>
-  for c: U32
-  for head: U32
-  for tail: U32
-  for r: Array<U32> & U32
-  St & Bool
-
-def pop.dist(g, q, c, head, tail, r):
+def pop.dist(g: Array<U32>, q: Array<U32>, c: U32, head: U32, tail: U32,
+             r: Array<U32> & U32) -> St & Bool:
   (d, dc) = r
   pop.done(look4(c, U32.inc(dc), St{g, q, d, head, tail}))
 
-law pop.cell:
-  for g: Array<U32>
-  for d: Array<U32>
-  for head: U32
-  for tail: U32
-  for r: Array<U32> & U32
-  St & Bool
-
-def pop.cell(g, d, head, tail, r):
+def pop.cell(g: Array<U32>, d: Array<U32>, head: U32, tail: U32,
+             r: Array<U32> & U32) -> St & Bool:
   (q, +c) = r
   pop.dist(g, q, c, head, tail, d[c])
 
 # one pop: take the head cell and its distance, look at its four
 # neighbours, then report whether the queue still holds a cell
-law pop:
-  for st: St
-  St & Bool
-
-def pop(st):
+def pop(st: St) -> St & Bool:
   St{g, q, d, head, tail} = st
   pop.cell(g, d, U32.inc(head), tail, q[head])
 
 # the search loop, fuel-bounded by the cell count: the pop's answer
 # rides in as the pair r, and the loop stops when the queue drains
-law bfs:
-  for f: Nat
-  for r: St & Bool
-  St
-
-def bfs(f, r):
+def bfs(f: Nat, r: St & Bool) -> St:
   match f:
     case 0n:
       (st, more) = r
@@ -239,14 +147,7 @@ def bfs(f, r):
 # the leaf checksum: every cell in turn, the current read riding in as
 # the pair r (the last step issues one masked dead read); a reached
 # cell mixes its distance position-weighted and counts one
-law fold:
-  for +j: Nat
-  for r: Array<U32> & U32
-  for acc: U32
-  for cnt: U32
-  U32
-
-def fold(j, r, acc, cnt):
+def fold(+j: Nat, r: Array<U32> & U32, acc: U32, cnt: U32) -> U32:
   match j:
     case 0n:
       U32.xor(acc, U32.mul(cnt, 2246822519))
@@ -258,21 +159,13 @@ def fold(j, r, acc, cnt):
       m = U32.xor(U32.mul(acc, 2654435761), k)
       fold(p, d[U32.inc(c)], m, U32.add(cnt, hit))
 
-law finish:
-  for st: St
-  U32
-
-def finish(st):
+def finish(st: St) -> U32:
   St{g, q, d, head, tail} = st
   fold(1024n, d[0], 0, 0)
 
 # one maze: fill the grid, seed the search with cell 0 at distance 0,
 # search, fold
-law maze:
-  for m: U32
-  U32
-
-def maze(m):
+def maze(m: U32) -> U32:
   s = U32.mul(U32.inc(m), 2654435761)
   g = fill(1024n, s, [0 : U32*1024n])
   q = [0 : U32*1024n]
@@ -280,12 +173,7 @@ def maze(m):
   finish(bfs(1024n, (St{g, q, d[0] <- 0, 0, 1}, True{})))
 
 # batch tree over the maze index space: leaf i searches maze i
-law batch:
-  for +k: Nat
-  for +i: U32
-  U32
-
-def batch(k, i):
+def batch(+k: Nat, +i: U32) -> U32:
   match k:
     case 0n:
       maze(i)
@@ -293,16 +181,10 @@ def batch(k, i):
       a b = batch(p, i) batch(p, U32.add(i, U32.shln(1, p)))
       U32.add(a, b)
 
-law size:
-  Nat
-
-def size():
+def size() -> Nat:
   19n
 
 # small: batch!(4n, 0) expect 512822161; big: batch!(size(), 0)
 # expect 651176970
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print(U32.show(batch!(size(), 0)))

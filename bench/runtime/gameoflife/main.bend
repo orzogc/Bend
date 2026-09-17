@@ -25,94 +25,46 @@ type Cls is Data:
 type Census is Data:
   Census{pop: U32, still: U32, osc: U32, mix: U32}
 
-law b2u:
-  for b: Bool
-  U32
-
-def b2u(b):
+def b2u(b: Bool) -> U32:
   match b:
     case False{}:
       0
     case True{}:
       1
 
-law cell_get:
-  for board: U32
-  for r: U32
-  for c: U32
-  U32
-
-def cell_get(board, r, c):
+def cell_get(board: U32, r: U32, c: U32) -> U32:
   U32.and(U32.shrn(board, U32.to_nat(U32.and(U32.add(U32.mul(U32.and(r, 3), 4), U32.and(c, 3)), 31))), 1)
 
-law neighbor_count:
-  for +board: U32
-  for +r: U32
-  for +c: U32
-  U32
-
-def neighbor_count(board, r, c):
+def neighbor_count(+board: U32, +r: U32, +c: U32) -> U32:
   U32.add(cell_get(board, U32.sub(r, 1), U32.sub(c, 1)), U32.add(cell_get(board, U32.sub(r, 1), c), U32.add(cell_get(board, U32.sub(r, 1), U32.add(c, 1)), U32.add(cell_get(board, r, U32.sub(c, 1)), U32.add(cell_get(board, r, U32.add(c, 1)), U32.add(cell_get(board, U32.add(r, 1), U32.sub(c, 1)), U32.add(cell_get(board, U32.add(r, 1), c), cell_get(board, U32.add(r, 1), U32.add(c, 1)))))))))
 
-law next_dead:
-  for n: U32
-  U32
-
-def next_dead(n):
+def next_dead(n: U32) -> U32:
   b2u(U32.is_eq(n, 3))
 
-law next_alive:
-  for +n: U32
-  U32
-
-def next_alive(n):
+def next_alive(+n: U32) -> U32:
   b2u(Bool.or(U32.is_eq(n, 2), U32.is_eq(n, 3)))
 
-law next_cell.go:
-  for n: U32
-  for z: Bool
-  U32
-
-def next_cell.go(n, z):
+def next_cell.go(n: U32, z: Bool) -> U32:
   match z:
     case True{}:
       next_dead(n)
     case False{}:
       next_alive(n)
 
-law next_cell:
-  for a: U32
-  for n: U32
-  U32
-
-def next_cell(a, n):
+def next_cell(a: U32, n: U32) -> U32:
   next_cell.go(n, U32.is_zero(a))
 
-law step_cell:
-  for +board: U32
-  for +pos: U32
-  U32
-
-def step_cell(board, pos):
+def step_cell(+board: U32, +pos: U32) -> U32:
   +rr = U32.shrn(pos, 2n)
   +cc = U32.and(pos, 3)
   alive = cell_get(board, rr, cc)
   neighbors = neighbor_count(board, rr, cc)
   U32.shln(next_cell(alive, neighbors), U32.to_nat(U32.and(pos, 31)))
 
-law step:
-  for +b: U32
-  U32
-
-def step(b):
+def step(+b: U32) -> U32:
   U32.or(step_cell(b, 0), U32.or(step_cell(b, 1), U32.or(step_cell(b, 2), U32.or(step_cell(b, 3), U32.or(step_cell(b, 4), U32.or(step_cell(b, 5), U32.or(step_cell(b, 6), U32.or(step_cell(b, 7), U32.or(step_cell(b, 8), U32.or(step_cell(b, 9), U32.or(step_cell(b, 10), U32.or(step_cell(b, 11), U32.or(step_cell(b, 12), U32.or(step_cell(b, 13), U32.or(step_cell(b, 14), step_cell(b, 15))))))))))))))))
 
-law run:
-  for n: Nat
-  for board: U32
-  U32
-
-def run(n, board):
+def run(n: Nat, board: U32) -> U32:
   match n:
     case 0n:
       board
@@ -120,73 +72,41 @@ def run(n, board):
       run(p, step(board))
 
 # 16-bit SWAR population count
-law popcount:
-  for +b: U32
-  U32
-
-def popcount(b):
+def popcount(+b: U32) -> U32:
   +a = U32.sub(b, U32.and(U32.shrn(b, 1n), 21845))
   +c = U32.add(U32.and(a, 13107), U32.and(U32.shrn(a, 2n), 13107))
   d = U32.and(U32.add(c, U32.shrn(c, 4n)), 3855)
   U32.and(U32.shrn(U32.mul(d, 257), 8n), 31)
 
-law classify.p2:
-  for t: Bool
-  Cls
-
-def classify.p2(t):
+def classify.p2(t: Bool) -> Cls:
   match t:
     case True{}:
       Osc{}
     case False{}:
       Chaos{}
 
-law classify.go:
-  for t: Bool
-  for n1: U32
-  for b: U32
-  Cls
-
-def classify.go(t, n1, b):
+def classify.go(t: Bool, n1: U32, b: U32) -> Cls:
   match t:
     case True{}:
       Still{}
     case False{}:
       classify.p2(U32.is_eq(step(n1), b))
 
-law classify.p1:
-  for +n1: U32
-  for +b: U32
-  Cls
-
-def classify.p1(n1, b):
+def classify.p1(+n1: U32, +b: U32) -> Cls:
   classify.go(U32.is_eq(n1, b), n1, b)
 
 # classify the settled board by two probe steps: fixed point = still
 # life, return after two = period-2 oscillator, anything else = chaos
-law classify:
-  for +b: U32
-  Cls
-
-def classify(b):
+def classify(+b: U32) -> Cls:
   classify.p1(step(b), b)
 
 # one soup: hash the soup index into a 16-bit board, run gens steps
-law sim:
-  for ix: U32
-  for g: Nat
-  U32
-
-def sim(ix, g):
+def sim(ix: U32, g: Nat) -> U32:
   run(g, U32.and(U32.mul(ix, 2654435761), 65535))
 
 # class code: Still 0, Osc 1, Chaos 2 (the chunk accumulators update
 # branchlessly off this code, so chunk never matches a computed value)
-law cls.code:
-  for c: Cls
-  U32
-
-def cls.code(c):
+def cls.code(c: Cls) -> U32:
   match c:
     case Still{}:
       0
@@ -197,17 +117,8 @@ def cls.code(c):
 
 # leaf chunk: 64 soups folded into scalar accumulators; the Census
 # ctor materializes once per chunk, never per soup
-law chunk:
-  for +j: Nat
-  for +i: U32
-  for +g: Nat
-  for pa: U32
-  for sa: U32
-  for oa: U32
-  for mx: U32
-  Census
-
-def chunk(j, i, g, pa, sa, oa, mx):
+def chunk(+j: Nat, +i: U32, +g: Nat, pa: U32, sa: U32, oa: U32,
+          mx: U32) -> Census:
   match j:
     case 0n:
       Census{pa, sa, oa, mx}
@@ -218,23 +129,12 @@ def chunk(j, i, g, pa, sa, oa, mx):
         U32.add(sa, b2u(U32.is_eq(cd, 0))), U32.add(oa, b2u(U32.is_eq(cd, 1))),
         U32.xor(U32.mul(mx, 2654435761), bd))
 
-law czip:
-  for a: Census
-  for b: Census
-  Census
-
-def czip(a, b):
+def czip(a: Census, b: Census) -> Census:
   match a b:
     case Census{p, s, o, m} Census{q, t, r, n}:
       Census{U32.add(p, q), U32.add(s, t), U32.add(o, r), U32.add(U32.mul(m, 2654435761), n)}
 
-law batch:
-  for +d: Nat
-  for +i: U32
-  for +g: Nat
-  Census
-
-def batch(d, i, g):
+def batch(+d: Nat, +i: U32, +g: Nat) -> Census:
   match d:
     case 0n:
       chunk(64n, i, g, 0, 0, 0, 0)
@@ -243,30 +143,17 @@ def batch(d, i, g):
       czip(a, b)
 
 # final checksum: mix the census fields
-law cfin:
-  for c: Census
-  U32
-
-def cfin(c):
+def cfin(c: Census) -> U32:
   match c:
     case Census{p, s, o, m}:
       U32.add(U32.mul(U32.add(U32.mul(U32.add(U32.mul(p, 2654435761), s), 2654435761), o), 2654435761), m)
 
-law size:
-  Nat
-
-def size():
+def size() -> Nat:
   18n
 
-law gens:
-  Nat
-
-def gens():
+def gens() -> Nat:
   32n
 
 # small: size 1n gens 2n expect 2601177279; big expect 2016151040
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print(U32.show(cfin(batch!(size(), 0, gens()))))

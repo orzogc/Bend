@@ -30,11 +30,7 @@ type Chk is Data:
   Cnil{}
   Cval{lo: U32, hi: U32, ok: U32, cnt: U32, sum: U32}
 
-law b2u:
-  for b: Bool
-  U32
-
-def b2u(b):
+def b2u(b: Bool) -> U32:
   match b:
     case False{}:
       0
@@ -42,29 +38,16 @@ def b2u(b):
       1
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-law prng:
-  for +x: U32
-  U32
-
-def prng(x):
+def prng(+x: U32) -> U32:
   +b = U32.xor(x, U32.shln(x, 13n))
   +d = U32.xor(b, U32.shrn(b, 17n))
   U32.xor(d, U32.shln(d, 5n))
 
 # 24-bit key: masked hash of the global index
-law key:
-  for i: U32
-  U32
-
-def key(i):
+def key(i: U32) -> U32:
   U32.and(prng(U32.mul(U32.inc(i), 2654435761)), 16777215)
 
-law merge:
-  for a: Trie
-  for b: Trie
-  Trie
-
-def merge(a, b):
+def merge(a: Trie, b: Trie) -> Trie:
   match a b:
     case Free{} Free{}:
       Free{}
@@ -86,12 +69,7 @@ def merge(a, b):
       l r = merge(a0, b0) merge(a1, b1)
       Mnode{l, r}
 
-law gen:
-  for +n: Nat
-  for +x: U32
-  Arr
-
-def gen(n, x):
+def gen(+n: Nat, +x: U32) -> Arr:
   match n:
     case 0n:
       Single{key(x)}
@@ -99,47 +77,24 @@ def gen(n, x):
       l r = gen(p, U32.shl(x)) gen(p, U32.inc(U32.shl(x)))
       Concat{l, r}
 
-law swap_bits.go:
-  for x0: Trie
-  for x1: Trie
-  for z: Bool
-  Trie
-
-def swap_bits.go(x0, x1, z):
+def swap_bits.go(x0: Trie, x1: Trie, z: Bool) -> Trie:
   match z:
     case True{}:
       Mnode{x0, x1}
     case False{}:
       Mnode{x1, x0}
 
-law swap_bits:
-  for n: U32
-  for x0: Trie
-  for x1: Trie
-  Trie
-
-def swap_bits(n, x0, x1):
+def swap_bits(n: U32, x0: Trie, x1: Trie) -> Trie:
   swap_bits.go(x0, x1, U32.is_zero(n))
 
-law radix:
-  for i: Nat
-  for +n: U32
-  for +k: U32
-  for r: Trie
-  Trie
-
-def radix(i, n, k, r):
+def radix(i: Nat, +n: U32, +k: U32, r: Trie) -> Trie:
   match i:
     case 0n:
       r
     case 1n+p:
       radix(p, n, U32.shl(k), swap_bits(U32.and(n, k), r, Free{}))
 
-law to_map:
-  for a: Arr
-  Trie
-
-def to_map(a):
+def to_map(a: Arr) -> Trie:
   match a:
     case Emp{}:
       Free{}
@@ -149,12 +104,7 @@ def to_map(a):
       l r = to_map(a) to_map(b)
       merge(l, r)
 
-law to_arr:
-  for m: Trie
-  for +k: U32
-  Arr
-
-def to_arr(m, k):
+def to_arr(m: Trie, +k: U32) -> Arr:
   match m:
     case Free{}:
       Emp{}
@@ -166,12 +116,7 @@ def to_arr(m, k):
 
 # verification join: bounds ride outward, ok demands strict order
 # (duplicates collapsed, so a sorted trie read-off is strictly increasing)
-law chk_join:
-  for a: Chk
-  for b: Chk
-  Chk
-
-def chk_join(a, b):
+def chk_join(a: Chk, b: Chk) -> Chk:
   match a b:
     case Cnil{} Cnil{}:
       Cnil{}
@@ -183,11 +128,7 @@ def chk_join(a, b):
       Cval{alo, bhi, U32.and(U32.and(aok, bok), b2u(U32.is_lt(ahi, blo))), U32.add(acnt, bcnt), U32.add(asum, bsum)}
 
 # rank-summary scan over the sorted output
-law chk:
-  for a: Arr
-  Chk
-
-def chk(a):
+def chk(a: Arr) -> Chk:
   match a:
     case Emp{}:
       Cnil{}
@@ -197,50 +138,27 @@ def chk(a):
       l r = chk(a) chk(b)
       chk_join(l, r)
 
-law chk_out:
-  for c: Chk
-  U32
-
-def chk_out(c):
+def chk_out(c: Chk) -> U32:
   match c:
     case Cnil{}:
       0
     case Cval{lo, hi, ok, cnt, sum}:
       U32.add(U32.xor(U32.add(sum, U32.mul(cnt, 2654435761)), U32.add(hi, U32.mul(lo, 340573321))), U32.mul(ok, 2246822519))
 
-law sort:
-  for a: Arr
-  Arr
-
-def sort(a):
+def sort(a: Arr) -> Arr:
   to_arr(to_map(a), 0)
 
-law size.small:
-  Nat
-
-def size.small():
+def size.small() -> Nat:
   8n
 
-law expect.small:
-  U32
-
-def expect.small():
+def expect.small() -> U32:
   366571299
 
-law size.big:
-  Nat
-
-def size.big():
+def size.big() -> Nat:
   22n
 
-law expect.big:
-  U32
-
-def expect.big():
+def expect.big() -> U32:
   1998173798
 
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print(U32.show(chk_out(chk!(sort!(gen!(22n, 0))))))

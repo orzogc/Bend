@@ -31,11 +31,7 @@ import Base
 type Dp is Type:
   Dp{a: Array<U32>, b: Array<U32>, prev: Array<U32>, cur: Array<U32>}
 
-law b2u:
-  for b: Bool
-  U32
-
-def b2u(b):
+def b2u(b: Bool) -> U32:
   match b:
     case False{}:
       0
@@ -43,45 +39,23 @@ def b2u(b):
       1
 
 # xorshift: x ^= x<<13; x ^= x>>17; x ^= x<<5
-law prng:
-  for +x: U32
-  U32
-
-def prng(x):
+def prng(+x: U32) -> U32:
   +b = U32.xor(x, U32.shln(x, 13n))
   +d = U32.xor(b, U32.shrn(b, 17n))
   U32.xor(d, U32.shln(d, 5n))
 
-law umin.go:
-  for x: U32
-  for y: U32
-  for lt: Bool
-  U32
-
-def umin.go(x, y, lt):
+def umin.go(x: U32, y: U32, lt: Bool) -> U32:
   match lt:
     case True{}:
       x
     case False{}:
       y
 
-law umin:
-  for +x: U32
-  for +y: U32
-  U32
-
-def umin(x, y):
+def umin(+x: U32, +y: U32) -> U32:
   umin.go(x, y, U32.is_lt(x, y))
 
 # draw one sequence: step the stream, write its low two bits at slot k
-law gen:
-  for +j: Nat
-  for +k: U32
-  for +s: U32
-  for x: Array<U32>
-  Array<U32>
-
-def gen(j, k, s, x):
+def gen(+j: Nat, +k: U32, +s: U32, x: Array<U32>) -> Array<U32>:
   match j:
     case 0n:
       x
@@ -90,13 +64,7 @@ def gen(j, k, s, x):
       gen(q, U32.inc(k), s2, x[k] <- U32.and(s2, 3))
 
 # prev[k] = k: the row of the empty prefix
-law init:
-  for +j: Nat
-  for +k: U32
-  for x: Array<U32>
-  Array<U32>
-
-def init(j, k, x):
+def init(+j: Nat, +k: U32, x: Array<U32>) -> Array<U32>:
   match j:
     case 0n:
       x
@@ -105,82 +73,34 @@ def init(j, k, x):
 
 # one DP cell at column j: 4 reads + 1 write, each read's pair riding
 # into the next stage def; the last stage rebuilds the state record
-law cell.f4:
-  for +j: U32
-  for cost: U32
-  for diag: U32
-  for up: U32
-  for a: Array<U32>
-  for b: Array<U32>
-  for prev: Array<U32>
-  for r: Array<U32> & U32
-  Dp
-
-def cell.f4(j, cost, diag, up, a, b, prev, r):
+def cell.f4(+j: U32, cost: U32, diag: U32, up: U32, a: Array<U32>,
+            b: Array<U32>, prev: Array<U32>, r: Array<U32> & U32) -> Dp:
   (cur, left) = r
   v = umin(umin(U32.inc(up), U32.inc(left)), U32.add(diag, cost))
   Dp{a, b, prev, cur[U32.inc(j)] <- v}
 
-law cell.f3:
-  for +j: U32
-  for cost: U32
-  for diag: U32
-  for a: Array<U32>
-  for b: Array<U32>
-  for cur: Array<U32>
-  for r: Array<U32> & U32
-  Dp
-
-def cell.f3(j, cost, diag, a, b, cur, r):
+def cell.f3(+j: U32, cost: U32, diag: U32, a: Array<U32>, b: Array<U32>,
+            cur: Array<U32>, r: Array<U32> & U32) -> Dp:
   (prev, up) = r
   cell.f4(j, cost, diag, up, a, b, prev, Array.get(U32, cur, j))
 
-law cell.f2:
-  for +j: U32
-  for cost: U32
-  for a: Array<U32>
-  for b: Array<U32>
-  for cur: Array<U32>
-  for r: Array<U32> & U32
-  Dp
-
-def cell.f2(j, cost, a, b, cur, r):
+def cell.f2(+j: U32, cost: U32, a: Array<U32>, b: Array<U32>, cur: Array<U32>,
+            r: Array<U32> & U32) -> Dp:
   (prev, diag) = r
   cell.f3(j, cost, diag, a, b, cur, Array.get(U32, prev, U32.inc(j)))
 
-law cell.f1:
-  for +j: U32
-  for ai: U32
-  for a: Array<U32>
-  for prev: Array<U32>
-  for cur: Array<U32>
-  for r: Array<U32> & U32
-  Dp
-
-def cell.f1(j, ai, a, prev, cur, r):
+def cell.f1(+j: U32, ai: U32, a: Array<U32>, prev: Array<U32>, cur: Array<U32>,
+            r: Array<U32> & U32) -> Dp:
   (b, bj) = r
   cell.f2(j, b2u(U32.is_ne(ai, bj)), a, b, cur, Array.get(U32, prev, j))
 
-law cell:
-  for +j: U32
-  for ai: U32
-  for st: Dp
-  Dp
-
-def cell(j, ai, st):
+def cell(+j: U32, ai: U32, st: Dp) -> Dp:
   Dp{a, b, prev, cur} = st
   cell.f1(j, ai, a, prev, cur, Array.get(U32, b, j))
 
 # one DP row: N cells in ascending column order; when the row ends
 # the rows swap roles
-law row:
-  for +n: Nat
-  for +j: U32
-  for +ai: U32
-  for st: Dp
-  Dp
-
-def row(n, j, ai, st):
+def row(+n: Nat, +j: U32, +ai: U32, st: Dp) -> Dp:
   match n:
     case 0n:
       Dp{a, b, prev, cur} = st
@@ -190,35 +110,17 @@ def row(n, j, ai, st):
 
 # row i's prologue: read a[i] (its pair rides into dp.f1), write
 # cur[0] = i + 1, then run the row
-law dp.f1:
-  for +i: U32
-  for b: Array<U32>
-  for prev: Array<U32>
-  for cur: Array<U32>
-  for r: Array<U32> & U32
-  Dp
-
-def dp.f1(i, b, prev, cur, r):
+def dp.f1(+i: U32, b: Array<U32>, prev: Array<U32>, cur: Array<U32>,
+          r: Array<U32> & U32) -> Dp:
   (a, ai) = r
   row(256n, 0, ai, Dp{a, b, prev, cur[0] <- U32.inc(i)})
 
-law dp.row:
-  for +i: U32
-  for st: Dp
-  Dp
-
-def dp.row(i, st):
+def dp.row(+i: U32, st: Dp) -> Dp:
   Dp{a, b, prev, cur} = st
   dp.f1(i, b, prev, cur, Array.get(U32, a, i))
 
 # the DP: N rows
-law dp:
-  for +n: Nat
-  for +i: U32
-  for st: Dp
-  Dp
-
-def dp(n, i, st):
+def dp(+n: Nat, +i: U32, st: Dp) -> Dp:
   match n:
     case 0n:
       st
@@ -227,29 +129,17 @@ def dp(n, i, st):
 
 # the distance: prev[N] after the last row; the rest of the state
 # drops
-law dist.fin:
-  for r: Array<U32> & U32
-  U32
-
-def dist.fin(r):
+def dist.fin(r: Array<U32> & U32) -> U32:
   (prev, d) = r
   d
 
-law dist:
-  for st: Dp
-  U32
-
-def dist(st):
+def dist(st: Dp) -> U32:
   Dp{a, b, prev, cur} = st
   dist.fin(Array.get(U32, prev, 256))
 
 # one pair: seed from the hashed pair index, draw a and b, run the DP,
 # mix the distance with the index
-law pair:
-  for +p: U32
-  U32
-
-def pair(p):
+def pair(+p: U32) -> U32:
   +s = U32.mul(U32.inc(p), 2654435761)
   a = gen(256n, 0, s, [0 : U32*256n])
   b = gen(256n, 0, U32.mul(s, 340573321), [0 : U32*256n])
@@ -258,12 +148,7 @@ def pair(p):
   U32.xor(U32.mul(d, 2654435761), U32.inc(p))
 
 # batch tree over the pair index space
-law batch:
-  for +d: Nat
-  for +p: U32
-  U32
-
-def batch(d, p):
+def batch(+d: Nat, +p: U32) -> U32:
   match d:
     case 0n:
       pair(p)
@@ -271,22 +156,13 @@ def batch(d, p):
       x y = batch(q, p) batch(q, U32.add(p, U32.shln(1, q)))
       U32.add(x, y)
 
-law size.small:
-  Nat
-
-def size.small():
+def size.small() -> Nat:
   2n
 
-law size.big:
-  Nat
-
-def size.big():
+def size.big() -> Nat:
   15n
 
 # small: batch!(size.small(), 0) expect 2065873279; big
 # batch!(size.big(), 0) expect 2229810577
-law main:
-  IO(Unit)
-
-def main():
+def main() -> IO(Unit):
   IO.print(U32.show(batch!(size.big(), 0)))
