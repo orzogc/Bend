@@ -5,7 +5,8 @@
 // pin. A runtime cell runs `bend main.bend -o main` twice and times the
 // second for the COMPILER column (the first build on a node after a
 // pause pays the cold compiler service and module cache: 0.95 s against
-// 0.62 for bfs), then builds the main.c it wrote with the cc line (the
+// 0.62 for bfs), then asks for the C alone (`-o main.c`: a plain `-o`
+// emits into a temp dir and drops it) and builds that with the cc line (the
 // -O3 of bend -o: no -lm, no -fmodules, no -fno-slp-vectorize, so the
 // gate grades the binary bend builds) and runs it with the flags the
 // pins were measured with (PAR on the power of two under the core
@@ -234,7 +235,8 @@ function cell_script(c: Cell): string {
     + ` mkdir -p $d; cd $d; tar -xzf -; ${THREADS} ${lib.BUN} bend2/main.ts`
     + ` main.bend -o main > /dev/null 2>&1; t0=$(${CLOCK}); ${lib.BUN}`
     + ` bend2/main.ts main.bend -o main > build.txt 2>&1; b=$?;`
-    + ` t1=$(${CLOCK}); [ $b = 0 ] && { ${BUILD[c.mode]} -o cell >> build.txt`
+    + ` t1=$(${CLOCK}); [ $b = 0 ] && { ${lib.BUN} bend2/main.ts main.bend`
+    + ` -o main.c >> build.txt 2>&1 && ${BUILD[c.mode]} -o cell >> build.txt`
     + ` 2>&1; b=$?; }; echo "${MARK} built $b $t0 $t1"; cat build.txt;`
     + ` if [ $b = 0 ]; then ${run} > /dev/null 2>&1; t2=$(${CLOCK});`
     + ` /usr/bin/time -l ${run} > out.txt 2> time.txt; r=$?; t3=$(${CLOCK});`
