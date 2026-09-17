@@ -58,10 +58,10 @@ consider a game with one law: *winning is impossible*. Here's how it plays out:
 <p align="center"><b>With LAWS.bend:</b><br><img src="media/game_law_kept.gif" width="480" alt="A wall on the far edge stops the player"><br><i>Laws intact. AI mistake: <b>blocked</b>!</i></p>
 
 Without `LAWS.bend`, a bug was merged. With it, the AI had to retry, until no
-bugs were left! In this case, it added a wall, but it might have made wrap-around
-skip the room, or made the room kill you. Doesn't matter. The only thing it can't
-do is merge code that violates `LAWS.bend`. Laws in `LAWS.bend` are unbreakable.
-Bend *guarantees* it. Mathematically.
+bugs were left! In this case, it added a wall, but it could have moved the flag,
+made the room kill you, or whatever. The only thing it can't do is merge code
+that violates `LAWS.bend`, because laws in it are unbreakable: Bend *guarantees*
+it. Mathematically.
 
 Using `LAWS.bend` is simple.
 
