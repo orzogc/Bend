@@ -17,8 +17,8 @@ That's Bend - and nothing else.
 <p align="center"><img src="media/runtime.gif" width="640" alt="Runtime benchmarks: Bend vs C, TypeScript, Lean, on 1 core, 16 cores and the GPU"></p>
 
 Thanks to strong types, linearity and purity, Bend compiles to fast executables
-that compete with hand-written C (single-core) and CUDA (on GPUs). The entire
-language runs on the GPU, with full memory unification.
+that compete with hand-written C (single-core), and much faster than that on
+multi-core. The entire language runs on the GPU, with full memory unification.
 
 ## Bend checks FAST
 
