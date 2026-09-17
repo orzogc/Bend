@@ -69,7 +69,7 @@ Using `LAWS.bend` is simple.
 
     - LAW: *"list_sort() must always return ascending numbers"*
 
-    - LAW: *"array_set() may never be called out-of-bounds"
+    - LAW: *"array_set() may never be called out-of-bounds"*
 
     - LAW: *"winning is impossible"* (the demo above!)
 
