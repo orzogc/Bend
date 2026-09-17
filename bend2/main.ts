@@ -210,10 +210,10 @@ function cli_emit(book: Bend.Book, out: string): void {
   }
 }
 
-// cc_find is $CC when set, else the first of clang and every clang-NN on
-// PATH (newest first), that is new enough: clang 14 for a CPU build, and
-// for a GPU build clang 19 (Apple clang 17, which ships LLVM 19), whose
-// #embed carries the device program.
+// cc_find is the first of $CC, clang and every clang-NN on PATH (newest
+// first) that is new enough: clang 14 for a CPU build, and for a GPU build
+// clang 19 (Apple clang 17, which ships LLVM 19), whose #embed
+// carries the device program.
 function cc_find(gpu: boolean): string {
   function dir_list(dir: string): string[] {
     try {
@@ -226,7 +226,7 @@ function cc_find(gpu: boolean): string {
   const nums = [...new Set(dirs.flatMap(dir_list).filter((f) =>
     /^clang-\d+$/.test(f)))].sort((a, b) => Number(b.slice(6)) - Number(a.slice(6)));
   const olds: string[] = [];
-  const ccs  = process.env.CC === undefined ? ["clang", ...nums] : [process.env.CC];
+  const ccs  = [...(process.env.CC ? [process.env.CC] : []), "clang", ...nums];
   for (const cc of ccs) {
     const out = child.spawnSync(cc, ["--version"], { encoding: "utf8" }).stdout ?? "";
     const m   = /^(Apple )?(?:\w+ )?clang version (\d+)/m.exec(out);
@@ -234,7 +234,8 @@ function cc_find(gpu: boolean): string {
     if (m !== null && Number(m[2]) >= need) {
       return cc;
     }
-    olds.push(m === null ? "no " + cc : "clang " + m[2] + " as " + cc);
+    olds.push(m !== null ? "clang " + m[2] + " as " + cc
+      : out ? cc + ", which is not clang" : "no " + cc);
   }
   throw "Error: bend needs clang " + (gpu ? "19 (Apple clang 17)" : "14")
     + " or newer to build " + (gpu ? "a GPU program" : "binaries") + " (found "
