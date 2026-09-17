@@ -59,9 +59,9 @@ consider a game with one law: *winning is impossible*. Here's how it plays out:
 
 Without `LAWS.bend`, a bug was merged. With it, the AI had to retry, until no
 bugs were left! In this case, it added a wall, but it could have moved the flag,
-made the room kill you, or whatever. The only thing it can't do is merge code
-that violates `LAWS.bend`, because laws in it are unbreakable: Bend *guarantees*
-it. **Mathematically.**
+made the room kill you, or whatever. The only thing it can't do is merge buggy
+code, because it is **mathematically impossible** to break a law in `LAWS.bend`.
+Bend *guarantees* it.
 
 Using `LAWS.bend` is simple.
 
