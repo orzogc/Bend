@@ -124,7 +124,7 @@ value, pass it to a helper that matches on its parameter.
 
 ### Parallelism
 
-Bend's only parallelism primitive is the parallel call notation:
+Bend's parallelism primitive is the parallel call notation:
 
 ```python
 import Base
@@ -183,7 +183,7 @@ write followed by another statement re-binds its array: `a[5] <- 42` on its own
 line is `a = a[5] <- 42`. As the last statement it is the written array. The
 slot count after `*` is a power of two; `[0 : U32^3n]` names the depth instead.
 
-For now, the `a[i]` sugar assumes `Array<U32>`. For other element types, call
+The `a[i]` sugar assumes `Array<U32>`. For other element types, call
 `Array.get` (`Data` elements; else `Array.swap`) and `Array.set` directly, and
 `Array.clone` when you need two copies. Read Bend's Base for reference. This
 will be generalized soon!
