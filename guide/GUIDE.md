@@ -158,7 +158,7 @@ while `pow2!(20n)` runs on the GPU. The heap is fully unified, so, if your chip
 has unified memory (as in Apple M-series processors), moving data from the CPU
 to the GPU is a zero-cost operation. The GPU shines on uniform numeric work like
 mandelbrot or nbody; divergent work like n-queens stays faster on the CPU. A
-machine without a GPU runs `!` on the CPU.
+machine without a GPU runs `!` on the CPU (still in parallel).
 
 The JavaScript target ignores all that and just runs sequentially.
 
