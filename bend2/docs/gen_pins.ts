@@ -1,22 +1,21 @@
 #!/usr/bin/env bun
-// The record pins, measured on this machine: bench/runtime/_pin_/<hw>.txt
-// and bench/checker/_pin_/<hw>.txt (hw from the CPU's brand string, so
-// apple_m4_max on the MacBook), raw seconds that gen_charts.ts draws and
-// the landing page and the film quote. The gate pins on the minis are
-// gates/perf.ts --pin; this script writes nothing it did not measure in
-// the same run, and every Bend run must print the output the gate pins
-// hold. Every timed cell runs alone on a quiet machine; only the builds
-// run pooled, one per performance core. A runtime row: the Bend binary
-// built as the gate builds it (the cc lines of gates/perf.ts) in each of
-// its three modes, one warm run then the timed one under /usr/bin/time
-// -l (a fresh binary's first GPU run compiles its shader); then the
-// twins, warm then timed: main.c under the same cc line (an f32 sum is
+// The record pins, measured on this machine: bench/runtime/_pin_/<hw>.txt and
+// bench/checker/_pin_/<hw>.txt (hw from the CPU's brand string, so apple_m4_max
+// on the MacBook), raw seconds that gen_charts.ts draws and the landing page
+// and the film quote. The gate pins on the minis are gates/perf.ts --pin; this
+// script writes nothing it did not measure in the same run, and every Bend run
+// must print the output the gate pins hold. Every timed cell runs alone on a
+// quiet machine; only the builds run pooled, one per performance core. A
+// runtime row: the Bend binary built as the gate builds it (the cc lines of
+// gates/perf.ts) in each of its three modes, one warm run then the timed one
+// under /usr/bin/time -l (a fresh binary's first GPU run compiles its shader);
+// then the twins, warm then timed: main.c under the same cc line (an f32 sum is
 // not checked: -O3 fuses a*b+c), main.ts under bun and node (the faster),
 // main.lean under lean -c and leanc -O3. A checker row: one cold check under
-// Isabelle, Agda, Lean, Rocq and Bend, 300 s each, a timeout written as
-// >300s. Run it whole or one file at a time; --keep <lang> carries a
-// checker column forward from the file as it is, unmeasured (a prover
-// this machine cannot run today), and the stamp says so:
+// Isabelle, Agda, Lean, Rocq and Bend, 300 s each, a timeout written as >300s.
+// Run it whole or one file at a time; --keep <lang> carries a checker column
+// forward from the file as it is, unmeasured (a prover this machine cannot run
+// today), and the stamp says so:
 //
 //   bun bend2/docs/gen_pins.ts [runtime] [checker] [--keep <lang>]
 

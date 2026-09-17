@@ -1,10 +1,8 @@
-# bend3's family wall, both halves carried: an either of Data
-# components contracted freely while a closure-holding either refused
-# multi-use. bend is affine for every type, so the free half becomes
-# twice's explicit +e binder over the reusable Either<&2, &2, ..> -- and the wall
-# half lands
-# on the SAME def: leak's bare e spends twice and refuses at leak,
-# closure or not.
+# bend3's family wall, both halves carried: an either of Data components
+# contracted freely while a closure-holding either refused multi-use. bend is
+# affine for every type, so the free half becomes twice's explicit +e binder
+# over the reusable Either<&2, &2, ..> -- and the wall half lands on the SAME
+# def: leak's bare e spends twice and refuses at leak, closure or not.
 # ported from bend3: U32 | U32 -> Either<&2, &2, U32, U32> (base Inl/Inr; no |
 # type sugar); leak's let-then-match routes through leak.go
 import Base

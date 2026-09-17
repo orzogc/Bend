@@ -1,15 +1,14 @@
-# rfc (rfc_cold_in_hot): a cold record inside a hot constructor. keep
-# shares a List<U32>, so Con is hot: every Con build seals its head
-# and every Con match takes its fields through ctr_take. pairs builds
-# a List<Duo> that nobody shares, so Duo alone would stay cold and open
-# raw, yet its node arrives behind the count-1 cell the hot Con put in
-# front of it. The site-type fixpoint of facts_build heats the type
-# arguments of every instantiation of a hot type (Duo, through the
-# List<Duo> binder of total), so Duo opens through ctr_take too. With
-# that fixpoint gone (it once went with the closure flag), the raw
-# open read the cell as the node and both C lanes died "bend: error
-# 8" on the garbage Nat; the hvm5_interp demo's List<Ent> lost @main the same
-# way. Expect 12n + 4n on every lane.
+# rfc (rfc_cold_in_hot): a cold record inside a hot constructor. keep shares a
+# List<U32>, so Con is hot: every Con build seals its head and every Con match
+# takes its fields through ctr_take. pairs builds a List<Duo> that nobody
+# shares, so Duo alone would stay cold and open raw, yet its node arrives behind
+# the count-1 cell the hot Con put in front of it. The site-type fixpoint of
+# facts_build heats the type arguments of every instantiation of a hot type
+# (Duo, through the List<Duo> binder of total), so Duo opens through ctr_take
+# too. With that fixpoint gone (it once went with the closure flag), the raw
+# open read the cell as the node and both C lanes died "bend: error 8" on the
+# garbage Nat; the hvm5_interp demo's List<Ent> lost @main the same way. Expect
+# 12n + 4n on every lane.
 import Base
 
 type Duo is Data:

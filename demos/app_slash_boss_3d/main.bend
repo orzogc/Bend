@@ -388,13 +388,13 @@ def Garb.build(+g: Garb, +view: View) -> R.Cells:
 # Sim
 # ---
 
-# The hero: place, speed, facing (0 is +x, pi is -x), damage, guard,
-# the jump bits (two count jumps, 8 the air dodge spent, 16 the
-# recovery), the action and its age, the invulnerable ticks, the
-# lives, the grace, the jump buffer, the charge. Actions: 0 idle, 1 neutral, 2 neutral
-# special, 3 guard, 4 hurt, 5 landing, 6 air dodge, 7 crouch, 10-12
-# side/up/down, 13-17 air neutral/forward/back/up/down, 20-22 side/up/
-# down special, 23-26 their air kinds, 30-32 smashes charging.
+# The hero: place, speed, facing (0 is +x, pi is -x), damage, guard, the jump
+# bits (two count jumps, 8 the air dodge spent, 16 the recovery), the action and
+# its age, the invulnerable ticks, the lives, the grace, the jump buffer, the
+# charge. Actions: 0 idle, 1 neutral, 2 neutral special, 3 guard, 4 hurt, 5
+# landing, 6 air dodge, 7 crouch, 10-12 side/up/down, 13-17 air
+# neutral/forward/back/up/down, 20-22 side/up/down special, 23-26 their air
+# kinds, 30-32 smashes charging.
 type Fighter is Data:
   Fighter{p: R.Vec, v: R.Vec, face: F32, damage: F32, guard: F32, jumps: U32, action: U32,
     age: U32, inv: U32, stocks: U32, grace: U32, queued: U32, charge: U32}

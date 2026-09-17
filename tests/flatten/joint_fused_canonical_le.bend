@@ -1,9 +1,9 @@
 # THE JOINT-MATCH FUSION GUARD (Taelin order): a joint in-order match over
-# params fuses into ONE point-free tree -- no applied spine, no aux mint.
-# This pin is the canonical main tree, byte-exact. It must NEVER be
-# regenerated to an applied (a => b => ...(a)) or minted (main~N) shape: that
-# regression class felled bend-base whole (List.take's halt, the Bit.xor
-# lemmas) and must be an instant, legible red here instead.
+# params fuses into ONE point-free tree -- no applied spine, no aux mint. This
+# pin is the canonical main tree, byte-exact. It must NEVER be regenerated to an
+# applied (a => b => ...(a)) or minted (main~N) shape: that regression class
+# felled bend-base whole (List.take's halt, the Bit.xor lemmas) and must be an
+# instant, legible red here instead.
 type Bool is Data:
   T{}
   F{}

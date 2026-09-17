@@ -243,11 +243,11 @@ function cc_find(gpu: boolean): string {
     + " --install";
 }
 
-// cli_build builds the C file at `file` into the binary `bin`. A `!`
-// program builds with the GPU lane and writes its GPU program too (on Linux
-// only with CUDA at /usr/local/cuda; else the ! runs on the cores). On macOS
-// a program with a framework (#import: a window, audio) builds as
-// Objective-C; on Linux it links the X11 and ALSA libraries it includes.
+// cli_build builds the C file at `file` into the binary `bin`. A `!` program
+// builds with the GPU lane and writes its GPU program too (on Linux only with
+// CUDA at /usr/local/cuda; else the ! runs on the cores). On macOS a program
+// with a framework (#import: a window, audio) builds as Objective-C; on Linux
+// it links the X11 and ALSA libraries it includes.
 function cli_build(bin: string, file: string): void {
   const c     = fs.readFileSync(file, "utf8");
   const mac   = process.platform === "darwin";

@@ -1,17 +1,15 @@
 import Base
-# Game of Life: Conway soup census (Catagolue-style soup search),
-# ported 1-to-1 from Bend3's par_gameoflife. 64*2^size random 4x4-toroidal soups, each
-# packed in one U32, fork as a balanced batch tree of 2^size 64-soup
-# leaf chunks. Every soup runs gens generations of the bit-packed
-# Conway step, then is classified by two probe steps -- still life
-# (fixed point), period-2 oscillator, or chaos -- and popcounted by a
-# 16-bit SWAR fold. A chunk accumulates population, the two class
-# tallies and a board hash in scalar registers, materializing one
-# Census per chunk; czip merges censuses up the fork tree and the
-# checksum mixes the final census. Counters ride as Nats (no U32 match
-# in Bend4); classify.p1 is a continuation def (a Bend4 match cannot
-# follow a +local). This replaces the older Array-grid port, whose
-# Bend3 counterpart no longer exists.
+# Game of Life: Conway soup census (Catagolue-style soup search), ported 1-to-1
+# from Bend3's par_gameoflife. 64*2^size random 4x4-toroidal soups, each packed
+# in one U32, fork as a balanced batch tree of 2^size 64-soup leaf chunks. Every
+# soup runs gens generations of the bit-packed Conway step, then is classified
+# by two probe steps -- still life (fixed point), period-2 oscillator, or chaos
+# -- and popcounted by a 16-bit SWAR fold. A chunk accumulates population, the
+# two class tallies and a board hash in scalar registers, materializing one
+# Census per chunk; czip merges censuses up the fork tree and the checksum mixes
+# the final census. Counters ride as Nats (no U32 match in Bend4); classify.p1
+# is a continuation def (a Bend4 match cannot follow a +local). This replaces
+# the older Array-grid port, whose Bend3 counterpart no longer exists.
 #
 # Sizes (size, gens): small (1, 2) expect 2601177279 (verified against
 # a Bend3 C run on the cluster), big (18, 32) expect 2016151040 (from

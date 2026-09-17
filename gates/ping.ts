@@ -1,35 +1,36 @@
 #!/usr/bin/env bun
 // The launcher, the installer, a release and the ping, on this machine: a
 // hub.ts on a random localhost port with its log and DL_DIR in a temp dir,
-// behind a Bun.serve that plays Caddy (/dl/* from DL_DIR, /ping to the
-// hub, /install.sh from the site repo, lib.SITE), a release.ts --dry into that DL_DIR, an install.sh against it (Bun
-// is here, so it installs nothing), then bend --help through the launcher.
-// Checks: the help and the guide print, current points at app/<ver>, the log has the
-// run's cmd, the installer discloses the telemetry once and puts bin on the
-// PATH of the shell's rc, an old bend on PATH is left alone and named, a
-// run with a file logs cmd "run", a second release with a notice prints it
-// and switches current (on the run after the ping that learned of it: a
-// run reads the previous reply and pings in the background, so the gate
-// waits for the reply file after each run), BEND_NO_TELEMETRY=1 sends
-// nothing and installs nothing. Then the launcher under attack:
-// ten runs at once during an update all pass and leave one whole release; a
-// ver of ../../victim deletes nothing and installs nothing; an HTML answer,
-// a wrong sha256, a tarball without bend2/main.ts, a dead origin and a
-// notice with newlines and escapes leave the installed release running (a
-// failed ver is remembered in `bad` and not fetched again); a
-// BEND_HOME with a space and a quote installs; a read-only BEND_HOME runs; a
-// current left dangling is installed again; a first run with nothing
-// installed and no origin says so in one line; a reply whose sha256 is not
-// 64 hex digits installs nothing; a BEND_HOME with a backslash activates
-// the release (Bun itself cannot run from such a path); a
-// bunfig.toml preload in the cwd cannot hang the update; a real directory
-// at current is moved aside; a staging directory that cannot be made (app/<ver>
-// is a file) touches nothing (a .tgz in the cwd survives); a hub that is down still updates through /dl/latest.json;
-// a 2 KiB ping is refused and an unwritable log still answers; a reinstall
-// over a symlinked bin/bend leaves its target alone. Last, the npm shim
-// (the site repo's front/npm), packed and installed under a prefix, installs and runs bend
-// once and only runs it the second time (SKIP without npm). The whole
-// gate is SKIP when the site repo is not at lib.SITE.
+// behind a Bun.serve that plays Caddy (/dl/* from DL_DIR, /ping to the hub,
+// /install.sh from the site repo, lib.SITE), a release.ts --dry into that
+// DL_DIR, an install.sh against it (Bun is here, so it installs nothing), then
+// bend --help through the launcher. Checks: the help and the guide print,
+// current points at app/<ver>, the log has the run's cmd, the installer
+// discloses the telemetry once and puts bin on the PATH of the shell's rc, an
+// old bend on PATH is left alone and named, a run with a file logs cmd "run", a
+// second release with a notice prints it and switches current (on the run after
+// the ping that learned of it: a run reads the previous reply and pings in the
+// background, so the gate waits for the reply file after each run),
+// BEND_NO_TELEMETRY=1 sends nothing and installs nothing. Then the launcher
+// under attack:
+// ten runs at once during an update all pass and leave one whole release; a ver
+// of ../../victim deletes nothing and installs nothing; an HTML answer, a wrong
+// sha256, a tarball without bend2/main.ts, a dead origin and a notice with
+// newlines and escapes leave the installed release running (a failed ver is
+// remembered in `bad` and not fetched again); a BEND_HOME with a space and a
+// quote installs; a read-only BEND_HOME runs; a current left dangling is
+// installed again; a first run with nothing installed and no origin says so in
+// one line; a reply whose sha256 is not 64 hex digits installs nothing; a
+// BEND_HOME with a backslash activates the release (Bun itself cannot run from
+// such a path); a bunfig.toml preload in the cwd cannot hang the update; a real
+// directory at current is moved aside; a staging directory that cannot be made
+// (app/<ver> is a file) touches nothing (a .tgz in the cwd survives); a hub
+// that is down still updates through /dl/latest.json; a 2 KiB ping is refused
+// and an unwritable log still answers; a reinstall over a symlinked bin/bend
+// leaves its target alone. Last, the npm shim (the site repo's front/npm),
+// packed and installed under a prefix, installs and runs bend once and only
+// runs it the second time (SKIP without npm). The whole gate is SKIP when the
+// site repo is not at lib.SITE.
 
 import * as child from "node:child_process";
 import * as crypto from "node:crypto";

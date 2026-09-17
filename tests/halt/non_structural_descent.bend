@@ -1,6 +1,6 @@
-# ndiv(n, 2n) is not a structural subterm of n: the loop terminates
-# at runtime, but the descent judgment refuses it (bend has no opt-out, so the
-# runnable half of the bend3 test has no place in this file).
+# ndiv(n, 2n) is not a structural subterm of n: the loop terminates at runtime,
+# but the descent judgment refuses it (bend has no opt-out, so the runnable half
+# of the bend3 test has no place in this file).
 # ported from bend3: U32 halving becomes ndiv
 import Base
 

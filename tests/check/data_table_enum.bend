@@ -1,6 +1,7 @@
-# bend3's nullary-ctor enum had table [] -- always Data -- so a Token
-# shared and owned freely. bend is affine for enums too: the free
-# sharing becomes the explicit + binder (the enum is Data), and the same three flips answer the same 2.
+# bend3's nullary-ctor enum had table [] -- always Data -- so a Token shared and
+# owned freely. bend is affine for enums too: the free sharing becomes the
+# explicit + binder (the enum is Data), and the same three flips answer the same
+# 2.
 # ported from bend3: t = (Token.Yes{} : Token) becomes a +let with the
 # brace Ann; ctor names are bare
 import Base

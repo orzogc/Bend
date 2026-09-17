@@ -1,23 +1,21 @@
 import Base
-# queens: parallel exhaustive N-queens backtracking search, ported
-# 1-to-1 from Bend3's par_queens. Rows 0-3 are placed up front: batch forks the flat
-# (c0,c1,c2,c3) prefix index space 0..2^d as a balanced tree; each leaf
-# permutes its index by an odd multiplier, decodes its column quad
-# (base-N digits), keeps it when legal under the solver's own bitmask
-# rules, and runs the classic recursive bitmask backtracker over the
-# remaining N-4 rows: peel the lowest candidate bit b = cand & (0 -
-# cand), descend on the child row's candidate word full & ~(nc|nl|nr),
-# then continue on the sibling set cand - b; the acc Stats{sols,
-# nodes} counts one node per peel. smerge adds Stats pairwise up the
-# fork tree. Bend3 hard-codes the prefix mask 131071 (d = 17); here
-# the mask is 2^d - 1, threaded through batch, so small sizes shrink
-# the prefix space the same way. a match scrutinizes only a parameter,
-# so every decision bool is computed by the CALLER and passed as an
-# argument: solve receives z = is_zero(cand) and e = is_eq(nc, full)
-# with the peeled words, and each self-call site precomputes the next
-# level's words; the prefix decode runs through the staged defs
-# pfx.s1/s2/s3, each matching the bool its caller computed. the
-# child's Stats result rides into the sibling call as the acc
+# queens: parallel exhaustive N-queens backtracking search, ported 1-to-1 from
+# Bend3's par_queens. Rows 0-3 are placed up front: batch forks the flat
+# (c0,c1,c2,c3) prefix index space 0..2^d as a balanced tree; each leaf permutes
+# its index by an odd multiplier, decodes its column quad (base-N digits), keeps
+# it when legal under the solver's own bitmask rules, and runs the classic
+# recursive bitmask backtracker over the remaining N-4 rows: peel the lowest
+# candidate bit b = cand & (0 - cand), descend on the child row's candidate word
+# full & ~(nc|nl|nr), then continue on the sibling set cand - b; the acc
+# Stats{sols, nodes} counts one node per peel. smerge adds Stats pairwise up the
+# fork tree. Bend3 hard-codes the prefix mask 131071 (d = 17); here the mask is
+# 2^d - 1, threaded through batch, so small sizes shrink the prefix space the
+# same way. a match scrutinizes only a parameter, so every decision bool is
+# computed by the CALLER and passed as an argument: solve receives z =
+# is_zero(cand) and e = is_eq(nc, full) with the peeled words, and each
+# self-call site precomputes the next level's words; the prefix decode runs
+# through the staged defs pfx.s1/s2/s3, each matching the bool its caller
+# computed. the child's Stats result rides into the sibling call as the acc
 # argument, so no call result is ever destructured in place.
 # Checksum = (sols * 2654435761) ^ nodes.
 # solve is ONE def and its recursion is structural: the shrinking

@@ -1,17 +1,15 @@
 #!/usr/bin/env node
-// The README's two charts, media/runtime.gif and media/checker.gif: the
-// landing page's bar chart, one bench per page, paging forever. Same
-// look and rhythm as the site's front/site/index.html chart(): the title above,
-// the seconds (and the speedup over one core) above each bar, the names
-// below, Bend in purple, the others in gray, a checker timeout hatched
-// at full height with ">5 min" above, a row of dots for the position.
-// A page turn glides every bar to its new height (0.6 s, ease-out) and
-// crossfades its number; then the page holds 2.9 s as ONE gif frame, so
-// each bench is 3.5 s and the files stay small. Drawn at 2x (1280 px
-// wide) on a TRANSPARENT canvas, in colors that read on the light and
-// the dark GitHub, which embeds them at 640. This script measures
-// NOTHING: every bar is a pin read by gen_charts.ts, the titles are
-// the site's.
+// The README's two charts, media/runtime.gif and media/checker.gif: the landing
+// page's bar chart, one bench per page, paging forever. Same look and rhythm as
+// the site's front/site/index.html chart(): the title above, the seconds (and
+// the speedup over one core) above each bar, the names below, Bend in purple,
+// the others in gray, a checker timeout hatched at full height with ">5 min"
+// above, a row of dots for the position. A page turn glides every bar to its
+// new height (0.6 s, ease-out) and crossfades its number; then the page holds
+// 2.9 s as ONE gif frame, so each bench is 3.5 s and the files stay small.
+// Drawn at 2x (1280 px wide) on a TRANSPARENT canvas, in colors that read on
+// the light and the dark GitHub, which embeds them at 640. This script measures
+// NOTHING: every bar is a pin read by gen_charts.ts, the titles are the site's.
 //
 // It needs node >= 22.18, the canvas package, ffmpeg and Menlo, which
 // this Mac lacks: render on cluster-9d, where ~/film has all four.

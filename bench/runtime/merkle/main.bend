@@ -1,16 +1,15 @@
 import Base
-# Merkle: Merkle tree over an encrypted counter stream, with a proof
-# phase, ported 1-to-1 from Bend3's par_merkle. 2^d leaves; each leaf Speck32/64-encrypts
-# its BLOCKS (30) counter blocks (22 ARX rounds per block, the standard
-# test-vector key expanded offline into the rk table) and chains the
-# ciphertexts into a leaf hash; build materializes the actual Merkle
-# tree (every Mn node stores mrk of its children), audit re-folds the
-# tree checking every stored hash (a mismatch perturbs the result), and
-# pgen extracts the Merkle proof for leaf PROBE by recomputing each
-# sibling subtree hash with the pure scalar htree prover -- pverify
-# then folds the Path back up from the probed leaf hash. The checksum
-# is mrk(audit root, recomputed root). Round and block counters are
-# Nats (no U32 match in Bend4); rk indexes by Nat literals.
+# Merkle: Merkle tree over an encrypted counter stream, with a proof phase,
+# ported 1-to-1 from Bend3's par_merkle. 2^d leaves; each leaf
+# Speck32/64-encrypts its BLOCKS (30) counter blocks (22 ARX rounds per block,
+# the standard test-vector key expanded offline into the rk table) and chains
+# the ciphertexts into a leaf hash; build materializes the actual Merkle tree
+# (every Mn node stores mrk of its children), audit re-folds the tree checking
+# every stored hash (a mismatch perturbs the result), and pgen extracts the
+# Merkle proof for leaf PROBE by recomputing each sibling subtree hash with the
+# pure scalar htree prover -- pverify then folds the Path back up from the
+# probed leaf hash. The checksum is mrk(audit root, recomputed root). Round and
+# block counters are Nats (no U32 match in Bend4); rk indexes by Nat literals.
 #
 # Sizes (d, probe), blocks fixed at 30: small (4, 13) expect 524568222
 # (verified against a Bend3 C run on the cluster), big (22, 1337)

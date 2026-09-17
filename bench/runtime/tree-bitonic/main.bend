@@ -1,15 +1,14 @@
 import Base
 # Bitonic: tree bitonic sort-and-verify, ported 1-to-1 from Bend3's
-# par_tree_bitonic_sort.bend. key hashes each leaf index into a pseudo-random u32 (xorshift
-# of a Knuth-mixed index), bsort builds the 2^D-leaf tree and
-# bitonically sorts it in one fused pass, scan folds the sorted tree
-# into a Stat record -- min, max, a sortedness flag (every join checks
-# left.hi <= right.lo) and an order-sensitive mix -- and stat_out mixes
-# the four fields into the checksum. Direction rides as a Bool (Bend3
-# used a 0/1 u32). Bend3's flow/down mode column is folded by depth:
-# flow(d, s, t) merges a tree of depth 1+d, warping the root and
-# recursing on the halves with d-1. Depth is a Nat (no U32 match in
-# Bend4).
+# par_tree_bitonic_sort.bend. key hashes each leaf index into a pseudo-random
+# u32 (xorshift of a Knuth-mixed index), bsort builds the 2^D-leaf tree and
+# bitonically sorts it in one fused pass, scan folds the sorted tree into a Stat
+# record -- min, max, a sortedness flag (every join checks left.hi <= right.lo)
+# and an order-sensitive mix -- and stat_out mixes the four fields into the
+# checksum. Direction rides as a Bool (Bend3 used a 0/1 u32). Bend3's flow/down
+# mode column is folded by depth: flow(d, s, t) merges a tree of depth 1+d,
+# warping the root and recursing on the halves with d-1. Depth is a Nat (no U32
+# match in Bend4).
 #
 # Sizes: small depth = 8 (expect 971629740), big depth = 23 (expect
 # 3787129428); both verified against Bend3 C runs on the cluster.

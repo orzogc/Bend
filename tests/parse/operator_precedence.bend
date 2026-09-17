@@ -1,9 +1,9 @@
-# infix operators: bend3's ladder in bend's dialect, loosest to
-# tightest: || over && over < <= > over .|. over .^. over .&. over
-# << >> over + - over * /; value ops left-assoc, <> ++ right-assoc.
-# == != % are out: the Eql brace form owns ==/!= and % heads a rewrite
-# (value equality is U32.is_eq); float twins ride a trailing dot, pinned by the
-# float family. shift counts are Nat literals (U32.shln's own law).
+# infix operators: bend3's ladder in bend's dialect, loosest to tightest: ||
+# over && over < <= > over .|. over .^. over .&. over << >> over + - over * /;
+# value ops left-assoc, <> ++ right-assoc. == != % are out: the Eql brace form
+# owns ==/!= and % heads a rewrite (value equality is U32.is_eq); float twins
+# ride a trailing dot, pinned by the float family. shift counts are Nat literals
+# (U32.shln's own law).
 import Base
 
 law bu:

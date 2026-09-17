@@ -1,7 +1,7 @@
-# a match on a Nat whose arms are constants, or macro-only intrinsics
-# over constants, is one table: TAB_AT over a CONSTV array of literals in C (the
-# rows evaluated at compile time) and an indexed array in JS, with or
-# without a default arm; the emit-style lane pins the width.
+# a match on a Nat whose arms are constants, or macro-only intrinsics over
+# constants, is one table: TAB_AT over a CONSTV array of literals in C (the rows
+# evaluated at compile time) and an indexed array in JS, with or without a
+# default arm; the emit-style lane pins the width.
 import Base
 
 def flag(c: Nat) -> U32:
