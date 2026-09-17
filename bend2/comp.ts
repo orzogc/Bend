@@ -404,8 +404,7 @@ const SHIMS = "sqrt exp log log2 log10 sin cos tan pow fmod".split(" ")
 const NATIVE = {
   C: String.raw`
 #ifdef __METAL_VERSION__
-// Metal's atan2 answers NaN at the origin, where libm answers +-0 for
-// x >= +0 and +-pi for x <= -0, y's sign carried
+// Metal's atan2 is NaN at the origin; libm answers +-0 or +-pi there
 INLINE f32 atan2_c99(f32 y, f32 x) {
   return y == 0.0f && x == x
     ? copysign(signbit(x) ? M_PI_F : 0.0f, y) : atan2(y, x);
@@ -2774,15 +2773,16 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
     .map((s) => s.params.length));
   const rs = [...Array(n).keys()].map((i) => "r" + i);
   const ws = n > 6 ? [...rs.slice(0, 6), "rp", ...rs.slice(6)] : rs;
+  // a ladder: a fallthrough switch's phi cascade costs clang O(n^2) to build
   const load = rs.map((r, i) =>
-    `    case ${i + 1}: ${r} = e.mem[(A) + ${i}]; \\\n`).reverse().join("");
+    `    if ((N) <= ${i}) break; ${r} = e.mem[(A) + ${i}]; \\\n`).join("");
   const last = rs.map((r, i) =>
     `    case ${i}: ${r} = (X); \\\n      break; \\\n`).join("");
   defs.push(`#define IO_HOTS ${"SCon Tuple Done Fail Con Some".split(" ")
     .reduce((m, k, i) => m | (fl.hot.has(k) ? 1 << i : 0), 0)}`, "",
   `#define WL_RESW ${resw}`, `#define BANGS   ${fl.bangs.size}`, "",
   `#define WL_BANK Term ${ws.join(", ")};`, "",
-  `#define WL_LOAD(A, N) \\\n  switch (N) { \\\n${load}  }`, "",
+  `#define WL_LOAD(A, N) \\\n  do { \\\n${load}  } while (0);`, "",
   `#define WL_LAST(X) \\\n  switch (war) { \\\n${last}  }`, "",
   `#define WL_SAVE(V) ${rs.slice(0, resw).map((r, j) =>
     `(V)[${j}] = ${r};`).join(" ")}`, "",
@@ -3156,6 +3156,7 @@ using namespace metal;
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <sched.h>
 #include <stdatomic.h>
 #include <unistd.h>
 #include <signal.h>
@@ -3178,9 +3179,8 @@ using namespace metal;
 // =======
 
 #ifdef __METAL_VERSION__
-// coherent(device) (MSL 3.2, macOS 15): without it, plain device stores
-// by one threadgroup may stay invisible to others within a dispatch;
-// M4-class parts tolerate this, M1-class parts return wrong checksums
+// coherent(device) (MSL 3.2): M1-class parts else lose stores across
+// threadgroups within a dispatch
 #if __METAL_VERSION__ >= 320
 #define DEV     coherent(device) device
 #define DEVL    coherent(device) device
@@ -3215,7 +3215,8 @@ using namespace metal;
 #define g32_add(p, v) a32_add(p, v)
 #define g32_get(p)    a32_load(p)
 #ifdef __CUDACC_RTC__
-#define DEV     volatile
+// plain data stays L1-cacheable: cross-lane handoffs go through a32 + FENCE
+#define DEV
 #define GA32    __shared__ u32
 #define OUTLINE static __attribute__((noinline))
 #define DEVICE  1
@@ -3226,8 +3227,7 @@ using namespace metal;
   { __threadfence(); __syncthreads(); }
 #else
 #define DEV
-// The compilers with both (clang 19+) are those whose preserve_most is
-// sound: clang 14-16 miscompile it, gcc 15 has preserve_none alone.
+// only clang 19+ has both, and only it compiles preserve_most soundly
 #if __has_attribute(preserve_none) && __has_attribute(preserve_most)
 #define PRESERVE(A) __attribute__((A))
 #else
@@ -3495,9 +3495,8 @@ static const char* CLI_HELP =
 
 #ifdef __METAL_VERSION__
 
-// the load lands in a volatile local: else the M1-class AGX backend folds
-// the zext into the atomic load, which it cannot legalize, and the
-// pipeline build dies (XPC_ERROR_CONNECTION_INTERRUPTED)
+// via a volatile local: else the M1 backend folds the zext into the atomic
+// load, cannot legalize it, and the pipeline build dies
 #define a32_load(p)      \
   ({ volatile thread u32 _a32v = atomic_load_explicit(A32(p), RLX); _a32v; })
 #define a32_store(p, v)  atomic_store_explicit(A32(p), v, RLX)
@@ -3508,8 +3507,8 @@ static const char* CLI_HELP =
 
 #elif defined(__CUDACC_RTC__)
 
-#define a32_load(p)     (*(p))
-#define a32_store(p, v) (*(p) = (v))
+#define a32_load(p)     (*(volatile u32*)(p))
+#define a32_store(p, v) (*(volatile u32*)(p) = (v))
 #define a32_add(p, v)   atomicAdd((u32*)(p), v)
 #define a32_sub(p, v)   atomicSub((u32*)(p), v)
 
@@ -4542,23 +4541,24 @@ extern "C" __global__ void window_dev(Corpus H, Term root, u32 w, u32 h,
 // Row
 // ===
 
-static void row_grow(Env e, Stk stk, u32 base) {
+static void row_grow(Env e, Stk stk, u32 base, u32 stride, u32 want) {
   Corpus H = e.mem;
   u32 cur = 0;
   for (;;) {
     u32 put0[CUBE_SIDE];
     u32 has = 0;
     for (u32 i = 0; i < CUBE_SIDE; i += 1) {
-      put0[i] = *ring_put(H, base + i);
-      has += put0[i] != *ring_get(H, base + i);
+      put0[i] = *ring_put(H, base + i * stride);
+      has += put0[i] != *ring_get(H, base + i * stride);
     }
-    if (root_done(H) || has == CUBE_SIDE) {
+    if (root_done(H) || has >= want) {
       return;
     }
     u32 grew = 0;
     u32 ran  = 0;
     for (u32 i = 0; i < CUBE_SIDE && ran != 2; i += 1) {
-      ran   = monk_step(e, stk, base + i, put0[i], false, base, 1, &cur);
+      ran   = monk_step(e, stk, base + i * stride, put0[i], false, base,
+        stride, &cur);
       grew += ran == 1;
     }
     if (grew == 0) {
@@ -4610,7 +4610,7 @@ static void* pool_work(void* arg) {
         break;
       }
       if (pool_grow) {
-        row_grow(e, stk, r * CUBE_SIDE);
+        row_grow(e, stk, r * CUBE_SIDE, 1, CUBE_SIDE);
       } else {
         for (u32 i = 0; i < LINE; i += 1) {
           Ring rg   = r * LINE + i;
@@ -4642,6 +4642,36 @@ OUTLINE void pool_open(void) {
       err_fail("pthread_create");
     }
   }
+}
+
+// The CPUs this process may use: affinity mask under the cgroup quota
+static int cpu_read(const char* path, long* a, long* b) {
+  FILE* f = fopen(path, "r");
+  int   n = f == NULL ? 0 : fscanf(f, "%ld %ld", a, b);
+  if (f != NULL) {
+    fclose(f);
+  }
+  return n;
+}
+
+static long cpu_count(void) {
+  long n = sysconf(_SC_NPROCESSORS_ONLN);
+#ifdef __linux__
+  cpu_set_t set;
+  if (sched_getaffinity(0, sizeof set, &set) == 0) {
+    n = CPU_COUNT(&set);
+  }
+  long q = 0;
+  long p = 0;
+  if (cpu_read("/sys/fs/cgroup/cpu.max", &q, &p) != 2) {
+    cpu_read("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", &q, &p);
+    cpu_read("/sys/fs/cgroup/cpu/cpu.cfs_period_us", &p, &p);
+  }
+  if (q > 0 && p > 0 && (q + p - 1) / p < n) {
+    n = (q + p - 1) / p;
+  }
+#endif
+  return n;
 }
 
 OUTLINE void pool_turn(bool grow) {
@@ -4948,6 +4978,13 @@ static void cube_run(Corpus H, bool gpu) {
         b->rd = b->wr = b->top = b->rd + n;
       }
     } else {
+      // Under a unit (CUBE_SIDE / LINE a row) per thread, the column grows to
+      // the rows that give one: else 2 rows feed 16 threads on 64 cores. No
+      // more rows: each touches a page of every ring plane.
+      if (f * (CUBE_SIDE / LINE) < pool_size) {
+        row_grow((Env){ H, ALC[0] }, io_stk, 0, CUBE_SIDE,
+          (pool_size + CUBE_SIDE / LINE - 1) / (CUBE_SIDE / LINE));
+      }
       if (f < CUBE) {
         pool_turn(true);
       }
@@ -5776,8 +5813,7 @@ int main(int argc, char** argv) {
   if (gpu == 1 && BANGS != 0 && !dev) {
     cli_fail("--gpu on, but this binary found no GPU device", NULL);
   }
-  long ncpu = sysconf(_SC_NPROCESSORS_ONLN);
-  Corpus H  = corpus_setup(dev, thr > 0 ? thr : ncpu, mem);
+  Corpus H  = corpus_setup(dev, thr > 0 ? thr : cpu_count(), mem);
   int code  = io_loop(H);
   io_sync();
   return code;
