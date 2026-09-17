@@ -14,7 +14,7 @@ law main:
 def main(): loop(Nat)
 
 #|Error:
-#|- expected : a decreasing self-call (some live argument must shrink)
+#|- expected : a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)
 #|- observed : loop
 #|Context:
 #|- a : Type

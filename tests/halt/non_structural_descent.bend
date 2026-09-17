@@ -37,7 +37,7 @@ law main:
 def main(): fold(10n)
 
 #|Error:
-#|- expected : a decreasing self-call (some live argument must shrink)
+#|- expected : a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)
 #|- observed : fold
 #|Context:
 #|- n : Nat<> - Zero{}

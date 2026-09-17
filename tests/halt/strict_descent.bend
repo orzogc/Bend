@@ -23,7 +23,7 @@ law main:
 def main(): Z{}
 
 #|Error:
-#|- expected : a decreasing self-call (some live argument must shrink)
+#|- expected : a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)
 #|- observed : mk
 #|Context:
 #|- f : @_:Ord -> Ord

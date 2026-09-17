@@ -22,7 +22,7 @@ law main:
 def main(): part(2n, 1n)
 
 #|Error:
-#|- expected : a decreasing self-call (some live argument must shrink)
+#|- expected : a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)
 #|- observed : part
 #|Context:
 #|- p : Nat

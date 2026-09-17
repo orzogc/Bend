@@ -33,7 +33,7 @@ law main:
 def main(): Fx4{}
 
 #|Error:
-#|- expected : a decreasing self-call (some live argument must shrink)
+#|- expected : a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)
 #|- observed : bad
 #|Location: bad
 #|25 |     case Tx4{}:

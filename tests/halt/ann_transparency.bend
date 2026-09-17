@@ -22,7 +22,7 @@ def main():
   0
 
 #|Error:
-#|- expected : a decreasing self-call (some live argument must shrink)
+#|- expected : a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)
 #|- observed : head9
 #|Context:
 #|- p : Nat

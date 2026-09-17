@@ -104,9 +104,12 @@ def main() -> U32:
 
 Here, `t` has one fewer element than `xs`, so `sum` eventually reaches the
 empty list. Bend verifies termination by requiring recursive calls to use
-smaller parts of their inputs, obtained through pattern matching. A `U32` has no
-`1+p` pattern, so loop counters are `Nat`s: `case 1n+p:` hands you a smaller `p`
-to recurse on, and a `Nat` is still a machine word at runtime (a program aborts
+smaller parts of their inputs, obtained through pattern matching. The check
+reads the arguments of a recursive call from left to right: each must be passed
+unchanged until one is a smaller part of its parameter, and the ones after it
+are free. So, put the parameter that shrinks first. A `U32` has no `1+p`
+pattern, so loop counters are `Nat`s: `case 1n+p:` hands you a smaller `p` to
+recurse on, and a `Nat` is still a machine word at runtime (a program aborts
 past 2^48-1).
 There is no `if`: a branch is a `match` on `True{}` and `False{}`.
 

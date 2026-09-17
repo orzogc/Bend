@@ -3285,7 +3285,7 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
               ord = term_descend(lhs.qs[j], sp[j], cols[j]);
             }
             if (ord !== "LT") {
-              throw Err(book, ctx, "a decreasing self-call (some live argument must shrink)", tm, tm.s, lhs.def);
+              throw Err(book, ctx, "a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)", tm, tm.s, lhs.def);
             }
           }
           if (tm.k === lhs.def) {

@@ -27,7 +27,7 @@ law main:
 def main(): f(0n, 0n)
 
 #|Error:
-#|- expected : a decreasing self-call (some live argument must shrink)
+#|- expected : a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)
 #|- observed : f
 #|Context:
 #|- y : Nat
