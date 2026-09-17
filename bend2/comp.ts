@@ -4827,6 +4827,9 @@ static void gpu_pass(u32 f) {
 static bool gpu_probe(void) {
   int       managed = 0;
   CUcontext ctx;
+  // one stream, so one hardware queue: the default 8 each cost a channel
+  // at context creation and teardown, about half of the startup
+  setenv("CUDA_DEVICE_MAX_CONNECTIONS", "1", 0);
   if (cuInit(0) == CUDA_SUCCESS && cuDeviceGet(&gpu_dev, 0) == CUDA_SUCCESS) {
     cuDeviceGetAttribute(&managed,
       CU_DEVICE_ATTRIBUTE_CONCURRENT_MANAGED_ACCESS, gpu_dev);
