@@ -81,6 +81,11 @@ Using `LAWS.bend` is simple.
 
 Any bug covered by your rules becomes **mathematically impossible**.
 
+> We must stress what this means. This is not a test. This is not an audit.
+> This is a MATHEMATICAL PROOF. That your app has ZERO bugs. With Bend, the same
+> intelligence that proved the Navier-Stokes conjecture will now prove that your
+> vibe coded SaaS never displays an uncentered div again. And that's beautiful.
+
 You can also edit `LAWS.bend` yourself. Here's how it looks:
 
 ```python
@@ -96,11 +101,6 @@ law you_cant_win:                 # "winning is impossible"
 def you_cant_win(moves):
   # ... written by the AI
 ```
-
-> We must stress what this means. This is not a test. This is not an audit.
-> This is a MATHEMATICAL PROOF. That your app has ZERO bugs. With Bend, the same
-> intelligence that proved the Navier-Stokes conjecture will now prove that your
-> vibe coded SaaS never displays an uncentered div again. And that's beautiful.
 
 In short, `LAWS.bend` is `AGENTS.md` backed by **proof**.
 
