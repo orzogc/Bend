@@ -5086,7 +5086,8 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
   Env  e = { H, ALC[0] };
   Term rv[WL_RESW];
   for (;;) {
-    Reply r = work_loop(e, io_stk, t, !BANGS);
+    Reply r = work_loop(e, io_stk, t, !BANGS
+      && (pool_size == 1 || fid_nofk((u32)term_aux(t))));
     if (r == 0) {
       if (root_done(H)) {
         break;
