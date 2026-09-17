@@ -3167,10 +3167,13 @@ using namespace metal;
 #include <sys/mman.h>
 #include <time.h>
 #include <poll.h>
-#ifdef __OBJC__
-#import <Metal/Metal.h>
-#import <Foundation/Foundation.h>
+#ifdef __APPLE__
 #include <mach-o/dyld.h>
+#endif
+#ifdef __OBJC__
+// #include, not #import: bend -o reads an #import as an effect's framework
+#include <Metal/Metal.h>
+#include <Foundation/Foundation.h>
 #elif BEND_CUDA
 #include <cuda.h>
 #include <nvrtc.h>
