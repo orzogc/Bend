@@ -109,7 +109,7 @@ In short, `LAWS.bend` is `AGENTS.md` backed by **proof**.
 
 With `LAWS.bend`, *"make no mistakes"* becomes enforceable.
 
-[Skeptical? Edit the demo's code and break the you_cant_win law!](https://bend-lang.com/#lab)
+[Skeptical? Edit the demo's code and break the "you cant win" law!](https://bend-lang.com/#lab)
 
 # Get Started
 
