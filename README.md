@@ -44,8 +44,8 @@ Q: How can you **trust** code you never read?
 
 A: By demanding a **proof**.
 
-Bend introduces `LAWS.bend`, a file where you declare invariants that your app
-must follow. Bend's compiler then **guarantees** that these laws always hold, by
+Bend introduces `LAWS.bend`, a file where you declare rules that your app must
+not break. Bend's compiler then **guarantees** that these laws always hold, by
 demanding **mathematical proof** whenever your code is edited. For example,
 consider a game with one law: *winning is impossible*. Here's how it plays out:
 
