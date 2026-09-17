@@ -65,7 +65,7 @@ compiler *enforces* it.
 
 Using `LAWS.bend` is simple.
 
-1. Ask your AI to include your rules in `LAWS.bend`. Example:
+1. Ask your AI to formalize your app's rules in `LAWS.bend`. Example:
 
     - Please, add a LAW: *"the sum of all balances must be zero"*
 
