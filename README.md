@@ -65,12 +65,6 @@ compiler *enforces* it.
 
 Using `LAWS.bend` is simple.
 
-1. Add this to your `AGENTS.md`:
-
-    ```
-    run `bend PROOF.bend` before committing
-    ```
-
 1. Ask your AI to include your rules in `LAWS.bend`. Example:
 
     - Please, add a LAW: *"the sum of all balances must be zero"*
@@ -84,6 +78,8 @@ Using `LAWS.bend` is simple.
     - Please, add a LAW: *"winning is impossible"* (the demo above!)
 
     - And so on. Anything you can spell can become a law.
+
+2. Ask your AI to run `bend PROOF.bend` after editing any code.
 
 3. That's it. Enjoy as your app never again breaks or violates your rules.
 
