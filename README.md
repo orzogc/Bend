@@ -87,10 +87,10 @@ You can also edit `LAWS.bend` yourself. Here's how it looks:
 
 ```python
 # LAWS.bend
-law you_cant_win: # "winning is impossible"
-  for moves: List<Game.Move> # any sequence of moves
-  board = Game.replay(Game.start(), moves) # replayed from the start
-  {Game.is_won(board) == False{} : Bool} # never leads to victory
+law you_cant_win:                           # "winning is impossible"
+  for moves: List<Game.Move>                # any sequence of moves
+  board = Game.replay(Game.start(), moves)  # replayed from the start
+  {Game.is_won(board) == False{} : Bool}    # never leads to victory
 ```
 
 ```python
