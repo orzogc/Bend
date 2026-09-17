@@ -57,12 +57,11 @@ consider a game with one law: *winning is impossible*. Here's how it plays out:
 
 <p align="center"><b>With LAWS.bend:</b><br><img src="media/game_law_kept.gif" width="480" alt="A wall on the far edge stops the player"><br><i>Laws intact. AI mistake: <b>blocked</b>!</i></p>
 
-Without `LAWS.bend`, a bug was merged. With it, the AI had to retry, until zero bugs were left!
-
-> We must stress what this means. This is not a test. This is not an audit.
-> This is a MATHEMATICAL PROOF that your app has ZERO bugs. With Bend, the same
-> intelligence that proved the Navier-Stokes conjecture will now prove that your
-> vibe coded SaaS never displays an uncentered div again. And that's beautiful.
+Without `LAWS.bend`, a bug was merged. With it, the AI had to retry, until no
+bugs were left! In this case, it added a wall, but it might have made wrap-around
+skip the room, or made the room kill you. Doesn't matter. The only thing it can't
+do is merge code that violates `LAWS.bend`. Laws in `LAWS.bend` are unbreakable.
+Bend *guarantees* it. Mathematically.
 
 Using `LAWS.bend` is simple.
 
@@ -83,11 +82,6 @@ Using `LAWS.bend` is simple.
 2. Ask your AI: *"always keep `PROOF.bend` updated, and run `bend PROOF.bend` before merging"*.
 
 3. That's it. Enjoy as your app never again breaks or violates your rules.
-
-Any bug covered by your rules becomes **mathematically impossible**. If any edit
-breaks a rule, Bend will detect it, and your AI will be forced to fix your code,
-on the spot. The tradeoff is this may consume *AI time*; but AI time is cheap,
-while bugs cost human time, which is not.
 
 You can also edit `LAWS.bend` yourself. Here's how it looks:
 
