@@ -36,7 +36,7 @@ allow("LICENSE", 4000);
 allow("bend2/base.bend", 24000);
 allow("bend2/bend.lean", 400000);
 allow("bend2/bend.ts", 41000);
-allow("bend2/comp.ts", 60000);
+allow("bend2/comp.ts", 61000);
 allow("bend2/main.ts", 10000);
 allow(/^bend2\/effs\/[a-z_]+\.(c|js)$/, 4000);
 allow(/^bend2\/pack\/(\.gitignore|package\.json|tsconfig\.json|bun\.lock)$/, 1000);

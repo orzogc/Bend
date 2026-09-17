@@ -3166,6 +3166,7 @@ using namespace metal;
 #ifdef __OBJC__
 #import <Metal/Metal.h>
 #import <Foundation/Foundation.h>
+#import <IOKit/IOKitLib.h>
 #include <mach-o/dyld.h>
 #elif BEND_CUDA
 #include <cuda.h>
@@ -3382,9 +3383,12 @@ typedef u32* Cur;
 #define LINE      16
 #define PAGE_BITS 7
 #define PAGE_LEN  (1ull << PAGE_BITS)
-#define CUBE_SIDE 128
-#define CUBE      ((u64)CUBE_SIDE * CUBE_SIDE)
-#define RING_LEN  (1ull << 10)
+#define CUBE_T    128
+#define CUBE      ((u64)CUBE_T * CUBE_T)
+#define CUBE_G    (1u << CUBE_LOG)
+#define LANES     ((u64)CUBE_T << CUBE_LOG)
+#define RING_LOG  (17 - CUBE_LOG)
+#define RING_LEN  (1ull << RING_LOG)
 #define STAK_LEN  (1ull << 11)
 #define NCLS      8
 #define NCLS_ALL  32
@@ -3399,7 +3403,7 @@ typedef u32* Cur;
 #if DEVICE
 #define KEEP_WORDS CHUNK
 #endif
-#define RING_WORDS (RING_LEN + 2)
+#define RING_WORDS ((1ull << 10) + 2)
 
 #define H_BUMP       0
 #define H_CAP        1
@@ -3424,8 +3428,10 @@ typedef u32* Cur;
 typedef pthread_mutex_t lock;
 
 static Corpus CORPUS;
-static u64    ALC[CUBE_SIDE + 1][3 * ALC_WORDS] __attribute__((aligned(128)));
+static u64    ALC[CUBE_T + 1][3 * ALC_WORDS] __attribute__((aligned(128)));
 static u32    KEEP_WORDS;
+// the bag: 2^CUBE_LOG groups of CUBE_T lanes (a -D constant on the device)
+static u32    CUBE_LOG = 7;
 static u32    bank_lock;
 
 static u32            pool_size;
@@ -3449,6 +3455,7 @@ static id<MTLDevice>               gpu_dev;
 static id<MTLCommandQueue>         gpu_que;
 static id<MTLComputePipelineState> gpu_pso;
 static id<MTLBuffer>               gpu_buf;
+static id<MTLComputeCommandEncoder> gpu_enc;
 #elif BEND_CUDA
 static CUdevice   gpu_dev;
 static CUmodule   gpu_lib;
@@ -4126,7 +4133,8 @@ INLINE Term blk_new(Env e, bool arr, Nat d, u32 lgs, u32 n, THR Term* v) {
 // Ring
 // ====
 
-#define ring_word(H, r, w) ((H) + RING_OFF + (w) * CUBE + (r))
+// planes LANES wide: a smaller bag has deeper rings in the same region
+#define ring_word(H, r, w) ((H) + RING_OFF + (w) * LANES + (r))
 #define ring_slot(H, r, p) ring_word(H, r, (p) & (RING_LEN - 1))
 #define ring_get(H, r)     ((DEV u32*)ring_word(H, r, RING_LEN))
 #define ring_put(H, r)     ((DEV u32*)ring_word(H, r, RING_LEN + 1))
@@ -4147,10 +4155,10 @@ INLINE void ring_push(Corpus H, Ring r, Term tsk) {
 }
 
 INLINE Ring ring_flip(u32 i) {
-  return i / CUBE_SIDE + CUBE_SIDE * (i % CUBE_SIDE);
+  return (i % CUBE_T << CUBE_LOG) + i / CUBE_T;
 }
 
-#define ring_pick(b, s, c) ((b) + (s) * (g32_add(c, 1) & (CUBE_SIDE - 1)))
+#define ring_pick(b, s, c) ((b) + (s) * (g32_add(c, 1) & (CUBE_T - 1)))
 
 // Task
 // ====
@@ -4205,7 +4213,7 @@ INLINE void task_deal(Corpus H, Term join, u32 base, u32 stride, Cur cur) {
       if (stride != 0) {
         to = ring_pick(base, stride, cur);
       } else {
-        to = ring_flip(g & (u32)(CUBE - 1));
+        to = ring_flip(g & (u32)(LANES - 1));
         g += 1;
       }
       ring_push(H, to, k);
@@ -4400,11 +4408,10 @@ INLINE u32 monk_step(Env e, Stk stk, Ring rg, u32 put0, bool seq, u32 base,
 // Dev
 // ===
 
-// A kernel reserves TG_HOLD words of threadgroup memory (lane 0's write
-// keeps it): one resident threadgroup per Apple core; without it bitonic
-// runs 1.35x, kmeans 1.19x, matmul 1.13x. A grow pass runs at most
-// CUBE_SIDE rounds, so a program that never fills a group still cuts at
-// a kernel end.
+// TG_HOLD words of threadgroup memory (lane 0's write keeps them) hold
+// one group per Apple core: without them bitonic runs 1.35x, kmeans
+// 1.19x, matmul 1.13x. A grow pass runs at most CUBE_T rounds, so a group
+// that never fills still cuts at a kernel end.
 
 #if DEVICE
 
@@ -4428,9 +4435,30 @@ INLINE void dev_cut(Env e) {
   }
 }
 
+// Pass 2, one group: each bank's [top, wr) slides onto rd, CUBE_T entries
+// a step (loads, barrier, stores: rd <= top), off the host's pages.
+INLINE void bank_pack(Corpus H, u32 lane) {
+  for (Cls c = 0; c < NCLS_ALL; c += 1) {
+    DEV Bank* b  = bank_at(H, c);
+    u32       rd = b->rd;
+    u32       n  = b->wr - b->top;
+    for (u32 i = 0; i < n; i += CUBE_T) {
+      Term v = i + lane < n ? H[b->off + b->top + i + lane] : 0;
+      BAR();
+      if (i + lane < n) {
+        H[b->off + rd + i + lane] = v;
+      }
+    }
+    if (lane == 0) {
+      b->rd = b->wr = b->top = rd + n;
+    }
+  }
+}
+
 // One kernel, one pipeline: pass 0 grows the frontier (a task a lane a
 // turn, votes between barriers), pass 1 works it (a lane drains its
-// ring); one call of monk_step, so the program compiles once.
+// ring), pass 2 packs the banks; one call of monk_step, so the program
+// compiles once.
 #ifdef __METAL_VERSION__
 kernel void bend_dev(Corpus H [[buffer(0)]], constant u32& pass [[buffer(1)]],
   threadgroup volatile u64* hold [[threadgroup(0)]],
@@ -4444,17 +4472,19 @@ extern "C" __global__ void bend_dev(Corpus H, u32 pass) {
   u32 row   = blockIdx.x;
   u32 lane  = threadIdx.x;
 #endif
-  u32  stride = grids == 1 ? CUBE_SIDE : 1;
-  u32  me     = row * CUBE_SIDE + stride * lane;
+  if (pass == 2) {
+    bank_pack(H, lane);
+    return;
+  }
+  u32  stride = grids == 1 ? CUBE_G : 1;
+  u32  me     = row * CUBE_T + stride * lane;
   Ring rg     = pass ? ring_flip(me) : me;
   Env  e      = { H, H + ALC_OFF + me };
   Stk  stk    = (Stk)(H + STAK_OFF + me);
   if (lane == 0) {
     hold[0] = 0;
   }
-  GA32 tg_cur;
-  GA32 tg_grew;
-  GA32 tg_has;
+  GA32 tg_cur, tg_grew, tg_has;
   g32_ini(&tg_cur);
   g32_ini(&tg_grew);
   g32_ini(&tg_has);
@@ -4462,7 +4492,7 @@ extern "C" __global__ void bend_dev(Corpus H, u32 pass) {
   u32 put0      = a32_load(ring_put(H, rg));
   u32 seen_has  = 0;
   u32 seen_grew = 0;
-  for (u32 turn = 0; pass || turn < CUBE_SIDE; turn += 1) {
+  for (u32 turn = 0; pass || turn < CUBE_T; turn += 1) {
     if (pass) {
       if (*ring_get(H, rg) == put0 || err_seen(H)) {
         break;
@@ -4471,17 +4501,17 @@ extern "C" __global__ void bend_dev(Corpus H, u32 pass) {
       put0 = a32_load(ring_put(H, rg));
       u32 vote = put0 != a32_load(ring_get(H, rg));
       if (lane == 0 && (err_seen(H) || root_done(H))) {
-        vote = CUBE_SIDE;
+        vote = CUBE_T;
       }
       g32_add(&tg_has, vote);
       BAR();
       u32 has = g32_get(&tg_has);
-      if (has - seen_has >= CUBE_SIDE) {
+      if (has - seen_has >= CUBE_T) {
         break;
       }
       seen_has = has;
     }
-    u32 ran = monk_step(e, stk, rg, put0, pass, pass ? rg : row * CUBE_SIDE,
+    u32 ran = monk_step(e, stk, rg, put0, pass, pass ? rg : row * CUBE_T,
       pass ? 0 : stride, &tg_cur);
     if (!pass) {
       if (ran == 1) {
@@ -4545,9 +4575,9 @@ static void row_grow(Env e, Stk stk, u32 base, u32 stride, u32 want) {
   Corpus H = e.mem;
   u32 cur = 0;
   for (;;) {
-    u32 put0[CUBE_SIDE];
+    u32 put0[CUBE_T];
     u32 has = 0;
-    for (u32 i = 0; i < CUBE_SIDE; i += 1) {
+    for (u32 i = 0; i < CUBE_T; i += 1) {
       put0[i] = *ring_put(H, base + i * stride);
       has += put0[i] != *ring_get(H, base + i * stride);
     }
@@ -4556,7 +4586,7 @@ static void row_grow(Env e, Stk stk, u32 base, u32 stride, u32 want) {
     }
     u32 grew = 0;
     u32 ran  = 0;
-    for (u32 i = 0; i < CUBE_SIDE && ran != 2; i += 1) {
+    for (u32 i = 0; i < CUBE_T && ran != 2; i += 1) {
       ran   = monk_step(e, stk, base + i * stride, put0[i], false, base,
         stride, &cur);
       grew += ran == 1;
@@ -4606,11 +4636,11 @@ static void* pool_work(void* arg) {
     Env e = { CORPUS, ALC[1 + (u32)(uintptr_t)arg] };
     for (;;) {
       u32 r = atomic_fetch_add_explicit(&pool_row, 1, memory_order_relaxed);
-      if (r >= (pool_grow ? CUBE_SIDE : CUBE / LINE)) {
+      if (r >= (pool_grow ? CUBE_G : LANES / LINE)) {
         break;
       }
       if (pool_grow) {
-        row_grow(e, stk, r * CUBE_SIDE, 1, CUBE_SIDE);
+        row_grow(e, stk, r * CUBE_T, 1, CUBE_T);
       } else {
         for (u32 i = 0; i < LINE; i += 1) {
           Ring rg   = r * LINE + i;
@@ -4717,9 +4747,36 @@ static void gpu_note(const char* path) {
 #define gpu_map pool_mmap
 #endif
 
+#if BEND_METAL || BEND_CUDA
+
+// the bag from the device: a group of 128 lanes per 64 KB of L2 (NVIDIA)
+// or per quarter of a core (Apple), a power of two from 16 to 128 groups
+static void gpu_shape(int units) {
+  CUBE_LOG = 31 - CLZ(units < 16 ? 16 : units > 128 ? 128 : units);
+}
+
+static void gpu_kernel(u32 pass, u32 groups);
+
+static void gpu_run(u32 f) {
+  if (f < CUBE_T) {
+    gpu_kernel(0, 1);
+  }
+  if (f < LANES) {
+    gpu_kernel(0, CUBE_G);
+  }
+  gpu_kernel(1, CUBE_G);
+  gpu_kernel(2, 1);
+}
+
+#endif
+
 #if BEND_METAL
 
 static bool gpu_probe(void) {
+  NSNumber* cores = CFBridgingRelease(IORegistryEntryCreateCFProperty(
+    IOServiceGetMatchingService(kIOMainPortDefault,
+      IOServiceMatching("AGXAccelerator")), CFSTR("gpu-core-count"), NULL, 0));
+  gpu_shape(cores ? [cores intValue] * 4 : 128);
   return (gpu_dev = MTLCreateSystemDefaultDevice()) != nil;
 }
 
@@ -4727,6 +4784,7 @@ static MTLComputePipelineDescriptor* gpu_desc(void) {
   NSError* err = nil;
   MTLCompileOptions* opts = [MTLCompileOptions new];
   opts.mathMode = MTLMathModeSafe;
+  opts.preprocessorMacros = @{ @"CUBE_LOG": @(CUBE_LOG) };
   id<MTLLibrary> lib = [gpu_dev newLibraryWithSource:@(BEND_SRC) options:opts
     error:&err];
   if (!lib) {
@@ -4791,29 +4849,22 @@ static void gpu_load(u64 bytes) {
   }
 }
 
-static void gpu_kernel(id<MTLComputeCommandEncoder> enc, u32 pass,
-  u32 groups) {
-  [enc setComputePipelineState:gpu_pso];
-  [enc setBuffer:gpu_buf offset:0 atIndex:0];
-  [enc setBytes:&pass length:sizeof pass atIndex:1];
-  [enc setThreadgroupMemoryLength:TG_HOLD * 8 atIndex:0];
-  [enc dispatchThreadgroups:MTLSizeMake(groups, 1, 1)
-    threadsPerThreadgroup:MTLSizeMake(CUBE_SIDE, 1, 1)];
-  [enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
+static void gpu_kernel(u32 pass, u32 groups) {
+  [gpu_enc setComputePipelineState:gpu_pso];
+  [gpu_enc setBuffer:gpu_buf offset:0 atIndex:0];
+  [gpu_enc setBytes:&pass length:sizeof pass atIndex:1];
+  [gpu_enc setThreadgroupMemoryLength:TG_HOLD * 8 atIndex:0];
+  [gpu_enc dispatchThreadgroups:MTLSizeMake(groups, 1, 1)
+    threadsPerThreadgroup:MTLSizeMake(CUBE_T, 1, 1)];
+  [gpu_enc memoryBarrierWithScope:MTLBarrierScopeBuffers];
 }
 
 static void gpu_pass(u32 f) {
   @autoreleasepool {
     id<MTLCommandBuffer> cb = [gpu_que commandBuffer];
-    id<MTLComputeCommandEncoder> enc = [cb computeCommandEncoder];
-    if (f < CUBE_SIDE) {
-      gpu_kernel(enc, 0, 1);
-    }
-    if (f < CUBE) {
-      gpu_kernel(enc, 0, CUBE_SIDE);
-    }
-    gpu_kernel(enc, 1, CUBE_SIDE);
-    [enc endEncoding];
+    gpu_enc = [cb computeCommandEncoder];
+    gpu_run(f);
+    [gpu_enc endEncoding];
     [cb commit];
     [cb waitUntilCompleted];
     if ([cb error]) {
@@ -4834,6 +4885,9 @@ static bool gpu_probe(void) {
     cuDeviceGetAttribute(&managed,
       CU_DEVICE_ATTRIBUTE_CONCURRENT_MANAGED_ACCESS, gpu_dev);
   }
+  int l2 = 1 << 23;
+  cuDeviceGetAttribute(&l2, CU_DEVICE_ATTRIBUTE_L2_CACHE_SIZE, gpu_dev);
+  gpu_shape(l2 >> 16);
   return managed != 0
     && cuDevicePrimaryCtxRetain(&ctx, gpu_dev) == CUDA_SUCCESS
     && cuCtxSetCurrent(ctx) == CUDA_SUCCESS;
@@ -4854,7 +4908,7 @@ static Corpus gpu_map(u64 bytes) {
 }
 
 static u64 gpu_hash(void) {
-  u64 key = 14695981039346656037ull;
+  u64 key = 14695981039346656037ull ^ CUBE_LOG;
   for (const char* p = BEND_SRC; *p != 0; p += 1) {
     key = (key ^ (u8)*p) * 1099511628211ull;
   }
@@ -4868,14 +4922,16 @@ static bool gpu_make(const char* path) {
   cuDeviceGetAttribute(cc + 1,
     CU_DEVICE_ATTRIBUTE_COMPUTE_CAPABILITY_MINOR, gpu_dev);
   char arch[40];
+  char bag[24];
   snprintf(arch, sizeof arch, "--gpu-architecture=sm_%d%d", cc[0], cc[1]);
-  const char* opts[] = { arch, "--fmad=false", "-default-device" };
+  snprintf(bag, sizeof bag, "-DCUBE_LOG=%u", CUBE_LOG);
+  const char* opts[] = { arch, bag, "--fmad=false", "-default-device" };
   nvrtcProgram prog;
   if (nvrtcCreateProgram(&prog, BEND_SRC, "bend.cu", 0, NULL, NULL)
     != NVRTC_SUCCESS) {
     err_fail("cannot compile the CUDA library");
   }
-  if (nvrtcCompileProgram(prog, 3, opts) != NVRTC_SUCCESS) {
+  if (nvrtcCompileProgram(prog, 4, opts) != NVRTC_SUCCESS) {
     size_t n = 0;
     nvrtcGetProgramLogSize(prog, &n);
     char* log = calloc(n + 1, 1);
@@ -4930,20 +4986,14 @@ static void gpu_load(u64 bytes) {
 
 static void gpu_kernel(u32 pass, u32 groups) {
   void* args[] = { &CORPUS, &pass };
-  if (cuLaunchKernel(gpu_pso, groups, 1, 1, CUBE_SIDE, 1, 1, TG_HOLD * 8, NULL,
+  if (cuLaunchKernel(gpu_pso, groups, 1, 1, CUBE_T, 1, 1, TG_HOLD * 8, NULL,
     args, NULL) != CUDA_SUCCESS) {
     err_fail("device launch failed");
   }
 }
 
 static void gpu_pass(u32 f) {
-  if (f < CUBE_SIDE) {
-    gpu_kernel(0, 1);
-  }
-  if (f < CUBE) {
-    gpu_kernel(0, CUBE_SIDE);
-  }
-  gpu_kernel(1, CUBE_SIDE);
+  gpu_run(f);
   if (cuCtxSynchronize() != CUDA_SUCCESS) {
     err_fail("device fault");
   }
@@ -4974,19 +5024,12 @@ static void cube_run(Corpus H, bool gpu) {
     }
     if (gpu) {
       gpu_pass(f);
-      for (Cls c = 0; c < NCLS_ALL; c += 1) {
-        Bank* b = bank_at(H, c);
-        u32   n = b->wr - b->top;
-        memmove(H + b->off + b->rd, H + b->off + b->top, n * 8);
-        b->rd = b->wr = b->top = b->rd + n;
-      }
     } else {
-      // Under a unit (CUBE_SIDE / LINE a row) per thread, the column grows to
-      // the rows that give one: else 2 rows feed 16 threads on 64 cores. No
-      // more rows: each touches a page of every ring plane.
-      if (f * (CUBE_SIDE / LINE) < pool_size) {
-        row_grow((Env){ H, ALC[0] }, io_stk, 0, CUBE_SIDE,
-          (pool_size + CUBE_SIDE / LINE - 1) / (CUBE_SIDE / LINE));
+      // Under a unit (CUBE_T / LINE a row) per thread, the column grows to
+      // the rows that give one; no more: each touches a page of every plane.
+      if (f * (CUBE_T / LINE) < pool_size) {
+        row_grow((Env){ H, ALC[0] }, io_stk, 0, CUBE_G,
+          (pool_size + CUBE_T / LINE - 1) / (CUBE_T / LINE));
       }
       if (f < CUBE) {
         pool_turn(true);
@@ -5033,8 +5076,7 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
   if (gpu) {
     gpu_load(size);
   }
-  pool_size = threads < 1 ? 1
-    : threads < CUBE_SIDE ? threads : CUBE_SIDE;
+  pool_size = threads < 1 ? 1 : threads < CUBE_T ? threads : CUBE_T;
   return H;
 }
 

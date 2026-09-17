@@ -59,7 +59,7 @@ export const CC = "cc -std=c11 -O3";
 
 export const BUILD = [CC + " main.c -lpthread", CC + " main.c -lpthread",
   CC + " -DBEND_METAL=1 -x objective-c -fobjc-arc main.c -lpthread"
-  + " -framework Metal -framework Foundation"];
+  + " -framework Metal -framework Foundation -framework IOKit"];
 
 const THREADS = "nt=1; while [ $nt -lt $(getconf _NPROCESSORS_ONLN) ] &&"
   + " [ $nt -lt 256 ]; do nt=$((nt*2)); done;";
