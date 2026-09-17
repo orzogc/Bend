@@ -60,7 +60,7 @@ consider a game with one law: *winning is impossible*. Here's how it plays out:
 Without `LAWS.bend`, a bug was merged. With it, the AI had to retry, until zero bugs were left!
 
 > We must stress what this means. This is not a test. This is not an audit.
-> This is a MATHEMATICAL PROOF. That your app has ZERO bugs. With Bend, the same
+> This is a MATHEMATICAL PROOF that your app has ZERO bugs. With Bend, the same
 > intelligence that proved the Navier-Stokes conjecture will now prove that your
 > vibe coded SaaS never displays an uncentered div again. And that's beautiful.
 
