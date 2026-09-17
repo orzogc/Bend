@@ -2,7 +2,7 @@
 
 In the post-AGI economy, humans will eventually stop writing and reading code,
 but we still need an ambiguity-free language to communicate our intents to the
-AI's building the world around us. Bend is that language.
+AIs building the world around us. Bend is that language.
 
 With **laws**, intents can be more precise than natural language. With
 **proofs**, we can mechanically verify the AI implemented our prompts correctly.
@@ -65,7 +65,7 @@ Bend *guarantees* it.
 
 Using `LAWS.bend` is simple.
 
-1. Ask your AI to write your app's rules to `LAWS.bend`. Example:
+1. Ask your AI to include your rules in `LAWS.bend`. Example:
 
     - Please, add a LAW: *"the sum of all balances must be zero"*
 
@@ -103,7 +103,7 @@ In short, `LAWS.bend` is `AGENTS.md` backed by **proof**.
 
 With `LAWS.bend`, *"make no mistakes"* becomes enforceable.
 
-[Skeptical? Edit the demo's code and break the "you cant win" law!](https://bend-lang.com/#lab)
+[Skeptical? Edit the demo's code and break the "you can't win" law!](https://bend-lang.com/#lab)
 
 # Get Started
 
@@ -231,8 +231,8 @@ def add_zero(x):
 - One GPU per program, one event loop, and no multi-machine execution yet.
 - One C file per program: no separate compilation, no incremental builds.
 - Compiling to native is slow (GCC, NVCC, Metal). For fast development, use JS.
-- The compiler is young and has blind spots (unusualy slow programs). Report.
-- We don't have as many benchmarks as we'd like yet, specially for the checker.
+- The compiler is young and has blind spots (unusually slow programs). Report.
+- We don't have as many benchmarks as we'd like yet, especially for the checker.
 - The compiler (not kernel) is 99% AI-written and has not been fully audited yet.
 - The Lean formalization and bend.ts mismatch. Early consistency bugs may occur.
 - Building a binary needs clang 19+; ! needs Metal on macOS or CUDA 12 on Linux.
