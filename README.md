@@ -120,7 +120,7 @@ Add this to your `AGENTS.md`:
 ```
 When using Bend:
 - run `bend guide` to learn it
-- include important rules on `LAWS.bend`
+- use `LAWS.bend` to keep important rules
 - run `bend PROOF.bend` before committing
 - parallelize the code whenever possible
 ```
