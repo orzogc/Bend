@@ -40,9 +40,16 @@ spreads the calls over every core it can find, then joins them back. Below,
 
 ## Bend BLOCKS mistakes (with proof!)
 
-How can you **trust** code you never read? By demanding a **proof**. `LAWS.bend`
-is where you declare laws. From then on, no AI can ship one line that breaks
-them, ever. Watch it guard a game:
+Q: How can you **trust** code you never read?
+
+A: By demanding a **proof**.
+
+Bend introduces `LAWS.bend`, a file where you declare **laws** that your app is
+expected to follow. Bend then **gurantees** that these laws are respected,
+because every edit to your codebase, by humans or AI, requires the editor to
+prove, with mathematical arguments (case analysis, induction, etc.), that their
+code doesn't break any of your laws. For example, consider a game with one law:
+*winning is impossible*. Here's how it plays out, with and without `LAWS.bend`:
 
 <p align="center"><b>Law</b>: winning is <b>impossible</b><br><img src="media/game_law.gif" width="480" alt="The player walks up and bumps the wall of the flag's room"><br><i>So far, it works!</i></p>
 
