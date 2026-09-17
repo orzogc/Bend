@@ -2,7 +2,7 @@
 // The launcher, the installer, a release and the ping, on this machine: a
 // hub.ts on a random localhost port with its log and DL_DIR in a temp dir,
 // behind a Bun.serve that plays Caddy (/dl/* from DL_DIR, /ping to the
-// hub, /install.sh from front/), a release.ts --dry into that DL_DIR, an install.sh against it (Bun
+// hub, /install.sh from the site repo, lib.SITE), a release.ts --dry into that DL_DIR, an install.sh against it (Bun
 // is here, so it installs nothing), then bend --help through the launcher.
 // Checks: the help and the guide print, current points at app/<ver>, the log has the
 // run's cmd, the installer discloses the telemetry once and puts bin on the
@@ -27,8 +27,9 @@
 // is a file) touches nothing (a .tgz in the cwd survives); a hub that is down still updates through /dl/latest.json;
 // a 2 KiB ping is refused and an unwritable log still answers; a reinstall
 // over a symlinked bin/bend leaves its target alone. Last, the npm shim
-// (front/npm), packed and installed under a prefix, installs and runs bend
-// once and only runs it the second time (SKIP without npm).
+// (the site repo's front/npm), packed and installed under a prefix, installs and runs bend
+// once and only runs it the second time (SKIP without npm). The whole
+// gate is SKIP when the site repo is not at lib.SITE.
 
 import * as child from "node:child_process";
 import * as crypto from "node:crypto";
@@ -40,6 +41,11 @@ import * as lib from "./_lib";
 
 // Constants
 // =========
+
+if (!fs.existsSync(path.join(lib.SITE, "front", "install.sh"))) {
+  console.log("SKIP the site repo is not at " + lib.SITE + " (set SITE_REPO)");
+  lib.verdict(0, 0);
+}
 
 const PORT   = 20000 + Math.floor(Math.random() * 40000);
 const ORIGIN = "http://localhost:" + String(PORT);
@@ -132,7 +138,7 @@ const caddy = Bun.serve({
       return new Response("bad gateway", { status: 502 });
     }
     if (at === "/install.sh") {
-      return new Response(Bun.file(path.join(lib.ROOT, "front", "install.sh")));
+      return new Response(Bun.file(path.join(lib.SITE, "front", "install.sh")));
     }
     if (at.startsWith("/dl/")) {
       const file = path.join(DL, path.basename(at));
@@ -146,13 +152,13 @@ const caddy = Bun.serve({
 // Main
 // ====
 
-const hub = child.spawn(process.execPath, [path.join(lib.ROOT, "front", "hub.ts")],
+const hub = child.spawn(process.execPath, [path.join(lib.SITE, "deploy", "hub.ts")],
   { stdio: "ignore", env: { ...process.env, HUB_PORT: String(PORT + 1),
     HUB_STORE: path.join(TMP, "store"), PING_LOG: LOG, DL_DIR: DL } });
 try {
   await hub_wait();
-  const rel = await run(process.execPath, [path.join(lib.ROOT, "front", "release.ts"),
-    "--dry"], { DL_DIR: DL, BEND_ORIGIN: ORIGIN });
+  const rel = await run(process.execPath, [path.join(lib.SITE, "deploy", "release.ts"),
+    "--dry"], { DL_DIR: DL, BEND_ORIGIN: ORIGIN, BEND_REPO: lib.ROOT });
   check("release.ts --dry: " + rel.err, rel.code === 0);
   const latest = JSON.parse(fs.readFileSync(path.join(DL, "latest.json"),
     "utf8")) as { ver: string; url: string; sha256: string };
@@ -160,7 +166,7 @@ try {
   fs.mkdirSync(path.dirname(old));
   fs.writeFileSync(old, "#!/bin/sh\necho bend 1\n", { mode: 0o755 });
   // HOME is the temp dir too: install.sh writes the PATH line into its rc
-  const ins = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
+  const ins = await run("sh", [path.join(lib.SITE, "front", "install.sh")],
     { HOME: TMP, SHELL: "/bin/zsh", BEND_HOME: HOME, BEND_ORIGIN: ORIGIN,
       PATH: path.dirname(old) + ":" + SAFE });
   check("install.sh: " + ins.err, ins.code === 0);
@@ -242,7 +248,7 @@ try {
   check("a dead origin runs the installed release", dead.code === 0
     && dead.out.includes("usage:"));
   const odd = path.join(TMP, "we ird's home");
-  const ins2 = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
+  const ins2 = await run("sh", [path.join(lib.SITE, "front", "install.sh")],
     { BEND_HOME: odd, BEND_ORIGIN: ORIGIN, PATH: SAFE });
   check("a BEND_HOME with a space and a quote installs: " + ins2.err, ins2.code === 0
     && fs.readlinkSync(path.join(odd, "current")).startsWith("app/v3/"));
@@ -266,7 +272,7 @@ try {
     && nosha.code === 0 && current().startsWith("app/v3/"));
   release("v3", ORIGIN + "/dl/v2.tar.gz", latest.sha256);
   const bs = path.join(TMP, "back\\slash");
-  const ins3 = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
+  const ins3 = await run("sh", [path.join(lib.SITE, "front", "install.sh")],
     { BEND_HOME: bs, BEND_ORIGIN: ORIGIN, PATH: SAFE });
   check("a BEND_HOME with a backslash verifies and activates the release (Bun then"
     + " cannot run from such a path): " + ins3.err,
@@ -315,7 +321,7 @@ try {
   fs.mkdirSync(path.join(alt, "bin"), { recursive: true });
   fs.writeFileSync(path.join(TMP, "target"), "#!/bin/sh\necho target\n");
   fs.symlinkSync(path.join(TMP, "target"), path.join(alt, "bin", "bend"));
-  const ins4 = await run("sh", [path.join(lib.ROOT, "front", "install.sh")],
+  const ins4 = await run("sh", [path.join(lib.SITE, "front", "install.sh")],
     { BEND_HOME: alt, BEND_ORIGIN: ORIGIN, PATH: SAFE });
   check("a reinstall over a symlinked bin/bend leaves its target alone", ins4.code === 0
     && fs.readFileSync(path.join(TMP, "target"), "utf8").includes("echo target")
@@ -336,7 +342,7 @@ try {
     const env = { HOME: nh, PATH: SAFE, BEND_ORIGIN: ORIGIN, BEND_NO_TELEMETRY: "1" };
     const nenv = { ...env, PATH: path.dirname(npm) + ":" + SAFE };
     const pack = await run(npm, ["pack", "--pack-destination", nh,
-      path.join(lib.ROOT, "front", "npm")], nenv);
+      path.join(lib.SITE, "front", "npm")], nenv);
     const ins5 = await run(npm, ["install", "-g", "--prefix", nh, "--no-audit", "--no-fund",
       path.join(nh, pack.out.trim())], nenv);
     check("npm install -g of the shim: " + ins5.err, pack.code === 0 && ins5.code === 0);

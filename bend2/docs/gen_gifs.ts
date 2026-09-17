@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // The README's two charts, media/runtime.gif and media/checker.gif: the
 // landing page's bar chart, one bench per page, paging forever. Same
-// look and rhythm as front/site/index.html's chart(): the title above,
+// look and rhythm as the site's front/site/index.html chart(): the title above,
 // the seconds (and the speedup over one core) above each bar, the names
 // below, Bend in purple, the others in gray, a checker timeout hatched
 // at full height with ">5 min" above, a row of dots for the position.
@@ -18,7 +18,9 @@
 //
 //   bun bend2/docs/gen_pins.ts && bun bend2/docs/gen_charts.ts
 //   tar cf - bend2/docs/gen_*.ts bench/*/_pin_/apple_m4_max.txt \
-//     front/site/index.html | ssh -J cluster cluster-9d 'cd film && tar xf -'
+//     | ssh -J cluster cluster-9d 'cd film && tar xf -'
+//   tar cf - -C .. bend-lang.com/front/site/index.html \
+//     | ssh -J cluster cluster-9d 'tar xf -'   # beside film: gen_charts.ts looks there
 //   ssh -J cluster cluster-9d 'cd film && \
 //     PATH=/usr/local/node/bin:$PATH:$HOME/film node bend2/docs/gen_gifs.ts'
 //   scp -o ProxyJump=cluster 'cluster-9d:film/media/*.gif' media/

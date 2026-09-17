@@ -8,7 +8,8 @@
 //   bun bend2/docs/gen_pins.ts
 //   bun bend2/docs/gen_charts.ts
 //
-// front/site/index.html's chart rows keep their ids and titles and take
+// The site repo's front/site/index.html (beside this checkout, or at
+// $SITE_REPO) has chart rows that keep their ids and titles and take
 // their seconds from the pins; render.js's BENCH and CHECK take theirs
 // the same way (render the film after) and its comment names the
 // stamps. A checker timeout (>=300 s) is quoted as 300 and flagged
@@ -106,7 +107,8 @@ export function pin_stamp(file: string): string {
 // Front
 // =====
 
-export const FRONT = path.join(ROOT, "front", "site", "index.html");
+export const SITE = process.env.SITE_REPO ?? path.join(ROOT, "..", "bend-lang.com");
+export const FRONT = path.join(SITE, "front", "site", "index.html");
 
 // The landing page's chart rows: `["id", "title", secs...],`; the title
 // of every bench and checker family lives there, and only there.

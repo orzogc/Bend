@@ -20,6 +20,10 @@ export const GATE = process.argv.includes("--gate");
 
 export const ROOT = path.join(import.meta.dirname, "..");
 
+// the site repo (bendlang/bend-lang.com): the installer, the launcher, the
+// hub and release.ts live there, beside this checkout or at $SITE_REPO
+export const SITE = process.env.SITE_REPO ?? path.join(ROOT, "..", "bend-lang.com");
+
 export const BUN = "/usr/local/bun/bin/bun";
 
 const SLOTS = { dir: "/tmp/bend-cluster-slots", count: 4, size: 48, base: 2 };
