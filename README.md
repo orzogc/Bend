@@ -66,7 +66,7 @@ Without `LAWS.bend`, a bug was merged. With it, the AI had to retry, until zero 
 
 Using `LAWS.bend` is simple.
 
-1. Ask your add to write your app's rules to `LAWS.bend`. Example:
+1. Ask your AI to write your app's rules to `LAWS.bend`. Example:
 
     - LAW: *"the sum of all balances must be zero"*
 
