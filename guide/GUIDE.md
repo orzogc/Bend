@@ -156,8 +156,10 @@ Bend's current scheduler is a contention-free, binary fork-join machine: every
 task is handed to a core exactly once and never moved afterwards. That makes it
 fast and GPU-friendly, but you must keep the workload balanced.
 
-When compiled to a native executable, `pow2(20n)` runs in parallel on the CPU,
-while `pow2!(20n)` runs on the GPU. The heap is fully unified, so, if your chip
+A `!` after a function name marks a parallel call: `pow2!(20n)` hands that call,
+and every parallel call inside it, to the GPU. When compiled to a native
+executable, `pow2(20n)` runs in parallel on the CPU, while `pow2!(20n)` runs on
+the GPU. The heap is fully unified, so, if your chip
 has unified memory (as in Apple M-series processors), moving data from the CPU
 to the GPU is a zero-cost operation. The GPU shines on uniform numeric work like
 mandelbrot or nbody; divergent work like n-queens stays faster on the CPU. A
@@ -574,9 +576,10 @@ Equality of values is a call, `T.is_eq(a, b)`; `==` is only the type.
 
 ## Under the Hood
 
-Bend's compiler emits one C file. That same file is the CPU program and the GPU
-kernel: clang builds it for the host, Metal or CUDA builds it for the device, so
-a `!` runs the exact same code on either chip.
+Bend's compiler emits one C file, and that file is both the CPU program and the
+GPU kernel. clang compiles it for the CPU. Metal (on Apple) or CUDA (on NVIDIA)
+compiles the same file for the GPU. So a `!` call runs the same code on
+whichever chip it lands on.
 
 A term is one 64-bit word: small values are stored inline, everything else is a
 pointer into a single heap shared by every core and by the GPU. There is no
