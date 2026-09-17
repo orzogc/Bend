@@ -118,8 +118,7 @@ datatypes copies a closure. Recursion passes one syntactic descent
 test. Erased code is free and may diverge; nothing promotes it to
 live. Proofs are ordinary definitions: the match
 is the eliminator and there are no tactics. We state the calculus, show
-how each attack dies, and describe a Lean 4 mechanization of the
-core.
+how each attack dies, and describe the core's Lean 4 mechanization.
 
 = Introduction <sec:intro>
 
