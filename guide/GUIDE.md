@@ -502,9 +502,9 @@ by the checker (slow for big work) and printed; a file with no `main` just
 checks. A binary that uses `!` builds its GPU program too, as `file.gpu`, which
 must stay beside it: on macOS it needs Metal, on Linux CUDA 12 at
 `/usr/local/cuda`. On Linux a program with a Window needs `libx11-dev`, one
-with Audio `libasound2-dev`. `bend base` prints the Base library
-(`bend base Map` prints one name and everything under it), `bend guide` prints
-this text, and `bend --help` lists the rest.
+with Audio `libasound2-dev`. `bend guide` prints this text, `bend base` prints
+the Base library (`bend base Map` prints one name and everything under it), and
+`bend --help` lists the other commands.
 
 ## Syntax Reference
 
