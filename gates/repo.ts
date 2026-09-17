@@ -64,6 +64,7 @@ allow("front/lab.ts", 12000);
 allow("front/lab.md", 4000);
 allow("front/hub.ts", 3000);
 allow("front/install.sh", 2000);
+allow(/^front\/npm\/(package\.json|README\.md|bin\/bend)$/, 400);
 allow(/^front\/(release|metrics)\.ts$/, 1200);
 allow(/^front\/(Caddyfile|bendhub\.service)$/, 700);
 allow(/^front\/(build|shim)\.ts$/, 1500);

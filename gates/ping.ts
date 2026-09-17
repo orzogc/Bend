@@ -2,7 +2,7 @@
 // The launcher, the installer, a release and the ping, on this machine: a
 // hub.ts on a random localhost port with its log and DL_DIR in a temp dir,
 // behind a Bun.serve that plays Caddy (/dl/* from DL_DIR, /ping to the
-// hub), a release.ts --dry into that DL_DIR, an install.sh against it (Bun
+// hub, /install.sh from front/), a release.ts --dry into that DL_DIR, an install.sh against it (Bun
 // is here, so it installs nothing), then bend --help through the launcher.
 // Checks: the help and the guide print, current points at app/<ver>, the log has the
 // run's cmd, the installer discloses the telemetry once and puts bin on the
@@ -26,7 +26,9 @@
 // at current is moved aside; a staging directory that cannot be made (app/<ver>
 // is a file) touches nothing (a .tgz in the cwd survives); a hub that is down still updates through /dl/latest.json;
 // a 2 KiB ping is refused and an unwritable log still answers; a reinstall
-// over a symlinked bin/bend leaves its target alone.
+// over a symlinked bin/bend leaves its target alone. Last, the npm shim
+// (front/npm), packed and installed under a prefix, installs and runs bend
+// once and only runs it the second time (SKIP without npm).
 
 import * as child from "node:child_process";
 import * as crypto from "node:crypto";
@@ -128,6 +130,9 @@ const caddy = Bun.serve({
     }
     if (down && at === "/ping") {
       return new Response("bad gateway", { status: 502 });
+    }
+    if (at === "/install.sh") {
+      return new Response(Bun.file(path.join(lib.ROOT, "front", "install.sh")));
     }
     if (at.startsWith("/dl/")) {
       const file = path.join(DL, path.basename(at));
@@ -322,6 +327,27 @@ try {
     { BEND_HOME: none, BEND_ORIGIN: "http://127.0.0.1:1" });
   check("a first run with no release and no origin says so", first.code === 1
     && first.err.includes("bend: no release installed"));
+  const npm = Bun.which("npm");
+  if (npm === null) {
+    console.log("SKIP the npm shim: no npm on this machine");
+  } else {
+    const nh = path.join(TMP, "npm");
+    fs.mkdirSync(nh);
+    const env = { HOME: nh, PATH: SAFE, BEND_ORIGIN: ORIGIN, BEND_NO_TELEMETRY: "1" };
+    const nenv = { ...env, PATH: path.dirname(npm) + ":" + SAFE };
+    const pack = await run(npm, ["pack", "--pack-destination", nh,
+      path.join(lib.ROOT, "front", "npm")], nenv);
+    const ins5 = await run(npm, ["install", "-g", "--prefix", nh, "--no-audit", "--no-fund",
+      path.join(nh, pack.out.trim())], nenv);
+    check("npm install -g of the shim: " + ins5.err, pack.code === 0 && ins5.code === 0);
+    const one = await run(path.join(nh, "bin", "bend"), ["--help"], env);
+    const two = await run(path.join(nh, "bin", "bend"), ["--help"], env);
+    check("the npm shim installs bend and prints the help", one.code === 0
+      && one.out.includes("code bender") && one.out.includes("usage:")
+      && fs.existsSync(path.join(nh, ".bend", "current", "bend2", "main.ts")));
+    check("the second run of the npm shim does not reinstall", two.code === 0
+      && !two.out.includes("code bender") && two.out.includes("usage:"));
+  }
 } catch (e) {
   check(String(e), false);
 } finally {
