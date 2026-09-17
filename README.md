@@ -67,15 +67,15 @@ Using `LAWS.bend` is simple.
 
 1. Ask your AI to formalize your app's rules in `LAWS.bend`. Example:
 
-    - Please, add a LAW: *"the sum of all balances must be zero"*
+    - LAW: *"the sum of all balances must be zero"*
 
-    - Please, add a LAW: *"players can never pass through solid walls"*
+    - LAW: *"players can never pass through solid walls"*
 
-    - Please, add a LAW: *"list_sort() must always return ascending numbers"*
+    - LAW: *"list_sort() must always return ascending numbers"*
 
-    - Please, add a LAW: *"array_set() may never be called out-of-bounds"*
+    - LAW: *"array_set() may never be called out-of-bounds"*
 
-    - Please, add a LAW: *"winning is impossible"* (the demo above!)
+    - LAW: *"winning is impossible"* (the demo above!)
 
     - And so on. Anything you can spell can become a law.
 
