@@ -4613,9 +4613,13 @@ static void row_grow(Env e, Stk stk, u32 base, u32 stride, u32 want) {
 // Pool
 // ====
 
-static void* pool_mmap(u64 bytes) {
-  void* p = mmap(NULL, bytes, PROT_READ | PROT_WRITE,
+static void* pool_try(u64 bytes) {
+  return mmap(NULL, bytes, PROT_READ | PROT_WRITE,
     MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0);
+}
+
+static void* pool_mmap(u64 bytes) {
+  void* p = pool_try(bytes);
   if (p == MAP_FAILED) {
     err_fail("reservation failed");
   }
@@ -5062,13 +5066,22 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
   KEEP_WORDS = gpu ? CHUNK : CAP_WORDS;
   u64 dflt   = gpu ? gpu_span() : 1ull << 43;
   u64 size   = (gpu && bytes != 0 ? bytes : dflt) & ~16383ull;
+  // The cores reserve the whole Loc space (8 TiB, MAP_NORESERVE). A kernel
+  // with fewer address bits (39-bit arm64, Sv39) or a ulimit -v gets the
+  // largest power of two that fits, down to 8 GiB.
+  CORPUS = gpu ? gpu_map(size) : pool_try(size);
+  while (CORPUS == MAP_FAILED && size > 1ull << 33) {
+    CORPUS = pool_try(size /= 2);
+  }
+  if (CORPUS == MAP_FAILED) {
+    err_fail("reservation failed");
+  }
   u64 span = size / 8;
   u64 cap  = span > HEAP_OFF ? (span - HEAP_OFF) / (PAGE_LEN + 10) : 0;
   if (cap <= CUBE) {
     err_fail("the GPU span is under the rings, stacks and a page per lane");
   }
   cap = cap < ~0u ? cap : ~0u - 1;
-  CORPUS = gpu ? gpu_map(size) : pool_mmap(size);
   Corpus H  = CORPUS;
 #if BEND_CUDA
   if (gpu) {
