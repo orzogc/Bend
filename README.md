@@ -75,7 +75,7 @@ Using `LAWS.bend` is simple.
 
     - And so on. Anything you can spell can become a law.
 
-2. Ask your AI to keep PROOF.bend updated and checking.
+2. Ask your AI to keep PROOF.bend updated, and use `bend` to check it.
 
 3. That's it. Your app will magically never again violate a rule.
 
