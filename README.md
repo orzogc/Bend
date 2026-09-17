@@ -40,7 +40,7 @@ spreads the calls over every core it can find, then joins them back. Below,
 
 ## Bend BLOCKS mistakes - with proof
 
-Q: How can you **trust** code you never read?
+Q: How can you **trust** AI code, without reading it?
 
 A: By demanding a **proof**.
 
