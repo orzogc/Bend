@@ -68,7 +68,7 @@ export const FLAGS = ["--threads 1 --gpu off", "--threads $nt --gpu off",
   "--gpu $gm"];
 
 export const MEMORY: Record<string, string> = {
-  bitonic: "768MB", gameoflife: "512MB", kmeans: "768MB",
+  "tree-bitonic": "768MB", gameoflife: "512MB", kmeans: "768MB",
   mandelbrot: "512MB", merkle: "768MB", nbody: "768MB",
   queens: "512MB", raytrace: "512MB", symreg: "512MB", terrain: "1GB",
 };

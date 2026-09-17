@@ -113,7 +113,7 @@ export const FRONT = path.join(ROOT, "front", "site", "index.html");
 export function front_titles(): Record<string, string> {
   const out: Record<string, string> = {};
   for (const line of fs.readFileSync(FRONT, "utf8").split("\n")) {
-    const row = /^\s*\["([a-z0-9_]+)", "([^"]*)",/.exec(line);
+    const row = /^\s*\["([a-z0-9_-]+)", "([^"]*)",/.exec(line);
     if (row !== null) {
       out[row[1]] = row[2];
     }
@@ -131,7 +131,7 @@ function quote_secs(r: { secs: number; over: boolean }): string {
 function quote_front(runs: RunRow[], checks: CheckRow[]): void {
   fs.writeFileSync(FRONT, fs.readFileSync(FRONT, "utf8").split("\n")
     .map((line) => {
-      const row = /^(\s*\["([a-z0-9_]+)", "[^"]*",) [^\]]*\],$/.exec(line);
+      const row = /^(\s*\["([a-z0-9_-]+)", "[^"]*",) [^\]]*\],$/.exec(line);
       if (row === null) {
         return line;
       }
