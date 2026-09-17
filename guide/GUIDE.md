@@ -310,6 +310,17 @@ that they provide an actual proof.
 > between having to code everything manually (laborious) and letting AI do it all
 > via prompts without auditing a line of code (error/ambiguity-prone, unsecure).
 
+In practice, this is a convention, not a feature: two plain files at the
+project root. `LAWS.bend` imports the code and states the laws, each one an
+open claim with no def. `PROOF.bend` imports `LAWS.bend` and fills every law
+with a def of the same name: `law you_cant_win` in `LAWS.bend` is proven by
+`def Laws.you_cant_win(moves)` in `PROOF.bend`. The human owns `LAWS.bend`;
+the AI never edits it, only `PROOF.bend` and the code. Running `bend
+PROOF.bend` is the gate: it exits with 1 while any law is open or fails, and
+prints "All terms check." once every law is proven. Ask your agent to add your
+rules to `LAWS.bend`, and to run `bend PROOF.bend` after every edit and before
+every commit.
+
 Bend has no tactics: a proposition is a type, and a proof is a def of that type.
 `{a == b : T}` is an equality; `{==}` proves it when both sides compute to the
 same term. Matching refines the goal in each case, a recursive call is the
