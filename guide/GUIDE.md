@@ -23,10 +23,10 @@ def main() -> IO(Unit):
 To run it, install Bend (`curl -fsSL https://bend-lang.com/install.sh | sh`)
 and type `bend hello.bend`.
 
-Bend is a *pure language*, with effects denoted via a Haskell-inspired [IO
-Monad]. It comes with a list of built-in effects for files, networking, audio,
-graphics, input, and more, and the user can extend them with foreign C and JS
-imports; more on that later.
+Bend is a *pure language*, with effects denoted via a Haskell-inspired
+[IO Monad](https://wiki.haskell.org/Introduction_to_IO). It comes with a list
+of built-in effects for files, networking, audio, graphics, input, and more,
+and the user can extend them with foreign C and JS imports; more on that later.
 
 ## Core Features
 
