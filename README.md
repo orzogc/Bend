@@ -125,20 +125,19 @@ When using Bend:
 - parallelize the code whenever possible
 ```
 
-Then, just ask your AI to use Bend!
+Then, just say: "use Bend"!
 
 ### 3. Enjoy bug-free, fast vibe-coded apps!
 
 Hints:
 
-- Ask it to write laws for anything that can't go wrong.
+- Ask it to write laws for anything that can't break.
 
 - Ask it to parallelize anything you want to be fast.
 
 - Bend is young. If anything goes wrong, ask it to open an issue. <3
 
-Bend works best on the back-end, on Linux or macOS. On Windows, WSL works
-well too.
+Bend works best on the back-end, on Linux or macOS.
 
 # Examples
 
