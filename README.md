@@ -40,9 +40,9 @@ spreads the calls over every core it can find, then joins them back. Below,
 
 ## Bend BLOCKS mistakes - with proof
 
-Q: How can you **trust** AI code, without reading it?
+PROBLEM: How can you **trust** AI code, without reading it?
 
-A: By demanding a **proof**.
+SOLUTION: By demanding a **formal proof**.
 
 Bend introduces `LAWS.bend`, a file where you declare rules that your app must
 not break. Bend's compiler then **guarantees** that these laws always hold, by
