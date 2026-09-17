@@ -3170,7 +3170,6 @@ using namespace metal;
 #ifdef __OBJC__
 #import <Metal/Metal.h>
 #import <Foundation/Foundation.h>
-#import <IOKit/IOKitLib.h>
 #include <mach-o/dyld.h>
 #elif BEND_CUDA
 #include <cuda.h>
@@ -4754,12 +4753,6 @@ static void gpu_note(const char* path) {
 
 #if BEND_METAL || BEND_CUDA
 
-// the bag from the device: a group of 128 lanes per 64 KB of L2 (NVIDIA)
-// or per quarter of a core (Apple), a power of two from 16 to 128 groups
-static void gpu_shape(int units) {
-  CUBE_LOG = 31 - CLZ(units < 16 ? 16 : units > 128 ? 128 : units);
-}
-
 static void gpu_kernel(u32 pass, u32 groups);
 
 static void gpu_run(u32 f) {
@@ -4778,10 +4771,6 @@ static void gpu_run(u32 f) {
 #if BEND_METAL
 
 static bool gpu_probe(void) {
-  NSNumber* cores = CFBridgingRelease(IORegistryEntryCreateCFProperty(
-    IOServiceGetMatchingService(kIOMainPortDefault,
-      IOServiceMatching("AGXAccelerator")), CFSTR("gpu-core-count"), NULL, 0));
-  gpu_shape(cores ? [cores intValue] * 4 : 128);
   return (gpu_dev = MTLCreateSystemDefaultDevice()) != nil;
 }
 
@@ -4879,6 +4868,14 @@ static void gpu_pass(u32 f) {
 }
 
 #elif BEND_CUDA
+
+// the bag from the device: a group of 128 lanes per 64 KB of L2, a power of
+// two from 16 to 128 groups. Apple keeps the 128 the bag was tuned on: on an
+// M4 (10 cores) 32 groups ran bitonic 1.85 -> 1.29 s, but the light one-pass
+// benches 1.25x, their lanes four times fewer.
+static void gpu_shape(int units) {
+  CUBE_LOG = 31 - CLZ(units < 16 ? 16 : units > 128 ? 128 : units);
+}
 
 static bool gpu_probe(void) {
   int       managed = 0;
