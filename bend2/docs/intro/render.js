@@ -182,13 +182,13 @@ const LAWS_GLOSS = ["LAW: You Can't Win", "\"for any sequence of moves\"",
 
 // ------------------------------------------------------------------ benches
 // Every number is a pin from bench/runtime/_pin_/apple_m4_max.txt
-// (2026-09-09, f655a39d) and bench/checker/_pin_/apple_m4_max.txt
+// (2026-09-17, d0db7b3e) and bench/checker/_pin_/apple_m4_max.txt
 // (2026-09-09, f655a39d), the landing page's numbers: the same Bend binary
 // on one core, on all 16 cores, and on the GPU, against its native twins
 // in C, TypeScript and Lean.
 const BENCH = {
-  gameoflife: { title: "game of life", rivals: [["TypeScript", 18.683], ["Lean", 14.142], ["C", 7.158]],
-                seq: 7.618, par: 0.686, gpu: 0.066 },
+  gameoflife: { title: "game of life", rivals: [["TypeScript", 18.754], ["Lean", 13.849], ["C", 6.776]],
+                seq: 7.803, par: 0.647, gpu: 0.063 },
 };
 // CHECK: generics_3200
 const CHECK = [["Isabelle", 300, true], ["Agda", 300, true], ["Lean", 19.214], ["Rocq", 6.038], ["Bend", 0.384]];
