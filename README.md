@@ -42,7 +42,7 @@ spreads the calls over every core it can find, then joins them back. Below,
 
 PROBLEM: How can you **trust** AI code, without reading it?
 
-SOLUTION: By forcing your AI to write a **formal proof**.
+SOLUTION: By forcing your AI to write a **correctness proof**.
 
 Bend introduces `LAWS.bend`, a file where you declare rules that your app must
 not break. Bend's compiler then **guarantees** that these laws always hold, by
