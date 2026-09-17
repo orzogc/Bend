@@ -61,7 +61,7 @@ Without `LAWS.bend`, a bug was merged. With it, the AI had to retry, until no
 bugs were left! In this case, it added a wall, but it could have moved the flag,
 made the room kill you, or whatever. The only thing it can't do is merge code
 that violates `LAWS.bend`, because laws in it are unbreakable: Bend *guarantees*
-it. Mathematically.
+it. **Mathematically.**
 
 Using `LAWS.bend` is simple.
 
