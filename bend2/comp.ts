@@ -4449,6 +4449,7 @@ INLINE void bank_pack(Corpus H, u32 lane) {
         H[b->off + rd + i + lane] = v;
       }
     }
+    BAR();
     if (lane == 0) {
       b->rd = b->wr = b->top = rd + n;
     }
