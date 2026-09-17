@@ -81,7 +81,7 @@ Using `LAWS.bend` is simple.
 
 2. Ask your AI to run `bend PROOF.bend` after editing any code.
 
-3. That's it. Enjoy as your app never again breaks or violates your rules.
+3. That's it. Rejoice as your app never again breaks or violates your rules.
 
 You can also edit `LAWS.bend` yourself. Here's how it looks:
 
