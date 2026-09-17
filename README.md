@@ -80,7 +80,7 @@ Using `LAWS.bend` is simple.
 
     - And so on. Anything you can spell can become a law.
 
-2. Ask your AI: "always keep `PROOF.bend` updated, and run `bend PROOF.bend` before merging".
+2. Ask your AI: *"always keep `PROOF.bend` updated, and run `bend PROOF.bend` before merging"*.
 
 3. That's it. Enjoy as your app never again breaks or violates your rules.
 
