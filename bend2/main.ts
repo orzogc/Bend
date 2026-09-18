@@ -504,6 +504,11 @@ export async function load(u: string, context: unknown,
 export default PLUGIN;
 
 if (import.meta.main) {
+  if (typeof Bun === "undefined") {
+    cli_say(2, "bend runs on Bun: curl -fsSL https://bend-lang.com/install.sh"
+      + " | sh\n");
+    process.exit(1);
+  }
   await cli();
 } else if (typeof Bun !== "undefined") {
   Bun.plugin(PLUGIN);
