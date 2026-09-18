@@ -97,7 +97,8 @@
     align(left)[#smallcaps[AI Disclosure.] Bend and BendTT were designed by
     the human author. This paper was written by Claude Fable 5.1 from the
     author's code and design choices, and reviewed by the author. The Lean
-    mechanization was human-specified, AI-proven, and verified by a computer.]
+    mechanization was human-specified, AI-proven, and verified by a computer.
+    Human paper soon™.]
   }))
   v(2pt)
 })

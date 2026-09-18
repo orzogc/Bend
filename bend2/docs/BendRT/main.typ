@@ -88,7 +88,8 @@
     set par(justify: true)
     align(left)[#smallcaps[AI Disclosure.] Bend and BendRT were designed by
     the human author. This paper was written by Claude Fable 5.1 from the
-    author's code and design notes, and reviewed by the author.]
+    author's code and design notes, and reviewed by the author. Human paper
+    soon™.]
   }))
   v(2pt)
 })
