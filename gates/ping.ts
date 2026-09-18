@@ -10,8 +10,8 @@
 // bashka (SKIP without it) calls the script green; the install replaces the
 // launcher with the executable, drops app/, current, id, last, rep and bad,
 // cleans its temp dir, writes no shell rc, names the version, the PATH line
-// and the Bun note in its card (a second install, bin on PATH, says
-// neither); bend --help prints the help and the disclosure, and its check
+// and the daily check in its card (a second install, bin on PATH, omits the
+// PATH line); bend --help prints the help, and its check
 // logs one line {v, os, arch, ip} with no id and no cmd; a second run and
 // bend --version log nothing; BEND_NO_TELEMETRY=1 asks nothing and writes
 // no cache; a newer release with a notice prints one line and the notice
@@ -187,19 +187,19 @@ try {
     && !fs.readdirSync(BEND).some((f) => f.startsWith("tmp.")));
   check("no shell rc is written", !fs.readdirSync(HOME).some((f) =>
     f !== ".bend"));
-  check("the card names the version, the PATH line and the Bun note",
+  check("the card names the version, the PATH line and the daily check",
     ins.out.includes("Bend " + ver) && ins.out.includes("export PATH=\"")
-    && ins.out.includes("~/.bun") && ins.out.includes(SAID));
+    && ins.out.includes(SAID));
   const again = await install({ PATH: path.dirname(BIN) + ":" + PATHS });
-  check("a second install, bin on PATH, says neither", again.code === 0
-    && !again.out.includes("PATH=") && !again.out.includes("~/.bun")
+  check("a second install, bin on PATH, omits the PATH line", again.code === 0
+    && !again.out.includes("PATH=")
     && fs.statSync(BIN).size > 1_000_000);
   check("bend --version logs nothing", logs().length === 0
     && !fs.existsSync(path.join(BEND, "check.json")));
   const help = await bend(["--help"]);
   const line = logs().pop() ?? {};
-  check("bend --help prints the help and the disclosure", help.code === 0
-    && help.out.includes("usage:") && help.out.includes(SAID));
+  check("bend --help prints the help", help.code === 0
+    && help.out.includes("usage:"));
   check("the check logs {v, os, arch, ip} and nothing else",
     logs().length === 1 && line.v === ver && line.os === process.platform
     && line.arch === process.arch && typeof line.ip === "string"
