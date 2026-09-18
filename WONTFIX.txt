@@ -64,6 +64,11 @@ OPEN (no solution we trust yet; patches would cost us control of the codebase)
   makes JS trap like C. The real fix (a depth index or hidden constructors)
   is being designed.
 
+F32 NaN payload bits are not preserved on the JS lane (#797)
+  An F32 is a JS number there. A bit-exact representation measured 7-8x
+  slower on F32 code (nbody 3.5 s -> 23.7 s), so the C lane is the
+  reference and JS keeps the number.
+
 A `bend PROOF.bend` guard for un-imported LAWS.bend files (#776)
   A PROOF.bend that omits `import ./LAWS.bend` checks clean. We have not
   decided how a proof file names the laws it must fill.
