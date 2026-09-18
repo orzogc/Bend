@@ -356,10 +356,9 @@ def main() -> IO(Unit):
 Every bind is annotated, and `x : T = v` binds a pure value in the middle of a
 block. A fallible effect answers `Result<&1, &1, U32 & String, A>`: `IO.try`
 unwraps it or exits with the error, and `IO.die` exits with your own. `IO.args`
-answers the command line less the runtime's own options (`bend`'s, or a binary's
-`--threads` and `--gpu`; a `--` ends them). A handle
-(`File`, `Socket`, `Window`) is an affine, opaque value, so every effect on one
-hands it back beside its result, and no program can forge or reuse one.
+answers the command line, less the runtime's own options (a `--` ends them). A
+handle (`File`, `Socket`, `Window`) is an affine, opaque value, so every effect
+on one hands it back beside its result, and no program can forge or reuse one.
 
 A Bend program is a set of computations interleaved by one event loop, as in
 Node.js: each runs its pure code (in parallel, on every core) up to its next
@@ -489,7 +488,6 @@ Bend is a single command:
 
 ```bash
 bend file.bend            # check; run main (IO compiled; a value normalized)
-bend file.bend a b        # the same; IO.args answers ["a", "b"]
 bend file.bend -o file    # compile to a native binary (clang 14+; 19+ with `!`)
 bend file.bend -o file.c  # emit the C source instead
 bend file.bend -o file.js # emit the JS source instead
