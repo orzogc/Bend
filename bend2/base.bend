@@ -1682,10 +1682,10 @@ def Char.is_space(c: Char) -> Bool:
       Bool.or(U32.is_eq(x, 32), Bool.and(U32.is_ge(x, 9), U32.is_le(x, 13)))
 
 def Char.to_upper(+c: Char) -> Char:
-  Bool.pick(Char, Char.is_lower(c), Chr{U32.sub(Char.to_u32(c), 32)}, c)
+  Chr{U32.sub(Char.to_u32(c), U32.mul(Bool.to_u32(Char.is_lower(c)), 32))}
 
 def Char.to_lower(+c: Char) -> Char:
-  Bool.pick(Char, Char.is_upper(c), Chr{U32.add(Char.to_u32(c), 32)}, c)
+  Chr{U32.add(Char.to_u32(c), U32.mul(Bool.to_u32(Char.is_upper(c)), 32))}
 
 # String
 # ------
