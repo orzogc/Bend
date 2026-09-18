@@ -1271,9 +1271,10 @@ function show_main(book: Bend.Book): Show | null {
   return show;
 }
 
-export function io_run(book: Bend.Book): number {
+export function io_run(book: Bend.Book, args: string[] = []): number {
   const src = js_lib(book, ["main"], null) + "\n" + RUNTIME_MAIN
-    + "\nreturn io_run(" + js_sat("main") + ");";
+    + "\ncli_args = " + JSON.stringify(args) + ";\nreturn io_run("
+    + js_sat("main") + ");";
   return new Function("require", src)(import.meta.require) as number;
 }
 
@@ -3483,12 +3484,13 @@ static bool io_gpu;
 static Stk  io_stk;
 
 static const char* CLI_HELP =
-  "usage: %s [options]\n"
+  "usage: %s [options] [arguments]\n"
   "  --threads N       worker threads, 1 to 128 (default: the CPU count)\n"
   "  --gpu on|off|4GB  run ! calls on the GPU, over this much of its memory\n"
   "                    (default: on if present, over 2GB on Metal)\n"
   "  --gpu-build       write the GPU program and exit\n"
-  "  --help            show this text\n";
+  "  --help            show this text\n"
+  "  --                the rest are the program's arguments (IO.args)\n";
 
 #endif
 
@@ -5229,6 +5231,10 @@ static int io_sys_addr(const char* host, u32 port, struct sockaddr_in* at) {
     ? -1 : 0;
 }
 
+// The program's arguments (IO.args).
+static int    io_argc = 0;
+static char** io_argv = NULL;
+
 static void io_eff(u32 cid, Effect run, u32 need) {
   IoEff row = { run, need };
   io_eff_rows[cid] = row;
@@ -5862,11 +5868,15 @@ int main(int argc, char** argv) {
   long thr = 0;
   int  gpu = -1;
   u64  mem = 0;
+  io_argv = argv + 1;
   for (int i = 1; i < argc; i += 1) {
     const char* a = argv[i];
     const char* v = i + 1 < argc ? argv[i + 1] : NULL;
-    i += 1;
-    if (strcmp(a, "--help") == 0) {
+    if (strcmp(a, "--") == 0) {
+      while (i + 1 < argc) {
+        io_argv[io_argc++] = argv[++i];
+      }
+    } else if (strcmp(a, "--help") == 0) {
       printf(CLI_HELP, argv[0]);
       return 0;
     } else if (strcmp(a, "--gpu-build") == 0) {
@@ -5880,6 +5890,7 @@ int main(int argc, char** argv) {
       if (thr < 1 || end == NULL || *end != '\0') {
         cli_fail("expected a thread count of 1 or more after --threads", NULL);
       }
+      i += 1;
     } else if (strcmp(a, "--gpu") == 0) {
       char*  end = NULL;
       double n   = v != NULL ? strtod(v, &end) : 0;
@@ -5893,8 +5904,9 @@ int main(int argc, char** argv) {
       } else {
         cli_fail("expected on, off or a size like 4GB after --gpu", NULL);
       }
+      i += 1;
     } else {
-      cli_fail("unknown option ", a);
+      io_argv[io_argc++] = argv[i];
     }
   }
   bool dev = gpu != 0 && BANGS != 0 && gpu_probe();
@@ -5975,20 +5987,22 @@ const RUNTIME_MAIN: string = String.raw`
 // Cli
 // ===
 
-function cli_fail(msg) {
-  io_errs("bend: " + msg);
-  process.exit(1);
-}
+// A JS program runs one thread and no GPU: --threads and --gpu do nothing.
+let cli_args = [];
 
-// A JS program runs one thread and no GPU: it takes no argument.
 function cli(argv) {
-  if (argv[0] === "--help") {
-    io_out(1, io_bytes("usage: " + process.argv[1] + "\n"));
-    process.exit(0);
-  }
-  if (argv.length > 0) {
-    cli_fail("unknown option " + argv[0] + " (a JS program runs one thread"
-      + " and no GPU)");
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === "--") {
+      cli_args.push(...argv.slice(i + 1));
+      break;
+    } else if (argv[i] === "--help") {
+      io_out(1, io_bytes("usage: " + process.argv[1] + "\n"));
+      process.exit(0);
+    } else if (argv[i] === "--threads" || argv[i] === "--gpu") {
+      i += 1;
+    } else {
+      cli_args.push(argv[i]);
+    }
   }
 }
 
