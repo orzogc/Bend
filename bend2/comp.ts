@@ -284,6 +284,9 @@ const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   string_append: {
     JS: "($0 + $1)",
   },
+  string_length: {
+    JS: "BigInt([...$0].length)",
+  },
   array_new: {
     call: true,
     JS:   "array_new($0, $1)",
