@@ -59,19 +59,24 @@ gcc is not supported (#773)
 
 OPEN (no solution we trust yet; patches would cost us control of the codebase)
 
-`Array` admits unbalanced trees the backends reject (#808)
-  The checker can prove a size the runtime traps on. A temporary safeguard
-  makes JS trap like C. The real fix (a depth index or hidden constructors)
-  is being designed.
-
 F32 NaN payload bits are not preserved on the JS lane (#797)
   An F32 is a JS number there. A bit-exact representation measured 7-8x
   slower on F32 code (nbody 3.5 s -> 23.7 s), so the C lane is the
   reference and JS keeps the number.
 
-A `bend PROOF.bend` guard for un-imported LAWS.bend files (#776)
-  A PROOF.bend that omits `import ./LAWS.bend` checks clean. We have not
-  decided how a proof file names the laws it must fill.
+RUNTIME (the theory allows it, the runtime does not run it yet; we remove
+these over time; do not open an issue)
+
+An unbalanced `Array` tree fail-stops at runtime (#808)
+  `ALeaf`/`ANode` are public, so the checker admits a tree whose halves
+  differ; every backend stores an array as one flat block and traps on such
+  a node. A depth index would fix it in the type, but Bend does no inference,
+  so `xs[i]` would have to become `xs[i^d]`; we chose not to. Like the Nat
+  cap and the block-class cap below, this is a runtime limit, not a design.
+
+A Nat past 2^48-1, or an array past block class 31, fail-stops (#779)
+  Immediates hold 48 bits; blocks have 32 classes. The theory has no such
+  bound.
 
 SOON (we will add it; do not open an issue)
 
