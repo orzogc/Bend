@@ -2724,7 +2724,9 @@ export function match_flatten(m: Match, vars: PVar[], fr: () => number): LTerm {
     }
     switch (e.$) {
       case "Var": {
-        throw Err(book_nil(), ctx_nil(), "match scrutinees in binder order (this variable is unbound, consumed, or out of order: reorder the match)", undefined, e.s);
+        throw Err(book_nil(), ctx_nil(), "a match on a parameter or field (this"
+          + " name is a def or a consumed binder: give the value its own def)",
+          undefined, e.s);
       }
       case "Ctr": {
         throw Err(book_nil(), ctx_nil(), "an undestructed scrutinee (this value is already a constructor: bind its fields directly; if an outer match destructed it, fold the pattern into the outer case)", undefined, m.s);
