@@ -489,7 +489,7 @@ a file with everything it imports and prints that line.
 Bend is a single command:
 
 ```bash
-bend file.bend            # check the file, then run main on the JS backend
+bend file.bend            # check; run main (IO compiled; a value normalized)
 bend file.bend -o file    # compile to a native binary (clang 14+; 19+ with `!`)
 bend file.bend -o file.c  # emit the C source instead
 bend file.bend -o file.js # emit the JS source instead
