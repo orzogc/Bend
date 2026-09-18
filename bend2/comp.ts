@@ -365,7 +365,7 @@ const OPTIMIZED: Record<Bend.Name, Native> = Object.setPrototypeOf({
   Array: {
     intr: {
       ALeaf: "[$0]",
-      ANode: "$0.concat($1)",
+      ANode: "array_node($0, $1)",
     },
     elim: {
       ALeaf: ["$0[0]"],
@@ -5920,6 +5920,14 @@ function array_new(d, v) {
     throw "bend: ${ERRS[8]}";
   }
   return Array(2 ** Number(d)).fill(v);
+}
+
+// An unbalanced tree fails, as in C.
+function array_node(a, b) {
+  if (a.length !== b.length) {
+    throw "bend: ${ERRS[2]}";
+  }
+  return a.concat(b);
 }
 
 function array_swap(a, i, v) {
