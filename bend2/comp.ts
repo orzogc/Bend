@@ -2995,13 +2995,10 @@ function js_expr(fl: File, tm: HTerm,
       const arg = name_local(fl, "x");
       const seg = fl.seg;
       fl.seg = seg_new("", BOX, []);
-      fl.tab += 1;
       js_func(fl, x, ty, [arg]);
-      fl.tab -= 1;
       const lines = fl.seg.lines;
       fl.seg = seg;
-      return `run_clo((${arg}) => {\n${lines.join("\n")}\n${
-        "  ".repeat(fl.tab)}})`;
+      return `run_clo((${arg}) => {\n${lines.join("\n")}\n})`;
     }
     case "Hol": die("cannot compile a hole");
     default: return "null";
