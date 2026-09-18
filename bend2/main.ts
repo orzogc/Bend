@@ -50,7 +50,7 @@ Read the guide (\`bend guide\`) before writing Bend code.
 
 const BASE = Bend.BASE_BEND;
 
-const GUIDE = path.join(Bend.BEND_DIR, "..", "guide", "GUIDE.md");
+const GUIDE = path.join(Bend.BEND_DIR, "..", "guide");
 
 const ORIGIN = process.env.BEND_ORIGIN ?? "https://bend-lang.com";
 
@@ -99,14 +99,23 @@ async function cli(): Promise<void> {
   if (args[0] === "update" && args.length === 1) {
     return cli_update();
   }
-  if (args[0] === "guide" && args.length === 1) {
-    cli_say(1, fs.readFileSync(GUIDE, "utf8"));
+  if (args[0] === "guide" && args.length <= 2) {
+    cli_guide(args[1] ?? "guide");
   } else if (args[0] === "base" && args.length <= 2) {
     cli_base(args[1]);
   } else {
     await cli_file(args);
   }
   await check();
+}
+
+// cli_guide prints guide/<NAME>.md: the guide, or a named extra.
+function cli_guide(name: string): void {
+  const file = path.join(GUIDE, name.toUpperCase() + ".md");
+  if (!fs.existsSync(file)) {
+    cli_fail("no guide named " + name);
+  }
+  cli_say(1, fs.readFileSync(file, "utf8"));
 }
 
 // cli_update runs the installer again: the one way bend changes. The

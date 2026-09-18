@@ -605,3 +605,10 @@ recursion must terminate. `bend2/bend.lean` mechanizes this, though it lags
 - `demos/`: complete programs, including the game and its proof from the video.
 - `bend2/base.bend`: the Base library, also printed by `bend base`.
 - `paper/BendTT.pdf` and `paper/BendRT.pdf`: the type theory and the runtime.
+
+## Extra
+
+`bend guide shaders` prints "Shaders in Bend", a tutorial written by AIs for
+AIs on how to write efficient shaders in Bend. It distills what building
+`demos/app_slash_boss_3d` (120 FPS in pure Bend) taught. Read it before you
+write a graphical or parallel app in Bend.
