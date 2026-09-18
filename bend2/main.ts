@@ -46,10 +46,6 @@ usage:
   bend --version              print the version
 
 Read the guide (\`bend guide\`) before writing Bend code.
-
-Once a day, bend asks bend-lang.com for the latest version, sending only
-its version, OS and CPU type. Set BEND_NO_TELEMETRY=1 to turn that off.
-Bend never updates itself: run \`bend update\` when you want the new one.
 `;
 
 const BASE = Bend.BASE_BEND;
