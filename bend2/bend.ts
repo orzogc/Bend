@@ -3273,7 +3273,11 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     case "Ref": {
       const tld = book.tlds[tm.k];
       if (tld === undefined) {
-        throw Err(book, ctx, "a defined name", tm, tm.s, lhs.def);
+        const msg = tm.k in book.tmps
+          ? "a template applied to closed ~ arguments "
+            + "(a def parameter is not comptime)"
+          : "a defined name";
+        throw Err(book, ctx, msg, tm, tm.s, lhs.def);
       }
       switch (qt.$) {
         case "None": {
@@ -3650,7 +3654,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
 // speculative pass.
 
 export function book_valid(book: Book, done: number = 0): void {
-  const seen = book_nil();
+  const seen = { ...book_nil(), tmps: book.tmps };
   const last = new Map<Name, number>();
   for (let i = 0; i < book.order.length; i++) {
     last.set(book.order[i], i);
