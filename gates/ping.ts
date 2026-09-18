@@ -69,6 +69,11 @@ function bend(args: string[], env: Record<string, string> = {}):
   return run(BIN, args, env);
 }
 
+// the card without its colors
+function plain(out: string): string {
+  return out.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
 function install(env: Record<string, string> = {}): Promise<lib.Exec> {
   return run("sh", ["-c", "curl -fsSL " + ORIGIN + "/install.sh | sh"], env);
 }
@@ -188,7 +193,7 @@ try {
   check("no shell rc is written", !fs.readdirSync(HOME).some((f) =>
     f !== ".bend"));
   check("the card names the version, the PATH line and the daily check",
-    ins.out.includes("  " + ver) && ins.out.includes("code bender")
+    plain(ins.out).includes("Bend \u2588  " + ver) && ins.out.includes("code bender")
     && ins.out.includes("export PATH=\"")
     && ins.out.includes(SAID));
   const again = await install({ PATH: path.dirname(BIN) + ":" + PATHS });
@@ -232,7 +237,7 @@ try {
   const upd = await bend(["update"]);
   check("bend update runs the installer again: " + upd.err, upd.code === 0
     && upd.err.startsWith("curl -fsSL " + ORIGIN + "/install.sh | sh\n")
-    && upd.out.includes("  " + ver) && fs.statSync(BIN).ino !== was);
+    && plain(upd.out).includes("Bend \u2588  " + ver) && fs.statSync(BIN).ino !== was);
   const guide = await bend(["guide"]);
   const base  = await bend(["base", "Map"]);
   fs.writeFileSync(path.join(TMP, "sum.bend"),
