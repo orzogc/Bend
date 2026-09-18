@@ -3108,6 +3108,9 @@ export function js_lib(book: Bend.Book, roots: Bend.Name[],
   const cb = carb_book(book, roots.slice());
   const fl = file_new(cb, "const");
   fl.tab = 0;
+  const ms = done_defs(cb).map(([k]) => js_sat(k));
+  const dup = ms.find((m, i) => ms.indexOf(m) < i);
+  if (dup !== undefined) die("two names mangle to " + dup);
   for (const [k, def] of done_defs(cb)) {
     memo_gc();
     js_def(fl, k, def);
