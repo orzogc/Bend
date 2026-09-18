@@ -61,7 +61,8 @@ than once, if the variable is Data-kinded.
 Bend does almost no inference, meaning it requires more annotations than similar
 languages. This is what allows Bend's checker to be significantly faster than
 other provers, and its error messages more precise, at the expense of programs
-and proofs being more verbose.
+and proofs being more verbose. When the checker can't decide the type of an
+expression, just annotate it, as in `{3 : U32}`.
 
 ### Closures
 
@@ -81,8 +82,7 @@ def main() -> U32:
 
 A closure is affine: it can be called at most once, even when everything it
 captures is `Data`. Only top-level definitions can be called freely. Partial
-applications like `U32.add(2)` are closures too. A let must be inferable:
-annotate a literal, as in `x = {3 : U32}`.
+applications like `U32.add(2)` are closures too.
 
 ### Recursion and Termination
 
