@@ -997,12 +997,14 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
   if (file.startsWith(BEND_LIB + "/") && !fs.existsSync(file)) {
     const pkg = file.slice(BEND_LIB.length + 1).split("/")[0];
     const man = await hub_get(book, pkg + "/manifest", pkg.slice(2), spn);
-    for (const [h, p] of man.trim().split("\n").map((l) => l.split(" "))) {
-      const sub = pkg + "/" + p;
-      const src = await hub_get(book, sub, h, spn);
-      fs.mkdirSync(path.dirname(BEND_LIB + "/" + sub), { recursive: true });
-      fs.writeFileSync(BEND_LIB + "/" + sub, src);
-    }
+    const fls = man.trim().split("\n").map((l) => l.split(" "));
+    const srs = await Promise.all(fls.map(([h, p]) =>
+      hub_get(book, pkg + "/" + p, h, spn)));
+    fls.forEach(([, p], i) => {
+      const at = BEND_LIB + "/" + pkg + "/" + p;
+      fs.mkdirSync(path.dirname(at), { recursive: true });
+      fs.writeFileSync(at, srs[i]);
+    });
   }
   if (!fs.existsSync(file)) {
     throw Err(book, ctx_nil(), "no such file: " + file, undefined, spn);
