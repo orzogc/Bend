@@ -494,7 +494,7 @@ static Term f32_read(Env e, Term s) {
   char* text = io_cstr(e, s, &n);
   char* end;
   f32 v = strtof(text, &end);
-  Term out = n > 0 && *end == 0 && (u64)(end - text) == n
+  Term out = n > 0 && (u64)(end - text) == n && strpbrk(text, "xX(") == NULL
     ? io_box(e, CID_SOME, f32_rewrap(v), 0) : term_pak(CID_NONE, 0);
   free(text);
   return out;
