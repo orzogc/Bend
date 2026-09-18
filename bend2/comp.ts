@@ -3113,23 +3113,25 @@ export function js_lib(book: Bend.Book, roots: Bend.Name[],
     memo_gc();
     js_def(fl, k, def);
   }
-  const seen = new Set<string>();
-  const srcs: string[] = [];
-  const rows: string[] = [];
+  const grps = new Map<string, string[]>();
   for (const [k, tld] of done_defs(cb, def_foreign)) {
-    srcs.push(eff_src(tld.i!.find((x) => x.endsWith(".js"))
-      ?? die("a foreign def without a .js import: " + k), seen));
+    const path = fs.realpathSync(tld.i!.find((x) => x.endsWith(".js"))
+      ?? die("a foreign def without a .js import: " + k));
     js_def(fl, k, tld);
     const n = eff_name(k);
     ms.push(n);
+    const rows = grps.get(path) ?? [];
+    grps.set(path, rows);
     for (const m of [n, n + "_need"]) {
       rows.push(`  ${m}: typeof ${m} === "function" ? ${m} : undefined,`);
     }
   }
   const dup = ms.find((m, i) => ms.indexOf(m) < i);
   if (dup !== undefined) die("two names mangle to " + dup);
-  const effs = rows.length === 0 ? "" : "const $0eff = (() => {\n"
-    + srcs.join("\n") + "\nreturn {\n" + rows.join("\n") + "\n};\n})();\n\n";
+  const effs = grps.size === 0 ? "" : "const $0eff = {\n" + [...grps]
+    .map(([p, rows]) => "...(() => {\n" + fs.readFileSync(p, "utf8")
+      + "\nreturn {\n" + rows.join("\n") + "\n};\n})(),").join("\n")
+    + "\n};\n\n";
   const tabs = [...fl.tabs].map(([r, i]) => `const TAB_${i} = [${r}];`);
   const lib = outs === null ? "" : "export default {\n" + outs.map((k) =>
     `  "${k}": run_lib(${js_sat(k)}, ${sig_def(cb, k).lays.length}),`)
