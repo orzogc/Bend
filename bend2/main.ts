@@ -445,6 +445,11 @@ async function book_read(file: string, base?: Bend.Book,
     seen.set(BASE, "");
   }
   await Bend.book_load(book, file, "", seen);
+  const laws = path.join(path.dirname(file), "LAWS.bend");
+  if (path.basename(file) === "PROOF.bend" && fs.existsSync(laws)
+    && !seen.has(fs.realpathSync(laws))) {
+    cli_fail("PROOF.bend must import ./LAWS.bend");
+  }
   Bend.book_valid(book, base?.order.length ?? 0);
   const hols = book.hols + book.open;
   if (hols > 0) {

@@ -315,6 +315,7 @@ the AI does not touch it. `PROOF.bend` imports `LAWS.bend` and proves each law
 with a def of the same name (`law sorted` is proven by `def Laws.sorted`): the
 AI writes it, along with the code. `bend PROOF.bend` is the gate: it fails while
 any law is open or false, and prints "All terms check." once every law holds.
+bend refuses a `PROOF.bend` that sits beside a `LAWS.bend` without importing it.
 
 Bend has no tactics: a proposition is a type, and a proof is a def of that type.
 `{a == b : T}` is an equality; `{==}` proves it when both sides compute to the
