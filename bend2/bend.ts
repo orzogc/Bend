@@ -1146,6 +1146,37 @@ export function u32_to_term(n: U32, s?: Span): LTerm {
   return Ctr("U32", [word_to_term(n, s)], s);
 }
 
+// A nat literal up to NAT_LITERAL_MAX expands into a Succ chain, which the
+// checker unfolds in patterns and proofs; a larger one, up to the u32 bound,
+// parses as U32.to_nat(n), so no chain outgrows the checker's stack.
+export const NAT_LITERAL_MAX = 256;
+
+export function nat_to_term(n: number, s?: Span): LTerm {
+  if (n > NAT_LITERAL_MAX) {
+    return App(Ref("U32.to_nat", s), u32_to_term(n, s), s);
+  }
+  let out: LTerm = Ctr("Zero", [], s);
+  for (let i = 0; i < n; i++) {
+    out = Ctr("Succ", [out], s);
+  }
+  return out;
+}
+
+export function nat_from_term(t: LTerm): number | null {
+  let n = 0;
+  while (t.$ === "Ctr" && t.k === "Succ" && t.x.length === 1) {
+    n += 1;
+    t = t.x[0];
+  }
+  if (t.$ === "Ctr" && t.k === "Zero" && t.x.length === 0) {
+    return n;
+  }
+  if (n === 0 && t.$ === "App" && t.f.$ === "Ref" && t.f.k === "U32.to_nat") {
+    return u32_from_term(t.x);
+  }
+  return null;
+}
+
 export function u32_from_term<X>(tm: TermOf<X>, k: Name = "U32"): number | null {
   const w0 = term_strip(tm);
   if (w0.$ !== "Ctr" || w0.k !== k || w0.x.length !== 1) {
@@ -1691,6 +1722,14 @@ export function parse_bind(p: Parse, t: LTerm): PVar {
 
 export function parse_patt(p: Parse, t: LTerm): Patt {
   const book = p.book;
+  const lit  = t.$ === "App" ? nat_from_term(t) : null;
+  if (lit !== null) {
+    let q: Patt = { $: "PCtr", k: "Zero", x: [], s: t.s };
+    for (let i = 0; i < lit; i++) {
+      q = { $: "PCtr", k: "Succ", x: [q], s: t.s };
+    }
+    return q;
+  }
   switch (t.$) {
     case "Var": {
       if (book_ctr(book, parse_reso(p, t.k)) !== null) {
@@ -1910,17 +1949,11 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
         parse_term_ns(p, p.os.splice(n0), T);
         let d = n;
         if (cnt) {
-          let k = 0;
-          while (d.$ === "Ctr" && d.k === "Succ" && d.x.length === 1) {
-            k += 1;
-            d = d.x[0];
-          }
-          if (d.$ !== "Ctr" || d.k !== "Zero" || k === 0 || (k & (k - 1)) !== 0) {
+          const k = nat_from_term(n) ?? 0;
+          if (k === 0 || (k & (k - 1)) !== 0) {
             throw Err(p.book, ctx_nil(), "a power of two count (^d takes a depth)", undefined, n.s);
           }
-          for (let j = 0; j < Math.log2(k); j++) {
-            d = Ctr("Succ", [d], n.s);
-          }
+          d = nat_to_term(Math.log2(k), n.s);
         }
         return App(App(App(Ref("Array.new", s), T, s), d, s), xs[0], s);
       }
@@ -2234,23 +2267,24 @@ export function parse_term_num(p: Parse): LTerm {
     return u32_to_term(w, parse_span(p, beg));
   }
   const n = Number(s);
-  if (n > Number.MAX_SAFE_INTEGER) {
-    parse_fail(p, "a nat literal up to " + Number.MAX_SAFE_INTEGER + "n (got " + s + "n)");
+  if (n > 0xffffffff) {
+    parse_fail(p, "a nat literal up to 4294967295n (got " + s + "n)");
   }
-  let out: LTerm;
   if (parse_take(p, "+")) {
-    out = parse_term(p);
-  } else {
-    if (char_is_name(parse_peek(p))) {
-      parse_fail(p, "a nat literal (NUMBER n)");
+    let out = parse_term(p);
+    const spn = parse_span(p, beg);
+    if (n > NAT_LITERAL_MAX) {
+      return App(App(Ref("Nat.add", spn), nat_to_term(n, spn), spn), out, spn);
     }
-    out = Ctr("Zero", [], parse_span(p, beg));
+    for (let i = 0; i < n; i++) {
+      out = Ctr("Succ", [out], spn);
+    }
+    return out;
   }
-  const spn = parse_span(p, beg);
-  for (let i = 0; i < n; i++) {
-    out = Ctr("Succ", [out], spn);
+  if (char_is_name(parse_peek(p))) {
+    parse_fail(p, "a nat literal (NUMBER n)");
   }
-  return out;
+  return nat_to_term(n, parse_span(p, beg));
 }
 
 export function parse_term_do_stmt(p: Parse, m: Name, ls: LTerm[], R: LTerm | null, col: number): LTerm {
