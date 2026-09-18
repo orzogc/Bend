@@ -113,6 +113,13 @@ With `LAWS.bend`, *"make no mistakes"* becomes enforceable.
 curl -fsSL https://bend-lang.com/install.sh | sh
 ```
 
+This downloads one executable for your OS and CPU (from a GitHub release,
+verified against a sha256 written in the script) into `~/.bend`, and nothing
+else. Homebrew: `brew install bendlang/bend/bend`. Once a day, `bend` asks
+bend-lang.com for the latest version, sending only its version, OS and CPU
+type; set `BEND_NO_TELEMETRY=1` to turn that off. Bend never updates itself:
+run `bend update` when you want the new one.
+
 ### 2. Tell your agent to use Bend:
 
 Add this to your `AGENTS.md`:

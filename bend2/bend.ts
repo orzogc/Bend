@@ -979,7 +979,12 @@ export function book_adt(book: Book, tm: Extract<HTerm, { $: "ADT" }>, ctx: Ctx,
   return { $: "ADT", n: tld.n, g: tld.g, T: tld.T, c: tld.c.filter((c) => !r.has(c.k)) };
 }
 
-const BASE_BEND  = fs.realpathSync(url.fileURLToPath(new URL("./base.bend", import.meta.url)));
+// BEND_DIR holds base.bend and effs/: this file's directory, or, in the
+// compiled bend (its modules live in Bun's /$bunfs), bend2/ beside bin/
+export const BEND_DIR = import.meta.url.startsWith("file:///$bunfs/")
+  ? path.join(path.dirname(fs.realpathSync(process.execPath)), "..", "bend2")
+  : url.fileURLToPath(new URL(".", import.meta.url));
+export const BASE_BEND = fs.realpathSync(path.join(BEND_DIR, "base.bend"));
 const BEND_LIB = path.resolve(process.env.BEND_LIB ?? path.join(os.homedir(), ".bend", "lib"));
 export const BEND_HUB   = process.env.BEND_HUB ?? "https://hub.bend-lang.com";
 

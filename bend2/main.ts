@@ -42,15 +42,26 @@ usage:
   bend <page.html> -o <dir>   bundle a page that imports .bend files
   bend base [--types|<name>]  print Base, its types, or a name and its subnames
   bend guide                  print the Bend guide
+  bend update                 install the latest bend (curl | sh, shown first)
   bend --version              print the version
 
 Read the guide (\`bend guide\`) before writing Bend code.
+
+Once a day, bend asks bend-lang.com for the latest version, sending only
+its version, OS and CPU type. Set BEND_NO_TELEMETRY=1 to turn that off.
+Bend never updates itself: run \`bend update\` when you want the new one.
 `;
 
+const BASE = Bend.BASE_BEND;
 
-const BASE = fs.realpathSync(path.join(import.meta.dirname, "base.bend"));
+const GUIDE = path.join(Bend.BEND_DIR, "..", "guide", "GUIDE.md");
 
-const GUIDE = path.join(import.meta.dirname, "..", "guide", "GUIDE.md");
+const ORIGIN = process.env.BEND_ORIGIN ?? "https://bend-lang.com";
+
+// the daily version check's cache: when it last asked, and the answer
+const CHECK = path.join(os.homedir(), ".bend", "check.json");
+
+const DAY = 86400000;
 
 // A package's proof of work is a nonce whose sha256(hash + " " + nonce)
 // opens (its top 53 bits) with a number under 2^53 / work, where work is
@@ -82,17 +93,79 @@ const PLUGIN: BunPlugin = {
 // CLI
 // ===
 
+// cli runs the command, then (not after --version or update) the daily
+// version check, so the check never delays the command's own work.
 async function cli(): Promise<void> {
   const args = process.argv.slice(2);
   if (args[0] === "--version" && args.length === 1) {
     return cli_say(1, "bend " + VERSION + "\n");
   }
+  if (args[0] === "update" && args.length === 1) {
+    return cli_update();
+  }
   if (args[0] === "guide" && args.length === 1) {
-    return cli_say(1, fs.readFileSync(GUIDE, "utf8"));
+    cli_say(1, fs.readFileSync(GUIDE, "utf8"));
+  } else if (args[0] === "base" && args.length <= 2) {
+    cli_base(args[1]);
+  } else {
+    await cli_file(args);
   }
-  if (args[0] === "base" && args.length <= 2) {
-    return cli_base(args[1]);
+  await check();
+}
+
+// cli_update runs the installer again: the one way bend changes. The
+// command prints first, so the user can run it alone.
+function cli_update(): void {
+  const cmd = "curl -fsSL " + ORIGIN + "/install.sh | sh";
+  cli_say(2, cmd + "\n");
+  process.exitCode = child.spawnSync("sh", ["-c", cmd],
+    { stdio: "inherit" }).status ?? 1;
+}
+
+// check is the whole telemetry: once a day, a GET of /check?v=&os=&arch=
+// (nothing else: no id, no command, no timing) whose answer {ver, notice}
+// is cached in CHECK; a cached ver newer than this one prints one line on
+// stderr, and the notice. The cache is stamped before the request, so a
+// day has one request whatever happens to it; BEND_NO_TELEMETRY=1 skips
+// everything; the check never fails the command.
+async function check(): Promise<void> {
+  if (process.env.BEND_NO_TELEMETRY) {
+    return;
   }
+  let last = { t: 0, ver: VERSION, notice: "" };
+  try {
+    last = { ...last, ...JSON.parse(fs.readFileSync(CHECK, "utf8")) };
+  } catch {}
+  try {
+    if (Date.now() - last.t > DAY) {
+      last.t = Date.now();
+      fs.mkdirSync(path.dirname(CHECK), { recursive: true });
+      fs.writeFileSync(CHECK, JSON.stringify(last) + "\n");
+      const res = await fetch(ORIGIN + "/check?v=" + VERSION + "&os="
+        + process.platform + "&arch=" + process.arch, { headers: { "User-Agent":
+        "bend/" + VERSION }, signal: AbortSignal.timeout(3000) });
+      const got = await res.json() as { ver?: unknown; notice?: unknown };
+      last.ver = typeof got.ver === "string" ? got.ver : VERSION;
+      last.notice = typeof got.notice === "string" ? got.notice : "";
+      fs.writeFileSync(CHECK, JSON.stringify(last) + "\n");
+    }
+  } catch {}
+  if (ver_newer(last.ver)) {
+    cli_say(2, "bend " + last.ver + " is available: run bend update\n"
+      + (last.notice === "" ? "" : last.notice.replace(/[\x00-\x1f\x7f]/g, "")
+      .slice(0, 200) + "\n"));
+  }
+}
+
+function ver_newer(ver: string): boolean {
+  const a = ver.split(".").map(Number);
+  const b = VERSION.split(".").map(Number);
+  return a.length === 3 && a.every(Number.isInteger)
+    && (a[0] - b[0] || a[1] - b[1] || a[2] - b[2]) > 0;
+}
+
+// cli_file checks, runs, builds, publishes or bundles a file
+async function cli_file(args: string[]): Promise<void> {
   const outs: string[] = [];
   const argv: string[] = [];
   let file: string | undefined;
@@ -101,8 +174,7 @@ async function cli(): Promise<void> {
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
     if (a === "--help" || a === "-h") {
-      cli_say(1, HELP);
-      process.exit(0);
+      return cli_say(1, HELP);
     } else if (a === "--checkup") {
       checkup = true;
     } else if (a === "--publish") {
@@ -153,7 +225,8 @@ async function cli(): Promise<void> {
       cli_report(book, 2);
     }
     if (outs.length === 0) {
-      process.exit(book_run(book, argv));
+      process.exitCode = book_run(book, argv);
+      return;
     }
     const ins = new Set([...seen.keys(), ...Object.values(book.tlds).flatMap((t) =>
       t.$ === "Def" && t.i !== undefined ? t.i.map(path_real) : [])]);
@@ -166,7 +239,7 @@ async function cli(): Promise<void> {
     }
   } catch (e) {
     cli_say(2, book_err(e) + "\n");
-    process.exit(1);
+    process.exitCode = 1;
   }
 }
 
@@ -537,6 +610,7 @@ if (import.meta.main) {
     process.exit(1);
   }
   await cli();
+  process.exit();
 } else if (typeof Bun !== "undefined") {
   Bun.plugin(PLUGIN);
 } else if (thr.isMainThread) {
