@@ -2871,7 +2871,7 @@ export function compile_book(book: Bend.Book): string {
       JSON.stringify(n)).join(", ")} };`, "#endif"];
   const defs = compile_tables(fl, entries);
   defs.push(`#define MAIN_FID ${seg_fid("main")}`, `#define MAIN_PURE ${
-    Number(show !== null)}`, ...desc);
+    Number(show !== null)}`);
   const fills: [string, string[]][] = [
     ["Tables", [defs.join("\n"), ...[...fl.tabs].map(([r, i]) =>
       `CONSTV u64 TAB_${i}[] = { ${r} };`)]],
@@ -2880,13 +2880,13 @@ export function compile_book(book: Bend.Book): string {
     ["Segments", [compile_segs(fl)]],
     ["Requests", [fl.reqs]],
   ];
-  const out = fills.reduce((src, [mark, parts]) => src.replace(
-    new RegExp("^// " + mark + "\\n// " + "=".repeat(mark.length) + "$", "m"),
-    (m) => [m, ...parts].join("\n\n")), TEMPLATE);
-  if (/\bundefined\b/.test(out)) {
+  if (fills.some(([, parts]) => /\bundefined\b/.test(parts.join("\n")))) {
     die("an unbound name in the emitted C");
   }
-  return out;
+  fills[0][1].push(...desc);
+  return fills.reduce((src, [mark, parts]) => src.replace(
+    new RegExp("^// " + mark + "\\n// " + "=".repeat(mark.length) + "$", "m"),
+    (m) => [m, ...parts].join("\n\n")), TEMPLATE);
 }
 
 // Js
