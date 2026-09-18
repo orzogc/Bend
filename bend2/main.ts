@@ -149,6 +149,9 @@ async function cli(): Promise<void> {
     }
     const seen = new Map<string, string | null>();
     const book = await book_read(file, undefined, seen);
+    if (outs.length !== 0 || book_main(book) !== null) {
+      cli_report(book, 2);
+    }
     if (outs.length === 0) {
       process.exit(book_run(book, argv));
     }
@@ -333,6 +336,7 @@ async function cli_bundle(page: string, dir: string): Promise<void> {
 async function cli_publish(file: string): Promise<void> {
   const seen = new Map<string, string | null>();
   const book = await book_read(file, undefined, seen);
+  cli_report(book, 2);
   const files = pkg_files(file, book, seen);
   const paths = Object.keys(files).sort();
   const bytes = paths.reduce((n, p) => n + Buffer.byteLength(files[p]), 0);
@@ -402,11 +406,17 @@ async function pow_mine(hash: string, bytes: number): Promise<number> {
 // Report
 // ======
 
-function cli_report(book: Bend.Book): void {
+// cli_report prints the unsafe count: the verdict of a check on stdout, a
+// note before a run, an emit or a publish on stderr (silent at zero).
+function cli_report(book: Bend.Book, fd: number): void {
   const uns  = Object.values(book.tlds).filter((t) =>
     t.$ === "Def" && t.u === true).length;
-  cli_say(1, uns > 0 ? `All terms check, with ${uns} unsafe annotation`
-    + `${uns === 1 ? "" : "s"}.\n` : "All terms check.\n");
+  if (uns > 0) {
+    cli_say(fd, `All terms check, with ${uns} unsafe annotation`
+      + `${uns === 1 ? "" : "s"}.\n`);
+  } else if (fd === 1) {
+    cli_say(1, "All terms check.\n");
+  }
 }
 
 function cli_say(fd: number, text: string): void {
@@ -458,11 +468,16 @@ function book_seed(base: Bend.Book): Bend.Book {
   return book;
 }
 
-function book_run(book: Bend.Book, argv: string[]): number {
+function book_main(book: Bend.Book): Bend.Def | null {
   const main = book.tlds["main"];
-  if (main === undefined || main.$ !== "Def"
-    || (main.v === null && main.i === undefined)) {
-    cli_report(book);
+  return main === undefined || main.$ !== "Def"
+    || (main.v === null && main.i === undefined) ? null : main;
+}
+
+function book_run(book: Bend.Book, argv: string[]): number {
+  const main = book_main(book);
+  if (main === null) {
+    cli_report(book, 1);
     return 0;
   }
   if (Comp.io_type(book) !== null) {
