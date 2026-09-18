@@ -374,7 +374,9 @@ underscores. You can add your own effects the same way. Only the event loop runs
 them, so proofs, termination and the GPU never touch host code. In the other
 direction, a JS file may `import Game from "./game.bend"` (with `bend2/main.ts`
 preloaded) and call every non-IO def, with constructors as `{$: "Name", field:
-value}` and `Nat` as `BigInt`.
+value}` and `Nat` as `BigInt`. A value crosses without a copy: an `Array`
+argument is the caller's own array, updated in place, so copy it first if you
+keep it.
 
 ### Monads
 
