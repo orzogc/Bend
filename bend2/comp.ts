@@ -3109,8 +3109,6 @@ export function js_lib(book: Bend.Book, roots: Bend.Name[],
   const fl = file_new(cb, "const");
   fl.tab = 0;
   const ms = done_defs(cb).map(([k]) => js_sat(k));
-  const dup = ms.find((m, i) => ms.indexOf(m) < i);
-  if (dup !== undefined) die("two names mangle to " + dup);
   for (const [k, def] of done_defs(cb)) {
     memo_gc();
     js_def(fl, k, def);
@@ -3123,10 +3121,13 @@ export function js_lib(book: Bend.Book, roots: Bend.Name[],
       ?? die("a foreign def without a .js import: " + k), seen));
     js_def(fl, k, tld);
     const n = eff_name(k);
+    ms.push(n);
     for (const m of [n, n + "_need"]) {
       rows.push(`  ${m}: typeof ${m} === "function" ? ${m} : undefined,`);
     }
   }
+  const dup = ms.find((m, i) => ms.indexOf(m) < i);
+  if (dup !== undefined) die("two names mangle to " + dup);
   const effs = rows.length === 0 ? "" : "const $0eff = (() => {\n"
     + srcs.join("\n") + "\nreturn {\n" + rows.join("\n") + "\n};\n})();\n\n";
   const tabs = [...fl.tabs].map(([r, i]) => `const TAB_${i} = [${r}];`);
