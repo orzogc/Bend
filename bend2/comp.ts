@@ -5366,26 +5366,49 @@ static Term io_node(Env e, u64 cid, Term a, Term b, int hot) {
   return term_ctr(cid, l);
 }
 
+// io_str decodes UTF-8 as WHATWG does: the lead byte sets the count of
+// continuation bytes and the range of the second; a byte that breaks the
+// sequence (or the end) yields one U+FFFD and is read again as a lead.
 static Term io_str(Env e, const char* p, u64 n) {
-  Term s = term_pak(CID_SNIL, 0);
-  while (n > 0) {
-    u64 k = 0;
-    while (k < 3 && k + 1 < n && ((uint8_t)p[n - 1 - k] & 0xC0) == 0x80) {
-      k += 1;
-    }
-    u64 b   = (uint8_t)p[n - 1 - k];
-    u64 len = b < 0xC0 ? 0 : b < 0xE0 ? 2 : b < 0xF0 ? 3 : 4;
-    u64 c   = (uint8_t)p[n - 1];
-    if (len == k + 1) {
-      c = b & (0x7F >> len);
-      for (u64 i = 1; i < len; i += 1) {
-        c = (c << 6) | ((uint8_t)p[n - len + i] & 0x3F);
+  Term s    = term_pak(CID_SNIL, 0);
+  Loc  hole = 0;
+  u64  c = 0, need = 0, lo = 0x80, hi = 0xBF;
+  for (u64 i = 0; i < n || need > 0; i += 1) {
+    u64 b = i < n ? (uint8_t)p[i] : 0x100;
+    if (need > 0 && (b < lo || b > hi)) {
+      need = 0;
+      c    = 0xFFFD;
+      i   -= 1;
+    } else if (need > 0) {
+      lo = 0x80;
+      hi = 0xBF;
+      c  = (c << 6) | (b & 0x3F);
+      if (--need > 0) {
+        continue;
       }
+    } else if (b < 0x80) {
+      c = b;
+    } else if (b < 0xC2 || b > 0xF4) {
+      c = 0xFFFD;
     } else {
-      len = 1;
+      need = b < 0xE0 ? 1 : b < 0xF0 ? 2 : 3;
+      lo   = b == 0xE0 ? 0xA0 : b == 0xF0 ? 0x90 : 0x80;
+      hi   = b == 0xED ? 0x9F : b == 0xF4 ? 0x8F : 0xBF;
+      c    = b & (0x3F >> need);
+      continue;
     }
-    n -= len;
-    s = io_node(e, CID_SCON, c, s, IO_HOTS & 1);
+    Loc  l = heap_alloc(e, 1);
+    Term t = term_ctr(CID_SCON, l);
+    e.mem[l] = c;
+    if (hole == 0) {
+      s = t;
+    } else {
+      e.mem[hole] = io_seal(e, t, IO_HOTS & 1);
+    }
+    hole = l + 1;
+  }
+  if (hole != 0) {
+    e.mem[hole] = io_seal(e, term_pak(CID_SNIL, 0), IO_HOTS & 1);
   }
   return s;
 }
