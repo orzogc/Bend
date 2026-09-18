@@ -188,7 +188,8 @@ try {
   check("no shell rc is written", !fs.readdirSync(HOME).some((f) =>
     f !== ".bend"));
   check("the card names the version, the PATH line and the daily check",
-    ins.out.includes("Bend " + ver) && ins.out.includes("export PATH=\"")
+    ins.out.includes("  " + ver) && ins.out.includes("code bender")
+    && ins.out.includes("export PATH=\"")
     && ins.out.includes(SAID));
   const again = await install({ PATH: path.dirname(BIN) + ":" + PATHS });
   check("a second install, bin on PATH, omits the PATH line", again.code === 0
@@ -231,7 +232,7 @@ try {
   const upd = await bend(["update"]);
   check("bend update runs the installer again: " + upd.err, upd.code === 0
     && upd.err.startsWith("curl -fsSL " + ORIGIN + "/install.sh | sh\n")
-    && upd.out.includes("Bend " + ver) && fs.statSync(BIN).ino !== was);
+    && upd.out.includes("  " + ver) && fs.statSync(BIN).ino !== was);
   const guide = await bend(["guide"]);
   const base  = await bend(["base", "Map"]);
   fs.writeFileSync(path.join(TMP, "sum.bend"),
