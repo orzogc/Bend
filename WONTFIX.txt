@@ -15,7 +15,7 @@ DESIGN (intentional choices)
 
 The checker skips the unused argument of an applied lambda (#820)
   In `(y => x)(e)`, `e` is dead: a comment, invisible to the theory, with no
-  runtime effect. The checker does not visit it.
+  runtime effect. The checker does not visit it, for performance reasons.
 
 `~` template arguments are compile-time (#784)
   A `~` argument must be closed. A def parameter is a runtime value, so it
