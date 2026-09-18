@@ -4,10 +4,10 @@ Read this file before you open an issue.
 
 DESIGN (intentional choices)
 
-@unsafe programs exit 0 and print the unsafe note (#776, #805)
-  The checker prints "N terms annotated as unsafe" instead of "All terms
-  check." and exits 0. `@unsafe` is a choice the author made in the source;
-  read the note, not the exit code.
+@unsafe programs check and exit 0 (#776, #805)
+  The checker prints "All terms check, with N unsafe annotations." and exits
+  0. `@unsafe` is a choice the author made in the source; read the note, not
+  the exit code.
 
 `bend file.bend` runs a pure main lazily; compiled lanes are strict (#775)
   The checker skips an unused argument; a binary evaluates it. Same value,

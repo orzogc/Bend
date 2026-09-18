@@ -397,9 +397,8 @@ async function pow_mine(hash: string, bytes: number): Promise<number> {
 function cli_report(book: Bend.Book): void {
   const uns  = Object.values(book.tlds).filter((t) =>
     t.$ === "Def" && t.u === true).length;
-  cli_say(1, uns > 0 ? `${uns} term${uns === 1 ? "" : "s"}`
-    + " annotated as unsafe.\nThe code is well-typed, but may contain logical"
-    + " paradoxes.\n" : "All terms check.\n");
+  cli_say(1, uns > 0 ? `All terms check, with ${uns} unsafe annotation`
+    + `${uns === 1 ? "" : "s"}.\n` : "All terms check.\n");
 }
 
 function cli_say(fd: number, text: string): void {
