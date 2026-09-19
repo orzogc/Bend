@@ -2,8 +2,8 @@
 # positive side -- a spliced lambda's captured runtime var kept its true
 # multiplicity in the residual. bend's core is affine (a Many capture
 # has no free contraction to ride); bend's ~ law apply checks once, f an
-# opaque constant; the call passes f without ~, so the instance binds f
-# as an erased runtime binder, and its live use is refused.
+# opaque constant; the lambda captures k, a parameter, unbound in the
+# empty context a ~ argument checks in, so the call is refused.
 import Base
 
 type L is Data:
@@ -33,10 +33,13 @@ def main():
   once(10, 1)
 
 #|Error:
-#|- expected : -f
-#|- observed : f
-#|Location: apply~0
-#|17 |
-#|18>| def apply(f, x):
-#|19 |   f(x)
+#|- expected : a template applied to closed ~ arguments (k is a variable here, not comptime: pass it at run time)
+#|- observed : apply
+#|Context:
+#|- k : U32
+#|- x : U32
+#|Location: once
+#|26 | def once(k, x):
+#|27>|   apply(y => (y + k : U32), x)
+#|28 |
 #|exit 1

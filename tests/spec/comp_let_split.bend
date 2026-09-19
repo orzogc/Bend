@@ -1,8 +1,8 @@
 # comp-splice pin (spec_comp_let_split): bend3's let-bound generic
 # template call whose spec split a computed match. bend's ~ law keep
-# checks once with p an opaque constant, up to its match on p(h): a
-# computed scrutinee, which never specializes, by design. (bend3's
-# number switch in the predicate respells through U32.is_gt.)
+# puts its ~p after a plain clause, which is refused where it is
+# written: only leading clauses take ~. (bend3's number switch in the
+# predicate respells through U32.is_gt.)
 import Base
 
 type B2 is Data:
@@ -59,9 +59,10 @@ def main():
   total(keep(U32, x => b2(x), C{1, C{2, C{3, N{}}}}))
 
 #|Error:
-#|- message  : a parameter or field scrutinee (a match cannot scrutinize a computed value: give it its own def)
+#|- expected : a plain clause (only leading clauses take ~)
+#|- observed : '~'
 #|Location:
-#|24 |     case C{h, t}:
-#|25>|       match p(h):
-#|26 |         case T{}:
+#|17 |   for -A: Type
+#|18>|   for ~p: A -> B2
+#|19 |   for xs: L<A>
 #|exit 1

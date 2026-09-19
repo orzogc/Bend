@@ -2,8 +2,7 @@
 # template across a module boundary and minted in the importer's book.
 # the corpus is flat self-contained files, so the template inlines here,
 # and bend's ~ law ct_each checks once, f an opaque constant; the call
-# passes f without ~, so the instance binds f as an erased runtime
-# binder, and its live use is refused.
+# mints ct_each~0, its body at the lambda.
 import Base
 
 type CtL is Data:
@@ -39,11 +38,4 @@ law main:
 def main():
   ct_total(ct_each(x => (x + 1 : U32), CtC{1, CtC{2, CtN{}}}))
 
-#|Error:
-#|- expected : -f
-#|- observed : f
-#|Location: ct_each~0
-#|17 |
-#|18>| def ct_each(f, xs):
-#|19 |   match xs:
-#|exit 1
+#|5

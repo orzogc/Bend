@@ -1,9 +1,8 @@
 # comp-splice pin (spec_comp_instantiation_error): bend3 surfaced a
 # template error AT THE INSTANTIATION (the spliced argument checked at
 # the site's concrete types). bend3's def<A,B> respells as erased -A/-B
-# binders, and a ~ clause after a plain one heads no template (only
-# leading ~ clauses do), so f is an erased binder, and its live use in
-# the fill is refused.
+# binders, and a ~ clause after a plain one is refused where it is
+# written: only leading clauses take ~, so f heads no template.
 import Base
 
 type L<-A: Type> is Type:
@@ -38,13 +37,10 @@ def main():
   caller(C{1, N{}})
 
 #|Error:
-#|- expected : -f
-#|- observed : f
-#|Context:
-#|- A : Type
-#|- B : Type
-#|Location: map
-#|19 |
-#|20>| def map(A, B, f, xs):
-#|21 |   match xs:
+#|- expected : a plain clause (only leading clauses take ~)
+#|- observed : '~'
+#|Location:
+#|14 |   for -B: Type
+#|15>|   for ~f: A -> B
+#|16 |   for xs: L<A>
 #|exit 1
