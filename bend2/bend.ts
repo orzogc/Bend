@@ -333,7 +333,7 @@ export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope;
 export type Span  = { src: string; beg: Loc; end: Loc; };
 
 // Machine
-export type LHS   = { t: HTerm; n: number; def: Name; qs: Quant[]; u?: Bool };
+export type LHS   = { t: HTerm; n: number; def: Name; qs: Quant[]; u?: Bool; z?: number };
 export type Frame =
   | { $: "APP"; x: HTerm; s?: Span } // _(x)
   | { $: "MAT"; t: Extract<HTerm, { $: "Mat" }>; e: HTerm; lhs: { t: () => HTerm; n: number } | null; s?: Span } // \{c:h;m}(_)
@@ -684,18 +684,6 @@ export function term_unapply<X>(tm: TermOf<X>): [TermOf<X>, TermOf<X>[]] {
   }
 }
 
-function term_beta(tm: HTerm): HTerm | null {
-  // a lambda-headed spine's beta steps; null at any other head. a lambda
-  // is read under annotations, never under a binding as term_strip would
-  // (a let's use counts), and a non-lambda head keeps its annotation
-  const lam = (t: HTerm): HTerm => t.$ === "Ann" ? lam(t.x) : t;
-  const [f, xs] = term_unapply(tm);
-  return lam(f).$ !== "Lam" ? null : xs.reduce((g, a) => {
-    const h = lam(g);
-    return h.$ === "Lam" ? h.f(a) : App(g, a);
-  }, f);
-}
-
 export function term_cell(t: HTerm, k: Name = "_"): HTerm {
   if (t.$ === "Var" && t.i < 0) {
     return t;
@@ -784,7 +772,12 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
       return Min(term_higher(tm.a, env), term_higher(tm.b, env), tm.s);
     }
     case "App": {
-      return App(term_higher(tm.f, env), term_higher(tm.x, env), tm.s);
+      const f = term_higher(tm.f, env);
+      const x = term_higher(tm.x, env);
+      if (f.$ === "Lam") {
+        return f.f(x);
+      }
+      return App(f, x, tm.s);
     }
     case "ADT": {
       return ADT(tm.k, tm.x.map((x) => term_higher(x, env)), tm.s, tm.r);
@@ -3391,17 +3384,13 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     //       f infers with a on its pending spine, for infer-ref's descent
     //       a family head is not a function: infer-ref rejects it,
     //       so D(x) is an error and D<x> the one spelling
-    //       (x => f)(a, ..) is its beta steps: f(a)(..) infers (a
+    //       (x => f)(a) never arrives: term_higher builds it as f(a) (a
     //       substituted lambda, a Sigma field type B(fst) say, makes one)
     //       a template head took a as a ~ argument (infer-ref, x of
     //       them): the application passes, its instance stands for both
     // --------------------------------------------------------------- infer-app
     // Γ ⊢ f(a) : B(a) ~ fu + au
     case "App": {
-      const beta = term_beta(tm);
-      if (beta !== null) {
-        return term_infer(book, lhs, beta, qt, ctx, d, sp);
-      }
       const f_inf = term_infer(book, lhs, tm.f, qt, ctx, d, [tm.x, ...sp]);
       if (f_inf.x) {
         return { ...f_inf, x: f_inf.x - 1 };
@@ -3674,17 +3663,6 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       const f_chk = term_check(book, lhs, tm.f, qt, a_gol, ctx, d);
       return Check(Rwt(e_inf.tm, p_chk.tm, f_chk.tm, tm.s), ty, uses_add(e_inf.us, f_chk.us));
     }
-    // Γ ⊢ f(a)(..) : T ~ u
-    // where (x => f)(a, ..) is its beta steps, as in infer-app
-    // -------------------------------- check-app
-    // Γ ⊢ (x => f)(a, ..) : T ~ u
-    case "App": {
-      const beta = term_beta(tm);
-      if (beta !== null) {
-        return term_check(book, lhs, beta, qt, ty, ctx, d);
-      }
-      break;
-    }
     // Γ ⊢ x : A ~ u    A <= T
     // ---------------------- check-any
     // Γ ⊢ x : T ~ u
@@ -3704,7 +3682,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
 // its x leading ~ binders peeled off both, each an opaque constant of its
 // domain for the check (a bodiless def, native like base's, so a mention
 // costs no usage and the body must hold for every closed instance)
-export function def_check(book: Book, k: Name, def: Def): LTerm {
+export function def_check(book: Book, k: Name, def: Def, z?: number): LTerm {
   const qs = tele_unbind(book, def.T).doms.map((dom) => dom[0]).slice(0, def.n);
   while (qs.length < def.n) {
     qs.push(Lone());
@@ -3719,14 +3697,15 @@ export function def_check(book: Book, k: Name, def: Def): LTerm {
     v = term_apply(v, Ref(o));
     T = h.B(Ref(o));
   }
-  return term_check(gen, { t, n: def.n - def.x, def: k, qs, u: def.u }, v, Lone(), T, ctx_nil(), 0).tm;
+  return term_check(gen, { t, n: def.n - def.x, def: k, qs, u: def.u, z }, v, Lone(), T, ctx_nil(), 0).tm;
 }
 
 // the name of a template def's instance at the spine's leading ~
 // arguments: each checks dead against its domain in the empty context at
 // depth d (a closed term; a miss on one is named as the open argument it
 // is), term_key of their syntax picks it, and the first call mints it,
-// the def's body and type at them, checked as a def
+// the def's body and type at them, checked as a def one level deeper:
+// 64 levels stop a template that instantiates itself without end
 export function def_inst(book: Book, lhs: LHS, tm: Extract<HTerm, { $: "Ref" }>, def: Def, sp: HTerm[], ctx: Ctx, d: number): Name {
   const xs = sp.slice(0, def.x);
   if (xs.length < def.x) {
@@ -3753,10 +3732,14 @@ export function def_inst(book: Book, lhs: LHS, tm: Extract<HTerm, { $: "Ref" }>,
   }
   const is = book.tmps[tm.k] ??= Object.create(null);
   if (is[key] === undefined) {
+    const z = (lhs.z ?? 0) + 1;
+    if (z > 64) {
+      throw Err(book, ctx, "a template that stops instantiating itself (64 levels at most)", tm, tm.s, lhs.def);
+    }
     const o = is[key] = tm.k + "~" + String(Object.keys(is).length);
     const inst: Def = { $: "Def", n: def.n - def.x, x: 0, T, v: xs.reduce((v, a) => term_apply(v, a), def.v as HTerm), u: def.u };
     book.tlds[o] = { ...inst, v: null };
-    inst.e = def_check(book, o, inst);
+    inst.e = def_check(book, o, inst, z);
     book.tlds[o] = inst;
   }
   return is[key];

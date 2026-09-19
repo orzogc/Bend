@@ -21,7 +21,7 @@ def main() -> Nat:
 #|- observed : grow
 #|Context:
 #|- p : Nat
-#|Location: grow~7
+#|Location: grow~9
 #|13 |     case 1n+p:
 #|14>|       grow(~(y => f(f(y))), p)
 #|15 |

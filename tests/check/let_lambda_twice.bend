@@ -1,5 +1,5 @@
-# a let-bound lambda applied twice: the checker's beta step reads a lambda
-# under annotations, never under a binding (a let's name is a cell that
+# a let-bound lambda applied twice: term_higher's beta step reads a bare
+# lambda head, never under a binding (a let's name is a cell that
 # term_strip would open), so each k0(..) is a use of k0, and the second
 # is refused
 import Base
