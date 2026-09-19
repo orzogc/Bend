@@ -5253,7 +5253,7 @@ static u64 io_sys_end(IoWork* w, ssize_t n) {
 }
 
 // A computation's activation for its whole life: cont over item is its
-// next request; parked, work.word and time are its fd or deadline, evts
+// next request; parked, work.word and time are its fd and deadline, evts
 // what the fd must be ready for, and work.pack resumes it (io_exec runs
 // cont, the request); work leads, so an effect's IoWork* is its activation.
 // IoAct ::=
@@ -5730,8 +5730,7 @@ static int io_step(Env e, IoAct* a) {
     u32 word = (u32)(need & IO_READ ? io_hand_v(e.mem[at]) : e.mem[at]);
     a->cont  = req;
     if (need != 0) {
-      io_wait_for(&a->work, need & IO_READ ? (int)word : -1,
-        need & IO_READ ? POLLIN : 0,
+      io_wait_for(&a->work, (int)word, need & IO_READ ? POLLIN : 0,
         need & IO_TIME ? io_tick() + (u64)word * 1000000ull : 0, io_exec);
       return -1;
     }
