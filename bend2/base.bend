@@ -204,6 +204,10 @@ def IO.pass(-A: Type, r: Result<&1, &1, U32 & String, A>) -> IO(A):
 def IO.try(-A: Type, act: IO(Result<&1, &1, U32 & String, A>)) -> IO(A):
   IO.bind(Result<&1, &1, U32 & String, A>, A, act, IO.pass(A))
 
+def IO.random_u32() -> IO(Result<&1, &1, U32 & String, U32>):
+  import "./effs/random_u32.c"
+  import "./effs/random_u32.js"
+
 def IO.spawn(-A: Type, act: IO(A)) -> IO(Unit):
   import "./effs/spawn.c"
   import "./effs/spawn.js"
