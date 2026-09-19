@@ -128,8 +128,10 @@
 // decides.
 //
 // "~k: T" heading a def's telescope, or "for ~k: T" in a law, makes it a
-// template: a closed call "T(~a, ..)" re-parses its text with k bound to a
-// into a def T~n (a ~ lambda applied at k is a Sub); an open one stays.
+// template: a call T(~a, ..) writes ~ before each ~ argument, or none; a
+// live closed call is the instance T~n, the def at a, minted and checked
+// when the call checks; an open one is refused, and a call in a type or
+// in a template's own text stays T's.
 //
 // Do-Notation
 // -----------
@@ -304,10 +306,9 @@ export type Env = List<HTerm | ((s?: Span) => HTerm)>;
 export type Ctr  = { k: Name; n: number; T: HTerm }
 export type Ctrs = Array<Ctr>;
 export type ADT  = { $: "ADT"; n: number; g: number; T: HTerm; c: Ctrs; };
-export type Def  = { $: "Def"; n: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; x?: number; t?: { k: Name; T: HTerm }; };
+export type Def  = { $: "Def"; n: number; x: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; };
 export type TLD  = ADT | Def;
-export type Tmpl = { p: Parse; is: Record<string, Name>; };
-export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; open: number; tmps: Record<Name, Tmpl>; };
+export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; open: number; tmps: Record<Name, Record<string, Name>>; };
 
 // Context
 export type Ann = { q: Quant; k: Name; T: HTerm };
@@ -326,9 +327,9 @@ export type Body  = Match | Local | Reply
 
 // Parser
 export type Loc   = number;
-export type Entry = [Name, number, LTerm?];
+export type Entry = [Name, number];
 export type Scope = { stk: Entry[]; frs: number; };
-export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; inst: { k: Name; xs: LTerm[] } | null; };
+export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; };
 export type Span  = { src: string; beg: Loc; end: Loc; };
 
 // Machine
@@ -341,7 +342,7 @@ export type Frame =
   | { $: "MNB"; a: HTerm; s?: Span } // a <&> _
 
 // Infer
-export type Infer = { tm: LTerm; ty: HTerm; us: Uses };
+export type Infer = { tm: LTerm; ty: HTerm; us: Uses; x?: number };
 export type Check = { tm: LTerm; us: Uses };
 
 // Error
@@ -463,8 +464,8 @@ export function Many(): Quant {
 // Infer
 // -----
 
-export function Infer(tm: LTerm, ty: HTerm, us: Uses): Infer {
-  return { tm: Ann(tm, Var("_", -1, undefined, ty)), ty, us };
+export function Infer(tm: LTerm, ty: HTerm, us: Uses, x?: number): Infer {
+  return { tm: Ann(tm, Var("_", -1, undefined, ty)), ty, us, x };
 }
 
 export function Check(tm: LTerm, ty: HTerm, us: Uses): Check {
@@ -681,6 +682,18 @@ export function term_unapply<X>(tm: TermOf<X>): [TermOf<X>, TermOf<X>[]] {
       }
     }
   }
+}
+
+function term_beta(tm: HTerm): HTerm | null {
+  // a lambda-headed spine's beta steps; null at any other head. a lambda
+  // is read under annotations, never under a binding as term_strip would
+  // (a let's use counts), and a non-lambda head keeps its annotation
+  const lam = (t: HTerm): HTerm => t.$ === "Ann" ? lam(t.x) : t;
+  const [f, xs] = term_unapply(tm);
+  return lam(f).$ !== "Lam" ? null : xs.reduce((g, a) => {
+    const h = lam(g);
+    return h.$ === "Lam" ? h.f(a) : App(g, a);
+  }, f);
 }
 
 export function term_cell(t: HTerm, k: Name = "_"): HTerm {
@@ -1113,12 +1126,6 @@ export function tele_fill(book: Book, tel: HTerm, xs: HTerm[], ctx: Ctx, def?: N
     out = tele_head(book, out, ctx, def, s).B(x);
   }
   return out;
-}
-
-export function tele_spec(book: Book, tel: HTerm, xs: HTerm[]): HTerm {
-  const t = tele_open(book, tel);
-  return t === null || xs.length === 0 ? tel
-    : All(t.q, t.k, t.i, t.A, () => tele_spec(book, t.B(xs[0]), xs.slice(1)), t.s);
 }
 
 export function tele_check(book: Book, lhs: LHS, tel: HTerm, xs: HTerm[], qt: Quant, ctx: Ctx, d: number, s?: Span): { xs: LTerm[]; us: Uses; tel: HTerm } {
@@ -1664,10 +1671,10 @@ export function parse_char(p: Parse): U32 {
 // Binders
 // -------
 
-export function parse_open(p: Parse, k: Name, v?: LTerm): number {
+export function parse_open(p: Parse, k: Name): number {
   const i = p.sc.frs++;
   if (k !== "_") {
-    p.sc.stk.push([k, i, v]);
+    p.sc.stk.push([k, i]);
   }
   return i;
 }
@@ -1689,10 +1696,10 @@ export function parse_lookup(p: Parse, k: Name): Entry | null {
 export function parse_var(p: Parse, k: Name, s?: Span): LTerm {
   const e = parse_lookup(p, k);
   if (e !== null) {
-    return e[2] === undefined ? Var(k, e[1], s) : e[2].$ === "Var" ? Ref(e[2].k, s) : e[2];
+    return Var(k, e[1], s);
   }
   const q = parse_reso(p, k);
-  if (q !== k || k.includes(".") || q in p.book.tmps) {
+  if (q !== k || k.includes(".")) {
     return Ref(q, s);
   }
   return Var(k, p.sc.frs++, s);
@@ -1708,7 +1715,7 @@ export function parse_reso(p: Parse, k: Name): Name {
   if (dot !== -1 && k.slice(0, dot) in p.al) {
     q = p.al[k.slice(0, dot)] + k.slice(dot);
   }
-  if (q in p.book.tlds || q in p.book.ctrs || q in p.book.tmps) {
+  if (q in p.book.tlds || q in p.book.ctrs) {
     return q;
   }
   return k;
@@ -2077,31 +2084,22 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     }
     if (parse_at(p, "(")) {
       parse_bump(p);
-      const tm = out.$ === "Ref" ? p.book.tmps[out.k] : undefined;
+      const hd = out.$ === "Ref" || out.$ === "Var" && parse_lookup(p, out.k) === null ? p.book.tlds[out.k] : undefined;
+      const x  = hd?.$ === "Def" ? hd.x : 0;
       const ts: LTerm[] = [];
-      for (parse_skip(p); tm !== undefined && parse_take(p, "~"); parse_skip(p)) {
+      for (parse_skip(p); x > 0 && parse_at(p, "~"); parse_skip(p)) {
+        if (ts.length === x) {
+          parse_fail(p, "a term (" + out.k + " takes " + String(x) + " ~)");
+        }
+        parse_bump(p);
         ts.push(parse_term(p));
         parse_skip(p);
         parse_take(p, ",");
       }
       const xs = ts.concat(parse_term_args(p, ")"));
       const s  = parse_grow(p, out);
-      if (out.$ === "Ref" && tm !== undefined) {
-        const env = p.sc.stk.reduce((env: Env, e) => list_set(env, e[1], Ref("\0")), null);
-        const key = ts.map((x) => term_key(term_lower(term_higher(x, env)))).join("\n");
-        if (!key.includes("\\u0000")) {
-          if (key.length > 32768) {
-            throw Err(p.book, ctx_nil(), "a ~ argument that stops growing (32768 key chars at most)", out.k, s);
-          }
-          if (tm.is[key] === undefined) {
-            tm.is[key] = out.k + "~" + Object.keys(tm.is).length;
-            parse_def({ ...tm.p, sc: { stk: [], frs: p.sc.frs }, inst: { k: tm.is[key], xs: ts } }, p.book);
-          }
-          out = { ...out, k: tm.is[key] };
-        }
-      }
-      for (const x of xs) {
-        out = out.$ === "Lam" && p.sc.stk.some((e) => e[2] === out) ? Sub(out.i, x, out.f, s) : App(out, x, s);
+      for (const a of xs) {
+        out = App(out, a, s);
       }
       continue;
     }
@@ -2195,7 +2193,11 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
 }
 
 export function parse_term_ns(p: Parse, tm: LTerm, T: LTerm): void {
-  // ": T" names the operators reached through operator applications, none nested
+  // ": T" names the operators reached through operator applications, none
+  // nested; a let's body is the expression
+  if (tm.$ === "Let") {
+    return parse_term_ns(p, tm.f, T);
+  }
   const [f, xs] = term_unapply(tm);
   if (f.$ !== "Ref") {
     return;
@@ -2450,6 +2452,9 @@ export function parse_tele(p: Parse, close: string, tk: Name[] = []): Array<[Qua
     if (parse_take(p, close)) {
       return tele;
     }
+    if (close === ")" && parse_at(p, "~") && tk.length < tele.length) {
+      parse_fail(p, "a plain binder (only leading binders take ~)");
+    }
     const ct  = close === ")" && parse_take(p, "~");
     const q   = ct ? None() : parse_quant(p);
     const beg = p.pos;
@@ -2461,10 +2466,10 @@ export function parse_tele(p: Parse, close: string, tk: Name[] = []): Array<[Qua
       parse_eat(p, ":");
     }
     const T: LTerm = bare ? Qnt(s) : parse_term(p);
-    if (ct && tk.length === tele.length) {
+    if (ct) {
       tk.push(k);
     }
-    tele.push([bare ? None() : q, k, parse_open(p, k, p.inst?.xs[tele.length]), T, s]);
+    tele.push([bare ? None() : q, k, parse_open(p, k), T, s]);
     parse_skip(p);
     parse_take(p, ",");
   }
@@ -2480,13 +2485,12 @@ export function parse_fresh(p: Parse, k: Name): void {
 }
 
 export function parse_def(p: Parse, book: Book, u: Bool = false): void {
-  const at = p.pos;
   parse_word(p, "def");
   const nm  = parse_name(p);
   const q   = parse_reso(p, nm);
   const tld = book.tlds[q];
-  const law = tld?.$ === "Def" && tld.v === null && tld.b !== true && !tld.i && !(q in book.tmps) ? tld : undefined;
-  const k   = p.inst?.k ?? (law ? q : parse_qual(p, nm));
+  const law = tld?.$ === "Def" && tld.v === null && tld.b !== true && !tld.i ? tld : undefined;
+  const k   = law ? q : parse_qual(p, nm);
   if (!law) {
     parse_fresh(p, k);
   }
@@ -2500,15 +2504,12 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   const tele = parse_tele(p, ")", tk);
   parse_skip(p);
   let def: Def;
-  if (p.inst !== null) {
-    // an instance: its template at the ~ arguments (its text is parsed past)
-    if (parse_take(p, "->")) {
-      parse_term(p);
-    }
-    def = book.tlds[k] = { ...tld as Def, v: null, t: { k: q, T: tele_spec(book, (tld as Def).T, p.inst.xs.map((x) => term_higher(x))) } };
-  } else if (law) {
+  if (law) {
     if (tele.some((cell) => cell[3].$ !== "Qnt")) {
       parse_fail(p, "a name");
+    }
+    if (tele.length < law.x) {
+      parse_fail(p, "a name for each ~ clause of the law (" + String(law.x) + ")");
     }
     def = book.tlds[k] = law;
     def.n = tele.length;
@@ -2516,15 +2517,14 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
     if (!parse_take(p, "->")) {
       parse_fail(p, "'->' (a def with no return type fills a law; no law named " + nm + " is in scope)");
     }
-    def = book.tlds[k] = { $: "Def", n: tele.length, T: term_higher(tele_bind(tele, parse_term(p))), v: null, x: tk.length };
-  }
-  if (p.inst === null && def.x) {
-    // a template: its generic parse (an instance re-parses its text)
-    book.tmps[k] = { p: { ...p, pos: at }, is: Object.create(null) };
+    def = book.tlds[k] = { $: "Def", n: tele.length, x: tk.length, T: term_higher(tele_bind(tele, parse_term(p))), v: null };
   }
   def.u ||= u;
   parse_eat(p, ":");
   if (parse_at_word(p, "import")) {
+    if (def.x > 0) {
+      parse_fail(p, "a body (a template is not foreign)");
+    }
     def.i = [];
     while (parse_word(p, "import")) {
       parse_eat(p, "\"");
@@ -2547,7 +2547,7 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
 }
 
 export function parse_book(book: Book, dir: string, src: string, ns: string = "", al: Record<Name, Name> = Object.create(null)): Book {
-  const p: Parse = { book, dir, str: src, pos: 0, sc: { stk: [], frs: 0 }, ns, al, inst: null };
+  const p: Parse = { book, dir, str: src, pos: 0, sc: { stk: [], frs: 0 }, ns, al };
   while (true) {
     parse_skip(p);
     if (p.pos >= p.str.length) {
@@ -2620,12 +2620,15 @@ export function parse_book(book: Book, dir: string, src: string, ns: string = ""
           parse_word(p, "exs");
         }
         parse_skip(p);
+        if (all && parse_at(p, "~") && tc < cls.length) {
+          parse_fail(p, "a plain clause (only leading clauses take ~)");
+        }
         const ct = all && parse_take(p, "~");
         const q  = ct ? None() : all ? parse_quant(p) : Lone();
         const beg = p.pos;
         const c = parse_name(p);
         const s = parse_span(p, beg);
-        if (ct && tc === cls.length) {
+        if (ct) {
           tc += 1;
         }
         parse_eat(p, ":");
@@ -2942,10 +2945,6 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
             tm = ADT(tm.k, [], tm.s);
           }
           break focus;
-        }
-        if (tld.t !== undefined) {
-          tm = Ref(tld.t.k, tm.s);
-          continue main;
         }
         let run = 0;
         while (run < tld.n && run < frs.length && frs[frs.length - 1 - run].$ === "APP") {
@@ -3277,6 +3276,8 @@ export function term_compare(mode: "EQ" | "LE", book: Book, lhs: HTerm, rhs: HTe
 export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx, d: number, sp: HTerm[] = []): Infer {
   switch (tm.$) {
     // Γ[x] = q A
+    // where x is bound in Γ (a ~ argument checks in the empty context,
+    //       so a variable of the caller's is unbound there)
     // ----------------- infer-var
     // Γ ⊢ x : A ~ {x:q}
     case "Var": {
@@ -3299,10 +3300,10 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     //       k has a body in a live region, unless base declared it or it
     //       is a template's ~ parameter (an unfilled law is a dead claim;
     //       base's are native, and a ~ parameter an opaque constant)
-    //       k names a template in a dead region or in a template's own
-    //       text alone: elsewhere a closed call was rewritten to its
-    //       instance k~n, which declares k's type, and an open one is
-    //       not comptime
+    //       a template k in a live region outside a template's own text
+    //       takes its x ~ arguments here: the call is k~n, the instance
+    //       at them (def_inst), and the x applications above pass
+    //       (infer-app)
     //       k is not a parameterized family: D<..> is the one
     //       spelling, a bare family head is an error
     // -------------------------------------------------------- infer-ref
@@ -3312,15 +3313,25 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
       if (tld === undefined) {
         throw Err(book, ctx, "a defined name", tm, tm.s, lhs.def);
       }
+      let k = tm.k;
+      let x = 0;
+      let def: TLD = tld;
       switch (qt.$) {
         case "None": {
           break;
         }
         default: {
-          if (tm.k in book.tmps && !(lhs.def in book.tmps)) {
-            throw Err(book, ctx, "a template applied to closed ~ arguments (a def parameter is not comptime)", tm, tm.s, lhs.def);
+          const gen = tld.$ === "Def" && tld.x > 0 && !(book.tlds[lhs.def] as Def).x ? tld : null;
+          if (tld.$ === "Def" && tld.v === null && !tld.i && (tld.b !== true || gen !== null) && k !== lhs.def) {
+            throw Err(book, ctx, "a filled definition (an unfilled law is a dead claim: live code cannot use it)", tm, tm.s, lhs.def);
           }
-          if (tm.k === lhs.def && lhs.u !== true) {
+          if (gen !== null) {
+            k   = def_inst(book, lhs, tm, gen, sp, ctx, d);
+            def = book.tlds[k];
+            x   = gen.x;
+            sp  = sp.slice(x);
+          }
+          if (k === lhs.def && lhs.u !== true) {
             const cols = term_unapply(lhs.t)[1];
             let ord: Cmp = "EQ";
             for (let j = 0; j < cols.length && j < sp.length && ord === "EQ"; j++) {
@@ -3330,19 +3341,13 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
               throw Err(book, ctx, "a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)", tm, tm.s, lhs.def);
             }
           }
-          if (tm.k === lhs.def) {
-            return Infer(Ref(tm.k, tm.s, tm.b), tld.T, uses_nil());
-          }
-          if (tld.$ === "Def" && tld.v === null && tld.b !== true && !tld.i) {
-            throw Err(book, ctx, "a filled definition (an unfilled law is a dead claim: live code cannot use it)", tm, tm.s, lhs.def);
-          }
           break;
         }
       }
-      if (tld.$ === "ADT" && tld.n > 0) {
+      if (def.$ === "ADT" && def.n > 0) {
         throw Err(book, ctx, "a family instance (write " + tm.k + "<..>)", tm, tm.s, lhs.def);
       }
-      return Infer(Ref(tm.k, tm.s, tm.b), tld.T, uses_nil());
+      return Infer(Ref(k, tm.s, tm.b), def.T, uses_nil(), x);
     }
     // Γ ⊢ q : Quant
     // where q is dead
@@ -3386,15 +3391,21 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     //       f infers with a on its pending spine, for infer-ref's descent
     //       a family head is not a function: infer-ref rejects it,
     //       so D(x) is an error and D<x> the one spelling
-    //       (x => f)(a) is one beta step: f(a) infers (a substituted
-    //       lambda, a Sigma field type B(fst) say, makes one)
+    //       (x => f)(a, ..) is its beta steps: f(a)(..) infers (a
+    //       substituted lambda, a Sigma field type B(fst) say, makes one)
+    //       a template head took a as a ~ argument (infer-ref, x of
+    //       them): the application passes, its instance stands for both
     // --------------------------------------------------------------- infer-app
     // Γ ⊢ f(a) : B(a) ~ fu + au
     case "App": {
-      if (tm.f.$ === "Lam") {
-        return term_infer(book, lhs, tm.f.f(tm.x), qt, ctx, d, sp);
+      const beta = term_beta(tm);
+      if (beta !== null) {
+        return term_infer(book, lhs, beta, qt, ctx, d, sp);
       }
       const f_inf = term_infer(book, lhs, tm.f, qt, ctx, d, [tm.x, ...sp]);
+      if (f_inf.x) {
+        return { ...f_inf, x: f_inf.x - 1 };
+      }
       const f_wnf = term_wnf(book, f_inf.ty);
       if (f_wnf.$ !== "All") {
         throw Err(book, ctx, "a function type", f_inf.ty, tm.s, lhs.def);
@@ -3663,6 +3674,17 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       const f_chk = term_check(book, lhs, tm.f, qt, a_gol, ctx, d);
       return Check(Rwt(e_inf.tm, p_chk.tm, f_chk.tm, tm.s), ty, uses_add(e_inf.us, f_chk.us));
     }
+    // Γ ⊢ f(a)(..) : T ~ u
+    // where (x => f)(a, ..) is its beta steps, as in infer-app
+    // -------------------------------- check-app
+    // Γ ⊢ (x => f)(a, ..) : T ~ u
+    case "App": {
+      const beta = term_beta(tm);
+      if (beta !== null) {
+        return term_check(book, lhs, beta, qt, ty, ctx, d);
+      }
+      break;
+    }
     // Γ ⊢ x : A ~ u    A <= T
     // ---------------------- check-any
     // Γ ⊢ x : T ~ u
@@ -3677,6 +3699,69 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
   throw Err(book, ctx, ty, x_inf.ty, tm.s, lhs.def);
 }
 
+// a def's body against its type, entering with { t: Ref k, n: Def.n, qs:
+// the parameter quantities read off T }; a template (Def.x) checks once,
+// its x leading ~ binders peeled off both, each an opaque constant of its
+// domain for the check (a bodiless def, native like base's, so a mention
+// costs no usage and the body must hold for every closed instance)
+export function def_check(book: Book, k: Name, def: Def): LTerm {
+  const qs = tele_unbind(book, def.T).doms.map((dom) => dom[0]).slice(0, def.n);
+  while (qs.length < def.n) {
+    qs.push(Lone());
+  }
+  const gen = def.x === 0 ? book : { ...book, tlds: Object.create(book.tlds) as Record<Name, TLD> };
+  let [t, v, T]: HTerm[] = [Ref(k), def.v as HTerm, def.T];
+  for (let j = 0; j < def.x; j++) {
+    const h = tele_head(gen, T, ctx_nil(), k);
+    const o = k + "~" + h.k;
+    gen.tlds[o] = { $: "Def", n: 0, x: 0, T: h.A, v: null, b: true };
+    t = App(t, Ref(o));
+    v = term_apply(v, Ref(o));
+    T = h.B(Ref(o));
+  }
+  return term_check(gen, { t, n: def.n - def.x, def: k, qs, u: def.u }, v, Lone(), T, ctx_nil(), 0).tm;
+}
+
+// the name of a template def's instance at the spine's leading ~
+// arguments: each checks dead against its domain in the empty context at
+// depth d (a closed term; a miss on one is named as the open argument it
+// is), term_key of their syntax picks it, and the first call mints it,
+// the def's body and type at them, checked as a def
+export function def_inst(book: Book, lhs: LHS, tm: Extract<HTerm, { $: "Ref" }>, def: Def, sp: HTerm[], ctx: Ctx, d: number): Name {
+  const xs = sp.slice(0, def.x);
+  if (xs.length < def.x) {
+    throw Err(book, ctx, "a template applied to closed ~ arguments (a def parameter is not comptime)", tm, tm.s, lhs.def);
+  }
+  let T = def.T;
+  for (const a of xs) {
+    const h = tele_head(book, T, ctx, lhs.def, tm.s);
+    try {
+      term_check(book, lhs, a, None(), h.A, ctx_nil(), d);
+    } catch (e) {
+      // infer-var alone observes a variable; one at 0 up to d is Γ's
+      const v = (e as Err)?.obs;
+      if (typeof v === "object" && v.$ === "Var" && v.i >= 0 && v.i < d) {
+        throw Err(book, ctx, "a template applied to closed ~ arguments (" + v.k + " is a variable here, not comptime: pass it at run time)", tm, tm.s, lhs.def);
+      }
+      throw e;
+    }
+    T = h.B(a);
+  }
+  const key = xs.map((a) => term_key(term_lower(a))).join("\n");
+  if (key.length > 32768) {
+    throw Err(book, ctx, "a ~ argument that stops growing (32768 key chars at most)", tm, tm.s, lhs.def);
+  }
+  const is = book.tmps[tm.k] ??= Object.create(null);
+  if (is[key] === undefined) {
+    const o = is[key] = tm.k + "~" + String(Object.keys(is).length);
+    const inst: Def = { $: "Def", n: def.n - def.x, x: 0, T, v: xs.reduce((v, a) => term_apply(v, a), def.v as HTerm), u: def.u };
+    book.tlds[o] = { ...inst, v: null };
+    inst.e = def_check(book, o, inst);
+    book.tlds[o] = inst;
+  }
+  return is[key];
+}
+
 // Valid
 // =====
 // book_valid throws the first Err (its first done entries are taken
@@ -3684,78 +3769,79 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
 // is an event: an
 // law's name declares (bodiless, type checked) at its law and
 // defines at its fill, so it is visible and stuck between the two and
-// unfolds after; a plain def or ADT does both at once. each event checks
-// against the book so far, so a forward reference fails as undefined,
-// and a live reference to a bodiless def errs (infer-ref), so mutual
-// recursion cannot bypass the wall. a def is declared, body null, until
-// its check passes: an unchecked body never unfolds, a declared ref is
-// stuck. a def checks its type against Type, then its tree against it,
-// entering with { t: Ref k, n: Def.n, qs: the parameter quantities read
-// off T }; an ADT checks its signature against Type and reads its
-// declared kind Kind(G) off the tip, then checks every constructor
-// telescope domain (parameters, then fields) in the real context
-// against one goal: Kind(G) for a live field, Kind(q) for a binder of
-// quantity q otherwise (term_compare's order does the fitting); the tip must
-// be the family applied to its own parameters, in order. one telescope
-// per declaration: there is no second face, no substitution and no
-// speculative pass. a template (Def.x) checks once: its x leading ~
-// binders peel off its type and body, each taking an opaque constant of
-// its domain (a bodiless def, native like base's, so a mention costs no
-// usage and the body must hold for every closed instance); an instance
-// (Def.t names its template) declares its template's T, so a call checks
-// against the generic type whichever instance the memo picked, and checks
-// its own body against that type at its ~ arguments (Def.t.T), which the
-// compiler reads; term_wnf reads an instance as its template, so the two
-// spellings of one call (k~n in text, k in a generic type) meet on open
-// arguments.
+// unfolds after; a plain def or ADT does both at once. the book checks
+// in place: every name in the order hides, then each event reveals its
+// own against the book so far, so a forward reference fails as
+// undefined, and a live reference to a bodiless def errs (infer-ref),
+// so mutual recursion cannot bypass the wall. a def is declared, body
+// null, until its check passes: an unchecked body never unfolds, a
+// declared ref is stuck. a def checks its type against Type, then its
+// tree against it (def_check); an ADT checks its signature against Type
+// and reads its declared kind Kind(G) off the tip, then checks every
+// constructor telescope domain (parameters, then fields) in the real
+// context against one goal: Kind(G) for a live field, Kind(q) for a
+// binder of quantity q otherwise (term_compare's order does the
+// fitting); the tip must be the family applied to its own parameters,
+// in order. one telescope per declaration: there is no second face, no
+// substitution and no speculative pass. an instance k~n, k's body at
+// closed ~ arguments, is minted and checked by its first live call
+// (infer-ref) while the caller is declared; it stays outside the order
+// (a seeded book keeps it), so it is no claim.
 
 export function book_valid(book: Book, done: number = 0): void {
-  const seen = { ...book_nil(), tmps: book.tmps };
+  const tlds = book.tlds;
   const last = new Map<Name, number>();
   for (let i = 0; i < book.order.length; i++) {
     last.set(book.order[i], i);
   }
+  book.tlds = Object.create(null);
+  book.ctrs = Object.create(null);
+  for (const k in tlds) {
+    if (!last.has(k)) {
+      book.tlds[k] = tlds[k];
+    }
+  }
   for (let i = 0; i < book.order.length; i++) {
     const k   = book.order[i];
-    const tld = book.tlds[k];
+    const tld = tlds[k];
     const fin = last.get(k) === i;
     if (tld.$ === "ADT") {
-      seen.tlds[k] = tld;
+      book.tlds[k] = tld;
       for (const c of tld.c) {
-        seen.ctrs[c.k] = c;
+        book.ctrs[c.k] = c;
       }
       if (i >= done) {
-        term_check(seen, { t: Ref(k), n: 0, def: k, qs: [] }, tld.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
-        const { doms, ret: kind } = tele_unbind(seen, tld.T);
+        term_check(book, { t: Ref(k), n: 0, def: k, qs: [] }, tld.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
+        const { doms, ret: kind } = tele_unbind(book, tld.T);
         if (kind.$ !== "Typ") {
           let ctx = ctx_nil();
           for (const [d, [q, x, A]] of doms.entries()) {
             ctx = ctx_bind(ctx, d, q, x, A);
           }
-          throw Err(seen, ctx, "a kind (type " + k + "<..> is Kind(g))", kind, kind.s ?? tld.T.s, k);
+          throw Err(book, ctx, "a kind (type " + k + "<..> is Kind(g))", kind, kind.s ?? tld.T.s, k);
         }
         for (const ctr of tld.c) {
           let tel: HTerm = ctr.T;
           let ctx = ctx_nil();
           for (let d = 0; d < tld.n + ctr.n; d++) {
-            const t_all = tele_head(seen, tel, ctx, ctr.k);
+            const t_all = tele_head(book, tel, ctx, ctr.k);
             let goal: HTerm = Typ(Qua(t_all.q));
             if (d >= tld.n && t_all.q.$ === "Lone") {
               goal = kind;
             }
-            term_check(seen, { t: Ref(ctr.k), n: 0, def: ctr.k, qs: [] }, t_all.A, None(), goal, ctx, d);
+            term_check(book, { t: Ref(ctr.k), n: 0, def: ctr.k, qs: [] }, t_all.A, None(), goal, ctx, d);
             ctx = ctx_bind(ctx, d, t_all.q, t_all.k, t_all.A);
             tel = t_all.B(Var(t_all.k, d));
           }
           const exp = "a telescope tipped at " + k + " applied to its own parameters";
-          const tip = term_wnf(seen, tel);
+          const tip = term_wnf(book, tel);
           if (tip.$ !== "ADT" || tip.k !== k || tip.x.length !== tld.n || tip.r.length !== 0) {
-            throw Err(seen, ctx, exp, tip, undefined, ctr.k);
+            throw Err(book, ctx, exp, tip, undefined, ctr.k);
           }
           for (let d = 0; d < tld.n; d++) {
-            const x = term_wnf(seen, tip.x[d]);
+            const x = term_wnf(book, tip.x[d]);
             if (x.$ !== "Var" || x.i !== d) {
-              throw Err(seen, ctx, exp, tip, undefined, ctr.k);
+              throw Err(book, ctx, exp, tip, undefined, ctr.k);
             }
           }
         }
@@ -3764,43 +3850,29 @@ export function book_valid(book: Book, done: number = 0): void {
     }
     const dec: Def = { ...tld, v: null };
     if (i < done) {
-      seen.tlds[k] = fin ? tld : dec;
+      book.tlds[k] = fin ? tld : dec;
       continue;
     }
     if (fin && tld.v === null && tld.b !== true && !tld.i) {
       book.open += 1;
     }
-    seen.tlds[k] = dec;
+    book.tlds[k] = dec;
     const def = fin ? tld : dec;
-    term_check(seen, { t: Ref(k), n: 0, def: k, qs: [], u: def.u }, def.t?.T ?? def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
+    term_check(book, { t: Ref(k), n: 0, def: k, qs: [], u: def.u }, def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
     if (def.i) {
       let tel = term_strip(def.T);
       for (let d = 0; tel.$ === "All"; d++) {
         tel = term_strip(tel.B(Var(tel.k, d)));
       }
       const [h] = term_unapply(tel);
-      const io  = seen.tlds["IO"];
+      const io  = book.tlds["IO"];
       if (h.$ !== "Ref" || h.k !== "IO" || io === undefined || io.$ !== "Def" || io.b !== true) {
-        throw Err(seen, ctx_nil(), "a foreign definition returning base IO(...) directly (return type aliases are not unfolded)", k, tel.s, k);
+        throw Err(book, ctx_nil(), "a foreign definition returning base IO(...) directly (return type aliases are not unfolded)", k, tel.s, k);
       }
     }
     if (def.v !== null) {
-      const qs = tele_unbind(seen, def.T).doms.map((dom) => dom[0]).slice(0, def.n);
-      while (qs.length < def.n) {
-        qs.push(Lone());
-      }
-      const c = def.t === undefined && def.x || 0;
-      let [t, v, T]: HTerm[] = [Ref(k), def.v, def.t?.T ?? def.T];
-      for (let j = 0; j < c; j++) {
-        const h = tele_head(seen, T, ctx_nil(), k);
-        const o = k + "~" + h.k;
-        seen.tlds[o] = { $: "Def", n: 0, T: h.A, v: null, b: true };
-        t = App(t, Ref(o));
-        v = term_apply(v, Ref(o));
-        T = h.B(Ref(o));
-      }
-      def.e = term_check(seen, { t, n: def.n - c, def: k, qs, u: def.u }, v, Lone(), T, ctx_nil(), 0).tm;
+      def.e = def_check(book, k, def);
     }
-    seen.tlds[k] = def;
+    book.tlds[k] = def;
   }
 }

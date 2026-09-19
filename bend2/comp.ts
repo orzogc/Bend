@@ -1384,7 +1384,7 @@ function def_body(cb: Carb, k: Bend.Name): TLD | undefined {
     const h = Bend.term_higher(tld.e);
     const n = tld.n + Math.min(def_raise(cb.book, h, tld.n),
       tele_unbind(cb.book, tld.T).doms.length - tld.n);
-    cb.book.tlds[k] = { ...tld, n, h, T: tld.t?.T ?? tld.T };
+    cb.book.tlds[k] = { ...tld, n, h };
   }
   return cb.book.tlds[k];
 }

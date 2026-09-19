@@ -13,6 +13,13 @@ latest one; the GitHub release carries the same notes.
 - A def that is a template instance counts as unsafe: a file with a
   template prints "All terms check, with N unsafe annotations." until the
   checker verifies template expansion itself.
+- A template instance is the template's body at its `~` arguments, minted
+  and checked by the call, never re-parsed from its text: the checker and
+  the compiled program mean the same thing, so a lemma about `M.F(~1n, 2n)`
+  is a lemma about what the binary runs. A `~` binder after a plain one, a
+  `~` argument past the template's, and a foreign template are refused
+  where they are written; a call may omit `~`. `(x = v; x + 1n : Nat)`
+  annotates its body's operator again (#848).
 
 ## 2.0.15 (2026-09-19)
 

@@ -500,10 +500,10 @@ async function pow_mine(hash: string, bytes: number): Promise<number> {
 // cli_report prints the verdict of a check on stdout, or a note before a
 // run, an emit or a publish on stderr (silent then when nothing relies on
 // unsafe): the file's own claims (book.order from n0, the loader's mark)
-// that are @unsafe, or whose type or body names a def that relies on
-// unsafe. If the book holds an @unsafe def, a walk from the claims collects
-// who names whom, then the @unsafe defs flood back along those edges. An
-// instance (Def.t) is its template's, not a claim.
+// that are @unsafe, or whose type, body or constructor fields name a def
+// that relies on unsafe. If the book holds an @unsafe def, a walk from the
+// claims collects who names whom, then the @unsafe defs flood back along
+// those edges.
 function cli_report(book: Bend.Book, n0: number, fd: number): void {
   const own  = [...new Set(book.order.slice(n0))];
   const bad  = new Set(Object.keys(book.tlds).filter((k) =>
@@ -513,11 +513,13 @@ function cli_report(book: Bend.Book, n0: number, fd: number): void {
   for (const q = bad.size === 0 ? [] : own.slice(); q.length > 0;) {
     const k = q.pop() as string;
     const t = book.tlds[k];
-    if (t?.$ === "Def" && !seen.has(k)) {
+    if (t !== undefined && !seen.has(k)) {
       seen.add(k);
       const rs = new Set<string>();
-      term_refs(Bend.term_lower(t.T), rs);
-      term_refs(t.e, rs);
+      for (const c of t.$ === "ADT" ? t.c : [t]) {
+        term_refs(Bend.term_lower(c.T), rs);
+      }
+      term_refs(t.$ === "Def" ? t.e : undefined, rs);
       for (const r of rs) {
         (uses[r] ??= []).push(k);
         q.push(r);
@@ -527,8 +529,7 @@ function cli_report(book: Bend.Book, n0: number, fd: number): void {
   for (const k of bad) {
     uses[k]?.forEach((j) => bad.add(j));
   }
-  const list = own.filter((k) => bad.has(k)
-    && (book.tlds[k] as Bend.Def).t === undefined);
+  const list = own.filter((k) => bad.has(k));
   if (list.length > 0) {
     cli_say(fd, `All terms check, but ${list.length} def${list.length === 1
       ? " relies" : "s rely"} on unsafe:\n` + list.map((k) => "- " + k + "\n").join(""));
@@ -541,7 +542,7 @@ function cli_report(book: Bend.Book, n0: number, fd: number): void {
 function term_refs(tm: unknown, out: Set<string>): void {
   if (typeof tm === "object" && tm !== null) {
     const { $, k } = tm as { $?: string; k?: string };
-    if ($ === "Ref" && k !== undefined) {
+    if (($ === "Ref" || $ === "ADT") && k !== undefined) {
       out.add(k);
     }
     for (const [f, v] of Object.entries(tm)) {
@@ -599,8 +600,7 @@ function book_seed(base: Bend.Book): Bend.Book {
   }
   Object.assign(book.ctrs, base.ctrs);
   for (const k of Object.keys(base.tmps)) {
-    book.tmps[k] = { ...base.tmps[k], p: { ...base.tmps[k].p, book },
-      is: { ...base.tmps[k].is } };
+    book.tmps[k] = { ...base.tmps[k] };
   }
   book.order.push(...base.order);
   return book;
@@ -647,7 +647,7 @@ async function load_js(path: string): Promise<string> {
   }
   const outs = [...new Set(book.order)].filter((k) => {
     const tld = book.tlds[k];
-    return tld.$ === "Def" && tld.v !== null && tld.b !== true && !(k in book.tmps)
+    return tld.$ === "Def" && tld.v !== null && tld.b !== true && tld.x === 0
       && tld.i === undefined && Comp.io_base(book, tld.T) === null;
   });
   return Comp.js_lib(book, outs, outs);
