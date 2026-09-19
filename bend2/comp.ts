@@ -4418,12 +4418,13 @@ INLINE u32 monk_step(Env e, Stk stk, Ring rg, u32 put0, bool seq, u32 base,
       if (err_spun(H, &spin)) {
         return 2;
       }
-      if (stride != 0) {
+      if (stride != 0 && fid_nofk((u32)term_aux(r))) {
         ring_push(H, ring_pick(base, stride, cur), r);
         return 2;
       }
-      t   = r;
-      seq = false;
+      t      = r;
+      seq    = false;
+      stride = 0;
       continue;
     }
     task_deal(H, r, base, stride, cur);
