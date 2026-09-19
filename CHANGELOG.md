@@ -3,6 +3,33 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.17 (2026-09-19)
+
+- **Breaking: an operator takes its type from the `( .. : T)` around its own
+  expression, and from nothing else.** The annotation no longer reaches an
+  operator inside a call argument, a lambda body, a constructor field, a list
+  element, a match arm or a `~` argument, and a bare operator is no longer
+  read as `Nat`: write `(a + b : Nat)`. The error names the repair.
+- A `~` template's body is checked once, at its definition, against opaque
+  parameters, so a template is a theorem. A `law` may take `~` parameters, a
+  proof may use a hypothesis as often as it needs, and a template instance no
+  longer counts as unsafe (#848).
+- The verdict names the defs that rely on `@unsafe`, following the calls and
+  the types, instead of counting the marks. Importing a module that holds an
+  `@unsafe` def no longer marks a file that never calls it (#848).
+- A nat literal in a pattern is checked against its constructor's arity: it
+  was a closed proof of `Empty` (#852).
+- A def with no return type that fills no law says which law is missing (#850).
+- The C lane seals the fields a hot constructor holds at its own
+  instantiation (#853), with five emitter fixes found by a fuzzer (#855).
+- `TCP.poll(sock, max, ms)`, a receive with a deadline: a server can drop an
+  idle connection (#858).
+- `Nat.min` and `Nat.max` are structural, with order laws (#860).
+- macOS: the click that brings a window forward reaches the program (#857).
+- `bend <file.bend> --check-only` checks a file and its imports, and runs
+  nothing (#856).
+- `bend version` replaces `bend --version`.
+
 ## 2.0.16 (2026-09-19)
 
 - The template memo and the compiler's show table key on the syntax tree
