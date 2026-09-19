@@ -488,33 +488,6 @@ def Bool.pick(-A: Type, c: Bool, a: A, b: A) -> A:
     case True{}:
       a
 
-# Decision lemmas: case on a Bool/Cmp with the equation remembered.
-# Without these, every staging helper (46 in Base) needs a bespoke
-# quantified lemma before callers can be reasoned about.
-law Bool.split:
-  for b: Bool
-  Or({b == True{} : Bool}, {b == False{} : Bool})
-
-def Bool.split(b):
-  match b:
-    case False{}:
-      Inr{{==}}
-    case True{}:
-      Inl{{==}}
-
-law Cmp.split:
-  for c: Cmp
-  Or({c == LT{} : Cmp}, Or({c == EQ{} : Cmp}, {c == GT{} : Cmp}))
-
-def Cmp.split(c):
-  match c:
-    case LT{}:
-      Inl{{==}}
-    case EQ{}:
-      Inr{Inl{{==}}}
-    case GT{}:
-      Inr{Inr{{==}}}
-
 def Bool.to_u32(b: Bool) -> U32:
   match b:
     case False{}:
@@ -652,18 +625,9 @@ def Nat.is_gt(a: Nat, b: Nat) -> Bool:
 def Nat.is_ge(a: Nat, b: Nat) -> Bool:
   Cmp.is_ge(Nat.cmp(a, b))
 
-# Structural min/max: same VALUES on all inputs as the former
-# Bool.pick definitions (four constructor cases + induction), but
-# these unfold in lockstep with Nat.cmp, so proofs can case-split
-# on them. Cost note: the old form returned an existing node
-# (O(1) allocation after an O(min) compare); this form rebuilds
-# O(min) Succ nodes. Chosen deliberately: provability outweighs
-# the allocation on unary Nats.
 def Nat.min(+a: Nat, +b: Nat) -> Nat:
   match a b:
-    case 0n 0n:
-      0n
-    case 0n 1n+bp:
+    case 0n _:
       0n
     case 1n+ap 0n:
       0n
@@ -672,32 +636,23 @@ def Nat.min(+a: Nat, +b: Nat) -> Nat:
 
 def Nat.max(+a: Nat, +b: Nat) -> Nat:
   match a b:
-    case 0n 0n:
-      0n
-    case 0n 1n+bp:
-      1n+bp
+    case 0n _:
+      b
     case 1n+ap 0n:
       1n+ap
     case 1n+ap 1n+bp:
       1n+Nat.max(ap, bp)
-
-law Nat.cmp_refl:
-  for a: Nat
-  {Nat.cmp(a, a) == EQ{} : Cmp}
-
-def Nat.cmp_refl(a):
-  match a:
-    case 0n:
-      {==}
-    case 1n+p:
-      Nat.cmp_refl(p)
 
 law Nat.ge_refl:
   for a: Nat
   {Nat.is_ge(a, a) == True{} : Bool}
 
 def Nat.ge_refl(a):
-  Equal.cong(Cmp, Bool, Cmp.is_ge, Nat.cmp(a, a), EQ{}, Nat.cmp_refl(a))
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Nat.ge_refl(p)
 
 law Nat.max_ge_l:
   for +a: Nat
@@ -711,7 +666,7 @@ def Nat.max_ge_l(a, b):
     case 0n 1n+bp:
       {==}
     case 1n+ap 0n:
-      Nat.ge_refl(1n+ap)
+      Nat.ge_refl(a)
     case 1n+ap 1n+bp:
       Nat.max_ge_l(ap, bp)
 
@@ -722,10 +677,8 @@ law Nat.max_ge_r:
 
 def Nat.max_ge_r(a, b):
   match a b:
-    case 0n 0n:
-      {==}
-    case 0n 1n+bp:
-      Nat.ge_refl(1n+bp)
+    case 0n _:
+      Nat.ge_refl(b)
     case 1n+ap 0n:
       {==}
     case 1n+ap 1n+bp:
