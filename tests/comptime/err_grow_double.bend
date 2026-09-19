@@ -1,6 +1,6 @@
-# the growing self-call, doubling: the argument's key doubles per level,
-# so the key wall (32768 chars) refuses the call at the instance whose
-# self-call crosses it
+# the growing self-call, doubling: the argument doubles per level, so it
+# passes the size a ~ argument may have before it reaches the 64th
+# instance, and the call is refused where it crosses
 import Base
 
 def inc(n: Nat) -> Nat:
@@ -17,7 +17,7 @@ def main() -> Nat:
   grow(~inc, 2n)
 
 #|Error:
-#|- expected : a ~ argument that stops growing (32768 key chars at most)
+#|- expected : a ~ argument that stops growing
 #|- observed : grow
 #|Context:
 #|- p : Nat

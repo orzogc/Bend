@@ -10,10 +10,16 @@ latest one; the GitHub release carries the same notes.
   operator inside a call argument, a lambda body, a constructor field, a list
   element, a match arm or a `~` argument, and a bare operator is no longer
   read as `Nat`: write `(a + b : Nat)`. The error names the repair.
-- A `~` template's body is checked once, at its definition, against opaque
-  parameters, so a template is a theorem. A `law` may take `~` parameters, a
-  proof may use a hypothesis as often as it needs, and a template instance no
-  longer counts as unsafe (#848).
+- **A `~` template is a definition, and an instance of it is that definition
+  at its `~` arguments.** Nothing re-reads the template's text, so the checker
+  and the compiled binary cannot mean different things by one call. The body
+  is checked once, at its definition, against opaque parameters, so a template
+  is a theorem: a `law` may take `~` parameters, a proof may use a hypothesis
+  as often as it needs, and an instance no longer counts as unsafe (#848).
+- A template that instantiates itself without end stops at the 64th level and
+  says so, instead of running the checker out of stack.
+- An annotated lambda applied, `{(x => x) : Nat -> Nat}(1)`, is checked at its
+  annotation.
 - The verdict names the defs that rely on `@unsafe`, following the calls and
   the types, instead of counting the marks. Importing a module that holds an
   `@unsafe` def no longer marks a file that never calls it (#848).

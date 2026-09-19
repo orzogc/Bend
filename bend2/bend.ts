@@ -3728,7 +3728,7 @@ export function def_inst(book: Book, lhs: LHS, tm: Extract<HTerm, { $: "Ref" }>,
   }
   const key = xs.map((a) => term_key(term_lower(a))).join("\n");
   if (key.length > 32768) {
-    throw Err(book, ctx, "a ~ argument that stops growing (32768 key chars at most)", tm, tm.s, lhs.def);
+    throw Err(book, ctx, "a ~ argument that stops growing", tm, tm.s, lhs.def);
   }
   const is = book.tmps[tm.k] ??= Object.create(null);
   if (is[key] === undefined) {
