@@ -6169,7 +6169,8 @@ function io_bytes(text) {
 }
 
 function io_text(b, n) {
-  return new TextDecoder().decode(b.subarray(0, n));
+  const dec = new TextDecoder("utf-8", { ignoreBOM: true });
+  return dec.decode(b.subarray(0, n));
 }
 
 function io_addr(host, port) {
