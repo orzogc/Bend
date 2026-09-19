@@ -305,7 +305,7 @@ export type Env = List<HTerm | ((s?: Span) => HTerm)>;
 // Definitions & Book
 export type Ctr  = { k: Name; n: number; T: HTerm }
 export type Ctrs = Array<Ctr>;
-export type ADT  = { $: "ADT"; n: number; g: number; T: HTerm; c: Ctrs; };
+export type ADT  = { $: "ADT"; n: number; g: number; T: HTerm; c: Ctrs; b?: Bool; };
 export type Def  = { $: "Def"; n: number; x: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; };
 export type TLD  = ADT | Def;
 export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; open: number; tmps: Record<Name, Record<string, Name>>; };
@@ -1083,10 +1083,7 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
   parse_book(book, dir, lines.join("\n"), ns, al);
   if (real === BASE_BEND) {
     for (const k of book.order.slice(n0)) {
-      const tld = book.tlds[k];
-      if (tld.$ === "Def") {
-        tld.b = true;
-      }
+      book.tlds[k].b = true;
     }
   }
   seen.set(real, ns);
@@ -1498,7 +1495,9 @@ export function expr_show(book: Book, x: Expr, bnd: Name[] = []): string {
 }
 
 export function typeless_show(book: Book, ctx: Ctx, tm: HTerm): string {
-  return "non-inferrable term '" + expr_show(book, tm, ctx_scope(ctx)) + "'";
+  return "non-inferrable term '" + expr_show(book, tm, ctx_scope(ctx)) + "'"
+    + (tm.$ === "Ctr" && book.tlds[tm.k]?.$ === "ADT"
+      ? " (" + tm.k + " is a datatype: write its arguments as <>)" : "");
 }
 
 export function err_show(err: Err): string {

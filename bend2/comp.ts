@@ -1394,6 +1394,7 @@ function def_body(cb: Carb, k: Bend.Name): TLD | undefined {
 // reference used as a value is no call; Clo.apply is never flat), and
 // whether it is flat: no fork, no bang call, self-calls in tail position.
 function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
+  book_owned(src);
   [TELES, SRCS, NODES, CYCLES, FLATS, SIGS, BRWS].forEach((m) => m.clear());
   LOCAL.clear();
   for (const [k, tld] of Object.entries(src.tlds)) {
@@ -2778,6 +2779,22 @@ const TABLES = ["CID_ARITY_T", "CID_HOT_T", "FID_ARITY_T", "FID_FLAG_T", "FID_RE
 const RUNTIME_ADTS = ["Sigma", "String", "Word.Con", "IO.OP", "Result",
   "Maybe", "Bool", "Unit"];
 
+// The compiler knows base.bend's types by their names alone, and applies
+// a closure through CLO_APPLY, a def it synthesizes. SYNTH is the name no
+// file may declare; OWNED adds the types a file without `import Base` may
+// declare as its own, which check and run, and which the emitters, whose
+// native shape would not fit, refuse.
+export const SYNTH = [CLO_APPLY];
+const OWNED = [...SYNTH, "IO", ...RUNTIME_ADTS, ...Object.keys(OPTIMIZED)];
+
+export function book_owned(src: Bend.Book, ks = OWNED): void {
+  for (const k of ks) {
+    if (src.tlds[k] !== undefined && src.tlds[k].b !== true) {
+      die(k + " is a name the compiler encodes itself: name yours apart");
+    }
+  }
+}
+
 function compile_tables(fl: File, entries: Seg[]): string[] {
   const defs: string[] = [];
   for (const ms of [[...fl.cids.keys()].map(cid_mac),
@@ -3088,7 +3105,7 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
         die(k + NATIVE_DIE);
       }
       const fields = el?.map((e) => tpl(e, [s]))
-        ?? keys.map((n) => s + "." + n);
+        ?? keys.map((n) => s + "[\"" + n + "\"]");
       js_func(fl, h, null, [...fields, ...rest]);
     });
     if (last !== null) {
@@ -6322,6 +6339,10 @@ function io_run(m) {
 // Chan
 // ====
 
+// A parked receiver holds CHAN_RECV: the C lane parks TERM_HOLE, and a
+// program can make neither. A sent value may be null (an erased proof).
+const CHAN_RECV = Symbol();
+
 function chan_wake(row, x) {
   const w = row.wait.shift();
   io_push(w.cont, x, false);
@@ -6340,7 +6361,7 @@ function chan_take(row) {
 function chan_shut(row) {
   row.shut = true;
   while (row.wait.length > 0) {
-    chan_wake(row, row.wait[0].item === null ? { $: "None" } : false);
+    chan_wake(row, row.wait[0].item === CHAN_RECV ? { $: "None" } : false);
   }
 }
 `.slice(1);

@@ -3,6 +3,22 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.18 (2026-09-19)
+
+- A dot inside a field name is a character on the JS lane too: `Outer{a:
+  Inner, a.b: U32}` read its `Inner`'s field, not its own (#868).
+- A value sent through a channel is never read as a parked receiver on the
+  JS lane: sending an erased proof reported a deadlock (#871).
+- A name the compiler encodes itself is refused, not miscompiled: no file
+  may define `Clo.apply`, and a file without `import Base` that declares
+  its own `Nat`, `Bool`, `Array` or another of base.bend's types checks and
+  runs, but does not compile (#870, #875).
+- The verdict names the defs that rely on a foreign def, as it names the
+  ones that rely on `@unsafe`: the checker reads a foreign def's type,
+  never its code (#874).
+- A datatype whose arguments are written in `{}` says to write them in
+  `<>` (#864).
+
 ## 2.0.17 (2026-09-19)
 
 - **Breaking: an operator takes its type from the `( .. : T)` around its own
