@@ -416,6 +416,11 @@ async function cli_publish(file: string): Promise<void> {
   const book = await book_read(file, undefined, seen);
   cli_report(book, 2);
   const files = pkg_files(file, book, seen);
+  const entry = Object.keys(files)[0];
+  const name  = path.basename(entry, ".bend");
+  if (name === "") {
+    cli_fail("a published file needs a name before .bend");
+  }
   const paths = Object.keys(files).sort();
   const bytes = paths.reduce((n, p) => n + Buffer.byteLength(files[p]), 0);
   const hash  = "0x" + sha256(paths.map((p) => sha256(files[p]) + " " + p
@@ -429,8 +434,6 @@ async function cli_publish(file: string): Promise<void> {
   if (!res.ok || got !== hash) {
     throw "Error: " + Bend.BEND_HUB + " answered: " + got;
   }
-  const entry = Object.keys(files)[0];
-  const name  = path.basename(entry, ".bend");
   cli_say(1, hash + "\nimport " + hash + "/" + entry + " as "
     + name[0].toUpperCase() + name.slice(1) + "\n");
 }
