@@ -29,7 +29,7 @@ import * as Comp from "./comp.ts";
 // Constants
 // =========
 
-const VERSION = "2.0.14";
+const VERSION = "2.0.15";
 
 const HELP = `Bend ${VERSION}: check, run, build and publish Bend programs.
 
