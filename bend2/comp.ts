@@ -1665,6 +1665,9 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean,
   if (w?.$ === "Lam") {
     return facts_hot(fl, w.f(DUMMY), force, local);
   }
+  if (w?.$ === "App" && force && facts_fam(fl, w, local)) {
+    return;
+  }
   if (w?.$ !== "ADT") {
     const dom = w?.$ === "Var" && !local && tele_unbind(fl.book,
       (fl.book.tlds[fl.def] as Def).T).doms[w.i];
@@ -1686,12 +1689,37 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean,
   if (tld?.$ === "ADT") {
     for (const c of tld.c) {
       fl.hot.add(c.k);
-      // A constructor's own erased binder is not the def's parameter: a
-      // field typed by it is unknown, never poly.
-      const own = ctr_tail(fl.book, c, w.x).some((d) => !live_dom(d));
-      ctr_doms(fl.book, c, w.x).forEach((A) => facts_hot(fl, A, true, own));
+      facts_ctr(fl, c, w.x);
     }
   }
+}
+
+// A family stuck on an open index is one of its arms' types: its def
+// applied to the arguments, cut at the match, walked once per family.
+function facts_fam(fl: File, w: HTerm, local: boolean): boolean {
+  const m = term_spine(fl, w);
+  const fam = m.tld?.$ === "Def" && m.tld.v !== null && Bend.term_strip(
+    Bend.term_unapply(m.all.reduce((b, x) => Bend.term_apply(b, x),
+      m.tld.v))[0]);
+  if (!fam || fam.$ !== "Mat") {
+    return false;
+  }
+  const key = "m:" + (m.t as Of<"Ref">).k;
+  if (!fl.hot.has(key)) {
+    fl.hot.add(key);
+    const { arms, end } = mat_arms(fam);
+    [...arms.map(([, h]) => h), end].forEach((h) =>
+      facts_hot(fl, h, true, local));
+  }
+  return true;
+}
+
+// A hot constructor's fields are hot at this instantiation: a hot type's
+// once, a hot build's at its site. Its own erased binder is not the def's
+// parameter: a field typed by it is unknown, never poly.
+function facts_ctr(fl: File, c: Bend.Ctr, xs: HTerm[]): void {
+  const own = ctr_tail(fl.book, c, xs).some((d) => !live_dom(d));
+  ctr_doms(fl.book, c, xs).forEach((A) => facts_hot(fl, A, true, own));
 }
 
 // A lend is asked by a holder or passed on from a lent root (k~i<j~q); a
@@ -2235,6 +2263,7 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null,
       : `blk_node(e, ${val_own(fl, vs[0])[0]}, ${val_own(fl, vs[1])[0]})`],
     BOX);
   }
+  fl.hot.has(x.k) && facts_ctr(fl, fl.book.ctrs[x.k], adt.x);
   const pos = at ?? lay_of(fl.book, adt);
   const lay = lay_box(pos) ? lay_node(fl.book, x.k) : pos;
   const arm = lay_arm(lay, x.k);
