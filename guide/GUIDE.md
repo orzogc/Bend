@@ -160,7 +160,9 @@ the GPU. The heap is fully unified, so, if your chip
 has unified memory (as in Apple M-series processors), moving data from the CPU
 to the GPU is a zero-cost operation. The GPU shines on uniform numeric work like
 mandelbrot or nbody; divergent work like n-queens stays faster on the CPU. A
-machine without a GPU runs `!` on the CPU (still in parallel).
+machine without a GPU runs `!` on the CPU (still in parallel). What the lanes
+share also sets the speed: a `+` value read by every lane costs an atomic per
+read. Read `bend guide shaders` before you write a parallel app.
 
 The JavaScript target ignores all that and just runs sequentially.
 
@@ -496,7 +498,8 @@ bend file.bend -o file.c  # emit the C source instead
 bend file.bend -o file.js # emit the JS source instead
 bend page.html -o dist    # bundle a web page that imports .bend files
 ./file --threads 8        # run a native binary on 8 CPU threads
-./file --gpu 4GB          # enables the GPU, with max 4GB memory
+./file --gpu off          # run ! calls on the CPU (the GPU is on by default)
+./file --gpu 4GB          # cap the GPU's heap at 4GB
 ```
 
 A `main` that returns `IO` runs compiled; one that returns a value is normalized
