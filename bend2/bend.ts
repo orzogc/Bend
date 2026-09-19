@@ -1241,7 +1241,7 @@ const ESCAPES: Record<string, U32> = {
   "n": 10, "t": 9, "r": 13, "0": 0, "\\": 92, "'": 39, '"': 34,
 };
 
-export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): string {
+export function term_show(term: LTerm, top: number = -1, bnd: Name[] = [], key: boolean = false): string {
   function term_show_sugar_exi(tm: LTerm, prc: number): string | null {
     const [h, xs] = term_unapply(tm);
     const b = xs[1];
@@ -1408,7 +1408,7 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
         const u32 = u32_from_term(tm);
         const f32 = u32_from_term(tm, "F32");
         const chr = term_show_sugar_chr(tm, "'");
-        const arr = term_show_sugar_arr(tm);
+        const arr = key ? null : term_show_sugar_arr(tm);
         const sug = u32 !== null ? String(u32) : f32 !== null ? f32_show(f32_from_bits(f32))
                  : term_show_sugar_nat(tm, prc)
                  ?? (chr !== null ? "'" + chr + "'" : null)
@@ -2073,7 +2073,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
       const s  = parse_grow(p, out);
       if (out.$ === "Ref" && tm !== undefined) {
         const env = p.sc.stk.reduce((env: Env, e) => list_set(env, e[1], Ref("\0")), null);
-        const key = ts.map((x) => term_show(term_lower(term_higher(x, env)))).join("\n");
+        const key = ts.map((x) => term_show(term_lower(term_higher(x, env)), -1, [], true)).join("\n");
         if (!key.includes("\0") && key.length <= 2048) {
           if (tm.is[key] === undefined) {
             tm.is[key] = out.k + "~" + Object.keys(tm.is).length;

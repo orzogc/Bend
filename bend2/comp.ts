@@ -1222,7 +1222,7 @@ function show_main(book: Bend.Book): Show | null {
   const node = (T: HTerm, lay: Lay): number => {
     const t = ty_wnf(book, T) as HTerm;
     const box = lay_box(lay);
-    const key = String(box) + Bend.term_show(Bend.term_lower(t));
+    const key = String(box) + Bend.term_show(Bend.term_lower(t), -1, [], true);
     const got = ids.get(key);
     if (got !== undefined) {
       return got;
