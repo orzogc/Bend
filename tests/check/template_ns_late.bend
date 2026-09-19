@@ -1,5 +1,7 @@
-# a template call inside ( .. : T) instantiates after the parens close, so
-# the operators in its ~ arguments carry the namespace T names, not Nat
+# #841's exploit: a ( .. : T) around a template call once renamed the
+# operators inside its ~ argument after the instance was keyed; the
+# annotation now names only its own operator expression, and one that
+# reaches no operator is refused with the repair
 type Empty is Data:
 
 type Unit is Data:
@@ -18,10 +20,9 @@ def contradiction() -> (Pick(~Unit + Unit) : Bar):
   Unit{}
 
 #|Error:
-#|- expected : Empty
-#|- observed : Unit
-#|Location: contradiction
-#|17 | def contradiction() -> (Pick(~Unit + Unit) : Bar):
-#|18>|   Unit{}
-#|19 | 
+#|- message  : an operator with its type (( .. : T) around the expression gives it, as in (a + b : Nat))
+#|Location:
+#|18 | 
+#|19>| def contradiction() -> (Pick(~Unit + Unit) : Bar):
+#|20 |   Unit{}
 #|exit 1

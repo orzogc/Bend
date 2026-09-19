@@ -328,7 +328,7 @@ export type Body  = Match | Local | Reply
 export type Loc   = number;
 export type Entry = [Name, number, LTerm?];
 export type Scope = { stk: Entry[]; frs: number; };
-export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; os: Array<{ k: Name }>; inst: { k: Name; xs: LTerm[] } | null; ts: Array<() => void>; lv: number; };
+export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; inst: { k: Name; xs: LTerm[] } | null; };
 export type Span  = { src: string; beg: Loc; end: Loc; };
 
 // Machine
@@ -721,7 +721,11 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
       }
     }
     case "Ref": {
-      return Ref(tm.k[0] === "." && tm.k[1] !== "." ? "Nat" + tm.k : tm.k, tm.s, tm.b);
+      if (tm.k[0] === "." && tm.k[1] !== ".") {
+        const op = tm.s === undefined ? tm.k : tm.s.src.slice(tm.s.beg, tm.s.end);
+        throw Err(book_nil(), ctx_nil(), "an operator with its type (( .. : T) around the expression gives it, as in (a " + op + " b : Nat))", undefined, tm.s);
+      }
+      return Ref(tm.k, tm.s, tm.b);
     }
     case "Sub": {
       const x = tm.v;
@@ -1769,16 +1773,9 @@ export function parse_patt(p: Parse, t: LTerm): Patt {
 export function parse_term(p: Parse, lvl: number = 0): LTerm {
   parse_skip(p);
   const beg  = p.pos;
-  p.lv += 1;
   const base = parse_term_base(p, beg);
   base.s ??= parse_span(p, beg);
-  const out = parse_term_ops(p, base, lvl);
-  if (--p.lv === 0) {
-    for (const f of p.ts.splice(0)) {
-      f();
-    }
-  }
-  return out;
+  return parse_term_ops(p, base, lvl);
 }
 
 export function parse_term_base(p: Parse, beg: Loc): LTerm {
@@ -1945,12 +1942,11 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
     }
     case "(": {
       parse_bump(p);
-      return parse_term_tup(p, beg, p.os.length);
+      return parse_term_tup(p, beg);
     }
     case "[": {
       parse_bump(p);
       parse_skip(p);
-      const n0 = p.os.length;
       const xs = parse_at(p, "]") ? [] : [parse_term(p)];
       parse_skip(p);
       if (xs.length !== 0 && parse_take(p, ":")) {
@@ -1963,7 +1959,7 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
         const n = parse_term(p);
         parse_eat(p, "]");
         const s = parse_span(p, beg);
-        parse_term_ns(p, p.os.splice(n0), T);
+        parse_term_ns(p, xs[0], T);
         let d = n;
         if (cnt) {
           const k = nat_from_term(n) ?? 0;
@@ -2088,24 +2084,18 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
       const xs = ts.concat(parse_term_args(p, ")"));
       const s  = parse_grow(p, out);
       if (out.$ === "Ref" && tm !== undefined) {
-        // the instance is picked when the outermost term ends: a ( .. : T)
-        // around this call may still rename the operators in ts
-        const ref = out;
-        const stk = p.sc.stk.slice();
-        p.ts.push(() => {
-          const env = stk.reduce((env: Env, e) => list_set(env, e[1], Ref("\0")), null);
-          const key = ts.map((x) => term_key(term_lower(term_higher(x, env)))).join("\n");
-          if (!key.includes("\\u0000")) {
-            if (key.length > 32768) {
-              throw Err(p.book, ctx_nil(), "a ~ argument that stops growing (32768 key chars at most)", ref.k, s);
-            }
-            if (tm.is[key] === undefined) {
-              tm.is[key] = ref.k + "~" + Object.keys(tm.is).length;
-              parse_def({ ...tm.p, sc: { stk: [], frs: p.sc.frs }, os: [], ts: [], lv: 0, inst: { k: tm.is[key], xs: ts } }, p.book, tm.u);
-            }
-            ref.k = tm.is[key];
+        const env = p.sc.stk.reduce((env: Env, e) => list_set(env, e[1], Ref("\0")), null);
+        const key = ts.map((x) => term_key(term_lower(term_higher(x, env)))).join("\n");
+        if (!key.includes("\\u0000")) {
+          if (key.length > 32768) {
+            throw Err(p.book, ctx_nil(), "a ~ argument that stops growing (32768 key chars at most)", out.k, s);
           }
-        });
+          if (tm.is[key] === undefined) {
+            tm.is[key] = out.k + "~" + Object.keys(tm.is).length;
+            parse_def({ ...tm.p, sc: { stk: [], frs: p.sc.frs }, inst: { k: tm.is[key], xs: ts } }, p.book, tm.u);
+          }
+          out = { ...out, k: tm.is[key] };
+        }
       }
       for (const x of xs) {
         out = out.$ === "Lam" && p.sc.stk.some((e) => e[2] === out) ? Sub(out.i, x, out.f, s) : App(out, x, s);
@@ -2114,11 +2104,10 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     }
     if (parse_at(p, "[")) {
       parse_bump(p);
-      const n0 = p.os.length;
       const ix = parse_term(p);
       parse_eat(p, "]");
       const s = parse_grow(p, out);
-      parse_term_ns(p, p.os.splice(n0), Ref("U32", s));
+      parse_term_ns(p, ix, Ref("U32", s));
       parse_skip(p);
       if (!parse_nl(p) && parse_take(p, "<-")) {
         const v = parse_term(p, 2);
@@ -2133,6 +2122,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     if (parse_at(p, "<") && !"-=<>".includes(p.str[p.pos + 1] ?? "") && !parse_at(p, "<&>")
       && (lvl <= 4 || /\S/.test(p.str[p.pos - 1] ?? ""))) {
       parse_bump(p);
+      const t = parse_span(p, p.pos - 1);
       const a = parse_term(p, 5);
       parse_skip(p);
       const s = parse_grow(p, out);
@@ -2152,9 +2142,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
         }
         out = ADT(k, xs, s);
       } else {
-        const f = { $: "Ref" as const, k: ".is_lt", s };
-        p.os.push(f);
-        out = App(App(f, out, s), a, s);
+        out = App(App(Ref(".is_lt", t), out, s), a, s);
       }
       continue;
     }
@@ -2188,6 +2176,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
       return out;
     }
     parse_take(p, op[0]);
+    const t = parse_span(p, p.pos - op[0].length);
     const b = parse_term(p, op[2] ? op[1] : op[1] + 1);
     const s = parse_grow(p, out);
     if (op[0] === "<>") {
@@ -2197,23 +2186,28 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     } else if (op[0] === "|") {
       out = App(App(Ref("Or", s), out, s), b, s);
     } else {
-      const f = { $: "Ref" as const, k: op[3], s };
-      if (op[3][0] === ".") {
-        p.os.push(f);
-      }
-      out = App(App(f, out, s), b, s);
+      out = App(App(Ref(op[3], t), out, s), b, s);
     }
   }
 }
 
-export function parse_term_ns(p: Parse, fs: Array<{ k: Name }>, T: LTerm): void {
-  // the parens' ": T" names the methods (.add) pushed on p.os inside them
-  const h = term_unapply(T)[0];
-  for (const f of fs) {
+export function parse_term_ns(p: Parse, tm: LTerm, T: LTerm): void {
+  // ": T" names the operators reached through operator applications, none nested
+  const [f, xs] = term_unapply(tm);
+  if (f.$ !== "Ref") {
+    return;
+  }
+  if (f.k[0] === ".") {
+    const h = term_unapply(T)[0];
     if (h.$ !== "Var" && h.$ !== "Ref" && h.$ !== "ADT") {
       throw Err(p.book, ctx_nil(), "a type name after : (the operators' namespace)", undefined, h.s);
     }
     f.k = parse_reso(p, h.k + f.k);
+  } else if (f.k !== "Bool.and" && f.k !== "Bool.or" && f.k !== "String.append") {
+    return;
+  }
+  for (const x of xs) {
+    parse_term_ns(p, x, T);
   }
 }
 
@@ -2250,17 +2244,17 @@ export function parse_term_all(p: Parse, exi: boolean): LTerm {
   return All(q, k, i, A, B);
 }
 
-export function parse_term_tup(p: Parse, beg: Loc, n0: number): LTerm {
+export function parse_term_tup(p: Parse, beg: Loc): LTerm {
   parse_skip(p);
   const b = parse_body(p, parse_col(p.str, p.pos) - 1);
   parse_skip(p);
   if (b.$ === "Reply" && parse_take(p, ",")) {
-    const rest = parse_term_tup(p, beg, n0);
+    const rest = parse_term_tup(p, beg);
     return Ctr("Tuple", [b.x, rest], parse_span(p, beg));
   }
   const out = body_flatten(b, [], () => p.sc.frs++);
   if (parse_take(p, ":")) {
-    parse_term_ns(p, p.os.splice(n0), parse_term(p));
+    parse_term_ns(p, out, parse_term(p));
   }
   parse_eat(p, ")");
   return out;
@@ -2546,7 +2540,7 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
 }
 
 export function parse_book(book: Book, dir: string, src: string, ns: string = "", al: Record<Name, Name> = Object.create(null)): Book {
-  const p: Parse = { book, dir, str: src, pos: 0, sc: { stk: [], frs: 0 }, ns, al, os: [], inst: null, ts: [], lv: 0 };
+  const p: Parse = { book, dir, str: src, pos: 0, sc: { stk: [], frs: 0 }, ns, al, inst: null };
   while (true) {
     parse_skip(p);
     if (p.pos >= p.str.length) {

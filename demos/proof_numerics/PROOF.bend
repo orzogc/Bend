@@ -122,7 +122,7 @@ def le_eq(r: Nat, m: Nat, le: {True{} == (r < 1n+m) : Bool}, e: {False{} == (r <
 
 # Ok(n, m, qr): qr is Euclid's quotient and remainder of n by 1n+m
 def Ok(n: Nat, m: Nat, qr: Nat & Nat) -> Type:
-  &q: Nat -> &r: Nat -> {(q, r) == qr : Nat & Nat} & {True{} == (r < 1n+m) : Bool} & {n == Num.add(r, Num.mul(q, 1n+m)) : Nat}
+  &q: Nat -> &r: Nat -> {(q, r) == qr : Nat & Nat} & {True{} == (r < 1n+m : Nat) : Bool} & {n == Num.add(r, Num.mul(q, 1n+m)) : Nat}
 
 # the wrap arm: r has reached m, so 1n+q and 0n rebuild 1n+p
 def wrap_eq(-p: Nat, m: Nat, -q: Nat, r: Nat, le: {True{} == (r < 1n+m) : Bool}, e: {False{} == (r < m) : Bool}, eq: {p == Num.add(r, Num.mul(q, 1n+m)) : Nat})
@@ -145,7 +145,7 @@ def step_ok(-p: Nat, +m: Nat, w: Ok(p, m, Num.divmod.go(p, m))) -> Ok(1n+p, m, N
   (q, r0, dq, le, eq) = w
   +r = r0
   %dq : Ok(1n+p, m, Num.divmod.step(m, _))
-  wrap_ok(p, m, q, r, le, eq, (r < m), {==})
+  wrap_ok(p, m, q, r, le, eq, (r < m : Nat), {==})
 
 def Laws.divmod_ok(n, m):
   match n:
