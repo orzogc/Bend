@@ -2485,7 +2485,7 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   const nm  = parse_name(p);
   const q   = parse_reso(p, nm);
   const tld = book.tlds[q];
-  const law = tld?.$ === "Def" && tld.v === null && tld.b !== true && !tld.i;
+  const law = tld?.$ === "Def" && tld.v === null && tld.b !== true && !tld.i && !(q in book.tmps) ? tld : undefined;
   const k   = p.inst?.k ?? (law ? q : parse_qual(p, nm));
   if (!law) {
     parse_fresh(p, k);
@@ -2496,27 +2496,28 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   if (law && parse_at(p, "~")) {
     parse_fail(p, "a name");
   }
-  if (p.inst === null && (parse_at(p, "~") || (tld?.$ === "Def" && tld.x))) {
+  if (p.inst === null && (parse_at(p, "~") || law?.x)) {
     // a template: its generic parse (an instance re-parses its text)
     book.tmps[k] = { p: { ...p, pos: at }, u, is: Object.create(null) };
   }
   const tk: Name[] = [];
   const tele = parse_tele(p, ")", tk);
   parse_skip(p);
+  const fill = p.inst === null ? law : tld?.$ === "Def" && !parse_at(p, "->") ? tld : undefined;
   let def: Def;
-  if (tld?.$ === "Def" && !parse_at(p, "->")) {
+  if (fill) {
     if (tele.some((cell) => cell[3].$ !== "Qnt")) {
       parse_fail(p, "a name");
     }
-    def = book.tlds[k] = p.inst === null ? tld
-      : { ...tld, v: null, t: tele_spec(book, tld.T, p.inst.xs.map((x) => term_higher(x))) };
+    def = book.tlds[k] = p.inst === null ? fill
+      : { ...fill, v: null, t: tele_spec(book, fill.T, p.inst.xs.map((x) => term_higher(x))) };
     def.n = tele.length;
   } else {
     if (!parse_take(p, "->")) {
       parse_fail(p, "'->' (a def with no return type fills a law; no law named " + nm + " is in scope)");
     }
     const T = term_higher(tele_bind(tele, parse_term(p)));
-    def = book.tlds[k] = { $: "Def", n: tele.length, T: tld?.T ?? T, v: null, x: tk.length, t: p.inst ? T : undefined };
+    def = book.tlds[k] = { $: "Def", n: tele.length, T: p.inst && tld ? tld.T : T, v: null, x: tk.length, t: p.inst ? T : undefined };
   }
   def.u ||= u;
   parse_eat(p, ":");
@@ -2939,6 +2940,11 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
           }
           break focus;
         }
+        if (tld.t !== undefined) {
+          // an instance k~n is its template k: the memo picks code alone
+          tm = Ref(tm.k.slice(0, tm.k.lastIndexOf("~")), tm.s);
+          continue main;
+        }
         let run = 0;
         while (run < tld.n && run < frs.length && frs[frs.length - 1 - run].$ === "APP") {
           run += 1;
@@ -3291,23 +3297,27 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     //       k has a body in a live region, unless base declared it or it
     //       is a template's ~ parameter (an unfilled law is a dead claim;
     //       base's are native, and a ~ parameter an opaque constant)
-    //       k names a template in a template's own text alone: elsewhere
-    //       a closed call was rewritten to its instance k~n, which
-    //       declares k's type, and an open one is not comptime
+    //       k names a template in a dead region or in a template's own
+    //       text alone: elsewhere a closed call was rewritten to its
+    //       instance k~n, which declares k's type, and an open one is
+    //       not comptime
     //       k is not a parameterized family: D<..> is the one
     //       spelling, a bare family head is an error
     // -------------------------------------------------------- infer-ref
     // Γ ⊢ k : T ~ {}
     case "Ref": {
       const tld = book.tlds[tm.k];
-      if (tld === undefined || (tm.k in book.tmps && !(lhs.def in book.tmps))) {
-        throw Err(book, ctx, tld === undefined ? "a defined name" : "a template applied to closed ~ arguments (a def parameter is not comptime)", tm, tm.s, lhs.def);
+      if (tld === undefined) {
+        throw Err(book, ctx, "a defined name", tm, tm.s, lhs.def);
       }
       switch (qt.$) {
         case "None": {
           break;
         }
         default: {
+          if (tm.k in book.tmps && !(lhs.def in book.tmps)) {
+            throw Err(book, ctx, "a template applied to closed ~ arguments (a def parameter is not comptime)", tm, tm.s, lhs.def);
+          }
           if (tm.k === lhs.def && lhs.u !== true) {
             const cols = term_unapply(lhs.t)[1];
             let ord: Cmp = "EQ";
@@ -3692,7 +3702,9 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
 // usage and the body must hold for every closed instance); an instance
 // declares its template's T, so a call checks against the generic type
 // whichever instance the memo picked, and checks its own body against the
-// type its text made (Def.t), which the compiler reads.
+// type its text made (Def.t), which the compiler reads; term_wnf reads an
+// instance as its template, so the two spellings of one call (k~n in
+// text, k in a generic type) meet on open arguments.
 
 export function book_valid(book: Book, done: number = 0): void {
   const seen = { ...book_nil(), tmps: book.tmps };
@@ -3757,7 +3769,7 @@ export function book_valid(book: Book, done: number = 0): void {
     }
     seen.tlds[k] = dec;
     const def = fin ? tld : dec;
-    term_check(seen, { t: Ref(k), n: 0, def: k, qs: [], u: def.u }, def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
+    term_check(seen, { t: Ref(k), n: 0, def: k, qs: [], u: def.u }, def.t ?? def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
     if (def.i) {
       let tel = term_strip(def.T);
       for (let d = 0; tel.$ === "All"; d++) {
