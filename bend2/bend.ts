@@ -328,7 +328,7 @@ export type Body  = Match | Local | Reply
 export type Loc   = number;
 export type Entry = [Name, number, LTerm?];
 export type Scope = { stk: Entry[]; frs: number; };
-export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; os: Array<{ k: Name }>; inst: { k: Name; xs: LTerm[] } | null; };
+export type Parse = { book: Book; dir: string; str: string; pos: Loc; sc: Scope; ns: string; al: Record<Name, Name>; os: Array<{ k: Name }>; inst: { k: Name; xs: LTerm[] } | null; ts: Array<() => void>; lv: number; };
 export type Span  = { src: string; beg: Loc; end: Loc; };
 
 // Machine
@@ -1764,9 +1764,16 @@ export function parse_patt(p: Parse, t: LTerm): Patt {
 export function parse_term(p: Parse, lvl: number = 0): LTerm {
   parse_skip(p);
   const beg  = p.pos;
+  p.lv += 1;
   const base = parse_term_base(p, beg);
   base.s ??= parse_span(p, beg);
-  return parse_term_ops(p, base, lvl);
+  const out = parse_term_ops(p, base, lvl);
+  if (--p.lv === 0) {
+    for (const f of p.ts.splice(0)) {
+      f();
+    }
+  }
+  return out;
 }
 
 export function parse_term_base(p: Parse, beg: Loc): LTerm {
@@ -2076,18 +2083,24 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
       const xs = ts.concat(parse_term_args(p, ")"));
       const s  = parse_grow(p, out);
       if (out.$ === "Ref" && tm !== undefined) {
-        const env = p.sc.stk.reduce((env: Env, e) => list_set(env, e[1], Ref("\0")), null);
-        const key = ts.map((x) => term_key(term_lower(term_higher(x, env)))).join("\n");
-        if (!key.includes("\\u0000")) {
-          if (key.length > 32768) {
-            throw Err(p.book, ctx_nil(), "a ~ argument that stops growing (32768 key chars at most)", out.k, s);
+        // the instance is picked when the outermost term ends: a ( .. : T)
+        // around this call may still rename the operators in ts
+        const ref = out;
+        const stk = p.sc.stk.slice();
+        p.ts.push(() => {
+          const env = stk.reduce((env: Env, e) => list_set(env, e[1], Ref("\0")), null);
+          const key = ts.map((x) => term_key(term_lower(term_higher(x, env)))).join("\n");
+          if (!key.includes("\\u0000")) {
+            if (key.length > 32768) {
+              throw Err(p.book, ctx_nil(), "a ~ argument that stops growing (32768 key chars at most)", ref.k, s);
+            }
+            if (tm.is[key] === undefined) {
+              tm.is[key] = ref.k + "~" + Object.keys(tm.is).length;
+              parse_def({ ...tm.p, sc: { stk: [], frs: p.sc.frs }, os: [], ts: [], lv: 0, inst: { k: tm.is[key], xs: ts } }, p.book, tm.u);
+            }
+            ref.k = tm.is[key];
           }
-          if (tm.is[key] === undefined) {
-            tm.is[key] = out.k + "~" + Object.keys(tm.is).length;
-            parse_def({ ...tm.p, sc: { stk: [], frs: p.sc.frs }, os: [], inst: { k: tm.is[key], xs: ts } }, p.book, tm.u);
-          }
-          out = { ...out, k: tm.is[key] };
-        }
+        });
       }
       for (const x of xs) {
         out = out.$ === "Lam" && p.sc.stk.some((e) => e[2] === out) ? Sub(out.i, x, out.f, s) : App(out, x, s);
@@ -2543,7 +2556,7 @@ export function parse_def_body(p: Parse, book: Book, k: Name, def: Def, vars: PV
 }
 
 export function parse_book(book: Book, dir: string, src: string, ns: string = "", al: Record<Name, Name> = Object.create(null)): Book {
-  const p: Parse = { book, dir, str: src, pos: 0, sc: { stk: [], frs: 0 }, ns, al, os: [], inst: null };
+  const p: Parse = { book, dir, str: src, pos: 0, sc: { stk: [], frs: 0 }, ns, al, os: [], inst: null, ts: [], lv: 0 };
   while (true) {
     parse_skip(p);
     if (p.pos >= p.str.length) {

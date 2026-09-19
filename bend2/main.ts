@@ -490,8 +490,8 @@ async function pow_mine(hash: string, bytes: number): Promise<number> {
 // cli_report prints the unsafe count: the verdict of a check on stdout, a
 // note before a run, an emit or a publish on stderr (silent at zero).
 function cli_report(book: Bend.Book, fd: number): void {
-  const uns  = Object.values(book.tlds).filter((t) =>
-    t.$ === "Def" && t.u === true).length;
+  const uns  = Object.entries(book.tlds).filter(([k, t]) =>
+    t.$ === "Def" && (t.u === true || k.includes("~"))).length;
   if (uns > 0) {
     cli_say(fd, `All terms check, with ${uns} unsafe annotation`
       + `${uns === 1 ? "" : "s"}.\n`);
