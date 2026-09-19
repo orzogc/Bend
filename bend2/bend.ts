@@ -1389,7 +1389,7 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = [], key: 
         return prc > 0 ? "(" + s + ")" : s;
       }
       case "App": {
-        const sug = term_show_sugar_exi(tm, prc);
+        const sug = key ? null : term_show_sugar_exi(tm, prc);
         if (sug !== null) {
           return sug;
         }
@@ -1408,8 +1408,8 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = [], key: 
         const u32 = u32_from_term(tm);
         const f32 = u32_from_term(tm, "F32");
         const chr = term_show_sugar_chr(tm, "'");
-        const arr = key ? null : term_show_sugar_arr(tm);
-        const sug = u32 !== null ? String(u32) : f32 !== null ? f32_show(f32_from_bits(f32))
+        const arr = term_show_sugar_arr(tm);
+        const sug = key ? null : u32 !== null ? String(u32) : f32 !== null ? f32_show(f32_from_bits(f32))
                  : term_show_sugar_nat(tm, prc)
                  ?? (chr !== null ? "'" + chr + "'" : null)
                  ?? term_show_sugar_str(tm)
