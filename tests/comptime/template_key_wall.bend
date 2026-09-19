@@ -1,5 +1,5 @@
-# five U32 literals as ~ arguments: a key print keeps the number sugar, so
-# the key stays far under the 2048-char wall and the call instantiates
+# five U32 literals as ~ arguments: their structural keys, about 1900 chars
+# each, stay under the 32768-char wall and the call instantiates
 import Base
 
 def Five(~a: U32, ~b: U32, ~c: U32, ~d: U32, ~e: U32) -> U32:
