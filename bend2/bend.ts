@@ -346,7 +346,7 @@ export type Check = { tm: LTerm; us: Uses };
 
 // Error
 export type Expr = HTerm | string;
-export type Err  = { $: "Err"; bok: Book; exp: Expr; obs?: Expr; ctx: Ctx; def?: Name; spn?: Span; };
+export type Err  = { $: "Err"; bok: Book; exp: Expr; obs?: Expr; ctx: Ctx; def?: Name; spn?: Span; nte?: string; };
 
 // Constructors
 // ============
@@ -474,8 +474,8 @@ export function Check(tm: LTerm, ty: HTerm, us: Uses): Check {
 // Err
 // ---
 
-export function Err(bok: Book, ctx: Ctx, exp: Expr, obs?: Expr, spn?: Span, def?: Name): Err {
-  return { $: "Err", bok, ctx, exp, obs, spn, def };
+export function Err(bok: Book, ctx: Ctx, exp: Expr, obs?: Expr, spn?: Span, def?: Name, nte?: string): Err {
+  return { $: "Err", bok, ctx, exp, obs, spn, def, nte };
 }
 
 // Char
@@ -723,11 +723,9 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
     case "Ref": {
       if (tm.k[0] === "." && tm.k[1] !== ".") {
         const op = tm.s === undefined ? tm.k : tm.s.src.slice(tm.s.beg, tm.s.end);
-        throw Err(book_nil(), ctx_nil(), "an operator with its type (( .. : T) around the expression gives it, as in (a " + op + " b : Nat))"
-          + "\n  Sorry: this is a small break after the launch. Versions 2.0.0 to 2.0.16"
-          + "\n  read an operator with no type as Nat, against the language's own rule."
-          + "\n  If this compiled before, put the type on the expression: a " + op + " b"
-          + "\n  becomes (a " + op + " b : Nat).", undefined, tm.s);
+        throw Err(book_nil(), ctx_nil(), "a type for this operator (write (a " + op + " b : Nat))", undefined, tm.s, undefined,
+          "Note: we broke this after launch, sorry. Until 2.0.16 a bare operator meant Nat.\n"
+          + "That was a bug: operators demand annotation. Wrap the expression and it'll work again.");
       }
       return Ref(tm.k, tm.s, tm.b);
     }
@@ -1524,7 +1522,8 @@ export function err_show(err: Err): string {
       String(beg + j).padStart(String(end).length) + (beg + j === at ? ">| " : " | ") + l).join("\n");
   }
   const loc  = def === "" && spn === "" ? "" : "\nLocation:" + def + spn;
-  return "Error:" + msg + (anns.length === 0 ? "" : "\nContext:") + ctx + loc;
+  const nte = err.nte === undefined ? "" : "\n" + err.nte;
+  return "Error:" + msg + (anns.length === 0 ? "" : "\nContext:") + ctx + loc + nte;
 }
 
 // Parse
