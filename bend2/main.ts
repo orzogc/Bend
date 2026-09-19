@@ -37,6 +37,7 @@ usage:
   bend <file.bend> [args]     check the file, then run main with args
                               (IO.args; a "--" ends bend's own options)
   bend <file.bend> -o <out>   build a binary; <out>.c emits C, <out>.js JS
+  bend <file.bend> --check-only check the file and its imports; run nothing
   bend <file.bend> --checkup  check and run each import alone
   bend <file.bend> --publish  publish the file and its imports to the hub
   bend <page.html> -o <dir>   bundle a page that imports .bend files
@@ -174,12 +175,15 @@ async function cli_file(args: string[]): Promise<void> {
   const outs: string[] = [];
   const argv: string[] = [];
   let file: string | undefined;
+  let only = false;
   let checkup = false;
   let publish = false;
   for (let i = 0; i < args.length; i += 1) {
     const a = args[i];
     if (a === "--help" || a === "-h") {
       return cli_say(1, HELP);
+    } else if (a === "--check-only") {
+      only = true;
     } else if (a === "--checkup") {
       checkup = true;
     } else if (a === "--publish") {
@@ -202,15 +206,18 @@ async function cli_file(args: string[]): Promise<void> {
     process.exit(1);
   }
   if (file.endsWith(".html")) {
-    if (outs.length !== 1 || checkup || publish) {
+    if (outs.length !== 1 || only || checkup || publish) {
       cli_fail("a page bundles with -o <dir>");
     }
     return cli_bundle(file, outs[0]);
   }
-  if (publish && (outs.length !== 0 || checkup)) {
+  if (publish && (outs.length !== 0 || only || checkup)) {
     cli_fail("--publish takes no other option");
   }
-  if (argv.length !== 0 && (outs.length !== 0 || checkup || publish)) {
+  if (only && (outs.length !== 0 || checkup)) {
+    cli_fail("--check-only takes no other option");
+  }
+  if (argv.length !== 0 && (outs.length !== 0 || only || checkup || publish)) {
     cli_fail("arguments go to a run: bend <file.bend> [args]");
   }
   if (checkup && outs.length !== 0) {
@@ -223,6 +230,9 @@ async function cli_file(args: string[]): Promise<void> {
     }
     if (checkup) {
       return await cli_checkup(file);
+    }
+    if (only) {
+      return cli_report(...await book_read(file), 1);
     }
     const seen = new Map<string, string | null>();
     const [book, n0] = await book_read(file, undefined, seen);
@@ -491,30 +501,31 @@ async function pow_mine(hash: string, bytes: number): Promise<number> {
 // run, an emit or a publish on stderr (silent then when nothing relies on
 // unsafe): the file's own claims (book.order from n0, the loader's mark)
 // that are @unsafe, or whose type or body names a def that relies on
-// unsafe. A walk from the claims collects who names whom (term_key's JSON
-// spells a Ref as "$":"Ref","k":..), then the @unsafe defs found flood
-// back along those edges. An instance (Def.t) is its template's, not a claim.
+// unsafe. If the book holds an @unsafe def, a walk from the claims collects
+// who names whom, then the @unsafe defs flood back along those edges. An
+// instance (Def.t) is its template's, not a claim.
 function cli_report(book: Bend.Book, n0: number, fd: number): void {
   const own  = [...new Set(book.order.slice(n0))];
-  const uses = new Map<string, string[]>();
+  const bad  = new Set(Object.keys(book.tlds).filter((k) =>
+    (book.tlds[k] as Bend.Def).u === true));
+  const uses: Record<string, string[]> = Object.create(null);
   const seen = new Set<string>();
-  for (const q = own.slice(); q.length > 0;) {
+  for (const q = bad.size === 0 ? [] : own.slice(); q.length > 0;) {
     const k = q.pop() as string;
     const t = book.tlds[k];
     if (t?.$ === "Def" && !seen.has(k)) {
       seen.add(k);
-      const src = Bend.term_key(Bend.term_lower(t.T))
-        + (t.e === undefined ? "" : Bend.term_key(t.e));
-      for (const [, r] of src.matchAll(/"\$":"Ref","k":"([^"]*)"/g)) {
-        uses.set(r, [...(uses.get(r) ?? []), k]);
+      const rs = new Set<string>();
+      term_refs(Bend.term_lower(t.T), rs);
+      term_refs(t.e, rs);
+      for (const r of rs) {
+        (uses[r] ??= []).push(k);
         q.push(r);
       }
     }
   }
-  const bad = new Set([...seen].filter((k) =>
-    (book.tlds[k] as Bend.Def).u === true));
   for (const k of bad) {
-    (uses.get(k) ?? []).forEach((j) => bad.add(j));
+    uses[k]?.forEach((j) => bad.add(j));
   }
   const list = own.filter((k) => bad.has(k)
     && (book.tlds[k] as Bend.Def).t === undefined);
@@ -523,6 +534,21 @@ function cli_report(book: Bend.Book, n0: number, fd: number): void {
       ? " relies" : "s rely"} on unsafe:\n` + list.map((k) => "- " + k + "\n").join(""));
   } else if (fd === 1) {
     cli_say(1, "All terms check.\n");
+  }
+}
+
+// term_refs adds to out the names a term (a span skipped) refers to.
+function term_refs(tm: unknown, out: Set<string>): void {
+  if (typeof tm === "object" && tm !== null) {
+    const { $, k } = tm as { $?: string; k?: string };
+    if ($ === "Ref" && k !== undefined) {
+      out.add(k);
+    }
+    for (const [f, v] of Object.entries(tm)) {
+      if (f !== "s") {
+        term_refs(v, out);
+      }
+    }
   }
 }
 

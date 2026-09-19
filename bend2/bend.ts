@@ -1735,11 +1735,10 @@ export function parse_patt(p: Parse, t: LTerm): Patt {
   const book = p.book;
   const lit  = t.$ === "App" ? nat_from_term(t) : null;
   if (lit !== null) {
-    let q: Patt = { $: "PCtr", k: "Zero", x: [], s: t.s };
+    t = Ctr("Zero", [], t.s);
     for (let i = 0; i < lit; i++) {
-      q = { $: "PCtr", k: "Succ", x: [q], s: t.s };
+      t = Ctr("Succ", [t], t.s);
     }
-    return q;
   }
   switch (t.$) {
     case "Var": {
@@ -2506,8 +2505,9 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   }
   const tk: Name[] = [];
   const tele = parse_tele(p, ")", tk);
+  parse_skip(p);
   let def: Def;
-  if (tld?.$ === "Def" && !parse_at_word(p, "->")) {
+  if (tld?.$ === "Def" && !parse_at(p, "->")) {
     if (tele.some((cell) => cell[3].$ !== "Qnt")) {
       parse_fail(p, "a name");
     }
@@ -2515,7 +2515,9 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
       : { ...tld, v: null, t: tele_spec(book, tld.T, p.inst.xs.map((x) => term_higher(x))) };
     def.n = tele.length;
   } else {
-    parse_eat(p, "->");
+    if (!parse_take(p, "->")) {
+      parse_fail(p, "'->' (a def with no return type fills a law; no law named " + nm + " is in scope)");
+    }
     const T = term_higher(tele_bind(tele, parse_term(p)));
     def = book.tlds[k] = { $: "Def", n: tele.length, T: tld?.T ?? T, v: null, x: tk.length, t: p.inst ? T : undefined };
   }
@@ -2753,12 +2755,9 @@ export function match_flatten(m: Match, vars: PVar[], fr: () => number): LTerm {
             case "PCtr": {
               if (p0.k !== c.k) {
                 return [];
-              } else if (p0.x.length !== xs.length) {
-                throw Err(book_nil(), ctx_nil(), "a " + c.k + " pattern with " + String(xs.length) + " fields", undefined, p0.s);
-              } else {
-                const f = body_sub(row.f, x.i, kx);
-                return [{ p: [...p0.x, ...row.p.slice(1)], f }];
               }
+              const f = body_sub(row.f, x.i, kx);
+              return [{ p: [...p0.x, ...row.p.slice(1)], f }];
             }
             case "PVar": {
               const g = body_sub(row.f, p0.i, x);
