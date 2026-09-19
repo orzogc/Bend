@@ -1665,6 +1665,9 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean,
   if (w?.$ === "Lam") {
     return facts_hot(fl, w.f(DUMMY), force, local);
   }
+  if (w?.$ === "App" && force && facts_fam(fl, w, local)) {
+    return;
+  }
   if (w?.$ !== "ADT") {
     const dom = w?.$ === "Var" && !local && tele_unbind(fl.book,
       (fl.book.tlds[fl.def] as Def).T).doms[w.i];
@@ -1686,12 +1689,37 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean,
   if (tld?.$ === "ADT") {
     for (const c of tld.c) {
       fl.hot.add(c.k);
-      // A constructor's own erased binder is not the def's parameter: a
-      // field typed by it is unknown, never poly.
-      const own = ctr_tail(fl.book, c, w.x).some((d) => !live_dom(d));
-      ctr_doms(fl.book, c, w.x).forEach((A) => facts_hot(fl, A, true, own));
+      facts_ctr(fl, c, w.x);
     }
   }
+}
+
+// A family stuck on an open index is one of its arms' types: its def
+// applied to the arguments, cut at the match, walked once per family.
+function facts_fam(fl: File, w: HTerm, local: boolean): boolean {
+  const m = term_spine(fl, w);
+  const fam = m.tld?.$ === "Def" && m.tld.v !== null && Bend.term_strip(
+    Bend.term_unapply(m.all.reduce((b, x) => Bend.term_apply(b, x),
+      m.tld.v))[0]);
+  if (!fam || fam.$ !== "Mat") {
+    return false;
+  }
+  const key = "m:" + (m.t as Of<"Ref">).k;
+  if (!fl.hot.has(key)) {
+    fl.hot.add(key);
+    const { arms, end } = mat_arms(fam);
+    [...arms.map(([, h]) => h), end].forEach((h) =>
+      facts_hot(fl, h, true, local));
+  }
+  return true;
+}
+
+// A hot constructor's fields are hot at this instantiation: a hot type's
+// once, a hot build's at its site. Its own erased binder is not the def's
+// parameter: a field typed by it is unknown, never poly.
+function facts_ctr(fl: File, c: Bend.Ctr, xs: HTerm[]): void {
+  const own = ctr_tail(fl.book, c, xs).some((d) => !live_dom(d));
+  ctr_doms(fl.book, c, xs).forEach((A) => facts_hot(fl, A, true, own));
 }
 
 // A lend is asked by a holder or passed on from a lent root (k~i<j~q); a
@@ -2235,6 +2263,7 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null,
       : `blk_node(e, ${val_own(fl, vs[0])[0]}, ${val_own(fl, vs[1])[0]})`],
     BOX);
   }
+  fl.hot.has(x.k) && facts_ctr(fl, fl.book.ctrs[x.k], adt.x);
   const pos = at ?? lay_of(fl.book, adt);
   const lay = lay_box(pos) ? lay_node(fl.book, x.k) : pos;
   const arm = lay_arm(lay, x.k);
@@ -5251,7 +5280,7 @@ static u64 io_sys_end(IoWork* w, ssize_t n) {
 }
 
 // A computation's activation for its whole life: cont over item is its
-// next request; parked, work.word and time are its fd or deadline, evts
+// next request; parked, work.word and time are its fd and deadline, evts
 // what the fd must be ready for, and work.pack resumes it (io_exec runs
 // cont, the request); work leads, so an effect's IoWork* is its activation.
 // IoAct ::=
@@ -5297,16 +5326,22 @@ static void io_spawn(Term m) {
 }
 
 // Parks the effect's activation until fd is ready for evts (POLLIN or
-// POLLOUT); the loop then calls more on its thread, whose value readies
-// the activation, or IO_PARK, a re-park.
-static Term io_wait_on(IoWork* w, int fd, short evts, IoPack more) {
+// POLLOUT; 0 for no fd), or until time (a tick; 0 for no deadline),
+// whichever comes first; the loop then calls more on its thread, whose
+// value readies the activation, or IO_PARK, a re-park.
+static Term io_wait_on(IoWork* w, int fd, short evts, u64 time, IoPack more) {
   IoAct* a     = (IoAct*)w;
   a->work.word = (u32)fd;
   a->work.pack = more;
-  a->time      = 0;
+  a->time      = time;
   a->evts      = evts;
   io_push(&io_park, a);
   return IO_PARK;
+}
+
+// the deadline a parked activation waits for (0 for none)
+static u64 io_wait_time(IoWork* w) {
+  return ((IoAct*)w)->time;
 }
 
 OUTLINE void io_out(FILE* h, const char* data, u64 len) {
@@ -5509,7 +5544,8 @@ static void io_wait(Env e) {
   for (IoAct* a = io_park.head; a != NULL; a = a->next) {
     if (a->time != 0) {
       soon = soon == 0 || a->time < soon ? a->time : soon;
-    } else {
+    }
+    if (a->evts != 0) {
       fds[n].fd     = (int)a->work.word;
       fds[n].events = a->evts;
       n += 1;
@@ -5536,8 +5572,9 @@ static void io_wait(Env e) {
   io_park.last = NULL;
   while (todo.head != NULL) {
     IoAct* a   = io_pop(&todo);
-    bool   due = a->time == 0 ? fds[i].revents != 0 : a->time <= now;
-    i += a->time == 0;
+    bool   due = (a->evts != 0 && fds[i].revents != 0)
+      || (a->time != 0 && a->time <= now);
+    i += a->evts != 0;
     if (!due) {
       io_push(&io_park, a);
       continue;
@@ -5716,8 +5753,8 @@ static int io_step(Env e, IoAct* a) {
     u32 word = (u32)(need & IO_READ ? io_hand_v(e.mem[at]) : e.mem[at]);
     a->cont  = req;
     if (need != 0) {
-      io_wait_on(&a->work, (int)word, POLLIN, io_exec);
-      a->time = need & IO_TIME ? io_tick() + (u64)word * 1000000ull : 0;
+      io_wait_on(&a->work, (int)word, need & IO_READ ? POLLIN : 0,
+        need & IO_TIME ? io_tick() + (u64)word * 1000000ull : 0, io_exec);
       return -1;
     }
     Term x = io_exec(e, &a->work);
@@ -6216,9 +6253,11 @@ function io_wake(w) {
   return x === undefined ? undefined : w.k(x);
 }
 
-// Parks the running effect until fd is readable (out false) or writable.
-function io_park_on(fd, out, k, more) {
-  globalThis.BEND_IO.waits.push({ fd: fd, out: out, k: k, more: more });
+// Parks the running effect until fd is readable (out false) or writable,
+// or until at (a performance.now() tick; undefined for no deadline),
+// whichever comes first.
+function io_park_on(fd, out, k, more, at) {
+  globalThis.BEND_IO.waits.push({ fd: fd, out: out, k: k, more: more, at: at });
 }
 
 function io_run(m) {
