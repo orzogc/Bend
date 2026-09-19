@@ -42,6 +42,12 @@ A base-file helper may call a law filled below it (#793)
   `base.bend` carries this carve-out and the Lean formalization states it.
   User files do not get it.
 
+A handle type is a law of Base (#825)
+  `File`, `Socket`, `Window` and the other handle types are laws that only
+  Base may leave unfilled. A user law of kind `Type` counts as open, so a
+  custom effect reuses a Base handle type. Opening this to user files touches
+  consistency; we will address the gap later.
+
 CAPACITY (a small team keeps the language at a size it can maintain)
 
 Windows is not supported (#788)
@@ -49,10 +55,6 @@ Windows is not supported (#788)
 
 No Vulkan or other extra GPU lanes (#811)
   Metal and CUDA only.
-
-No native library target (#813)
-  The C output is a whole program with one `main`. Call Bend from JS for a
-  library shape.
 
 gcc is not supported (#773)
   See DESIGN.
@@ -84,3 +86,7 @@ Continuation passing for non-tail calls on the JS lane (#798, #802)
   Deep recursion (String.length over 100k chars, List.length over 200k
   elements) overflows the host stack. Until then String.length is an
   intrinsic; other folds may overflow.
+
+A native library target for pure defs (#813)
+  Today the C output is one program with a `main`. Exporting chosen defs with
+  a header and a lifecycle is planned, not scheduled.
