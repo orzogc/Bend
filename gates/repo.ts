@@ -28,10 +28,11 @@ function allow(at: string | RegExp, cap: number, bytes = false): void {
     .replace(/[.]/g, "\\.") + "$") : at, cap, bytes });
 }
 
-allow(/^\.github\/ISSUE_TEMPLATE\/(bug|config)\.yml$/, 600);
+allow(/^\.github\/ISSUE_TEMPLATE\/(bug|feature|config)\.yml$/, 600);
 allow(".gitattributes", 200);
 allow(".gitignore", 100);
 allow("AGENTS.md", 2000);
+allow("CHANGELOG.md", 6000);
 allow("README.md", 3000);
 allow("WONTFIX.txt", 1500);
 allow("LICENSE", 4000);
