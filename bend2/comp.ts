@@ -5280,7 +5280,7 @@ static u64 io_sys_end(IoWork* w, ssize_t n) {
 }
 
 // A computation's activation for its whole life: cont over item is its
-// next request; parked, work.word and time are its fd or deadline, evts
+// next request; parked, work.word and time are its fd and deadline, evts
 // what the fd must be ready for, and work.pack resumes it (io_exec runs
 // cont, the request); work leads, so an effect's IoWork* is its activation.
 // IoAct ::=
@@ -5326,16 +5326,22 @@ static void io_spawn(Term m) {
 }
 
 // Parks the effect's activation until fd is ready for evts (POLLIN or
-// POLLOUT); the loop then calls more on its thread, whose value readies
-// the activation, or IO_PARK, a re-park.
-static Term io_wait_on(IoWork* w, int fd, short evts, IoPack more) {
+// POLLOUT; 0 for no fd), or until time (a tick; 0 for no deadline),
+// whichever comes first; the loop then calls more on its thread, whose
+// value readies the activation, or IO_PARK, a re-park.
+static Term io_wait_on(IoWork* w, int fd, short evts, u64 time, IoPack more) {
   IoAct* a     = (IoAct*)w;
   a->work.word = (u32)fd;
   a->work.pack = more;
-  a->time      = 0;
+  a->time      = time;
   a->evts      = evts;
   io_push(&io_park, a);
   return IO_PARK;
+}
+
+// the deadline a parked activation waits for (0 for none)
+static u64 io_wait_time(IoWork* w) {
+  return ((IoAct*)w)->time;
 }
 
 OUTLINE void io_out(FILE* h, const char* data, u64 len) {
@@ -5538,7 +5544,8 @@ static void io_wait(Env e) {
   for (IoAct* a = io_park.head; a != NULL; a = a->next) {
     if (a->time != 0) {
       soon = soon == 0 || a->time < soon ? a->time : soon;
-    } else {
+    }
+    if (a->evts != 0) {
       fds[n].fd     = (int)a->work.word;
       fds[n].events = a->evts;
       n += 1;
@@ -5565,8 +5572,9 @@ static void io_wait(Env e) {
   io_park.last = NULL;
   while (todo.head != NULL) {
     IoAct* a   = io_pop(&todo);
-    bool   due = a->time == 0 ? fds[i].revents != 0 : a->time <= now;
-    i += a->time == 0;
+    bool   due = (a->evts != 0 && fds[i].revents != 0)
+      || (a->time != 0 && a->time <= now);
+    i += a->evts != 0;
     if (!due) {
       io_push(&io_park, a);
       continue;
@@ -5745,8 +5753,8 @@ static int io_step(Env e, IoAct* a) {
     u32 word = (u32)(need & IO_READ ? io_hand_v(e.mem[at]) : e.mem[at]);
     a->cont  = req;
     if (need != 0) {
-      io_wait_on(&a->work, (int)word, POLLIN, io_exec);
-      a->time = need & IO_TIME ? io_tick() + (u64)word * 1000000ull : 0;
+      io_wait_on(&a->work, (int)word, need & IO_READ ? POLLIN : 0,
+        need & IO_TIME ? io_tick() + (u64)word * 1000000ull : 0, io_exec);
       return -1;
     }
     Term x = io_exec(e, &a->work);
@@ -6245,9 +6253,11 @@ function io_wake(w) {
   return x === undefined ? undefined : w.k(x);
 }
 
-// Parks the running effect until fd is readable (out false) or writable.
-function io_park_on(fd, out, k, more) {
-  globalThis.BEND_IO.waits.push({ fd: fd, out: out, k: k, more: more });
+// Parks the running effect until fd is readable (out false) or writable,
+// or until at (a performance.now() tick; undefined for no deadline),
+// whichever comes first.
+function io_park_on(fd, out, k, more, at) {
+  globalThis.BEND_IO.waits.push({ fd: fd, out: out, k: k, more: more, at: at });
 }
 
 function io_run(m) {
