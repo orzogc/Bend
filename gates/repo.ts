@@ -58,6 +58,7 @@ allow(/^demos\/[a-z0-9_]+\/[A-Za-z0-9_]+\.bend$/, 64000);
 allow(/^demos\/[a-z0-9_]+\/[A-Za-z_]+\.(c|sh|md)$/, 4000);
 allow(/^demos\/[a-z0-9_]+\/web\/(index\.html|main\.js|bunfig\.toml)$/, 4000);
 allow("guide/GUIDE.md", 12000);
+allow("guide/EFFECTS.md", 1600);
 allow("guide/SHADERS.md", 4200);
 allow(/^paper\/(BendRT|BendTT)\.pdf$/, 400000, true);
 allow(/^media\/intro\.(gif|mp4)$/, 25000000, true);

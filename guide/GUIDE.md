@@ -615,3 +615,7 @@ recursion must terminate. `bend2/bend.lean` mechanizes this, though it lags
 AIs on how to write efficient shaders in Bend. It distills what building
 `demos/app_slash_boss_3d` (120 FPS in pure Bend) taught. Read it before you
 write a graphical or parallel app in Bend.
+
+`bend guide effects` prints "Effects in Bend", an AI-written note (to be
+revised by a human) on the C and JS side of custom effects. Read it before
+you write one.
