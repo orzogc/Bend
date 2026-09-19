@@ -10,6 +10,10 @@ def main() -> U32:
 
 #|Error:
 #|- message  : an operator with its type (( .. : T) around the expression gives it, as in (a + b : Nat))
+#|  Sorry: this is a small break after the launch. Versions 2.0.0 to 2.0.16
+#|  read an operator with no type as Nat, against the language's own rule.
+#|  If this compiled before, put the type on the expression: a + b
+#|  becomes (a + b : Nat).
 #|Location:
 #| 8 | def main() -> U32:
 #| 9>|   (id_u(2 + 3) : U32)

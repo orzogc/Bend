@@ -723,7 +723,11 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
     case "Ref": {
       if (tm.k[0] === "." && tm.k[1] !== ".") {
         const op = tm.s === undefined ? tm.k : tm.s.src.slice(tm.s.beg, tm.s.end);
-        throw Err(book_nil(), ctx_nil(), "an operator with its type (( .. : T) around the expression gives it, as in (a " + op + " b : Nat))", undefined, tm.s);
+        throw Err(book_nil(), ctx_nil(), "an operator with its type (( .. : T) around the expression gives it, as in (a " + op + " b : Nat))"
+          + "\n  Sorry: this is a small break after the launch. Versions 2.0.0 to 2.0.16"
+          + "\n  read an operator with no type as Nat, against the language's own rule."
+          + "\n  If this compiled before, put the type on the expression: a " + op + " b"
+          + "\n  becomes (a " + op + " b : Nat).", undefined, tm.s);
       }
       return Ref(tm.k, tm.s, tm.b);
     }
