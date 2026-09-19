@@ -1601,7 +1601,8 @@ function seg_open(fl: File, name: string, ret: Lay, frame: Seg["frame"],
     fl.brwl.has(w) && fl.brwl.set(news[i], fl.brwl.get(w)!));
   let i = 0;
   live.forEach(([p, b]) => bind_uses(fl, p,
-    val_new(news.slice(i, i += b.val.ws.length), b.val.lay), rest, b.A));
+    val_new(news.slice(i, i += b.val.ws.length), b.val.lay), rest, b.A,
+    false));
   return ts;
 }
 
@@ -1928,21 +1929,26 @@ function bind_pop(fl: File, x: HTerm): Val {
     fl.uses.delete(p);
     return b.val;
   }
-  const lay = lay_of(fl.book, b.A);
-  const v = lay_box(b.val.lay) && !lay_box(lay) && !val_brw(fl, b.val)
-    ? val_unbox(fl, b.val, lay) : b.val;
-  fl.uses.set(p, { ...b, val: v, n: b.n - 1 });
-  v.ws.forEach((w, j) => {
-    if (v.lay.ks[j] === "box" && !fl.brwl.has(w)) {
+  fl.uses.set(p, { ...b, n: b.n - 1 });
+  b.val.ws.forEach((w, j) => {
+    if (b.val.lay.ks[j] === "box" && !fl.brwl.has(w)) {
       file_push(fl, `${w} = term_keep(e, ${w});`);
       facts_hot(fl, b.A, true);
     }
   });
-  return v;
+  return b.val;
 }
 
-function bind_uses(fl: File, p: Probe, v: Val, rest: HTerm[], A: HTerm): void {
+// A shared box of a flat type (a closure's or a polymorphic def's result)
+// unboxes before its first share: its words copy, its node does not. The
+// fresh binding decides this once; a rebinding (seg_open) decides nothing.
+function bind_uses(fl: File, p: Probe, v: Val, rest: HTerm[], A: HTerm,
+  fresh = true): void {
   const n = rest_use(fl, rest, p);
+  const lay = lay_of(fl.book, A);
+  if (fresh && n > 1 && lay_box(v.lay) && !lay_box(lay) && !val_brw(fl, v)) {
+    v = val_unbox(fl, v, lay);
+  }
   facts_hot(fl, A, fl.hot.has("*"));
   if (n > 0) {
     fl.uses.set(p, { val: v, n, A });
