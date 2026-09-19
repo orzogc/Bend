@@ -1,8 +1,7 @@
 # a template applied to two F32 trees that differ in one mantissa bit got
 # one instance: the memo keyed both by their print, and f32_show prints
-# every NaN payload as `nan`, so the second call was checked at the first
-# call's argument. A key print carries no sugar now: two arguments share
-# an instance only when they are the same term.
+# every NaN payload as `nan`. A key print shows an F32 as its bits, so two
+# arguments share an instance only when they are the same term.
 type Empty is Data:
 
 type Unit is Data:
@@ -43,7 +42,7 @@ def contradiction() -> Pick(~F32{WCon{True{}, WCon{False{}, WCon{False{}, WCon{F
 #|- expected : Empty
 #|- observed : Unit
 #|Location: contradiction
-#|39 | def contradiction() -> Pick(~F32{WCon{True{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}):
-#|40>|   seed
-#|41 |
+#|38 | def contradiction() -> Pick(~F32{WCon{True{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{False{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{True{}, WCon{False{}, WNil{}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}):
+#|39>|   seed
+#|40 | 
 #|exit 1
