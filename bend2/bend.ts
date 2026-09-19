@@ -304,9 +304,9 @@ export type Env = List<HTerm | ((s?: Span) => HTerm)>;
 export type Ctr  = { k: Name; n: number; T: HTerm }
 export type Ctrs = Array<Ctr>;
 export type ADT  = { $: "ADT"; n: number; g: number; T: HTerm; c: Ctrs; };
-export type Def  = { $: "Def"; n: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; x?: number; t?: HTerm; };
+export type Def  = { $: "Def"; n: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; x?: number; t?: { k: Name; T: HTerm }; };
 export type TLD  = ADT | Def;
-export type Tmpl = { p: Parse; u: Bool; is: Record<string, Name>; };
+export type Tmpl = { p: Parse; is: Record<string, Name>; };
 export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; open: number; tmps: Record<Name, Tmpl>; };
 
 // Context
@@ -2095,7 +2095,7 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
           }
           if (tm.is[key] === undefined) {
             tm.is[key] = out.k + "~" + Object.keys(tm.is).length;
-            parse_def({ ...tm.p, sc: { stk: [], frs: p.sc.frs }, inst: { k: tm.is[key], xs: ts } }, p.book, tm.u);
+            parse_def({ ...tm.p, sc: { stk: [], frs: p.sc.frs }, inst: { k: tm.is[key], xs: ts } }, p.book);
           }
           out = { ...out, k: tm.is[key] };
         }
@@ -2496,28 +2496,31 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   if (law && parse_at(p, "~")) {
     parse_fail(p, "a name");
   }
-  if (p.inst === null && (parse_at(p, "~") || law?.x)) {
-    // a template: its generic parse (an instance re-parses its text)
-    book.tmps[k] = { p: { ...p, pos: at }, u, is: Object.create(null) };
-  }
   const tk: Name[] = [];
   const tele = parse_tele(p, ")", tk);
   parse_skip(p);
-  const fill = p.inst === null ? law : tld?.$ === "Def" && !parse_at(p, "->") ? tld : undefined;
   let def: Def;
-  if (fill) {
+  if (p.inst !== null) {
+    // an instance: its template at the ~ arguments (its text is parsed past)
+    if (parse_take(p, "->")) {
+      parse_term(p);
+    }
+    def = book.tlds[k] = { ...tld as Def, v: null, t: { k: q, T: tele_spec(book, (tld as Def).T, p.inst.xs.map((x) => term_higher(x))) } };
+  } else if (law) {
     if (tele.some((cell) => cell[3].$ !== "Qnt")) {
       parse_fail(p, "a name");
     }
-    def = book.tlds[k] = p.inst === null ? fill
-      : { ...fill, v: null, t: tele_spec(book, fill.T, p.inst.xs.map((x) => term_higher(x))) };
+    def = book.tlds[k] = law;
     def.n = tele.length;
   } else {
     if (!parse_take(p, "->")) {
       parse_fail(p, "'->' (a def with no return type fills a law; no law named " + nm + " is in scope)");
     }
-    const T = term_higher(tele_bind(tele, parse_term(p)));
-    def = book.tlds[k] = { $: "Def", n: tele.length, T: p.inst && tld ? tld.T : T, v: null, x: tk.length, t: p.inst ? T : undefined };
+    def = book.tlds[k] = { $: "Def", n: tele.length, T: term_higher(tele_bind(tele, parse_term(p))), v: null, x: tk.length };
+  }
+  if (p.inst === null && def.x) {
+    // a template: its generic parse (an instance re-parses its text)
+    book.tmps[k] = { p: { ...p, pos: at }, is: Object.create(null) };
   }
   def.u ||= u;
   parse_eat(p, ":");
@@ -2941,8 +2944,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
           break focus;
         }
         if (tld.t !== undefined) {
-          // an instance k~n is its template k: the memo picks code alone
-          tm = Ref(tm.k.slice(0, tm.k.lastIndexOf("~")), tm.s);
+          tm = Ref(tld.t.k, tm.s);
           continue main;
         }
         let run = 0;
@@ -3700,11 +3702,12 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
 // binders peel off its type and body, each taking an opaque constant of
 // its domain (a bodiless def, native like base's, so a mention costs no
 // usage and the body must hold for every closed instance); an instance
-// declares its template's T, so a call checks against the generic type
-// whichever instance the memo picked, and checks its own body against the
-// type its text made (Def.t), which the compiler reads; term_wnf reads an
-// instance as its template, so the two spellings of one call (k~n in
-// text, k in a generic type) meet on open arguments.
+// (Def.t names its template) declares its template's T, so a call checks
+// against the generic type whichever instance the memo picked, and checks
+// its own body against that type at its ~ arguments (Def.t.T), which the
+// compiler reads; term_wnf reads an instance as its template, so the two
+// spellings of one call (k~n in text, k in a generic type) meet on open
+// arguments.
 
 export function book_valid(book: Book, done: number = 0): void {
   const seen = { ...book_nil(), tmps: book.tmps };
@@ -3769,7 +3772,7 @@ export function book_valid(book: Book, done: number = 0): void {
     }
     seen.tlds[k] = dec;
     const def = fin ? tld : dec;
-    term_check(seen, { t: Ref(k), n: 0, def: k, qs: [], u: def.u }, def.t ?? def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
+    term_check(seen, { t: Ref(k), n: 0, def: k, qs: [], u: def.u }, def.t?.T ?? def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
     if (def.i) {
       let tel = term_strip(def.T);
       for (let d = 0; tel.$ === "All"; d++) {
@@ -3787,7 +3790,7 @@ export function book_valid(book: Book, done: number = 0): void {
         qs.push(Lone());
       }
       const c = def.t === undefined && def.x || 0;
-      let [t, v, T]: HTerm[] = [Ref(k), def.v, def.t ?? def.T];
+      let [t, v, T]: HTerm[] = [Ref(k), def.v, def.t?.T ?? def.T];
       for (let j = 0; j < c; j++) {
         const h = tele_head(seen, T, ctx_nil(), k);
         const o = k + "~" + h.k;
