@@ -180,11 +180,12 @@ const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     JS: "(Math.imul($0, $1) >>> 0)",
   },
   u32_div: {
-    C:  "((u32)($1) == 0 ? 0 : U32_BIN($0, /, $1))",
+    C:  "((u32)($1) == 0 ? 0 : (u64)U32_QUO((u32)($0), (u32)($1)))",
     JS: "($1 === 0 ? 0 : ($0 / $1) >>> 0)",
   },
   u32_mod: {
-    C:  "((u32)($1) == 0 ? $0 : U32_BIN($0, %, $1))",
+    C:  "((u32)($1) == 0 ? $0 : U32_BIN($0, -,"
+      + " U32_QUO((u32)($0), (u32)($1)) * $1))",
     JS: "($1 === 0 ? $0 : $0 % $1)",
   },
   ...tpl_ops("u32_", "inc:+ shl:<< shr:>>:>>>", "U32_BIN($0, $o, 1)",
@@ -416,6 +417,11 @@ ${SHIMS}
 #endif
 
 #define U32_BIN(a, o, b) ((u64)((u32)(a) o (u32)(b)))
+
+// Metal folds a constant dividend within 128 of 2^32 through an f32: divide
+// its half, then fix the odd bit.
+#define U32_QUO(a, b) \
+  ((a) / 2 / (b) * 2 + ((a) - (a) / 2 / (b) * 2 * (b) >= (b)))
 
 INLINE f32 f32_unbox(u64 x) {
   union { u32 u; f32 f; } p = { (u32)x };
