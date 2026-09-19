@@ -1,8 +1,10 @@
 # comp-splice pin (spec_comp_capture_linear): bend3's capture honesty,
 # negative side -- a recursive template capturing a closure-typed var
-# died BadUsage at the instantiation (closures never contract). bend
-# has no comp surface at all; the ~ binder pins bend's own parse
-# refusal (the affine wall itself is pinned by the capture twins).
+# died BadUsage at the instantiation (closures never contract). bend's ~
+# law map checks once, f an opaque constant; the call passes f without
+# ~, so the instance binds f as an erased runtime binder, and its live
+# use is refused. (the affine wall itself is pinned by the capture
+# twins.)
 import Base
 
 type L is Data:
@@ -36,10 +38,10 @@ def main():
   bad(y => (y + 1 : U32), C{1, C{2, N{}}})
 
 #|Error:
-#|- expected : a name
-#|- observed : '~'
-#|Location:
-#|12 | law map:
-#|13>|   for ~f: U32 -> U32
-#|14 |   for xs: L
+#|- expected : -f
+#|- observed : f
+#|Location: map~0
+#|18 |
+#|19>| def map(f, xs):
+#|20 |   match xs:
 #|exit 1

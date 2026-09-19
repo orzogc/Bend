@@ -1,8 +1,9 @@
 # comp-splice pin (import_comp_splice_boundary): bend3 exported a ~
 # template across a module boundary and minted in the importer's book.
-# bend has no comp surface, and the corpus is flat self-contained
-# files, so the template inlines here and the ~ binder pins bend's
-# own parse refusal.
+# the corpus is flat self-contained files, so the template inlines here,
+# and bend's ~ law ct_each checks once, f an opaque constant; the call
+# passes f without ~, so the instance binds f as an erased runtime
+# binder, and its live use is refused.
 import Base
 
 type CtL is Data:
@@ -39,10 +40,10 @@ def main():
   ct_total(ct_each(x => (x + 1 : U32), CtC{1, CtC{2, CtN{}}}))
 
 #|Error:
-#|- expected : a name
-#|- observed : '~'
-#|Location:
-#|12 | law ct_each:
-#|13>|   for ~f: U32 -> U32
-#|14 |   for xs: CtL
+#|- expected : -f
+#|- observed : f
+#|Location: ct_each~0
+#|17 |
+#|18>| def ct_each(f, xs):
+#|19 |   match xs:
 #|exit 1

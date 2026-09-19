@@ -1,6 +1,8 @@
-# comp-splice pin (spec_comp_any_term): bend3 filled a comp (~) slot with
-# ANY term (a ref, a runtime-bound lambda var). bend has no comp surface
-# by ruling -- the ~ binder pins bend's own parse refusal.
+# comp-splice pin (spec_comp_any_term): bend3 filled a comp (~) slot
+# with ANY term (a ref, a runtime-bound lambda var). bend's ~ law use
+# checks once, f an opaque constant; the call passes f without ~, so the
+# instance binds f as an erased runtime binder, and its live use is
+# refused.
 import Base
 
 law use:
@@ -33,10 +35,10 @@ def main():
   (caller(3) * 10 + use(inc, 5) : U32)
 
 #|Error:
-#|- expected : a name
-#|- observed : '~'
-#|Location:
-#|6 | law use:
-#|7>|   for ~f: U32 -> U32
-#|8 |   for x: U32
+#|- expected : -f
+#|- observed : f
+#|Location: use~0
+#|12 |
+#|13>| def use(f, x):
+#|14 |   f(x)
 #|exit 1

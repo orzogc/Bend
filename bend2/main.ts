@@ -225,12 +225,12 @@ async function cli_file(args: string[]): Promise<void> {
       return await cli_checkup(file);
     }
     const seen = new Map<string, string | null>();
-    const book = await book_read(file, undefined, seen);
+    const [book, n0] = await book_read(file, undefined, seen);
     if (outs.length !== 0 || book_main(book) !== null) {
-      cli_report(book, 2);
+      cli_report(book, n0, 2);
     }
     if (outs.length === 0) {
-      process.exitCode = book_run(book, argv);
+      process.exitCode = book_run(book, n0, argv);
       return;
     }
     const ins = new Set([...seen.keys(), ...Object.values(book.tlds).flatMap((t) =>
@@ -251,7 +251,7 @@ async function cli_file(args: string[]): Promise<void> {
 // cli_checkup checks and runs each import of the file alone (Base read
 // once, seeded into every module that imports it); one that fails fails it.
 async function cli_checkup(file: string): Promise<void> {
-  const base = await book_read(BASE);
+  const [base] = await book_read(BASE);
   let bad = false;
   for (const raw of fs.readFileSync(file, "utf8").split("\n")) {
     const m = /^import\s+(\S+)\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*$/
@@ -264,7 +264,7 @@ async function cli_checkup(file: string): Promise<void> {
     let code = 1;
     try {
       const own = /^import Base$/m.test(fs.readFileSync(at, "utf8"));
-      code = book_run(await book_read(at, own ? base : undefined), []);
+      code = book_run(...await book_read(at, own ? base : undefined), []);
     } catch (e) {
       cli_say(2, book_err(e) + "\n");
     }
@@ -413,8 +413,8 @@ async function cli_bundle(page: string, dir: string): Promise<void> {
 // left) to the hub with its proof of work, and prints the import line.
 async function cli_publish(file: string): Promise<void> {
   const seen = new Map<string, string | null>();
-  const book = await book_read(file, undefined, seen);
-  cli_report(book, 2);
+  const [book, n0] = await book_read(file, undefined, seen);
+  cli_report(book, n0, 2);
   const files = pkg_files(file, book, seen);
   const entry = Object.keys(files)[0];
   const name  = path.basename(entry, ".bend");
@@ -487,14 +487,40 @@ async function pow_mine(hash: string, bytes: number): Promise<number> {
 // Report
 // ======
 
-// cli_report prints the unsafe count: the verdict of a check on stdout, a
-// note before a run, an emit or a publish on stderr (silent at zero).
-function cli_report(book: Bend.Book, fd: number): void {
-  const uns  = Object.entries(book.tlds).filter(([k, t]) =>
-    t.$ === "Def" && (t.u === true || k.includes("~"))).length;
-  if (uns > 0) {
-    cli_say(fd, `All terms check, with ${uns} unsafe annotation`
-      + `${uns === 1 ? "" : "s"}.\n`);
+// cli_report prints the verdict of a check on stdout, or a note before a
+// run, an emit or a publish on stderr (silent then when nothing relies on
+// unsafe): the file's own claims (book.order from n0, the loader's mark)
+// that are @unsafe, or whose type or body names a def that relies on
+// unsafe. A walk from the claims collects who names whom (term_key's JSON
+// spells a Ref as "$":"Ref","k":..), then the @unsafe defs found flood
+// back along those edges. An instance (Def.t) is its template's, not a claim.
+function cli_report(book: Bend.Book, n0: number, fd: number): void {
+  const own  = [...new Set(book.order.slice(n0))];
+  const uses = new Map<string, string[]>();
+  const seen = new Set<string>();
+  for (const q = own.slice(); q.length > 0;) {
+    const k = q.pop() as string;
+    const t = book.tlds[k];
+    if (t?.$ === "Def" && !seen.has(k)) {
+      seen.add(k);
+      const src = Bend.term_key(Bend.term_lower(t.T))
+        + (t.e === undefined ? "" : Bend.term_key(t.e));
+      for (const [, r] of src.matchAll(/"\$":"Ref","k":"([^"]*)"/g)) {
+        uses.set(r, [...(uses.get(r) ?? []), k]);
+        q.push(r);
+      }
+    }
+  }
+  const bad = new Set([...seen].filter((k) =>
+    (book.tlds[k] as Bend.Def).u === true));
+  for (const k of bad) {
+    (uses.get(k) ?? []).forEach((j) => bad.add(j));
+  }
+  const list = own.filter((k) => bad.has(k)
+    && (book.tlds[k] as Bend.Def).t === undefined);
+  if (list.length > 0) {
+    cli_say(fd, `All terms check, but ${list.length} def${list.length === 1
+      ? " relies" : "s rely"} on unsafe:\n` + list.map((k) => "- " + k + "\n").join(""));
   } else if (fd === 1) {
     cli_say(1, "All terms check.\n");
   }
@@ -520,12 +546,12 @@ function cli_fail(msg: string): never {
 // ====
 
 async function book_read(file: string, base?: Bend.Book,
-  seen = new Map<string, string | null>()): Promise<Bend.Book> {
+  seen = new Map<string, string | null>()): Promise<[Bend.Book, number]> {
   const book = base === undefined ? Bend.book_nil() : book_seed(base);
   if (base !== undefined) {
     seen.set(BASE, "");
   }
-  await Bend.book_load(book, file, "", seen);
+  const n0 = await Bend.book_load(book, file, "", seen);
   const laws = path.join(path.dirname(file), "LAWS.bend");
   if (path.basename(file) === "PROOF.bend" && fs.existsSync(laws)
     && !seen.has(fs.realpathSync(laws))) {
@@ -537,7 +563,7 @@ async function book_read(file: string, base?: Bend.Book,
     throw "Error: " + String(hols) + " TODO" + (hols === 1 ? "" : "s")
       + " found.\nThe code is incomplete, and not a valid proof yet.";
   }
-  return book;
+  return [book, n0];
 }
 
 function book_seed(base: Bend.Book): Bend.Book {
@@ -560,10 +586,10 @@ function book_main(book: Bend.Book): Bend.Def | null {
     || (main.v === null && main.i === undefined) ? null : main;
 }
 
-function book_run(book: Bend.Book, argv: string[]): number {
+function book_run(book: Bend.Book, n0: number, argv: string[]): number {
   const main = book_main(book);
   if (main === null) {
-    cli_report(book, 1);
+    cli_report(book, n0, 1);
     return 0;
   }
   if (Comp.io_type(book) !== null) {
@@ -589,13 +615,13 @@ function book_err(e: unknown): string {
 async function load_js(path: string): Promise<string> {
   let book: Bend.Book;
   try {
-    book = await book_read(path);
+    [book] = await book_read(path);
   } catch (e) {
     throw new Error(book_err(e));
   }
   const outs = [...new Set(book.order)].filter((k) => {
     const tld = book.tlds[k];
-    return tld.$ === "Def" && tld.v !== null && tld.b !== true
+    return tld.$ === "Def" && tld.v !== null && tld.b !== true && !(k in book.tmps)
       && tld.i === undefined && Comp.io_base(book, tld.T) === null;
   });
   return Comp.js_lib(book, outs, outs);

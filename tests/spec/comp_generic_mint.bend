@@ -1,8 +1,9 @@
 # comp-splice pin (spec_comp_generic_mint): bend3's generic template --
 # the exact List.map shape, one mint per site with the instantiation
-# baked in. bend rules the comp surface out (map is not checkable even
-# once Data lands); bend3's def<A,B> respells as erased -A/-B binders
-# and the ~ binder pins bend's own parse refusal.
+# baked in. bend3's def<A,B> respells as erased -A/-B binders, and a ~
+# clause after a plain one heads no template (only leading ~ clauses
+# do), so f is an erased binder, and its live use in the fill is
+# refused.
 import Base
 
 type L<-A: Type> is Type:
@@ -41,10 +42,13 @@ def main():
   total(map(U32, U32, x => (x + 1 : U32), C{1, C{2, N{}}}))
 
 #|Error:
-#|- expected : a name
-#|- observed : '~'
-#|Location:
-#|14 |   for -B: Type
-#|15>|   for ~f: A -> B
-#|16 |   for xs: L<A>
+#|- expected : -f
+#|- observed : f
+#|Context:
+#|- A : Type
+#|- B : Type
+#|Location: map
+#|19 |
+#|20>| def map(A, B, f, xs):
+#|21 |   match xs:
 #|exit 1

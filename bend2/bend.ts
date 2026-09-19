@@ -46,7 +46,7 @@
 // Body   ::= Match | Local | Reply
 // Ctr    ::= Name "{" [Bind ","?] "}"
 // ADT    ::= "type" Name ("<" [Bind ","?] ">")? "is" Term ":" [Ctr]
-// Clause ::= ("for" Quant | "exs") Name ":" Term ("where" Term)?
+// Clause ::= ("for" (Quant | "~") | "exs") Name ":" Term ("where" Term)?
 // Law    ::= "law" Name ":" [Clause] Body
 // Def    ::= ("@unsafe")? "def" Name "(" [Bind ","?] ")" ("->" Term)? ":" (Body | ["import" STRING]+)
 // TLD    ::= ADT | Assert | Def
@@ -127,9 +127,9 @@
 // a = a[i] <- v. the parser never rewinds: one token after a parsed term
 // decides.
 //
-// "~k: T" first in a def's telescope makes it a template: a closed call
-// "T(~a, ..)" re-parses its text with k bound to a into a plain def T~n (a ~
-// lambda applied at k is a Sub); an open one stays plain.
+// "~k: T" heading a def's telescope, or "for ~k: T" in a law, makes it a
+// template: a closed call "T(~a, ..)" re-parses its text with k bound to a
+// into a def T~n (a ~ lambda applied at k is a Sub); an open one stays.
 //
 // Do-Notation
 // -----------
@@ -304,7 +304,7 @@ export type Env = List<HTerm | ((s?: Span) => HTerm)>;
 export type Ctr  = { k: Name; n: number; T: HTerm }
 export type Ctrs = Array<Ctr>;
 export type ADT  = { $: "ADT"; n: number; g: number; T: HTerm; c: Ctrs; };
-export type Def  = { $: "Def"; n: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; };
+export type Def  = { $: "Def"; n: number; T: HTerm; v: HTerm | null; e?: LTerm; b?: Bool; u?: Bool; i?: string[]; x?: number; t?: HTerm; };
 export type TLD  = ADT | Def;
 export type Tmpl = { p: Parse; u: Bool; is: Record<string, Name>; };
 export type Book = { tlds: Record<Name, TLD>; ctrs: Record<Name, Ctr>; order: Name[]; hols: number; open: number; tmps: Record<Name, Tmpl>; };
@@ -1107,6 +1107,12 @@ export function tele_fill(book: Book, tel: HTerm, xs: HTerm[], ctx: Ctx, def?: N
     out = tele_head(book, out, ctx, def, s).B(x);
   }
   return out;
+}
+
+export function tele_spec(book: Book, tel: HTerm, xs: HTerm[]): HTerm {
+  const t = tele_open(book, tel);
+  return t === null || xs.length === 0 ? tel
+    : All(t.q, t.k, t.i, t.A, () => tele_spec(book, t.B(xs[0]), xs.slice(1)), t.s);
 }
 
 export function tele_check(book: Book, lhs: LHS, tel: HTerm, xs: HTerm[], qt: Quant, ctx: Ctx, d: number, s?: Span): { xs: LTerm[]; us: Uses; tel: HTerm } {
@@ -2441,7 +2447,7 @@ export function parse_terms(p: Parse): LTerm[] {
 // Tele
 // ----
 
-export function parse_tele(p: Parse, close: string): Array<[Quant, Name, number, LTerm, Span]> {
+export function parse_tele(p: Parse, close: string, tk: Name[] = []): Array<[Quant, Name, number, LTerm, Span]> {
   const tele: Array<[Quant, Name, number, LTerm, Span]> = [];
   while (true) {
     parse_skip(p);
@@ -2454,13 +2460,15 @@ export function parse_tele(p: Parse, close: string): Array<[Quant, Name, number,
     const k   = parse_name(p);
     const s   = parse_span(p, beg);
     parse_skip(p);
-    if (q.$ === "Lone" && !parse_at(p, ":")) {
-      tele.push([None(), k, parse_open(p, k), Qnt(s), s]);
-    } else {
+    const bare = q.$ === "Lone" && !parse_at(p, ":");
+    if (!bare) {
       parse_eat(p, ":");
-      const T = parse_term(p);
-      tele.push([q, k, parse_open(p, k, ct ? p.inst?.xs.shift() : undefined), T, s]);
     }
+    const T: LTerm = bare ? Qnt(s) : parse_term(p);
+    if (ct && tk.length === tele.length) {
+      tk.push(k);
+    }
+    tele.push([bare ? None() : q, k, parse_open(p, k, p.inst?.xs[tele.length]), T, s]);
     parse_skip(p);
     parse_take(p, ",");
   }
@@ -2470,7 +2478,7 @@ export function parse_tele(p: Parse, close: string): Array<[Quant, Name, number,
 // ----
 
 export function parse_fresh(p: Parse, k: Name): void {
-  if (p.book.tlds[k] !== undefined || (p.inst === null && k in p.book.tmps)) {
+  if (p.book.tlds[k] !== undefined) {
     parse_fail(p, "a fresh name (duplicate declaration: " + k + ")");
   }
 }
@@ -2481,55 +2489,37 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   const nm  = parse_name(p);
   const q   = parse_reso(p, nm);
   const tld = book.tlds[q];
-  if (tld !== undefined && tld.$ === "Def" && tld.v === null && tld.b !== true && !tld.i) {
-    if (u) {
-      tld.u = true;
-    }
-    const n0 = p.sc.stk.length;
-    parse_eat(p, "(");
-    const vars: PVar[] = [];
-    while (true) {
-      parse_skip(p);
-      if (parse_take(p, ")")) {
-        break;
-      }
-      const beg = p.pos;
-      const c   = parse_name(p);
-      vars.push({ $: "PVar", k: c, i: parse_open(p, c), q: Lone(), s: parse_span(p, beg) });
-      parse_skip(p);
-      parse_take(p, ",");
-    }
-    tld.n = vars.length;
-    parse_def_body(p, book, q, tld, vars, n0);
-    return;
+  const law = tld?.$ === "Def" && tld.v === null && tld.b !== true && !tld.i;
+  const k   = p.inst?.k ?? (law ? q : parse_qual(p, nm));
+  if (!law) {
+    parse_fresh(p, k);
   }
-  const k = p.inst?.k ?? parse_qual(p, nm);
-  parse_fresh(p, k);
-  const n0   = p.sc.stk.length;
+  const n0 = p.sc.stk.length;
   parse_eat(p, "(");
   parse_skip(p);
-  if (p.inst === null && parse_at(p, "~")) {
-    // a template: its text parses once dry, then per instance
+  if (law && parse_at(p, "~")) {
+    parse_fail(p, "a name");
+  }
+  if (p.inst === null && (parse_at(p, "~") || (tld?.$ === "Def" && tld.x))) {
+    // a template: its generic parse (an instance re-parses its text)
     book.tmps[k] = { p: { ...p, pos: at }, u, is: Object.create(null) };
-    p.pos  = at;
-    p.inst = { k, xs: [] };
-    parse_def(p, book_nil(), u);
-    p.inst = null;
-    return;
   }
-  const tele = parse_tele(p, ")");
-  parse_eat(p, "->");
-  const ret  = parse_term(p);
-  const def: Def = { $: "Def", n: tele.length, T: term_higher(tele_bind(tele, ret)), v: null };
-  if (u) {
-    def.u = true;
+  const tk: Name[] = [];
+  const tele = parse_tele(p, ")", tk);
+  let def: Def;
+  if (tld?.$ === "Def" && !parse_at_word(p, "->")) {
+    if (tele.some((cell) => cell[3].$ !== "Qnt")) {
+      parse_fail(p, "a name");
+    }
+    def = book.tlds[k] = p.inst === null ? tld
+      : { ...tld, v: null, t: tele_spec(book, tld.T, p.inst.xs.map((x) => term_higher(x))) };
+    def.n = tele.length;
+  } else {
+    parse_eat(p, "->");
+    const T = term_higher(tele_bind(tele, parse_term(p)));
+    def = book.tlds[k] = { $: "Def", n: tele.length, T: tld?.T ?? T, v: null, x: tk.length, t: p.inst ? T : undefined };
   }
-  book.tlds[k] = def;
-  const vars = tele.map((cell): PVar => ({ $: "PVar", k: cell[1], i: cell[2], q: Lone(), s: cell[4] }));
-  parse_def_body(p, book, k, def, vars, n0);
-}
-
-export function parse_def_body(p: Parse, book: Book, k: Name, def: Def, vars: PVar[], n0: number): void {
+  def.u ||= u;
   parse_eat(p, ":");
   if (parse_at_word(p, "import")) {
     def.i = [];
@@ -2545,13 +2535,11 @@ export function parse_def_body(p: Parse, book: Book, k: Name, def: Def, vars: PV
       }
       def.i.push(p.dir + eff);
     }
-    parse_close(p, n0);
-    book.order.push(k);
-    return;
+  } else {
+    const vars = tele.map((cell): PVar => ({ $: "PVar", k: cell[1], i: cell[2], q: Lone(), s: cell[4] }));
+    def.v = term_higher(term_lower(term_higher(body_flatten(parse_body(p), vars, () => p.sc.frs++))));
   }
-  const b = parse_body(p);
   parse_close(p, n0);
-  def.v = term_higher(term_lower(term_higher(body_flatten(b, vars, () => p.sc.frs++))));
   book.order.push(k);
 }
 
@@ -2622,15 +2610,21 @@ export function parse_book(book: Book, dir: string, src: string, ns: string = ""
       parse_eat(p, ":");
       const n0  = p.sc.stk.length;
       const cls: Array<[Bool, Quant, Name, number, LTerm, Span]> = [];
+      let tc = 0;
       while (parse_at_word(p, "for") || parse_at_word(p, "exs")) {
         const all = parse_word(p, "for");
         if (!all) {
           parse_word(p, "exs");
         }
-        const q = all ? parse_quant(p) : Lone();
+        parse_skip(p);
+        const ct = all && parse_take(p, "~");
+        const q  = ct ? None() : all ? parse_quant(p) : Lone();
         const beg = p.pos;
         const c = parse_name(p);
         const s = parse_span(p, beg);
+        if (ct && tc === cls.length) {
+          tc += 1;
+        }
         parse_eat(p, ":");
         let A = parse_term(p);
         if (parse_at_word(p, "where")) {
@@ -2649,7 +2643,7 @@ export function parse_book(book: Book, dir: string, src: string, ns: string = ""
         all ? All(q, c, i, A, T, s) : App(App(Ref("Exists", s), A, s), Lam(c, i, T, s), s), parse_block(p));
       parse_close(p, n0);
       const n = cls.findIndex((c) => !c[0]);
-      book.tlds[k] = { $: "Def", n: n < 0 ? cls.length : n, T: term_higher(T), v: null };
+      book.tlds[k] = { $: "Def", n: n < 0 ? cls.length : n, T: term_higher(T), v: null, x: tc };
       book.order.push(k);
       continue;
     }
@@ -3298,20 +3292,20 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     //       lhs columns left to right until one is LT; an erased (-)
     //       column is skipped; a bare or non-shrinking self-reference
     //       is an error, so a self-reference never escapes as a value
-    //       k has a body in a live region, unless base declared it
-    //       (an unfilled law is a dead claim; base's are native)
+    //       k has a body in a live region, unless base declared it or it
+    //       is a template's ~ parameter (an unfilled law is a dead claim;
+    //       base's are native, and a ~ parameter an opaque constant)
+    //       k names a template in a template's own text alone: elsewhere
+    //       a closed call was rewritten to its instance k~n, which
+    //       declares k's type, and an open one is not comptime
     //       k is not a parameterized family: D<..> is the one
     //       spelling, a bare family head is an error
     // -------------------------------------------------------- infer-ref
     // Γ ⊢ k : T ~ {}
     case "Ref": {
       const tld = book.tlds[tm.k];
-      if (tld === undefined) {
-        const msg = tm.k in book.tmps
-          ? "a template applied to closed ~ arguments "
-            + "(a def parameter is not comptime)"
-          : "a defined name";
-        throw Err(book, ctx, msg, tm, tm.s, lhs.def);
+      if (tld === undefined || (tm.k in book.tmps && !(lhs.def in book.tmps))) {
+        throw Err(book, ctx, tld === undefined ? "a defined name" : "a template applied to closed ~ arguments (a def parameter is not comptime)", tm, tm.s, lhs.def);
       }
       switch (qt.$) {
         case "None": {
@@ -3696,7 +3690,13 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
 // quantity q otherwise (term_compare's order does the fitting); the tip must
 // be the family applied to its own parameters, in order. one telescope
 // per declaration: there is no second face, no substitution and no
-// speculative pass.
+// speculative pass. a template (Def.x) checks once: its x leading ~
+// binders peel off its type and body, each taking an opaque constant of
+// its domain (a bodiless def, native like base's, so a mention costs no
+// usage and the body must hold for every closed instance); an instance
+// declares its template's T, so a call checks against the generic type
+// whichever instance the memo picked, and checks its own body against the
+// type its text made (Def.t), which the compiler reads.
 
 export function book_valid(book: Book, done: number = 0): void {
   const seen = { ...book_nil(), tmps: book.tmps };
@@ -3751,7 +3751,7 @@ export function book_valid(book: Book, done: number = 0): void {
       }
       continue;
     }
-    const dec: Def = { $: "Def", n: tld.n, T: tld.T, v: null, b: tld.b, u: tld.u };
+    const dec: Def = { ...tld, v: null };
     if (i < done) {
       seen.tlds[k] = fin ? tld : dec;
       continue;
@@ -3778,7 +3778,17 @@ export function book_valid(book: Book, done: number = 0): void {
       while (qs.length < def.n) {
         qs.push(Lone());
       }
-      def.e = term_check(seen, { t: Ref(k), n: def.n, def: k, qs, u: def.u }, def.v, Lone(), def.T, ctx_nil(), 0).tm;
+      const c = def.t === undefined && def.x || 0;
+      let [t, v, T]: HTerm[] = [Ref(k), def.v, def.t ?? def.T];
+      for (let j = 0; j < c; j++) {
+        const h = tele_head(seen, T, ctx_nil(), k);
+        const o = k + "~" + h.k;
+        seen.tlds[o] = { $: "Def", n: 0, T: h.A, v: null, b: true };
+        t = App(t, Ref(o));
+        v = term_apply(v, Ref(o));
+        T = h.B(Ref(o));
+      }
+      def.e = term_check(seen, { t, n: def.n - c, def: k, qs, u: def.u }, v, Lone(), T, ctx_nil(), 0).tm;
     }
     seen.tlds[k] = def;
   }

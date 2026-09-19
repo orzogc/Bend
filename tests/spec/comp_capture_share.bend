@@ -1,8 +1,9 @@
 # comp-splice pin (spec_comp_capture_share): bend3's capture honesty,
 # positive side -- a spliced lambda's captured runtime var kept its true
-# multiplicity in the residual. bend has no comp surface (and its core
-# is affine: a Many capture has no free contraction to ride); the ~
-# binder pins bend's own parse refusal.
+# multiplicity in the residual. bend's core is affine (a Many capture
+# has no free contraction to ride); bend's ~ law apply checks once, f an
+# opaque constant; the call passes f without ~, so the instance binds f
+# as an erased runtime binder, and its live use is refused.
 import Base
 
 type L is Data:
@@ -32,10 +33,10 @@ def main():
   once(10, 1)
 
 #|Error:
-#|- expected : a name
-#|- observed : '~'
-#|Location:
-#|12 | law apply:
-#|13>|   for ~f: U32 -> U32
-#|14 |   for x: U32
+#|- expected : -f
+#|- observed : f
+#|Location: apply~0
+#|17 |
+#|18>| def apply(f, x):
+#|19 |   f(x)
 #|exit 1

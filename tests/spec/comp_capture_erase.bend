@@ -1,8 +1,9 @@
 # comp-splice pin (spec_comp_capture_erase): bend3 took a capture's
 # quantity from the specialized body's own uses, so an all-erased
-# capture erased at the caller too. bend has no comp surface; the ~
-# binder pins bend's own parse refusal. (bend3's () Unit literal is
-# respelled Unit{}: bend has no unit literal.)
+# capture erased at the caller too. bend's ~ law cp checks once, f an
+# opaque constant; the call passes f without ~, so the instance binds f
+# as an erased runtime binder, and its live use is refused. (bend3's ()
+# Unit literal is respelled Unit{}: bend has no unit literal.)
 import Base
 
 type D is Data:
@@ -39,10 +40,10 @@ def main():
   rd(cp(z => (19.0, Da{3.0, 7}), mk(7)))
 
 #|Error:
-#|- expected : a name
-#|- observed : '~'
-#|Location:
-#|11 | law cp:
-#|12>|   for ~f: Unit -> (F32 & D)
-#|13 |   for x: Unit
+#|- expected : -f
+#|- observed : f
+#|Location: cp~0
+#|16 |
+#|17>| def cp(f, x):
+#|18 |   f(x)
 #|exit 1
