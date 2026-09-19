@@ -631,10 +631,63 @@ def Nat.is_ge(a: Nat, b: Nat) -> Bool:
   Cmp.is_ge(Nat.cmp(a, b))
 
 def Nat.min(+a: Nat, +b: Nat) -> Nat:
-  Bool.pick(Nat, Nat.is_lt(a, b), a, b)
+  match a b:
+    case 0n _:
+      0n
+    case 1n+ap 0n:
+      0n
+    case 1n+ap 1n+bp:
+      1n+Nat.min(ap, bp)
 
 def Nat.max(+a: Nat, +b: Nat) -> Nat:
-  Bool.pick(Nat, Nat.is_lt(a, b), b, a)
+  match a b:
+    case 0n _:
+      b
+    case 1n+ap 0n:
+      1n+ap
+    case 1n+ap 1n+bp:
+      1n+Nat.max(ap, bp)
+
+law Nat.ge_refl:
+  for a: Nat
+  {Nat.is_ge(a, a) == True{} : Bool}
+
+def Nat.ge_refl(a):
+  match a:
+    case 0n:
+      {==}
+    case 1n+p:
+      Nat.ge_refl(p)
+
+law Nat.max_ge_l:
+  for +a: Nat
+  for +b: Nat
+  {Nat.is_ge(Nat.max(a, b), a) == True{} : Bool}
+
+def Nat.max_ge_l(a, b):
+  match a b:
+    case 0n 0n:
+      {==}
+    case 0n 1n+bp:
+      {==}
+    case 1n+ap 0n:
+      Nat.ge_refl(a)
+    case 1n+ap 1n+bp:
+      Nat.max_ge_l(ap, bp)
+
+law Nat.max_ge_r:
+  for +a: Nat
+  for +b: Nat
+  {Nat.is_ge(Nat.max(a, b), b) == True{} : Bool}
+
+def Nat.max_ge_r(a, b):
+  match a b:
+    case 0n _:
+      Nat.ge_refl(b)
+    case 1n+ap 0n:
+      {==}
+    case 1n+ap 1n+bp:
+      Nat.max_ge_r(ap, bp)
 
 def Nat.div.fin(qr: Nat & Nat) -> Nat:
   (q, r) = qr
