@@ -2769,12 +2769,12 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
     defs.push(`CONSTV u8 ${nm}[] = { ${vals.join(", ")} };`);
   };
   table("FID_ARITY_T", entries.map((s) => s.params.length));
-  // A segment may fork when it, or one it reaches, does.
-  const forky = new Set(["FID_CLO_APPLY",
-    ...fl.segs.filter((s) => s.fork).map((s) => s.fid)]);
+  // A segment may fork when it, or one it reaches, does; a closure apply
+  // reaches every closure.
+  const forky = new Set(fl.segs.filter((s) => s.fork).map((s) => s.fid));
   for (let n = -1; n !== forky.size;) {
     n = forky.size;
-    for (const s of fl.segs) {
+    for (const s of [...fl.segs, { fid: "FID_CLO_APPLY", refs: fl.clos }]) {
       if (!forky.has(s.fid) && [...s.refs].some((r) => forky.has(r))) {
         forky.add(s.fid);
       }
