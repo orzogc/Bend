@@ -29,22 +29,20 @@ import * as Comp from "./comp.ts";
 // Constants
 // =========
 
-const VERSION = "2.0.16";
+const VERSION = "2.0.17";
 
 const HELP = `Bend ${VERSION}: check, run, build and publish Bend programs.
 
 usage:
-  bend <file.bend> [args]     check the file, then run main with args
-                              (IO.args; a "--" ends bend's own options)
-  bend <file.bend> -o <out>   build a binary; <out>.c emits C, <out>.js JS
+  bend <file.bend> [args]       check the file, then run main with args
+  bend <file.bend> -o <out>     build a binary; <out>.c emits C, <out>.js JS
   bend <file.bend> --check-only check the file and its imports; run nothing
-  bend <file.bend> --checkup  check and run each import alone
-  bend <file.bend> --publish  publish the file and its imports to the hub
-  bend <page.html> -o <dir>   bundle a page that imports .bend files
-  bend base [--types|<name>]  print Base, its types, or a name and its subnames
-  bend guide                  print the Bend guide
-  bend update                 install the latest bend (curl | sh, shown first)
-  bend --version              print the version
+  bend <file.bend> --publish    publish the file and its imports to the hub
+  bend <page.html> -o <dir>     bundle a page that imports .bend files
+  bend base [--types|<name>]    print Base, its types, or a name and subnames
+  bend guide                    print the Bend guide
+  bend update                   install the latest bend (curl | sh, shown first)
+  bend version                  print the version
 
 Read the guide (\`bend guide\`) before writing Bend code.
 `;
@@ -94,7 +92,7 @@ const PLUGIN: BunPlugin = {
 // version check, so the check never delays the command's own work.
 async function cli(): Promise<void> {
   const args = process.argv.slice(2);
-  if (args[0] === "--version" && args.length === 1) {
+  if (args[0] === "version" && args.length === 1) {
     return cli_say(1, "bend " + VERSION + "\n");
   }
   if (args[0] === "update" && args.length === 1) {

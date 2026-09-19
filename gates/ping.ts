@@ -183,7 +183,7 @@ try {
   fs.writeFileSync(BIN, "#!/bin/sh\necho launcher\n", { mode: 0o755 });
   const ins = await install();
   check("install.sh over the old layout: " + ins.err, ins.code === 0);
-  const vers = await bend(["--version"]);
+  const vers = await bend(["version"]);
   check("bin/bend is the executable", vers.code === 0
     && vers.out === "bend " + ver + "\n"
     && fs.statSync(BIN).size > 1_000_000);
@@ -200,7 +200,7 @@ try {
   check("a second install, bin on PATH, omits the PATH line", again.code === 0
     && !again.out.includes("PATH=")
     && fs.statSync(BIN).size > 1_000_000);
-  check("bend --version logs nothing", logs().length === 0
+  check("bend version logs nothing", logs().length === 0
     && !fs.existsSync(path.join(BEND, "check.json")));
   const help = await bend(["--help"]);
   const line = logs().pop() ?? {};
@@ -250,7 +250,7 @@ try {
   const fake = await install();
   script = script.replace("0".repeat(64), sum);
   check("a tampered sha256 installs nothing", fake.code === 1
-    && fake.err.includes("does not match") && (await bend(["--version"]))
+    && fake.err.includes("does not match") && (await bend(["version"]))
     .out === "bend " + ver + "\n");
   const fakes = path.join(TMP, "fakes");
   fs.mkdirSync(fakes);
