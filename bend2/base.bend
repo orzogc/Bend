@@ -2267,10 +2267,9 @@ def Array.clone(-T: Data, a: Array<T>) -> Array<T> & Array<T>:
       Array.clone.node(T, Array.clone(T, xs), Array.clone(T, ys))
 
 # A fork is two handles to one array in O(1). Both read and write the
-# same cells, so racing writes go through the atomics. A shared array
-# can be read, written, cloned and sized, but not matched (error 2). An
-# atomic takes an Array<U32> (fadd an Array<F32>) and returns the array
-# with the old value.
+# same cells, so racing writes go through the atomics; a match on a
+# handle copies its part, as a clone does. An atomic takes an Array<U32>
+# (fadd an Array<F32>) and returns the array with the old value.
 
 @unsafe
 def Array.fork(-T: Type, +a: Array<T>) -> Array<T> & Array<T>:

@@ -315,7 +315,7 @@ const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     JS:   "{$: \"Tuple\", fst: $0, snd: $0.length}",
   },
   array_clone: {
-    C:    ["blk_copy(e, $0)", "$0"],
+    C:    ["$0", "blk_copy(e, $0)"],
     call: true,
     JS:   "{$: \"Tuple\", fst: $0, snd: $0.slice()}",
   },
@@ -1940,10 +1940,10 @@ function arr_lay(el: Lay): Lay {
 }
 
 function arr_cells(fl: File, l: string, at: string, el: Lay,
-  own: boolean): Val {
+  box: string): Val {
   const { arr } = lay_arr(el);
-  return val_new(emit_hold(fl, el.ks.map((k, j) => k === "box" && !own
-    ? `blk_keep(e, ${l} + ${at} + ${j})`
+  return val_new(emit_hold(fl, el.ks.map((k, j) => k === "box"
+    ? box.replaceAll("$", `${l} + ${at} + ${j}`)
     : `blk_read(e.mem, ${Number(arr)}, ${l}, ${at} + ${j})`), "c",
   el.ks), el);
 }
@@ -1973,10 +1973,10 @@ function arr_op(fl: File, k: string, el: Lay, args: Val[]): Val {
       const [l, at] = emit_hold(fl, [`blk_loc(e.mem, ${a})`,
         `blk_at(${a}, ${val_word(args[1])}, ${lgs})`], "at");
       if (k === "array_get") {
-        return val_new([a, ...arr_cells(fl, l, at, el, false).ws],
+        return val_new([a, ...arr_cells(fl, l, at, el, "blk_keep(e, $)").ws],
           arr_lay(el));
       }
-      const old = arr_cells(fl, l, at, el, true);
+      const old = arr_cells(fl, l, at, el, "e.mem[$]");
       val_own(fl, val_to(fl, args[2], el)).forEach((w, j) => {
         file_push(fl, `blk_write(e.mem, ${Number(arr)}, ${l}, `
           + `${at} + ${j}, ${w});`);
@@ -1991,7 +1991,8 @@ function arr_op(fl: File, k: string, el: Lay, args: Val[]): Val {
 }
 
 function arr_leaf(fl: File, s: string, el: Lay): Val {
-  const got = arr_cells(fl, `blk_loc(e.mem, ${s})`, "0", el, true);
+  const got = arr_cells(fl, `blk_loc(e.mem, ${s})`, "0", el,
+    `blk_shr(${s}) ? blk_keep(e, $) : e.mem[$]`);
   file_push(fl, `blk_free(e, ${s});`);
   return got;
 }
@@ -3033,8 +3034,8 @@ export function compile_book(book: Bend.Book): string {
       JSON.stringify(n)).join(", ")} };`, "#endif"];
   const defs = compile_tables(fl, entries);
   defs.push(`#define MAIN_FID ${seg_fid("main")}`, `#define MAIN_PURE ${
-    Number(show !== null)}`, `#define BLK_SHR ${Number(done_defs(cb).some(
-    ([k, t]) => t.u === true && live.has(seg_fid(k))))}`);
+    Number(show !== null)}`,
+    `#define BLK_SHR ${Number(cb.hot.has("t:Array"))}`);
   const fills: [string, string[]][] = [
     ["Tables", [defs.join("\n"), ...[...fl.tabs].map(([r, i]) =>
       `CONSTV u64 TAB_${i}[] = { ${r} };`)]],
@@ -4049,10 +4050,12 @@ INLINE Loc term_peek(Env e, Term t) {
   return term_loc(t);
 }
 
-// The redirect's loc never changes: a plain load. Only an @unsafe def
-// forks a block, so without one live (BLK_SHR) no block is a redirect.
+// A fork's handle (BLK_SHR: an Array binder is hot) is a redirect: a plain
+// load, and a match copies it and drops it.
+#define blk_shr(t) (BLK_SHR && term_rfc(t))
+
 INLINE Loc blk_loc(Corpus H, Term a) {
-  return BLK_SHR && term_rfc(a) ? H[term_loc(a)] >> 24 : term_loc(a);
+  return blk_shr(a) ? H[term_loc(a)] >> 24 : term_loc(a);
 }
 
 INLINE Cls blk_cls(Term t) {
@@ -4064,14 +4067,6 @@ INLINE Cls blk_cls(Term t) {
 INLINE Cls blk_span(Term t) {
   Cls c = blk_cls(t);
   return term_tag(t) == TAG_ARR ? c : buf_wcls(c);
-}
-
-INLINE void blk_free(Env e, Term t) {
-  if (term_rfc(t)) {
-    err_post(e.mem, ERR_TAGS);
-    return;
-  }
-  heap_free(e, blk_span(t), term_loc(t));
 }
 
 FAR void term_drop(Env e, Term t) {
@@ -4094,7 +4089,7 @@ FAR void term_drop(Env e, Term t) {
     if (!term_triv(t)) {
       u64 tag = term_tag(t);
       if (tag == TAG_BUF) {
-        blk_free(e, t);
+        heap_free(e, blk_span(t), term_loc(t));
       } else {
         u32 aux = (u32)term_aux(t);
         Loc loc = term_loc(t);
@@ -4264,15 +4259,21 @@ INLINE Term blk_keep(Env e, Loc at) {
   return v;
 }
 
+INLINE void blk_fill(Env e, Loc dst, Loc src, u64 n, bool keep) {
+  for (u64 j = 0; j < n; j += 1) {
+    e.mem[dst + j] = keep ? blk_keep(e, src + j) : e.mem[src + j];
+  }
+}
+
+INLINE void blk_free(Env e, Term t) {
+  blk_shr(t) ? term_drop(e, t) : heap_free(e, blk_span(t), term_loc(t));
+}
+
 OUTLINE Term blk_copy(Env e, Term a) {
-  Corpus H = e.mem;
   bool arr = term_tag(a) == TAG_ARR;
   Cls cls = blk_span(a);
-  Loc src = blk_loc(H, a);
   BLK_ALLOC(dst, cls)
-  for (u64 j = 0; j < (1ull << cls); j += 1) {
-    H[dst + j] = arr ? blk_keep(e, src + j) : H[src + j];
-  }
+  blk_fill(e, dst, blk_loc(e.mem, a), 1ull << cls, arr);
   return term_blk(arr, blk_cls(a), dst);
 }
 
@@ -4280,21 +4281,19 @@ INLINE Term blk_node(Env e, Term l, Term r) {
   Corpus H = e.mem;
   bool arr = term_tag(l) == TAG_ARR;
   Cls c = blk_cls(l);
-  if (c != blk_cls(r) || c + 1 >= NCLS_ALL || term_rfc(l) || term_rfc(r)) {
+  if (c != blk_cls(r) || c + 1 >= NCLS_ALL) {
     err_post(H, ERR_TAGS);
     return l;
   }
-  Loc pl = term_loc(l);
-  Loc pr = term_loc(r);
+  Loc pl = blk_loc(H, l);
+  Loc pr = blk_loc(H, r);
   BLK_ALLOC(n, arr ? c + 1 : c)
   if (!arr && c == 0) {
     H[n] = (u64)*blk_ptr(H, pl, 0) | ((u64)*blk_ptr(H, pr, 0) << 32);
   } else {
     u64 cw = 1ull << blk_span(l);
-    for (u64 w = 0; w < cw; w += 1) {
-      H[n + w]      = H[pl + w];
-      H[n + cw + w] = H[pr + w];
-    }
+    blk_fill(e, n, pl, cw, arr && blk_shr(l));
+    blk_fill(e, n + cw, pr, cw, arr && blk_shr(r));
   }
   blk_free(e, l);
   blk_free(e, r);
@@ -4305,20 +4304,18 @@ INLINE Term blk_half(Env e, Term a, u32 hi) {
   Corpus H = e.mem;
   bool arr = term_tag(a) == TAG_ARR;
   Cls c = blk_cls(a);
-  if (c == 0 || term_rfc(a)) {
+  if (c == 0) {
     err_post(H, ERR_TAGS);
     return a;
   }
   c -= 1;
   Cls cw = arr ? c : buf_wcls(c);
+  Loc src = blk_loc(H, a);
   BLK_ALLOC(n, cw)
   if (!arr && c == 0) {
-    H[n] = (u64)*blk_ptr(H, term_loc(a), hi);
+    H[n] = (u64)*blk_ptr(H, src, hi);
   } else {
-    Loc src = term_loc(a) + ((u64)hi << cw);
-    for (u64 w = 0; w < (1ull << cw); w += 1) {
-      H[n + w] = H[src + w];
-    }
+    blk_fill(e, n, src + ((u64)hi << cw), 1ull << cw, arr && blk_shr(a));
   }
   if (hi) {
     blk_free(e, a);
