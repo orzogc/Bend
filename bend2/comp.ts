@@ -3868,7 +3868,7 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
     if ((u64)p + pages > a32_load_acq(a32_at(H, H_CAP))
       && !corpus_grow(H, (u64)p + pages)) {
       err_post(H, ERR_HEAP);
-      p = 0;
+      return HEAP_OFF;
     }
     got = HEAP_OFF + ((u64)p << PAGE_BITS);
     for (u32 i = 1; i <= n; i += 1) {
