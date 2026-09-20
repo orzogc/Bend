@@ -3073,7 +3073,7 @@ export function compile_book(book: Bend.Book): string {
 // ==
 
 function js_sat(k: Bend.Name): string {
-  return "$" + k.replace(/[./~]/g, "$") + "$";
+  return "$" + k.replace(/\W/g, "$") + "$";
 }
 
 function js_call(fl: File, k: Bend.Name, args: HTerm[],
