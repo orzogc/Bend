@@ -403,8 +403,10 @@ const OPTIMIZED: Record<Bend.Name, Native> = Object.setPrototypeOf({
 // Native
 // ------
 
+// sin, cos and tan are fast:: (cheap, the same pixels); the rest precise::
 const SHIMS = "sqrt exp log log2 log10 sin cos tan pow fmod".split(" ")
-  .map((n) => "#define " + n.padEnd(5) + " precise::" + n).join("\n")
+  .map((n) => "#define " + n.padEnd(5) + (["sin", "cos", "tan"].includes(n)
+    ? " fast::" : " precise::") + n).join("\n")
   + "\n#define atan2 atan2_c99";
 
 const NATIVE = {
