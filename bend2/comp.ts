@@ -1699,12 +1699,17 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean,
   if (w?.$ === "App" && force && facts_fam(fl, w, local)) {
     return;
   }
+  if (w?.$ === "Mat" && force) {
+    const { arms, end } = mat_arms(w);
+    return [...arms.map(([, h]) => h), end].forEach((h) =>
+      facts_hot(fl, h, true, local));
+  }
   if (w?.$ !== "ADT") {
     const dom = w?.$ === "Var" && !local && tele_unbind(fl.book,
       (fl.book.tlds[fl.def] as Def).T).doms[w.i];
     if (force && w?.$ === "Var" && dom && dom[1] === w.k && !live_dom(dom)) {
       fl.hot.add(fl.def + "~" + w.i);
-    } else if (force && "All Var App Mat".includes(w?.$!)) {
+    } else if (force && "All Var App".includes(w?.$!)) {
       fl.hot.add("*");
     }
     return;
@@ -1726,7 +1731,8 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean,
 }
 
 // A family stuck on an open index is one of its arms' types: its def
-// applied to the arguments, cut at the match, walked once per family.
+// applied to the arguments, cut at the match (one per index), walked once
+// per family.
 function facts_fam(fl: File, w: HTerm, local: boolean): boolean {
   const m = term_spine(fl, w);
   const fam = m.tld?.$ === "Def" && m.tld.v !== null && Bend.term_strip(
@@ -1738,9 +1744,7 @@ function facts_fam(fl: File, w: HTerm, local: boolean): boolean {
   const key = "m:" + (m.t as Of<"Ref">).k;
   if (!fl.hot.has(key)) {
     fl.hot.add(key);
-    const { arms, end } = mat_arms(fam);
-    [...arms.map(([, h]) => h), end].forEach((h) =>
-      facts_hot(fl, h, true, local));
+    facts_hot(fl, fam, true, local);
   }
   return true;
 }
