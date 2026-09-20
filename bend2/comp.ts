@@ -983,6 +983,15 @@ function lay_of(book: Bend.Book, A: HTerm | null): Lay {
   });
 }
 
+// An Array's cell is its element datatype's open layout (the type its
+// constructors return): one representation, so every caller agrees.
+function lay_el(book: Bend.Book, A: HTerm | null): Lay {
+  const t = ty_adt(book, A) ?? die("an open Array element type");
+  const tld = book.tlds[t.k];
+  return lay_of(book, tld?.$ === "ADT" && tld.c[0]
+    ? tele_unbind(book, tld.c[0].T).ret : A);
+}
+
 function lay_fields(book: Bend.Book, As: (HTerm | null)[]): Field[] {
   const fs: Field[] = [];
   let at = 0;
@@ -1288,7 +1297,7 @@ function show_main(book: Bend.Book): Show | null {
     if (kind === 3) {
       show.cells.push(Number(box));
     } else if (kind === 6) {
-      const el = lay_of(book, adt.x[0]);
+      const el = lay_el(book, adt.x[0]);
       refs.push([show.cells.push(0, lay_arr(el).lgs) - 2, adt.x[0], el]);
     } else if (kind === 7) {
       show.cells.push(Number(box), tld.c.length);
@@ -1499,8 +1508,8 @@ function type_adts(cb: Carb, T: HTerm): Bend.Name[] {
   switch (t?.$) {
     case "All": return [...type_adts(cb, t.A), ...type_adts(cb, t.B(DUMMY))];
     case "Lam": return type_adts(cb, t.f(DUMMY));
-    case "ADT": return WORDS[t.k] !== undefined || t.k === "Array" ? []
-      : [t.k, ...t.x.flatMap((x) => type_adts(cb, x))];
+    case "ADT": return [...WORDS[t.k] === undefined && t.k !== "Array"
+      ? [t.k] : [], ...t.x.flatMap((x) => type_adts(cb, x))];
     default: return [];
   }
 }
@@ -2242,13 +2251,12 @@ function emit_intr(fl: File, it: Intr, x: HTerm,
   // An intrinsic that installs count cells (blk_new, blk_keep: clone's C
   // too) heats its element type.
   if ("array_get array_new array_clone".includes(op)
-    && lay_of(fl.book, m.all[0]).ks.includes("box")
+    && lay_el(fl.book, m.all[0]).ks.includes("box")
     && !(op === "array_new" && facts_packed(fl, m.all[2]))) {
     facts_hot(fl, m.all[0], true);
   }
   if (it.call === true && it.C === undefined) {
-    ty_adt(fl.book, m.all[0]) ?? die("an open Array element type");
-    return arr_op(fl, op, lay_of(fl.book, m.all[0]), args);
+    return arr_op(fl, op, lay_el(fl.book, m.all[0]), args);
   }
   const ws = args.map((v) => (val_own(fl, v), val_word(v)));
   if (Array.isArray(it.C)) {
@@ -2311,8 +2319,8 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null,
   }
   if (adt.k === "Array") {
     const vs = emit_each(fl, flds, null);
-    const el = lay_of(fl.book, adt.x[0]);
-    return val_new([x.k === "ALeaf" ? arr_new(fl, "0", vs[0], el)
+    return val_new([x.k === "ALeaf"
+      ? arr_new(fl, "0", vs[0], lay_el(fl.book, adt.x[0]))
       : `blk_node(e, ${val_own(fl, vs[0])[0]}, ${val_own(fl, vs[1])[0]})`],
     BOX);
   }
@@ -2777,7 +2785,7 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
       n === null ? [] : [val_new([`(${sw} - ${n})`], lay)]])
     : arms.map(([k, h]): Level => {
       if (adt.k === "Array") {
-        const el = lay_of(fl.book, adt.x[0]);
+        const el = lay_el(fl.book, adt.x[0]);
         return [`blk_cls(${sw}) ${k === "ALeaf" ? "==" : "!="} ${
           lay_arr(el).lgs}`, h, () => (val_own(fl, s), k === "ALeaf"
           ? [arr_leaf(fl, sw, el)]
