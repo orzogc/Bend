@@ -3692,15 +3692,15 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
 // domain for the check (a bodiless def, native like base's, so a mention
 // costs no usage and the body must hold for every closed instance)
 export function def_check(book: Book, k: Name, def: Def, z?: number): LTerm {
-  const qs = tele_unbind(book, def.T).doms.map((dom) => dom[0]).slice(0, def.n);
-  while (qs.length < def.n) {
-    qs.push(Lone());
-  }
-  const gen = def.x === 0 ? book : { ...book, tlds: Object.create(book.tlds) as Record<Name, TLD> };
+  const qs = tele_unbind(book, def.T).doms.map((dom) => dom[0]);
+  const gen = def.x === 0 ? book : { ...book, tlds: Object.create(book.tlds) };
   let [t, v, T]: HTerm[] = [Ref(k), def.v as HTerm, def.T];
   for (let j = 0; j < def.x; j++) {
     const h = tele_head(gen, T, ctx_nil(), k);
     const o = k + "~" + h.k;
+    if (o in gen.tlds) {
+      throw Err(book, ctx_nil(), "a fresh ~ binder name", h.k, h.s);
+    }
     gen.tlds[o] = { $: "Def", n: 0, x: 0, T: h.A, v: null, b: true };
     t = App(t, Ref(o));
     v = term_apply(v, Ref(o));
