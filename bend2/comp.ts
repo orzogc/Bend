@@ -2643,6 +2643,9 @@ function emit_fork(fl: File, x: HLet, ers: HTerm[]): void {
 }
 
 function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
+  if (ty !== null && WORDS[ty_adt(fl.book, ty)?.k ?? ""] === undefined) {
+    return null;
+  }
   let s = Bend.term_strip(t);
   while (s.$ === "Lam") {
     s = Bend.term_strip(term_open(s).b);
@@ -2662,8 +2665,7 @@ function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
 
 function emit_tab(fl: File, rows: Chain, ty: HTerm): number | null {
   const adt = ty_adt(fl.book, ty);
-  const ls = WORDS[adt?.k ?? ""] === undefined ? [null]
-    : rows.map(([t]) => emit_row(fl, t, ty));
+  const ls = rows.map(([t]) => emit_row(fl, t, ty));
   if (ls.includes(null)) {
     return null;
   }
@@ -2677,8 +2679,10 @@ function emit_tab(fl: File, rows: Chain, ty: HTerm): number | null {
 
 // A match's rows: Nat counts Succ down its chain, each row a case or the
 // level's default with its residual; U32 walks the 32 bits of its patterns
-// and asks for half of 0..max.
-function emit_lits(x: HTerm, nat: boolean): Chain | null {
+// and asks for half of 0..max, and one same row from every default a bit
+// falls off the walk to (a bit pattern's variable is a default too).
+function emit_lits(fl: File, x: HTerm, ty: HTerm, nat: boolean):
+  Chain | null {
   if (nat) {
     const ls: Chain = [];
     for (let m = x, n = 0; ; n++) {
@@ -2691,22 +2695,31 @@ function emit_lits(x: HTerm, nat: boolean): Chain | null {
       }
     }
   }
-  const { arms: [[, root]], end } = mat_arms(x);
+  const { arms: [[, root]] } = mat_arms(x);
   const hit = new Map<number, HTerm>();
+  const out: HTerm[] = [];
   const walk = (t: HTerm, bit: number, n: number): void => {
     const h = mat_arms(t).arms[0]?.[1];
-    if (h !== undefined && bit === 32) {
+    if (h === undefined) {
+      out.push(t);
+    } else if (bit === 32) {
       hit.set(n, h);
-    } else if (h !== undefined) {
-      const { False, True } = Object.fromEntries(mat_arms(h).arms);
+    } else {
+      const { arms, end } = mat_arms(h);
+      const { False, True } = Object.fromEntries(arms);
+      arms.length < 2 && out.push(end);
       False && walk(False, bit + 1, n);
       True && walk(True, bit + 1, n + 2 ** bit);
     }
   };
   walk(root, 0, 0);
   const len = Math.max(-1, ...hit.keys()) + 1;
-  return hit.size * 2 > len ? [...Array(len + 1)]
-    .map((_, i): Chain[number] => [hit.get(i) ?? end, null]) : null;
+  const same = (): boolean => {
+    const rs = new Set(out.map((o) => emit_row(fl, o, ty)));
+    return rs.size === 1 && !rs.has(null);
+  };
+  return hit.size * 2 > len && same() ? [...Array(len + 1)]
+    .map((_, i): Chain[number] => [hit.get(i) ?? out[0], null]) : null;
 }
 
 function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
@@ -2720,14 +2733,15 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
   const word = adt.k === "U32" || adt.k === "F32";
   const lay = word ? lay_node(fl.book, adt.k) : lay_of(fl.book, all.A);
   const u = val_hold(fl, val_to(fl, args[0], word ? W32 : lay), "s");
-  const ls = adt.k === "Nat" ? emit_lits(x, true) : null;
-  const tb = ls ?? (adt.k === "U32" ? emit_lits(x, false) : null);
-  const id = tb === null ? null : emit_tab(fl, tb, all.B(DUMMY));
+  const ret = all.B(DUMMY);
+  const ls = adt.k === "Nat" ? emit_lits(fl, x, ret, true) : null;
+  const tb = ls ?? (adt.k === "U32" ? emit_lits(fl, x, ret, false) : null);
+  const id = tb === null ? null : emit_tab(fl, tb, ret);
   if (id !== null) {
     bind_dead(fl, []);
     return emit_put(fl, dst, val_new(
       [`TAB_AT(TAB_${id}, ${u.ws[0]}, ${tb!.length - 1})`],
-      lay_of(fl.book, all.B(DUMMY))));
+      lay_of(fl.book, ret)));
   }
   const s = word ? val_hold(fl, val_new(lay.ks.map((_, i) =>
     `((${u.ws[0]} >> ${i}) & 1)`), lay), "s") : u;
@@ -3148,9 +3162,10 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
         file_push(fl, "throw " + s + ";");
       });
     }
-    const ls = adt.k === "Nat" ? emit_lits(x, true) : null;
-    const tb = ls ?? (adt.k === "U32" ? emit_lits(x, false) : null);
-    const id = tb === null ? null : emit_tab(fl, tb, all.B(DUMMY));
+    const ret = all.B(DUMMY);
+    const ls = adt.k === "Nat" ? emit_lits(fl, x, ret, true) : null;
+    const tb = ls ?? (adt.k === "U32" ? emit_lits(fl, x, ret, false) : null);
+    const id = tb === null ? null : emit_tab(fl, tb, ret);
     if (id !== null) {
       return file_push(fl, `return TAB_${id}[Math.min(Number(${s}), ${
         tb!.length - 1})];`);
