@@ -1805,7 +1805,7 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
       const ts = parse_term_args(p, ">");
       parse_eat(p, ":");
       parse_skip(p);
-      return parse_term_do_stmt(p, m, ts.slice(0, -1), ts[ts.length - 1] ?? null, parse_col(p.str, p.pos));
+      return parse_term_do_stmt(p, m, ts, parse_col(p.str, p.pos));
     }
     if (k === "match") {
       parse_fail(p, "a term (a match heads a def body, not a term)");
@@ -2123,17 +2123,8 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
         if (out.$ !== "Var" && out.$ !== "Ref") {
           parse_fail(p, "a family name before <..> (a comparison here needs parens)");
         }
-        const xs = [a];
-        if (!parse_take(p, ">")) {
-          parse_take(p, ",");
-          xs.push(...parse_term_args(p, ">"));
-        }
-        const k   = parse_reso(p, out.k);
-        const tld = p.book.tlds[k];
-        if (tld !== undefined && tld.$ === "ADT" && xs.length + tld.g === tld.n) {
-          xs.unshift(...Array.from({ length: tld.g }, (): LTerm => Qua(Lone(), s)));
-        }
-        out = ADT(k, xs, s);
+        parse_take(p, ",");
+        out = parse_adt(p, parse_reso(p, out.k), [a, ...parse_term_args(p, ">")], s);
       } else {
         out = App(App(Ref(".is_lt", t), out, s), a, s);
       }
@@ -2304,15 +2295,23 @@ export function parse_term_num(p: Parse): LTerm {
   return nat_to_term(n, parse_span(p, beg));
 }
 
-export function parse_term_do_stmt(p: Parse, m: Name, ls: LTerm[], R: LTerm | null, col: number): LTerm {
-  function parse_term_do_call(op: Name, xs: LTerm[], ys: LTerm[], s: Span): LTerm {
-    return ls.concat(xs, R === null ? [] : [R], ys).reduce((fn: LTerm, x) => App(fn, x, s), Ref(parse_reso(p, m + "." + op), s));
+export function parse_adt(p: Parse, k: Name, xs: LTerm[], s?: Span): LTerm {
+  const tld = p.book.tlds[k];
+  if (tld?.$ === "ADT" && xs.length + tld.g === tld.n) {
+    xs = Array.from({ length: tld.g }, (): LTerm => Qua(Lone(), s)).concat(xs);
+  }
+  return ADT(k, xs, s);
+}
+
+export function parse_term_do_stmt(p: Parse, m: Name, ts: LTerm[], col: number): LTerm {
+  function parse_term_do_call(op: Name, xs: LTerm[], ys: LTerm[], s?: Span): LTerm {
+    return ts.slice(0, -1).concat(xs, ts.slice(-1), ys).reduce((fn: LTerm, x) => App(fn, x, s), Ref(parse_reso(p, m + op), s));
   }
   parse_skip(p);
   const beg = p.pos;
   if (parse_word(p, "return")) {
     const e = parse_term(p);
-    return parse_term_do_call("pure", [], [e], parse_span(p, beg));
+    return parse_term_do_call(".pure", [], [e], parse_span(p, beg));
   }
   const t = parse_term(p);
   parse_skip(p);
@@ -2320,13 +2319,13 @@ export function parse_term_do_stmt(p: Parse, m: Name, ls: LTerm[], R: LTerm | nu
   const step  = !typed && parse_more(p, col);
   const A     = typed ? parse_term(p, 1) : step ? parse_var(p, "Unit", t.s) : t;
   parse_skip(p);
-  const asg = typed && parse_at(p, "=") && !parse_at(p, "==");
-  if (asg) {
-    parse_bump(p);
-  } else if (typed) {
+  const asg = typed && !parse_at(p, "==") && parse_take(p, "=");
+  if (typed && !asg) {
     parse_eat(p, "<-");
-  } else if (!step && !parse_take(p, "<-")) {
-    return t;
+  } else if (!typed && !step && !parse_take(p, "<-")) {
+    const k = parse_reso(p, m);
+    return Ann(t, p.book.tlds[k]?.$ === "ADT" ? parse_adt(p, k, ts, t.s)
+      : parse_term_do_call("", [], [], t.s), t.s);
   }
   const v = step ? t : parse_term(p);
   parse_skip(p);
@@ -2334,12 +2333,12 @@ export function parse_term_do_stmt(p: Parse, m: Name, ls: LTerm[], R: LTerm | nu
   const s  = parse_span(p, beg);
   const n0 = p.sc.stk.length;
   const x  = parse_bind(p, typed ? t : Var("_", 0));
-  const f  = parse_term_do_stmt(p, m, ls, R, col);
+  const f  = parse_term_do_stmt(p, m, ts, col);
   parse_close(p, n0);
   if (asg) {
     return Let([x.k], [x.i], [Ann(v, A, s)], f, s, [x.q]);
   }
-  return parse_term_do_call("bind", [A], [v, Lam(x.k, x.i, f, s, x.q)], s);
+  return parse_term_do_call(".bind", [A], [v, Lam(x.k, x.i, f, s, x.q)], s);
 }
 
 // Body
