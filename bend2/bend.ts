@@ -722,7 +722,7 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
       }
     }
     case "Ref": {
-      if (tm.k[0] === "." && tm.k[1] !== ".") {
+      if (tm.k.lastIndexOf(".") === 0) {
         const op = tm.s === undefined ? tm.k : tm.s.src.slice(tm.s.beg, tm.s.end);
         throw Err(book_nil(), ctx_nil(), "a type for this operator (write (a " + op + " b : Nat))", undefined, tm.s, undefined,
           "Note: we broke this after launch, sorry. Until 2.0.16 a bare operator meant Nat.\n"
@@ -2185,7 +2185,7 @@ export function parse_term_ns(p: Parse, tm: LTerm, T: LTerm): void {
   if (f.$ !== "Ref") {
     return;
   }
-  if (f.k[0] === "." && f.k[1] !== ".") {
+  if (f.k.lastIndexOf(".") === 0) {
     const h = term_unapply(T)[0];
     if (h.$ !== "Var" && h.$ !== "Ref" && h.$ !== "ADT") {
       throw Err(p.book, ctx_nil(), "a type name after : (the operators' namespace)", undefined, h.s);
@@ -2401,8 +2401,8 @@ export function parse_body(p: Parse, col: number = 0): Body {
   parse_take(p, ";");
   const n0 = p.sc.stk.length;
   const ks = ts.map((x): Patt => {
-    if (ts.length > 1 && x.$ !== "Var") {
-      throw Err(p.book, ctx_nil(), "a name (a parallel let binds names; destructure in its body)", undefined, x.s);
+    if ((ts.length > 1 || T !== null) && x.$ !== "Var") {
+      throw Err(p.book, ctx_nil(), "a name (a parallel or typed let binds names; destructure in its body)", undefined, x.s);
     }
     return parse_patt(p, x);
   });
