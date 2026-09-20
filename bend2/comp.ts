@@ -1072,8 +1072,8 @@ function ctr_adt(fl: File, x: Of<"Ctr">,
   if (adt === null || (ty === null && adt.x.length > 0)) {
     die("a constructor outside a datatype");
   }
-  const word = adt.k === "U32" || adt.k === "F32";
-  return [arr_open(fl.book, adt), word ? Bend.u32_from_term(x, adt.k) : null];
+  return [arr_open(fl.book, adt),
+    WORDS[adt.k] === W32 ? Bend.u32_from_term(x, adt.k) : null];
 }
 
 // A constructor's fields: the last n domains of its type, over the
@@ -1715,9 +1715,7 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean,
     return;
   }
   if (w?.$ === "Mat" && force) {
-    const { arms, end } = mat_arms(w);
-    return [...arms.map(([, h]) => h), end].forEach((h) =>
-      facts_hot(fl, h, true, local));
+    return term_kids(fl, w).forEach((h) => facts_hot(fl, h, true, local));
   }
   if (w?.$ !== "ADT") {
     const dom = w?.$ === "Var" && !local && tele_unbind(fl.book,
@@ -2664,8 +2662,8 @@ function emit_fork(fl: File, x: HLet, ers: HTerm[]): void {
 // A row is JS text; the C lane's F32 row is its bits (a NaN's payload
 // has no JS number): a constant's own, an intrinsic's through f32_bits.
 function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
-  const k = ty === null ? null : ty_adt(fl.book, ty)?.k ?? "";
-  if (k !== null && WORDS[k] === undefined) {
+  const k = ty_adt(fl.book, ty)?.k ?? "";
+  if (ty !== null && WORDS[k] === undefined) {
     return null;
   }
   let s = Bend.term_strip(t);
@@ -2822,7 +2820,7 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
     });
   // A match over IO.OP keeps its default: a foreign request is refused.
   if (ls === null && ws === null && (arms.length < total
-    || adt.k === "IO.OP" || Bend.term_strip(end).$ !== "Efq")) {
+    || adt.k === "IO.OP")) {
     lv.push(["", end, () => [u]]);
   }
   const spares = fl.spares;
@@ -2837,9 +2835,6 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
     fl.spares = dst === null ? spares : [];
     Object.assign(fl, outer);
   });
-  if (ws === null && total === 1) {
-    return arms2[0]();
-  }
   emit_chain(fl, (i) => lv[i][0], arms2);
 }
 
@@ -3342,7 +3337,10 @@ export function js_book(book: Bend.Book): string {
 // RuntimeC
 // ========
 
-const A32_OPS = ["add", "sub", "and", "or", "xor", "min", "max"];
+function a32_ops(f: (k: string) => string): string {
+  return ["add", "sub", "and", "or", "xor", "min", "max"].map((k) =>
+    `#define a32_${k}(p, v) ${f(k)}`).join("\n");
+}
 
 const TEMPLATE = String.raw`
 
@@ -3728,8 +3726,7 @@ static const char* CLI_HELP =
 #define a32_load(p)      \
   ({ volatile thread u32 _a32v = atomic_load_explicit(A32(p), RLX); _a32v; })
 #define a32_store(p, v)  atomic_store_explicit(A32(p), v, RLX)
-${A32_OPS.map((k) =>
-  `#define a32_${k}(p, v) atomic_fetch_${k}_explicit(A32(p), v, RLX)`).join("\n")}
+${a32_ops((k) => `atomic_fetch_${k}_explicit(A32(p), v, RLX)`)}
 #define a32_swp(p, e, v) \
   atomic_compare_exchange_weak_explicit(A32(p), e, v, RLX, RLX)
 
@@ -3737,9 +3734,7 @@ ${A32_OPS.map((k) =>
 
 #define a32_load(p)     (*(volatile u32*)(p))
 #define a32_store(p, v) (*(volatile u32*)(p) = (v))
-${A32_OPS.map((k) =>
-  `#define a32_${k}(p, v) atomic${k[0].toUpperCase()}${k.slice(1)}((u32*)(p), v)`)
-  .join("\n")}
+${a32_ops((k) => `atomic${k[0].toUpperCase()}${k.slice(1)}((u32*)(p), v)`)}
 
 INLINE bool a32_swp(DEV u32* p, u32* e, u32 v) {
   u32 x = *e;
@@ -3780,9 +3775,7 @@ INLINE bool a32_cas(DEV u32* p, THR u32* e, u32 v) {
 
 #define a32_load(p)         __atomic_load_n(p, __ATOMIC_RELAXED)
 #define a32_store(p, v)     __atomic_store_n(p, v, __ATOMIC_RELAXED)
-${A32_OPS.map((k) =>
-  `#define a32_${k}(p, v) __atomic_fetch_${k}(p, v, __ATOMIC_RELAXED)`)
-  .join("\n")}
+${a32_ops((k) => `__atomic_fetch_${k}(p, v, __ATOMIC_RELAXED)`)}
 #define a32_sub_rel(p, v)   __atomic_fetch_sub(p, v, __ATOMIC_RELEASE)
 #define a32_store_rel(p, v) __atomic_store_n(p, v, __ATOMIC_RELEASE)
 #define a32_load_acq(p)     __atomic_load_n(p, __ATOMIC_ACQUIRE)
