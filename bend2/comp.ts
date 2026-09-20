@@ -3494,7 +3494,7 @@ using namespace metal;
   } \
   sp += (N - 1) * LANE_STEP;
 #define WL_ROOM(N) \
-  if (DEVICE && sp + (N) * CUBE >= e.mem + HEAP_OFF + CUBE) { \
+  if (DEVICE && sp + (N) * CUBE >= e.mem + STAT_OFF + CUBE) { \
     err_post(e.mem, ERR_DEEP); \
     return 0; \
   }
