@@ -1802,7 +1802,7 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
     if (k === "do") {
       const m = parse_name(p);
       parse_eat(p, "<");
-      const ts = parse_term_args(p, ">");
+      const ts = parse_fill(p, parse_reso(p, m), parse_term_args(p, ">"));
       parse_eat(p, ":");
       parse_skip(p);
       return parse_term_do_stmt(p, m, ts, parse_col(p.str, p.pos));
@@ -2124,7 +2124,8 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
           parse_fail(p, "a family name before <..> (a comparison here needs parens)");
         }
         parse_take(p, ",");
-        out = parse_adt(p, parse_reso(p, out.k), [a, ...parse_term_args(p, ">")], s);
+        const k = parse_reso(p, out.k);
+        out = ADT(k, parse_fill(p, k, [a, ...parse_term_args(p, ">")], s), s);
       } else {
         out = App(App(Ref(".is_lt", t), out, s), a, s);
       }
@@ -2295,12 +2296,12 @@ export function parse_term_num(p: Parse): LTerm {
   return nat_to_term(n, parse_span(p, beg));
 }
 
-export function parse_adt(p: Parse, k: Name, xs: LTerm[], s?: Span): LTerm {
+export function parse_fill(p: Parse, k: Name, xs: LTerm[], s?: Span): LTerm[] {
   const tld = p.book.tlds[k];
   if (tld?.$ === "ADT" && xs.length + tld.g === tld.n) {
-    xs = Array.from({ length: tld.g }, (): LTerm => Qua(Lone(), s)).concat(xs);
+    return Array.from({ length: tld.g }, (): LTerm => Qua(Lone(), s)).concat(xs);
   }
-  return ADT(k, xs, s);
+  return xs;
 }
 
 export function parse_term_do_stmt(p: Parse, m: Name, ts: LTerm[], col: number): LTerm {
@@ -2324,7 +2325,7 @@ export function parse_term_do_stmt(p: Parse, m: Name, ts: LTerm[], col: number):
     parse_eat(p, "<-");
   } else if (!typed && !step && !parse_take(p, "<-")) {
     const k = parse_reso(p, m);
-    return Ann(t, p.book.tlds[k]?.$ === "ADT" ? parse_adt(p, k, ts, t.s)
+    return Ann(t, p.book.tlds[k]?.$ === "ADT" ? ADT(k, ts, t.s)
       : parse_term_do_call("", [], [], t.s), t.s);
   }
   const v = step ? t : parse_term(p);
