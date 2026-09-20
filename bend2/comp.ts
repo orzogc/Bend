@@ -3857,7 +3857,7 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   if (!got) {
     u32 pages = (n << cls) >> PAGE_BITS;
     u32 p     = a32_add(a32_at(H, H_BUMP), pages);
-    if ((u64)p + pages > a32_load(a32_at(H, H_CAP))
+    if ((u64)p + pages > a32_load_acq(a32_at(H, H_CAP))
       && !corpus_grow(H, (u64)p + pages)) {
       err_post(H, ERR_HEAP);
       p = 0;
@@ -5243,7 +5243,7 @@ static void corpus_lay(Corpus H, u64 size) {
     at     += 2 * (cap >> ((c < NCLS ? NCLS : c) - PAGE_BITS));
   }
   corpus_size = size;
-  a32_store(a32_at(H, H_CAP), (u32)cap);
+  a32_store_rel(a32_at(H, H_CAP), (u32)cap);
 }
 
 static bool corpus_grow(Corpus H, u64 need) {
