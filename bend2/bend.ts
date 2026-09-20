@@ -714,7 +714,7 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
       }
       const v = list_get(env, tm.i);
       if (v === null) {
-        return Ref(tm.k, tm.s);
+        return tm.v ?? Ref(tm.k, tm.s);
       } else if (typeof v === "function") {
         return v(tm.s);
       } else {
@@ -1691,10 +1691,10 @@ export function parse_var(p: Parse, k: Name, s?: Span): LTerm {
     return Var(k, e[1], s);
   }
   const q = parse_reso(p, k);
-  if (q !== k || k.includes(".")) {
+  if (k.includes(".")) {
     return Ref(q, s);
   }
-  return Var(k, p.sc.frs++, s);
+  return Var(k, p.sc.frs++, s, Ref(q, s));
 }
 
 export function parse_qual(p: Parse, k: Name): Name {
@@ -2064,20 +2064,20 @@ export function parse_term_ops(p: Parse, tm: LTerm, lvl: number): LTerm {
     if (parse_nl(p) && (parse_at(p, "(") || parse_at(p, "["))) {
       return out;
     }
-    if (parse_at(p, "!(")) {
+    if (parse_at(p, "(") || parse_at(p, "!(")) {
       if (out.$ === "Var" && parse_lookup(p, out.k) === null) {
-        out = Ref(out.k, out.s);
+        out = Ref(parse_reso(p, out.k), out.s);
       }
-      if (out.$ !== "Ref") {
-        parse_fail(p, "a named def before ! (only f!(..) offloads)");
+      if (parse_at(p, "!")) {
+        if (out.$ !== "Ref") {
+          parse_fail(p, "a named def before ! (only f!(..) offloads)");
+        }
+        parse_bump(p);
+        out.b = true;
+        continue;
       }
       parse_bump(p);
-      out.b = true;
-      continue;
-    }
-    if (parse_at(p, "(")) {
-      parse_bump(p);
-      const hd = out.$ === "Ref" || out.$ === "Var" && parse_lookup(p, out.k) === null ? p.book.tlds[out.k] : undefined;
+      const hd = p.book.tlds[out.$ === "Ref" ? out.k : ""];
       const x  = hd?.$ === "Def" ? hd.x : 0;
       const ts: LTerm[] = [];
       for (parse_skip(p); x > 0 && parse_at(p, "~"); parse_skip(p)) {
