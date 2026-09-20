@@ -3798,6 +3798,12 @@ OUTLINE void heap_hand(Env e, Cls cls) {
   ALC_LEN(e, cls)  = 0;
 }
 
+#if DEVICE
+#define corpus_grow(H, n) false
+#else
+static bool corpus_grow(Corpus H, u64 need);
+#endif
+
 OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   Corpus H = e.mem;
   Loc  got = 0;
@@ -3812,7 +3818,8 @@ OUTLINE Loc heap_alloc_miss(Env e, Cls cls) {
   if (!got) {
     u32 pages = (n << cls) >> PAGE_BITS;
     u32 p     = a32_add(a32_at(H, H_BUMP), pages);
-    if ((u64)p + pages > a32_load(a32_at(H, H_CAP))) {
+    if ((u64)p + pages > a32_load(a32_at(H, H_CAP))
+      && !corpus_grow(H, (u64)p + pages)) {
       err_post(H, ERR_HEAP);
       p = 0;
     }
@@ -4711,13 +4718,13 @@ static void row_grow(Env e, Stk stk, u32 base, u32 stride, u32 want) {
 // Pool
 // ====
 
-static void* pool_try(u64 bytes) {
-  return mmap(NULL, bytes, PROT_READ | PROT_WRITE,
+static void* pool_try(void* at, u64 bytes) {
+  return mmap(at, bytes, PROT_READ | PROT_WRITE,
     MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, -1, 0);
 }
 
 static void* pool_mmap(u64 bytes) {
-  void* p = pool_try(bytes);
+  void* p = pool_try(NULL, bytes);
   if (p == MAP_FAILED) {
     err_fail("reservation failed");
   }
@@ -5159,28 +5166,73 @@ static void cube_run(Corpus H, bool gpu) {
 // Corpus
 // ======
 
-static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
-  io_gpu     = gpu;
-  KEEP_WORDS = gpu ? CHUNK : CAP_WORDS;
-  u64 dflt   = gpu ? gpu_span() : 1ull << 43;
-  u64 size   = (gpu && bytes != 0 ? bytes : dflt) & ~16383ull;
-  // The cores reserve the whole Loc space (8 TiB, MAP_NORESERVE). A kernel
-  // with fewer address bits (39-bit arm64, Sv39) or a ulimit -v gets the
-  // largest power of two that fits, down to 8 GiB.
-  CORPUS = gpu ? gpu_map(size) : pool_try(size);
-  while (CORPUS == MAP_FAILED && size > 1ull << 33) {
-    CORPUS = pool_try(size /= 2);
+// The cores map 8 GiB at a high base and double it in place, a hint then
+// a check (MAP_FIXED would replace a neighbour), so one base holds every
+// Loc and a run pays for the room it reaches. The banks lie past the pages
+// and move up at each step. The GPU maps its whole span once.
+
+static u64 corpus_size;
+
+static void* corpus_map(u64 size) {
+  u64   hint = 1ull << 45;
+  void* p    = pool_try((void*)hint, size);
+  while (p != (void*)hint && hint > size) {
+    if (p != MAP_FAILED) {
+      munmap(p, size);
+    }
+    hint /= 2;
+    p     = pool_try((void*)hint, size);
   }
-  if (CORPUS == MAP_FAILED) {
+  if (p == MAP_FAILED) {
     err_fail("reservation failed");
   }
+  return p;
+}
+
+static void corpus_lay(Corpus H, u64 size) {
   u64 span = size / 8;
   u64 cap  = span > HEAP_OFF ? (span - HEAP_OFF) / (PAGE_LEN + 10) : 0;
   if (cap <= CUBE) {
     err_fail("the GPU span is under the rings, stacks and a page per lane");
   }
   cap = cap < ~0u ? cap : ~0u - 1;
-  Corpus H  = CORPUS;
+  u64 at = HEAP_OFF + (cap << PAGE_BITS);
+  for (u32 c = 0; c < NCLS_ALL; c += 1) {
+    Bank* b = bank_at(H, c);
+    memcpy(H + at, H + b->off, b->wr * sizeof(u64));
+    b->off  = at;
+    at     += 2 * (cap >> ((c < NCLS ? NCLS : c) - PAGE_BITS));
+  }
+  corpus_size = size;
+  a32_store(a32_at(H, H_CAP), (u32)cap);
+}
+
+static bool corpus_grow(Corpus H, u64 need) {
+  bool ok = true;
+  LOCK(bank_lock);
+  while (ok && need > a32_load(a32_at(H, H_CAP))) {
+    u64   more = corpus_size;
+    char* at   = (char*)H + more;
+    void* got  = io_gpu || more >= 1ull << 43 ? MAP_FAILED
+      : pool_try(at, more);
+    ok = got == at;
+    if (ok) {
+      corpus_lay(H, more * 2);
+    } else if (got != MAP_FAILED) {
+      munmap(got, more);
+    }
+  }
+  UNLOCK(bank_lock);
+  return ok;
+}
+
+static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
+  io_gpu     = gpu;
+  KEEP_WORDS = gpu ? CHUNK : CAP_WORDS;
+  u64 dflt   = gpu ? gpu_span() : 1ull << 33;
+  u64 size   = (gpu && bytes != 0 ? bytes : dflt) & ~16383ull;
+  CORPUS     = gpu ? gpu_map(size) : corpus_map(size);
+  Corpus H   = CORPUS;
 #if BEND_CUDA
   if (gpu) {
     cuMemsetD8((CUdeviceptr)(uintptr_t)H, 0, STAK_OFF * 8);
@@ -5188,13 +5240,8 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
   }
 #endif
   memcpy(H + STAT_OFF, STAT_IMG, STAT_LEN * sizeof(u64));
-  u64    at = HEAP_OFF + (cap << PAGE_BITS);
-  for (u32 c = 0; c < NCLS_ALL; c += 1) {
-    bank_at(H, c)->off = at;
-    at += 2 * (cap >> ((c < NCLS ? NCLS : c) - PAGE_BITS));
-  }
+  corpus_lay(H, size);
   a32_store(a32_at(H, H_BUMP), 1);
-  a32_store(a32_at(H, H_CAP), (u32)cap);
   if (gpu) {
     gpu_load(size);
   }
