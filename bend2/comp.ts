@@ -5377,8 +5377,8 @@ static Corpus corpus_setup(bool gpu, long threads, u64 bytes) {
     cuCtxSynchronize();
   }
 #endif
-  memcpy(H + STAT_OFF, STAT_IMG, STAT_LEN * sizeof(u64));
   corpus_lay(H, size);
+  memcpy(H + STAT_OFF, STAT_IMG, STAT_LEN * sizeof(u64));
   a32_store(a32_at(H, H_BUMP), 1);
   if (gpu) {
     gpu_load(size);
