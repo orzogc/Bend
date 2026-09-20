@@ -3,6 +3,43 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.22 (2026-09-20)
+
+- **An `@unsafe` def forks an array**: `Array.fork` gives two handles to one
+  block, `Array.join` merges them back, and `Array.atomic.*` (add, sub, and,
+  or, xor, min, max, cas, fadd) act on the shared block from the cores and the
+  GPU. A match on a shared handle copies its part, as a clone does (#885).
+- Two `@unsafe` defs recurse into each other through their laws: an unsafe
+  body may call a law that is not yet filled, as it may call itself without
+  descent.
+- A typed let, `x : T = v`, binds `x` to `{v : T}`; a let with a pattern
+  takes no type (destructure in the body).
+- A `do` block of one statement is typed by its header, and the header's
+  leading quantities are filled once for `bind`, `pure` and the annotation:
+  `do Result<String, U32>:` with a bind now checks (#900).
+- A word match compares the whole word: a string, char, U32 or F32 literal
+  pattern is one equality and its default one else, so three string arms
+  compile to 291 KB of C, not 16.7 MB (#892).
+- An Array cell is its element datatype's open layout, so a generic body over
+  `Array<Boxed<A>>` and its callers agree on the block class; the C lane no
+  longer takes the ANode arm for a leaf (#893).
+- A node shared through a family with two or more indices is opened with
+  `ctr_take` on the C lane, instead of read and freed as owned (#901).
+- A C table's F32 row is the constant's own bits: a signalling NaN keeps its
+  payload (#897).
+- A constructor refuses a repeated field name; the JS lane keyed both fields
+  on one property (#899).
+- A module imported through `../` or a dot directory works inside an annotated
+  operator: an operator is the name whose only dot leads it (#903).
+- A GPU out-of-heap reports at once instead of after seconds of aliased
+  allocation, a `--gpu` span under the fixed region fails with its message
+  instead of a segfault, and a lane's stack ends at the static image: its
+  2049th word no longer overwrites a constant (#889).
+- Fork-free leaves run sequentially and CPU ring work is dealt across workers
+  (PR #876 by nicolas-abril): binarytrees 0.31 → 0.20 s and symreg on the GPU
+  0.56 → 0.32 s on an M4 Max. On the GPU a fork-free leaf reached from a
+  forking def now runs on its lane's 2048-word stack, as a fork kid does.
+
 ## 2.0.21 (2026-09-20)
 
 - A template instance that calls back into an instance whose body is
