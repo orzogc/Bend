@@ -4655,8 +4655,8 @@ INLINE u32 monk_step(Env e, Stk stk, Ring rg, u32 put0, bool seq, u32 base,
 
 // TG_HOLD words of threadgroup memory (lane 0's write keeps them) hold
 // one group per Apple core: without them bitonic runs 1.35x, kmeans
-// 1.19x, matmul 1.13x. A grow pass runs at most CUBE_T rounds, so a group
-// that never fills still cuts at a kernel end.
+// 1.19x, matmul 1.13x. A grow pass ends when its group is full or nothing
+// grew, as row_grow does, so a spine of forks unrolls whole.
 
 #if DEVICE
 
@@ -4738,7 +4738,7 @@ extern "C" __global__ void bend_dev(Corpus H, u32 pass) {
   u32 put0      = a32_load(ring_put(H, rg));
   u32 seen_has  = 0;
   u32 seen_grew = 0;
-  for (u32 turn = 0; pass || turn < CUBE_T; turn += 1) {
+  for (;;) {
     if (pass) {
       if (*ring_get(H, rg) == put0 || err_seen(H)) {
         break;
