@@ -1745,7 +1745,7 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean,
 
 // A family stuck on an open index is one of its arms' types: its def
 // applied to the arguments, cut at the match (one per index), walked once
-// per family.
+// per family; its arguments, like an ADT's, at every instantiation.
 function facts_fam(fl: File, w: HTerm, local: boolean): boolean {
   const m = term_spine(fl, w);
   const fam = m.tld?.$ === "Def" && m.tld.v !== null && Bend.term_strip(
@@ -1754,6 +1754,7 @@ function facts_fam(fl: File, w: HTerm, local: boolean): boolean {
   if (!fam || fam.$ !== "Mat") {
     return false;
   }
+  m.all.forEach((x) => facts_hot(fl, x, true, local));
   const key = "m:" + (m.t as Of<"Ref">).k;
   if (!fl.hot.has(key)) {
     fl.hot.add(key);
