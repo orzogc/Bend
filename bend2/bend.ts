@@ -1802,7 +1802,8 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
     if (k === "do") {
       const m = parse_name(p);
       parse_eat(p, "<");
-      const ts = parse_fill(p, parse_reso(p, m), parse_term_args(p, ">"));
+      const ts = parse_fill(p, parse_reso(p, m), parse_term_args(p, ">"),
+        parse_span(p, beg));
       parse_eat(p, ":");
       parse_skip(p);
       return parse_term_do_stmt(p, m, ts, parse_col(p.str, p.pos));
@@ -2298,10 +2299,8 @@ export function parse_term_num(p: Parse): LTerm {
 
 export function parse_fill(p: Parse, k: Name, xs: LTerm[], s?: Span): LTerm[] {
   const tld = p.book.tlds[k];
-  if (tld?.$ === "ADT" && xs.length + tld.g === tld.n) {
-    return Array.from({ length: tld.g }, (): LTerm => Qua(Lone(), s)).concat(xs);
-  }
-  return xs;
+  return tld?.$ !== "ADT" || xs.length + tld.g !== tld.n ? xs
+    : Array.from({ length: tld.g }, (): LTerm => Qua(Lone(), s)).concat(xs);
 }
 
 export function parse_term_do_stmt(p: Parse, m: Name, ts: LTerm[], col: number): LTerm {
