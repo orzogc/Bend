@@ -87,6 +87,7 @@ type File = Carb & {
   clos: Set<string>;
   img: string[];
   lits: Map<string, number>;
+  consts: Map<string, Map<HTerm, Val>>;
   reqs: string;
   fuel: number;
 };
@@ -161,6 +162,9 @@ const BOX: Lay = { ks: ["box"], arms: null };
 const W64: Lay = { ks: ["w64"], arms: null };
 
 const WORDS: Record<string, Lay> = { U32: W32, F32: W32, Nat: W64 };
+
+// The widest flat datatype: the shader's Tri is 24 words.
+const WIDE = 256;
 
 const ERRS = ("|*|*|out of memory: run again with a bigger span, as in"
   + " --gpu 8GB|a function the device does not hold|a Nat past the"
@@ -615,6 +619,8 @@ const SPINES: Map<HTerm, Spine> = new Map();
 
 const NODES: Map<Bend.Name, Lay> = new Map();
 
+const LAYS: Map<HTerm, Lay> = new Map();
+
 const CYCLES: Map<Bend.Name, boolean> = new Map();
 
 const CONSTS: Map<HTerm, boolean> = new Map();
@@ -947,17 +953,24 @@ function ty_clo(book: Bend.Book, A: HTerm | null,
 // Lay
 // ===
 
-// An Array is a block, and an IO.OP holds the foreign requests beyond its
-// constructors: boxes.
+// An Array is a block, an IO.OP holds the foreign requests beyond its
+// constructors, and a datatype past WIDE words (a record nested K deep is
+// F^K) is a node: boxes. Memoized on the type's term, which a fill shares.
 function lay_of(book: Bend.Book, A: HTerm | null): Lay {
   const t = ty_adt(book, A);
   if (t === null) {
     return BOX;
   }
-  const tld = book.tlds[t.k];
-  return WORDS[t.k] ?? (t.k === "Array" || t.k === "IO.OP" || tld?.$ !== "ADT"
-    || lay_cyclic(book, t.k) ? BOX : lay_pack(tld.c.map((c): Arm =>
-    ({ k: c.k, fs: lay_fields(book, ctr_doms(book, c, t.x)) }))));
+  return WORDS[t.k] ?? memo(LAYS, A!, () => {
+    const tld = book.tlds[t.k];
+    if (t.k === "Array" || t.k === "IO.OP" || tld?.$ !== "ADT"
+      || lay_cyclic(book, t.k)) {
+      return BOX;
+    }
+    const lay = lay_pack(tld.c.map((c): Arm =>
+      ({ k: c.k, fs: lay_fields(book, ctr_doms(book, c, t.x)) })));
+    return lay.ks.length > WIDE ? BOX : lay;
+  });
 }
 
 function lay_fields(book: Bend.Book, As: (HTerm | null)[]): Field[] {
@@ -1410,7 +1423,8 @@ function def_body(cb: Carb, k: Bend.Name): TLD | undefined {
 // whether it is flat: no fork, no bang call, self-calls in tail position.
 function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
   book_owned(src);
-  [TELES, SRCS, NODES, CYCLES, FLATS, SIGS, BRWS].forEach((m) => m.clear());
+  [TELES, SRCS, NODES, LAYS, CYCLES, FLATS, SIGS, BRWS].forEach((m) =>
+    m.clear());
   LOCAL.clear();
   for (const [k, tld] of Object.entries(src.tlds)) {
     if (def_foreign(tld)) {
@@ -1523,7 +1537,8 @@ function cid_mac(k: string): string {
 function file_new(cb: Carb, decl: string): File {
   return { ...cb, decl, segs: [], seg: seg_new("", BOX, []), tab: 2,
     cids: new Map(), tabs: new Map(), spins: [], spun: new Map(), clos: new Set(),
-    img: [], lits: new Map(), reqs: "", fuel: 0, fresh: new Map(), spares: [],
+    img: [], lits: new Map(), consts: new Map(), reqs: "", fuel: 0,
+    fresh: new Map(), spares: [],
     uses: new Map(), brwl: new Map(), rest: [], def: "" };
 }
 
@@ -2269,9 +2284,10 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null,
         .join(" | ")})`], lay);
     }
     const ws = vs.map(val_word);
-    return val_new([ws.length === 0 ? "0" : adt.k !== "Nat"
+    const w = ws.length === 0 ? "0" : adt.k !== "Nat"
       ? `term_word(e, ${ws[0]})`
-      : tpl(tpl_nat("ull", "nat_chk(e, $0 + 1)"), ws)], lay);
+      : tpl(tpl_nat("ull", "nat_chk(e, $0 + 1)"), ws);
+    return val_new([w], lay, /^\d/.test(w));
   }
   if (adt.k === "Array") {
     const vs = emit_each(fl, flds, null);
@@ -2282,6 +2298,12 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null,
   }
   fl.hot.has(x.k) && facts_ctr(fl, fl.book.ctrs[x.k], adt.x);
   const pos = at ?? lay_of(fl.book, adt);
+  // A folded call is a DAG: a static term emits once per layout.
+  const seen = memo(fl.consts, JSON.stringify(pos), () => new Map());
+  const got = seen.get(x);
+  if (got !== undefined) {
+    return got;
+  }
   const lay = lay_box(pos) ? lay_node(fl.book, x.k) : pos;
   const arm = lay_arm(lay, x.k);
   const vs = emit_each(fl, flds, arm.fs.map((f) => f.lay));
@@ -2291,8 +2313,10 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null,
     ws[f.at + n] = w;
   }));
   const v = val_new(ws, lay, vs.every((f) => f.stat));
-  return lay === pos ? v
+  const out = lay === pos ? v
     : val_new([ctr_build(fl, x.k, val_own(fl, v), v.stat)], BOX, v.stat);
+  out.stat && seen.set(x, out);
+  return out;
 }
 
 function emit_fold(fl: File, t: HTerm): HTerm | null {
