@@ -2459,6 +2459,9 @@ export function parse_tele(p: Parse, close: string, tk: Name[] = []): Array<[Qua
     const q   = ct ? None() : parse_quant(p);
     const beg = p.pos;
     const k   = parse_name(p);
+    if (close === "}" && tele.some((cell) => cell[1] === k)) {
+      parse_fail(p, "a fresh field name (duplicate declaration: " + k + ")");
+    }
     const s   = parse_span(p, beg);
     parse_skip(p);
     const bare = q.$ === "Lone" && !parse_at(p, ":");
