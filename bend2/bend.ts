@@ -2373,7 +2373,7 @@ export function parse_body(p: Parse, col: number = 0): Body {
   const vs: LTerm[] = [];
   let ts: LTerm[] = [q.$ === "None" ? Var(parse_name(p), 0, parse_span(p, beg)) : parse_term(p)];
   parse_skip(p);
-  while (!parse_nl(p) && (char_is_head(parse_peek(p)) || parse_at(p, "+")) && !KEYWORDS.has(p.str.slice(p.pos).match(/^[A-Za-z0-9_.]*/)?.[0] ?? "")) {
+  while (!parse_nl(p) && (char_is_head(parse_peek(p)) || q.$ === "Lone" && parse_at(p, "+")) && !KEYWORDS.has(p.str.slice(p.pos).match(/^[A-Za-z0-9_.]*/)?.[0] ?? "")) {
     ts.push(parse_term(p));
     parse_skip(p);
   }
