@@ -116,6 +116,8 @@ type Level = [string, HTerm, () => Val[]];
 
 type Chain = [HTerm, number | null][];
 
+type Leaf = [HTerm, number, number, number];
+
 type Call = {
   k: Bend.Name;
   args: HTerm[];
@@ -356,16 +358,10 @@ const OPTIMIZED: Record<Bend.Name, Native> = Object.setPrototypeOf({
     intr: {
       U32: "word_to_u32($0)",
     },
-    elim: {
-      U32: ["u32_to_word($0)"],
-    },
   },
   F32: {
     intr: {
       F32: "f32_from_bits(word_to_u32($0))",
-    },
-    elim: {
-      F32: ["u32_to_word(f32_bits($0))"],
     },
   },
   Char: {
@@ -2705,49 +2701,68 @@ function emit_tab(fl: File, rows: Chain, ty: HTerm): number | null {
   return id;
 }
 
-// A match's rows: Nat counts Succ down its chain, each row a case or the
-// level's default with its residual; U32 walks the 32 bits of its patterns
-// and asks for half of 0..max, and one same row from every default a bit
-// falls off the walk to (a bit pattern's variable is a default too).
-function emit_lits(fl: File, x: HTerm, ty: HTerm, nat: boolean):
-  Chain | null {
-  if (nat) {
-    const ls: Chain = [];
-    for (let m = x, n = 0; ; n++) {
-      const { arms, end } = mat_arms(m);
-      const { Zero, Succ } = Object.fromEntries(arms);
-      ls.push([Zero ?? end, Zero ? null : n]);
-      m = Bend.term_strip(Succ ?? end);
-      if (Succ === undefined || m.$ !== "Mat") {
-        return [...ls, [Succ ?? end, Succ ? n + 1 : n]];
-      }
+// A Nat match's rows: Succ counted down its chain, each row a case or
+// the level's default with its residual.
+function emit_nats(x: HTerm): Chain {
+  const ls: Chain = [];
+  for (let m = x, n = 0; ; n++) {
+    const { arms, end } = mat_arms(m);
+    const { Zero, Succ } = Object.fromEntries(arms);
+    ls.push([Zero ?? end, Zero ? null : n]);
+    m = Bend.term_strip(Succ ?? end);
+    if (Succ === undefined || m.$ !== "Mat") {
+      return [...ls, [Succ ?? end, Succ ? n + 1 : n]];
     }
   }
-  const { arms: [[, root]] } = mat_arms(x);
-  const hit = new Map<number, HTerm>();
-  const out: HTerm[] = [];
-  const walk = (t: HTerm, bit: number, n: number): void => {
+}
+
+// A word match's leaves: the bits each knows (32: a hit), their value, its
+// arm, and the words it binds (none; the tail; a bit and its tail). A
+// default covers the deeper defaults and tail arms that are its instance
+// (the flattener's substitution replayed): a literal compares whole.
+function emit_lits(x: HTerm): Leaf[] {
+  const ws: Leaf[] = [];
+  const key = (t: HTerm): string => Bend.term_show(Bend.term_lower(t));
+  const walk = (t: HTerm, j: number, n: number,
+    cov: ((w: Of<"Ctr">) => HTerm) | null): void => {
     const h = mat_arms(t).arms[0]?.[1];
-    if (h === undefined) {
-      out.push(t);
-    } else if (bit === 32) {
-      hit.set(n, h);
-    } else {
-      const { arms, end } = mat_arms(h);
-      const { False, True } = Object.fromEntries(arms);
-      arms.length < 2 && out.push(end);
-      False && walk(False, bit + 1, n);
-      True && walk(True, bit + 1, n + 2 ** bit);
+    if (h !== undefined && j === 32) {
+      ws.push([h, j, n, 0]);
+      return;
+    }
+    const { arms, end } = mat_arms(h ?? t);
+    const e = h === undefined ? 1 : 2;
+    const inst = (w: Of<"Ctr">): HTerm => (e === 1 ? [w] : w.x)
+      .reduce((f, a) => Bend.term_apply(f, a), end);
+    const w = Bend.Ctr("WCon", [probe("b"), probe("t")]) as Of<"Ctr">;
+    const own = arms.length < 2 && (cov === null
+      || key(cov(w)) !== key(inst(w)));
+    const sub = own ? inst : cov;
+    for (const [k, a] of arms) {
+      walk(a, j + 1, n + (k === "True" ? 2 ** j : 0), sub && ((v) =>
+        sub(Bend.Ctr("WCon", [Bend.Ctr(k, []), v]) as Of<"Ctr">)));
+    }
+    if (own) {
+      ws.push([end, j, n, e]);
     }
   };
-  walk(root, 0, 0);
+  walk(mat_arms(x).arms[0][1], 0, 0, null);
+  return ws;
+}
+
+// A U32 table: the hits over half of 0..max, and one same row from every
+// other leaf (a gap and the clamp read it).
+function lits_rows(fl: File, ws: Leaf[], ty: HTerm): Chain | null {
+  const hit = new Map(ws.flatMap(([h, j, n]) => j === 32 ? [[n, h]] : []));
+  const out = ws.filter(([, j]) => j < 32);
+  const rs = new Set(out.map(([o]) => emit_row(fl, o, ty)));
   const len = Math.max(-1, ...hit.keys()) + 1;
-  const same = (): boolean => {
-    const rs = new Set(out.map((o) => emit_row(fl, o, ty)));
-    return rs.size === 1 && !rs.has(null);
-  };
-  return hit.size * 2 > len && same() ? [...Array(len + 1)]
-    .map((_, i): Chain[number] => [hit.get(i) ?? out[0], null]) : null;
+  return hit.size * 2 > len && rs.size === 1 ? [...Array(len + 1)]
+    .map((_, i): Chain[number] => [hit.get(i) ?? out[0][0], null]) : null;
+}
+
+function lits_cond(w: string, j: number, n: number, eq: string): string {
+  return j === 32 ? `${w} ${eq} ${n}` : `(${w} & ${2 ** j - 1}) ${eq} ${n}`;
 }
 
 function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
@@ -2758,12 +2773,13 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
   const rest = args.slice(1);
   const all = ty_all(fl.book, ty) ?? die("an untyped match");
   const adt = mat_adt(fl.book, all.A);
-  const word = adt.k === "U32" || adt.k === "F32";
+  const word = WORDS[adt.k] === W32;
   const lay = word ? lay_node(fl.book, adt.k) : lay_of(fl.book, all.A);
   const u = val_hold(fl, val_to(fl, args[0], word ? W32 : lay), "s");
   const ret = all.B(DUMMY);
-  const ls = adt.k === "Nat" ? emit_lits(fl, x, ret, true) : null;
-  const tb = ls ?? (adt.k === "U32" ? emit_lits(fl, x, ret, false) : null);
+  const ls = adt.k === "Nat" ? emit_nats(x) : null;
+  const ws = word ? emit_lits(x) : null;
+  const tb = ls ?? (adt.k === "U32" ? lits_rows(fl, ws!, ret) : null);
   const id = tb === null ? null : emit_tab(fl, tb, ret);
   if (id !== null) {
     bind_dead(fl, []);
@@ -2771,19 +2787,27 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
       [`TAB_AT(TAB_${id}, ${u.ws[0]}, ${tb!.length - 1})`],
       lay_of(fl.book, ret)));
   }
-  const s = word ? val_hold(fl, val_new(lay.ks.map((_, i) =>
-    `((${u.ws[0]} >> ${i}) & 1)`), lay), "s") : u;
-  const sw = s.ws[0];
+  const sw = u.ws[0];
   const total = Bend.book_adt(fl.book, adt, Bend.Emp()).c.length;
   const { arms, end } = mat_arms(x);
   const lv: Level[] = ls !== null
     ? ls.map(([h, n], i): Level => [`${sw} == ${i}`, h, () =>
       n === null ? [] : [val_new([`(${sw} - ${n})`], lay)]])
+    : ws !== null
+    ? ws.map(([h, j, n, e]): Level => [lits_cond(sw, j, n, "=="), h, () => {
+      let v = val_new(lay.ks.map((_, i) => `((${sw} >> ${i}) & 1)`),
+        lay.arms![0].fs[0].lay);
+      for (let i = 0; i < j; i++) {
+        v = val_field(v, v.lay.arms![0].fs[1]);
+      }
+      return e === 1 ? [v]
+        : v.lay.arms![0].fs.slice(0, e).map((f) => val_field(v, f));
+    }])
     : arms.map(([k, h]): Level => {
       if (adt.k === "Array") {
         const el = lay_el(fl.book, adt.x[0]);
         return [`blk_cls(${sw}) ${k === "ALeaf" ? "==" : "!="} ${
-          lay_arr(el).lgs}`, h, () => (val_own(fl, s), k === "ALeaf"
+          lay_arr(el).lgs}`, h, () => (val_own(fl, u), k === "ALeaf"
           ? [arr_leaf(fl, sw, el)]
           : emit_hold(fl, [0, 1].map((hi) => `blk_half(e, ${sw}, ${hi})`),
             "h").map((w) => val_new([w], BOX)))];
@@ -2794,12 +2818,12 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
       }
       const arm = lay_arm(lay, k);
       return [`${sw} == ${lay.arms!.indexOf(arm)}`, h,
-        () => arm.fs.map((f) => val_field(s, f))];
+        () => arm.fs.map((f) => val_field(u, f))];
     });
   // A match over IO.OP keeps its default: a foreign request is refused.
-  if (ls === null && (arms.length < total || adt.k === "IO.OP"
-    || Bend.term_strip(end).$ !== "Efq")) {
-    lv.push(["", end, () => [s]]);
+  if (ls === null && ws === null && (arms.length < total
+    || adt.k === "IO.OP" || Bend.term_strip(end).$ !== "Efq")) {
+    lv.push(["", end, () => [u]]);
   }
   const spares = fl.spares;
   const arms2 = lv.map(([, h, fs]) => () => {
@@ -2813,7 +2837,7 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
     fl.spares = dst === null ? spares : [];
     Object.assign(fl, outer);
   });
-  if (arms2.length === 1 || total === 1) {
+  if (ws === null && total === 1) {
     return arms2[0]();
   }
   emit_chain(fl, (i) => lv[i][0], arms2);
@@ -2826,6 +2850,9 @@ function emit_stuck(fl: File): void {
 
 function emit_chain(fl: File, cond: (i: number) => string,
   bodies: (() => void)[]): void {
+  if (bodies.length === 1) {
+    return bodies[0]();
+  }
   bodies.forEach((body, i) => {
     if (i === bodies.length - 1) {
       file_push(fl, "} else {");
@@ -3192,8 +3219,9 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
       });
     }
     const ret = all.B(DUMMY);
-    const ls = adt.k === "Nat" ? emit_lits(fl, x, ret, true) : null;
-    const tb = ls ?? (adt.k === "U32" ? emit_lits(fl, x, ret, false) : null);
+    const ls = adt.k === "Nat" ? emit_nats(x) : null;
+    const ws = WORDS[adt.k] === W32 ? emit_lits(x) : null;
+    const tb = ls ?? (adt.k === "U32" ? lits_rows(fl, ws!, ret) : null);
     const id = tb === null ? null : emit_tab(fl, tb, ret);
     if (id !== null) {
       return file_push(fl, `return TAB_${id}[Math.min(Number(${s}), ${
@@ -3202,6 +3230,15 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
     if (ls !== null) {
       return emit_chain(fl, (i) => `${s} === ${i}n`, ls.map(([h, n]) => () =>
         js_func(fl, h, null, n === null ? rest : [`(${s} - ${n}n)`, ...rest])));
+    }
+    if (ws !== null) {
+      const bits = adt.k === "F32" ? `f32_bits(${s})` : s;
+      const wd = (j: number): string =>
+        `u32_to_word(${bits})` + "[\"tail\"]".repeat(j);
+      return emit_chain(fl, (i) => lits_cond(bits, ws[i][1], ws[i][2], "==="),
+        ws.map(([h, j, , e]) => () => js_func(fl, h, null, [...(e === 1
+          ? [wd(j)] : [wd(j) + "[\"head\"]", wd(j + 1)].slice(0, e)),
+        ...rest])));
     }
     const last = arms.length === total ? null : end;
     const native = OPTIMIZED[adt.k];
