@@ -2722,7 +2722,8 @@ function emit_nats(x: HTerm): Chain {
 // (the flattener's substitution replayed): a literal compares whole.
 function emit_lits(x: HTerm): Leaf[] {
   const ws: Leaf[] = [];
-  const key = (t: HTerm): string => Bend.term_show(Bend.term_lower(t));
+  const key = (t: HTerm): string => JSON.stringify(Bend.term_lower(t),
+    (k, v) => k === "s" ? undefined : v?.$ === "Ann" ? Bend.term_strip(v) : v);
   const walk = (t: HTerm, j: number, n: number,
     cov: ((w: Of<"Ctr">) => HTerm) | null): void => {
     const h = mat_arms(t).arms[0]?.[1];
@@ -2761,8 +2762,8 @@ function lits_rows(fl: File, ws: Leaf[], ty: HTerm): Chain | null {
     .map((_, i): Chain[number] => [hit.get(i) ?? out[0][0], null]) : null;
 }
 
-function lits_cond(w: string, j: number, n: number, eq: string): string {
-  return j === 32 ? `${w} ${eq} ${n}` : `(${w} & ${2 ** j - 1}) ${eq} ${n}`;
+function lits_cond(w: string, j: number, n: number): string {
+  return j === 32 ? `${w} == ${n}` : `(${w} & ${2 ** j - 1}) == ${n}`;
 }
 
 function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
@@ -2794,7 +2795,7 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
     ? ls.map(([h, n], i): Level => [`${sw} == ${i}`, h, () =>
       n === null ? [] : [val_new([`(${sw} - ${n})`], lay)]])
     : ws !== null
-    ? ws.map(([h, j, n, e]): Level => [lits_cond(sw, j, n, "=="), h, () => {
+    ? ws.map(([h, j, n, e]): Level => [lits_cond(sw, j, n), h, () => {
       let v = val_new(lay.ks.map((_, i) => `((${sw} >> ${i}) & 1)`),
         lay.arms![0].fs[0].lay);
       for (let i = 0; i < j; i++) {
@@ -3235,7 +3236,7 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
       const bits = adt.k === "F32" ? `f32_bits(${s})` : s;
       const wd = (j: number): string =>
         `u32_to_word(${bits})` + "[\"tail\"]".repeat(j);
-      return emit_chain(fl, (i) => lits_cond(bits, ws[i][1], ws[i][2], "==="),
+      return emit_chain(fl, (i) => lits_cond(bits, ws[i][1], ws[i][2]),
         ws.map(([h, j, , e]) => () => js_func(fl, h, null, [...(e === 1
           ? [wd(j)] : [wd(j) + "[\"head\"]", wd(j + 1)].slice(0, e)),
         ...rest])));
@@ -3254,9 +3255,6 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
     });
     if (last !== null) {
       bodies.push(() => js_func(fl, last, null, [s, ...rest]));
-    }
-    if (bodies.length === 1 && total === 1) {
-      return bodies[0]();
     }
     return emit_chain(fl, (i) => native === undefined
       ? s + ".$ === \"" + name_own(arms[i][0], fl.book.tlds[adt.k], " +")
