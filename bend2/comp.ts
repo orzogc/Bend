@@ -2085,16 +2085,19 @@ function emit_frame(fl: File, words: string[], next: string): void {
 
 // A self-jump reads its parameters back: the device's loop carries them
 // typed, not as words (raytrace GPU 1.72x otherwise).
-function emit_jump(fl: File, args: string[], k: Bend.Name): void {
-  if (fl.seg.def !== k) {
-    const fid = seg_fid(k);
-    block(fl, `if (!seq && !fid_nofk(${fl.seg.fid}) && fid_nofk(${fid})) {`,
-      () => file_push(fl, `return term_tsk(${fid}, ${
+function emit_jump(fl: File, args: string[], k: Bend.Name,
+  bang?: boolean): void {
+  const fid = seg_ref(fl, seg_fid(k));
+  fl.seg.fork ||= bang;
+  if (bang || fl.seg.def !== k) {
+    block(fl, `if (!seq${bang ? ""
+      : ` && !fid_nofk(${fl.seg.fid}) && fid_nofk(${fid})`}) {`, () =>
+      file_push(fl, `return term_tsk(${fid}, ${
         emit_task(fl, fid, 0, args)});`));
   }
   args.forEach((a, i) => file_push(fl, `r${i} = ${a};`));
   if (fl.seg.def !== k) {
-    return file_push(fl, `WL_JMP(${seg_ref(fl, seg_fid(k))});`);
+    return file_push(fl, `WL_JMP(${fid});`);
   }
   fl.seg.spin = true;
   fl.seg.params.forEach((p, i) => file_push(fl, `${p} = r${i};`));
@@ -2570,11 +2573,7 @@ function emit_body(fl: File, tm: HTerm, ty0: HTerm | null,
       }
       const cargs = emit_args(fl, ck, true);
       spare_flush(fl);
-      if (ck.bang) {
-        block(fl, "if (!seq) {", () => file_push(fl, `return term_tsk(${
-          seg_fid(ck.k)}, ${emit_task(fl, seg_fid(ck.k), 0, cargs)});`));
-      }
-      emit_jump(fl, cargs, ck.k);
+      emit_jump(fl, cargs, ck.k, ck.bang);
     }
   }
 }
@@ -2642,13 +2641,9 @@ function emit_fork(fl: File, x: HLet, ers: HTerm[]): void {
         file_push(fl, `WL_CONT = term_tsk(${seg_fid(kn)}, ${
           emit_task(fl, seg_fid(kn), 1, ws)});`);
         file_push(fl, `WL_IDX = ${ws.length};`);
-        if (c.bang) {
-          file_push(fl, `return term_tsk(${seg_fid(c.k)}, ${
-            emit_task(fl, seg_fid(c.k), 0, cargs)});`);
-        }
       }]);
     }
-    emit_jump(fl, cargs, c.k);
+    emit_jump(fl, cargs, c.k, !fork && c.bang);
     const last = i === calls.length - 1;
     const held = [...fl.uses].filter(([p]) => pos.has(p));
     const at = held.flatMap(([p, b]) => b.val.ws.map((_, j) =>
@@ -2922,10 +2917,9 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
     defs.push(`CONSTV u8 ${nm}[] = { ${vals.join(", ")} };`);
   };
   table("FID_ARITY_T", entries.map((s) => s.params.length));
-  // A segment may fork when it, or one it reaches, does; a closure apply
-  // reaches every closure.
-  const forky = new Set(fl.segs.filter((s) => s.fork || fl.bangs.has(s.def))
-    .map((s) => s.fid));
+  // A segment may fork (or bang) when it, or one it reaches, does; a
+  // closure apply reaches every closure.
+  const forky = new Set(fl.segs.filter((s) => s.fork).map((s) => s.fid));
   for (let n = -1; n !== forky.size;) {
     n = forky.size;
     for (const s of [...fl.segs, { fid: "FID_CLO_APPLY", refs: fl.clos }]) {
@@ -4560,13 +4554,12 @@ static Reply work_loop(Env e, Stk sp, Term t, u32 seq) {
     sp -= 2 * LANE_STEP;
     Term cont = STK(0);
     u32  idx  = (u32)STK(1);
-    seq &= 1;
     if (cont != TERM_HOLE && fid_seqk((u32)term_aux(cont))) {
       Fid wf = (u32)term_aux(cont);
       Loc wa = term_loc(cont);
       u32 wn = fid_arity(wf);
       WL_FRAME(cont)
-      seq |= fid_nofk(wf) << 1;
+      seq = (seq & 1) | fid_nofk(wf) << 1;
       WL_ARGS(wa, wn - n + 1)
       heap_free(e, cls_fit(wn + 2), wa);
       WL_TAKE(rv)
@@ -4871,11 +4864,10 @@ static void* pool_work(void* arg) {
       if (pool_grow) {
         row_grow(e, stk, r * CUBE_T, 1, CUBE_T);
       } else {
-        u32 step  = CUBE_T / LINE;
-        Ring base = (r / step) * CUBE_T + r % step;
-        for (u32 i = 0; i < LINE; i += 1) {
-          Ring rg   = base + i * step;
-          u32  put0 = a32_load(ring_put(e.mem, rg));
+        u32  step = CUBE_T / LINE;
+        Ring row  = r / step * CUBE_T;
+        for (Ring rg = row + r % step; rg < row + CUBE_T; rg += step) {
+          u32 put0 = a32_load(ring_put(e.mem, rg));
           while (*ring_get(e.mem, rg) != put0 && !err_seen(e.mem)) {
             monk_step(e, stk, rg, put0, true, rg, 0, NULL);
           }

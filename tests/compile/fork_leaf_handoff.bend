@@ -41,6 +41,11 @@ def pipeline(+seed: U32) -> U32:
   finish(p, q, seed)
 
 def main() -> IO(Unit):
-  IO.print(U32.show(pipeline(1)))
+  do IO<Unit>:
+    IO.print(U32.show(pipeline(1)))
+    IO.print(U32.show(pipeline!(1)))
+    IO.print(U32.show(pipeline(1)))
 
+#|24247809
+#|24247809
 #|24247809
