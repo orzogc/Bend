@@ -40,12 +40,19 @@ def pipeline(+seed: U32) -> U32:
   p q = pair(tree) pair(tree)
   finish(p, q, seed)
 
+def clo(f: U32 -> U32, +x: U32) -> U32:
+  f(x)
+
 def main() -> IO(Unit):
   do IO<Unit>:
     IO.print(U32.show(pipeline(1)))
     IO.print(U32.show(pipeline!(1)))
     IO.print(U32.show(pipeline(1)))
+    IO.print(U32.show(clo!(x => pipeline(x), 1)))
+    IO.print(U32.show(clo!(x => total(make(3n, x)), 1)))
 
 #|24247809
 #|24247809
 #|24247809
+#|24247809
+#|92

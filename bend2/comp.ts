@@ -2083,17 +2083,16 @@ function emit_frame(fl: File, words: string[], next: string): void {
 // typed, not as words (raytrace GPU 1.72x otherwise).
 function emit_jump(fl: File, args: string[], k: Bend.Name,
   bang?: boolean): void {
-  const fid = seg_ref(fl, seg_fid(k));
+  const fid = seg_fid(k);
   fl.seg.fork ||= bang;
   if (bang || fl.seg.def !== k) {
-    block(fl, `if (!seq${bang ? ""
-      : ` && !fid_nofk(${fl.seg.fid}) && fid_nofk(${fid})`}) {`, () =>
+    block(fl, `if (!seq${bang ? "" : ` && fid_nofk(${fid})`}) {`, () =>
       file_push(fl, `return term_tsk(${fid}, ${
         emit_task(fl, fid, 0, args)});`));
   }
   args.forEach((a, i) => file_push(fl, `r${i} = ${a};`));
   if (fl.seg.def !== k) {
-    return file_push(fl, `WL_JMP(${fid});`);
+    return file_push(fl, `WL_JMP(${seg_ref(fl, fid)});`);
   }
   fl.seg.spin = true;
   fl.seg.params.forEach((p, i) => file_push(fl, `${p} = r${i};`));
