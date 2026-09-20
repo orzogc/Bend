@@ -2377,7 +2377,14 @@ export function parse_body(p: Parse, col: number = 0): Body {
     ts.push(parse_term(p));
     parse_skip(p);
   }
-  if (q.$ === "Lone" && ts.length === 1 && !(parse_at(p, "=") && !parse_at(p, "=="))) {
+  // x : T = v is a typed let, its value {v : T}; a reply's : T is a group's
+  const at = p.pos;
+  let T = ts.length === 1 && parse_take(p, ":") ? parse_term(p) : null;
+  parse_skip(p);
+  if (T !== null && !parse_at(p, "=")) {
+    [p.pos, T] = [at, null];
+  }
+  if (T === null && q.$ === "Lone" && ts.length === 1 && !(parse_at(p, "=") && !parse_at(p, "=="))) {
     const w = term_write(ts[0]);
     if (w === null || !parse_more(p, parse_col(p.str, beg))) {
       return { $: "Reply", x: ts[0], s: parse_span(p, beg) };
@@ -2386,6 +2393,7 @@ export function parse_body(p: Parse, col: number = 0): Body {
     ts = [w];
   } else {
     parse_eat(p, "=");
+    T !== null && vs.push(Ann(parse_term(p), T, parse_span(p, beg)));
   }
   while (vs.length < ts.length) {
     vs.push(parse_term(p));
