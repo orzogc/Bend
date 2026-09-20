@@ -3,6 +3,18 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.20 (2026-09-20)
+
+- A `U32` match whose arm is a hand-written bit pattern answers that arm:
+  since 2.0.19 the lookup table filled its gaps with the last default, so
+  `case U32{WCon{True{}, r}}` (every odd word) between literal cases read
+  the `_` case on every lane (#867).
+- An erased let binds erased names only: `-y +z = a b` is a parse error at
+  the `+`, not a let that erases the `+z` it was told to keep.
+- The arena's page cap is published with a release store and read with an
+  acquire load, so a core that sees the new cap also sees the banks at
+  their new place (#881).
+
 ## 2.0.19 (2026-09-19)
 
 - A Bend binary starts in 2 ms, not 12: the runtime reserves 8 GiB and
