@@ -2818,7 +2818,7 @@ export function body_flatten(b: Body, vars: PVar[], fr: () => number): LTerm {
         }
         g = g.f;
       }
-      const x = Let(ws.map((w) => w.k), ws.map((w) => w.i), b.v, g, ws[0].s, ws.map((w) => quant_join(b.q, w.q)));
+      const x = Let(ws.map((w) => w.k), ws.map((w) => w.i), b.v, g, ws[0].s, ws.map((w) => quant_dem(b.q, w.q)));
       return body_flatten({ $: "Reply", x }, vars, fr);
     }
     case "Match": {
