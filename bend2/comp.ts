@@ -2646,8 +2646,11 @@ function emit_fork(fl: File, x: HLet, ers: HTerm[]): void {
   emit_body(fl, o.b, null, ers, [], null);
 }
 
+// A row is JS text; the C lane's F32 row is its bits (a NaN's payload
+// has no JS number): a constant's own, an intrinsic's through f32_bits.
 function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
-  if (ty !== null && WORDS[ty_adt(fl.book, ty)?.k ?? ""] === undefined) {
+  const k = ty === null ? null : ty_adt(fl.book, ty)?.k ?? "";
+  if (k !== null && WORDS[k] === undefined) {
     return null;
   }
   let s = Bend.term_strip(t);
@@ -2655,8 +2658,9 @@ function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
     s = Bend.term_strip(term_open(s).b);
   }
   s = emit_fold(fl, s) ?? s;
+  const bits = k === "F32" && fl.decl !== "const";
   if (term_const(s)) {
-    return js_expr(fl, s, ty);
+    return bits ? String(Bend.u32_from_term(s, "F32")) : js_expr(fl, s, ty);
   }
   const m = term_spine(fl, s);
   const it = m.t.$ === "Ref" ? intr_of(fl, m.t.k) : undefined;
@@ -2664,18 +2668,18 @@ function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
     return null;
   }
   const xs = m.args.map((a) => emit_row(fl, a, null));
-  return xs.includes(null) ? null : tpl(it.JS, xs as string[]);
+  const r = xs.includes(null) ? null : tpl(it.JS, xs as string[]);
+  return r !== null && bits ? `f32_bits(${r})` : r;
 }
 
 function emit_tab(fl: File, rows: Chain, ty: HTerm): number | null {
-  const adt = ty_adt(fl.book, ty);
   const ls = rows.map(([t]) => emit_row(fl, t, ty));
   if (ls.includes(null)) {
     return null;
   }
-  const key = fl.decl === "const" ? ls.join(", ") : Function("return ["
-    + ls + "]")().map((v: number) => (adt?.k === "F32"
-    ? Bend.f32_to_bits(v) : BigInt(v)) + "ull").join(", ");
+  const key = fl.decl === "const" ? ls.join(", ") : Function("f32_bits",
+    "return [" + ls + "]")(Bend.f32_to_bits).map((v: number) => BigInt(v)
+    + "ull").join(", ");
   const id = fl.tabs.get(key) ?? fl.tabs.size;
   fl.tabs.set(key, id);
   return id;
