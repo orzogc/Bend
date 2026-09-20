@@ -144,6 +144,9 @@ const STRLIT = new RegExp("^\"(?:[^\"\\\\]|\\\\.)*\"$");
 
 const NATIVE_DIE = " does not match the native format of its type";
 
+// The term nodes one segment may gain by folding calls at compile time.
+const FOLD_FUEL = 8192;
+
 // A native with this many lines or more is a call on both lanes: the
 // device inlines every native into every caller (hvm5 under a bang: 32 s
 // of Metal compile, 2.6 s so); at 128 raytrace lost 31% on PAR-CPU.
@@ -799,6 +802,16 @@ function term_any(cf: Carb, t: HTerm, p: (s: HTerm, tail: boolean) => boolean,
   return p(s, tail) || kids.some((x, i) => term_any(cf, x, p, tail
     && (s.$ === "Let" ? i === kids.length - 1 : "Ann Lam Mat Rwt".includes(s.$)),
   seen));
+}
+
+// The nodes of a term, its shared parts once. The fold's fuel is the size
+// of what an unfold adds, not a count of unfolds: a wide body and a narrow
+// one do not cost the same, and a loop whose bound is a literal folds every
+// turn, so counting unfolds alone unrolls the whole loop into its caller.
+function term_nodes(cf: Carb, t: HTerm): number {
+  let n = 0;
+  term_any(cf, t, () => (n += 1) < 0);
+  return n;
 }
 
 function term_const(t: HTerm): boolean {
@@ -2139,7 +2152,8 @@ function emit_fuse(fl: File, ck: Call, dst: Dst, tail = false): void {
 // Opens a unit of `k`: the unit state fresh, its parameters bound and its
 // segment made.
 function emit_open(fl: File, k: Bend.Name): Val[] {
-  Object.assign(fl, { spares: [], tab: 2, uses: new Map(), fuel: 64, def: k });
+  Object.assign(fl, { spares: [], tab: 2, uses: new Map(),
+    fuel: FOLD_FUEL, def: k });
   const { live, lays, ret } = sig_def(fl, k);
   const vals = lays.map((l, i) =>
     val_new(l.ks.map(() => name_local(fl, live[i][1])), l));
@@ -2289,7 +2303,7 @@ function emit_fold(fl: File, t: HTerm): HTerm | null {
     const it = m.t.$ === "Ref" ? intr_of(fl, m.t.k) : undefined;
     if (it === undefined) {
       const b = emit_unfold(fl, s);
-      fl.fuel -= Number(b !== null);
+      fl.fuel -= b === null ? 0 : term_nodes(fl, b);
       return b === null || term_any(fl, b, (y) => {
         if (y.$ === "App" || y.$ === "Ref") {
           emit_fold(fl, y);
@@ -3134,7 +3148,7 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
 
 function js_def(fl: File, k: Bend.Name, def: Def): void {
   fl.fresh = new Map();
-  fl.fuel = 64;
+  fl.fuel = FOLD_FUEL;
   if (intr_of(fl, k, true) !== undefined) {
     return;
   }
