@@ -308,7 +308,7 @@ const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   },
   array_swap: {
     call: true,
-    JS:   "array_swap($0, $1, $2)",
+    JS:   "array_rmw($0, $1, () => $2)",
   },
   array_size: {
     call: true,
@@ -319,6 +319,16 @@ const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     call: true,
     JS:   "{$: \"Tuple\", fst: $0, snd: $0.slice()}",
   },
+  ...Object.fromEntries(Object.entries({
+    add: "(o + $2) >>> 0", min: "Math.min(o, $2)", max: "Math.max(o, $2)",
+    and: "(o & $2) >>> 0", or: "(o | $2) >>> 0", xor: "(o ^ $2) >>> 0",
+    exch: "$2", cmpx: "o === $2 ? $3 : o", fadd: "Math.fround(o + $2)",
+  }).map(([k, js]) => ["array_atomic_" + k.replace("cmpx", "cas"), {
+    C:    ["$0", "a32_" + k + "(blk_ptr(e.mem, blk_loc(e.mem, $0),"
+      + " blk_at($0, $1, 0)), (u32)$2" + (k === "cmpx" ? ", (u32)$3)" : ")")],
+    call: true,
+    JS:   "array_rmw($0, $1, (o) => " + js + ")",
+  }])),
 }, null);
 
 // Optimized
@@ -1920,12 +1930,12 @@ function arr_lay(el: Lay): Lay {
     fs: [{ at: 0, lay: BOX }, { at: 1, lay: el }] }]);
 }
 
-function arr_cells(fl: File, a: string, at: string, el: Lay,
+function arr_cells(fl: File, l: string, at: string, el: Lay,
   own: boolean): Val {
   const { arr } = lay_arr(el);
   return val_new(emit_hold(fl, el.ks.map((k, j) => k === "box" && !own
-    ? `blk_keep(e, term_loc(${a}) + ${at} + ${j})`
-    : `blk_read(e.mem, ${Number(arr)}, term_loc(${a}), ${at} + ${j})`), "c",
+    ? `blk_keep(e, ${l} + ${at} + ${j})`
+    : `blk_read(e.mem, ${Number(arr)}, ${l}, ${at} + ${j})`), "c",
   el.ks), el);
 }
 
@@ -1951,15 +1961,15 @@ function arr_op(fl: File, k: string, el: Lay, args: Val[]): Val {
     }
     default: {
       const a = emit_alias(fl, val_own(fl, args[0])[0], "a");
-      const at = emit_hold(fl,
-        [`blk_at(${a}, ${val_word(args[1])}, ${lgs})`], "at")[0];
+      const [l, at] = emit_hold(fl, [`blk_loc(e.mem, ${a})`,
+        `blk_at(${a}, ${val_word(args[1])}, ${lgs})`], "at");
       if (k === "array_get") {
-        return val_new([a, ...arr_cells(fl, a, at, el, false).ws],
+        return val_new([a, ...arr_cells(fl, l, at, el, false).ws],
           arr_lay(el));
       }
-      const old = arr_cells(fl, a, at, el, true);
+      const old = arr_cells(fl, l, at, el, true);
       val_own(fl, val_to(fl, args[2], el)).forEach((w, j) => {
-        file_push(fl, `blk_write(e.mem, ${Number(arr)}, term_loc(${a}), `
+        file_push(fl, `blk_write(e.mem, ${Number(arr)}, ${l}, `
           + `${at} + ${j}, ${w});`);
       });
       if (k === "array_swap") {
@@ -1972,7 +1982,7 @@ function arr_op(fl: File, k: string, el: Lay, args: Val[]): Val {
 }
 
 function arr_leaf(fl: File, s: string, el: Lay): Val {
-  const got = arr_cells(fl, s, "0", el, true);
+  const got = arr_cells(fl, `blk_loc(e.mem, ${s})`, "0", el, true);
   file_push(fl, `blk_free(e, ${s});`);
   return got;
 }
@@ -3008,7 +3018,8 @@ export function compile_book(book: Bend.Book): string {
       JSON.stringify(n)).join(", ")} };`, "#endif"];
   const defs = compile_tables(fl, entries);
   defs.push(`#define MAIN_FID ${seg_fid("main")}`, `#define MAIN_PURE ${
-    Number(show !== null)}`);
+    Number(show !== null)}`, `#define BLK_SHR ${Number(done_defs(cb).some(
+    ([k, t]) => t.u === true && live.has(seg_fid(k))))}`);
   const fills: [string, string[]][] = [
     ["Tables", [defs.join("\n"), ...[...fl.tabs].map(([r, i]) =>
       `CONSTV u64 TAB_${i}[] = { ${r} };`)]],
@@ -3286,6 +3297,8 @@ export function js_book(book: Bend.Book): string {
 
 // RuntimeC
 // ========
+
+const A32_OPS = ["add", "sub", "and", "or", "xor", "min", "max"];
 
 const TEMPLATE = String.raw`
 
@@ -3656,6 +3669,14 @@ static const char* CLI_HELP =
 // A32
 // ===
 
+#define A32_LOOP(k, x) \
+  INLINE u32 a32_##k(DEV u32* p, u32 v) { \
+    u32 o = a32_load(p); \
+    while (!a32_cas(p, &o, x)) { \
+    } \
+    return o; \
+  }
+
 #ifdef __METAL_VERSION__
 
 // via a volatile local: else the M1 backend folds the zext into the atomic
@@ -3663,8 +3684,8 @@ static const char* CLI_HELP =
 #define a32_load(p)      \
   ({ volatile thread u32 _a32v = atomic_load_explicit(A32(p), RLX); _a32v; })
 #define a32_store(p, v)  atomic_store_explicit(A32(p), v, RLX)
-#define a32_add(p, v)    atomic_fetch_add_explicit(A32(p), v, RLX)
-#define a32_sub(p, v)    atomic_fetch_sub_explicit(A32(p), v, RLX)
+${A32_OPS.map((k) =>
+  `#define a32_${k}(p, v) atomic_fetch_${k}_explicit(A32(p), v, RLX)`).join("\n")}
 #define a32_swp(p, e, v) \
   atomic_compare_exchange_weak_explicit(A32(p), e, v, RLX, RLX)
 
@@ -3672,8 +3693,9 @@ static const char* CLI_HELP =
 
 #define a32_load(p)     (*(volatile u32*)(p))
 #define a32_store(p, v) (*(volatile u32*)(p) = (v))
-#define a32_add(p, v)   atomicAdd((u32*)(p), v)
-#define a32_sub(p, v)   atomicSub((u32*)(p), v)
+${A32_OPS.map((k) =>
+  `#define a32_${k}(p, v) atomic${k[0].toUpperCase()}${k.slice(1)}((u32*)(p), v)`)
+  .join("\n")}
 
 INLINE bool a32_swp(DEV u32* p, u32* e, u32 v) {
   u32 x = *e;
@@ -3714,8 +3736,9 @@ INLINE bool a32_cas(DEV u32* p, THR u32* e, u32 v) {
 
 #define a32_load(p)         __atomic_load_n(p, __ATOMIC_RELAXED)
 #define a32_store(p, v)     __atomic_store_n(p, v, __ATOMIC_RELAXED)
-#define a32_add(p, v)       __atomic_fetch_add(p, v, __ATOMIC_RELAXED)
-#define a32_sub(p, v)       __atomic_fetch_sub(p, v, __ATOMIC_RELAXED)
+${A32_OPS.map((k) =>
+  `#define a32_${k}(p, v) __atomic_fetch_${k}(p, v, __ATOMIC_RELAXED)`)
+  .join("\n")}
 #define a32_sub_rel(p, v)   __atomic_fetch_sub(p, v, __ATOMIC_RELEASE)
 #define a32_store_rel(p, v) __atomic_store_n(p, v, __ATOMIC_RELEASE)
 #define a32_load_acq(p)     __atomic_load_n(p, __ATOMIC_ACQUIRE)
@@ -3727,6 +3750,16 @@ INLINE bool a32_cas(u32* p, u32* e, u32 v) {
 }
 
 #endif
+
+A32_LOOP(exch, v)
+
+// a weak CAS may fail with the cell still x
+INLINE u32 a32_cmpx(DEV u32* p, u32 x, u32 v) {
+  u32 o = x;
+  while (!a32_cas(p, &o, v) && o == x) {
+  }
+  return o;
+}
 
 #define a32_at(H, word) ((DEV u32*)&(H)[word])
 
@@ -3765,6 +3798,8 @@ static void err_trap(int sig) {
 #define err_spun(H, n) ((++*(n) & 4095) == 0 && err_seen(H))
 
 ${NATIVE.C}
+A32_LOOP(fadd, f32_rewrap(f32_unbox(o) + f32_unbox(v)))
+
 // Cls
 // ===
 
@@ -3999,6 +4034,12 @@ INLINE Loc term_peek(Env e, Term t) {
   return term_loc(t);
 }
 
+// The redirect's loc never changes: a plain load. Only an @unsafe def
+// forks a block, so without one live (BLK_SHR) no block is a redirect.
+INLINE Loc blk_loc(Corpus H, Term a) {
+  return BLK_SHR && term_rfc(a) ? H[term_loc(a)] >> 24 : term_loc(a);
+}
+
 INLINE Cls blk_cls(Term t) {
   return (u32)term_aux(t) & 31;
 }
@@ -4011,6 +4052,10 @@ INLINE Cls blk_span(Term t) {
 }
 
 INLINE void blk_free(Env e, Term t) {
+  if (term_rfc(t)) {
+    err_post(e.mem, ERR_TAGS);
+    return;
+  }
   heap_free(e, blk_span(t), term_loc(t));
 }
 
@@ -4208,7 +4253,7 @@ OUTLINE Term blk_copy(Env e, Term a) {
   Corpus H = e.mem;
   bool arr = term_tag(a) == TAG_ARR;
   Cls cls = blk_span(a);
-  Loc src = term_loc(a);
+  Loc src = blk_loc(H, a);
   BLK_ALLOC(dst, cls)
   for (u64 j = 0; j < (1ull << cls); j += 1) {
     H[dst + j] = arr ? blk_keep(e, src + j) : H[src + j];
@@ -4220,7 +4265,7 @@ INLINE Term blk_node(Env e, Term l, Term r) {
   Corpus H = e.mem;
   bool arr = term_tag(l) == TAG_ARR;
   Cls c = blk_cls(l);
-  if (c != blk_cls(r) || c + 1 >= NCLS_ALL) {
+  if (c != blk_cls(r) || c + 1 >= NCLS_ALL || term_rfc(l) || term_rfc(r)) {
     err_post(H, ERR_TAGS);
     return l;
   }
@@ -4245,7 +4290,7 @@ INLINE Term blk_half(Env e, Term a, u32 hi) {
   Corpus H = e.mem;
   bool arr = term_tag(a) == TAG_ARR;
   Cls c = blk_cls(a);
-  if (c == 0) {
+  if (c == 0 || term_rfc(a)) {
     err_post(H, ERR_TAGS);
     return a;
   }
@@ -6160,10 +6205,10 @@ function array_node(a, b) {
   return a.concat(b);
 }
 
-function array_swap(a, i, v) {
+function array_rmw(a, i, f) {
   const at = i % a.length;
   const old = a[at];
-  a[at] = v;
+  a[at] = f(old);
   return {$: "Tuple", fst: a, snd: old};
 }
 

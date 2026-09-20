@@ -2266,6 +2266,75 @@ def Array.clone(-T: Data, a: Array<T>) -> Array<T> & Array<T>:
     case ANode{xs, ys}:
       Array.clone.node(T, Array.clone(T, xs), Array.clone(T, ys))
 
+# A fork is two handles to one array in O(1). Both read and write the
+# same cells, so racing writes go through the atomics. A shared array
+# can be read, written, cloned and sized, but not matched (error 2). An
+# atomic takes an Array<U32> (fadd an Array<F32>) and returns the array
+# with the old value.
+
+@unsafe
+def Array.fork(-T: Type, +a: Array<T>) -> Array<T> & Array<T>:
+  (a, a)
+
+@unsafe
+def Array.join(-T: Type, a: Array<T>, b: Array<T>) -> Array<T>:
+  a
+
+law Array.atomic.add:
+  for  a: Array<U32>
+  for +i: U32
+  for +v: U32
+  Array<U32> & U32
+
+law Array.atomic.min:
+  for  a: Array<U32>
+  for +i: U32
+  for +v: U32
+  Array<U32> & U32
+
+law Array.atomic.max:
+  for  a: Array<U32>
+  for +i: U32
+  for +v: U32
+  Array<U32> & U32
+
+law Array.atomic.and:
+  for  a: Array<U32>
+  for +i: U32
+  for +v: U32
+  Array<U32> & U32
+
+law Array.atomic.or:
+  for  a: Array<U32>
+  for +i: U32
+  for +v: U32
+  Array<U32> & U32
+
+law Array.atomic.xor:
+  for  a: Array<U32>
+  for +i: U32
+  for +v: U32
+  Array<U32> & U32
+
+law Array.atomic.exch:
+  for  a: Array<U32>
+  for +i: U32
+  for +v: U32
+  Array<U32> & U32
+
+law Array.atomic.cas:
+  for  a: Array<U32>
+  for +i: U32
+  for +x: U32
+  for +v: U32
+  Array<U32> & U32
+
+law Array.atomic.fadd:
+  for  a: Array<F32>
+  for +i: U32
+  for +v: F32
+  Array<F32> & F32
+
 def Array.new(-T: Data, +d: Nat, +v: T) -> Array<T>:
   match d:
     case 0n:
