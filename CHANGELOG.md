@@ -3,6 +3,21 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.24 (2026-09-21)
+
+- **A string or nat literal is one `Lit` node in the checker** (PRs #907 and
+  #924 by MattCozendey): a literal unfolds one constructor at a time when it
+  is compared, matched or checked, so 50 defs of 1000-char strings check in
+  0.14 s and 74 MB instead of 4 s and 2.6 GB, a 200k-char literal checks
+  instead of overflowing the stack, 2000 defs of `200n` check in 0.18 s
+  instead of 1.06 s, a self-call on a nat literal past 256 passes the
+  termination check, and `1n+0n` is `1n`. The compiled output is unchanged.
+- **The device hands no leaf off**: a fork-free leaf reached from a forking
+  def inside a bang runs on heap continuations on the GPU again, as in
+  2.0.21, so a `do Result` loop of hundreds of turns under a parallel tree no
+  longer dies with "memory fault". The host keeps PR #876's handoff and its
+  gains; symreg on Metal stays at 0.32 s (#930).
+
 ## 2.0.23 (2026-09-20)
 
 - **`Array.map` walks the block**: Base's map reads each cell and writes the
