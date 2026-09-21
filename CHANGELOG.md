@@ -3,6 +3,44 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.25 (2026-09-21)
+
+- **A literal is a `Nat` or `String` by name only where the datatype is
+  Base's**: a file that declares its own `Nat` checks a literal
+  structurally again, so `type Nat: Succ{e: Empty}` no longer admits `1n`
+  and a closed `Empty` (#941). An array count past the nat cap is refused
+  instead of making a fractional literal that defeats termination (#954).
+- **A wide record compiles**: any field list past 255 words has its
+  multi-word fields boxed, for constructor layouts, nodes and def
+  signatures alike, so a 512-word record no longer dies "an arity over
+  255" (#944). A recursive datatype hidden behind a type family is boxed
+  instead of overflowing the compiler (#959). A datatype named
+  `__proto__`, `constructor` or `toString` compiles (#948). Still open: a
+  join holding several wide results, or a wide value held across a
+  non-tail call, is refused with the same message.
+- **An annotated lambda or match applied where it stands compiles** on both
+  lanes, as its let-bound form did (#956).
+- **A read parked on a FIFO sees its end on macOS** (#928, PR #932 by
+  PedroVIOliv): both IO loops wait with `select`, since Darwin's `poll`
+  never reports a named pipe's close.
+- **A foreign effect's scheduling helper cannot be overwritten** by an
+  effect named `X_need`, in either discovery order (#946, PR #951 by
+  tachytelicdetonation).
+- **A generated C local carries a `_` prefix** (PR #926 by nood-co1), so a
+  host macro such as macOS's `ts_32` cannot capture it; emitted C grows by
+  1 to 5 %.
+- **The Node and Bun loaders report unsafe and foreign dependencies** on
+  stderr, as the CLI does (PR #933 by vicmcorrea), and two books compiled in
+  one process no longer share layout memos (PR #961 by vicmcorrea).
+- **Simpler compiler and effects, same output**: the layout packer assigns
+  offsets once (PR #945 by tachytelicdetonation), the array intrinsics share
+  one cell path (PR #955 by PedroVIOliv), the facts fixpoint compares set
+  sizes (PR #960 by byronbenharris), the JS emitter keeps one descriptor per
+  native constructor (PR #952 by ramonzx6), one `BEND_RTC` macro serves the
+  device compilers (PR #963 by costamatheus97), and the file and audio
+  effects share one source each (PRs #950 and #939 by tachytelicdetonation
+  and tontontimiro).
+
 ## 2.0.24 (2026-09-21)
 
 - **A string or nat literal is one `Lit` node in the checker** (PRs #907 and
