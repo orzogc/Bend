@@ -631,6 +631,8 @@ const CYCLES: Map<Bend.Name, boolean> = new Map();
 
 const CONSTS: Map<HTerm, boolean> = new Map();
 
+const LITS = new Map<HTerm, HTerm>();
+
 // Name
 // ====
 
@@ -679,6 +681,7 @@ function tpl(t: Gen, xs: string[]): string {
 
 function tpl_nat(u: string, f: string): Gen {
   return ([p]) => /^\d/.test(p) ? (BigInt(parseInt(p)) + 1n) + u
+    : /^nat_chk\(.* \+ \d+n?\)$/.test(p) ? p.replace(/(\d+)(n?)\)$/, (_, k, n) => `${+k + 1}${n})`)
     : tpl(f, [p]);
 }
 
@@ -696,7 +699,7 @@ function memo<K, V>(m: Map<K, V>, k: K, f: () => V): V {
 }
 
 function memo_gc(): void {
-  [OPENS, USES, FOLDS, SPINES, CONSTS].forEach((m) => m.clear());
+  [OPENS, USES, FOLDS, SPINES, CONSTS, LITS].forEach((m) => m.clear());
 }
 
 // Probe
@@ -784,7 +787,7 @@ function term_eta(book: Bend.Book, t: HTerm, T: HTerm, n: number): HTerm {
 }
 
 function term_kids(cf: Carb, tm: HTerm): HTerm[] {
-  const t = Bend.term_force(tm);
+  const t = term_lit(Bend.term_force(tm));
   switch (t.$) {
     case "Ann": return [t.x];
     case "Lam": return [term_open(t).b];
@@ -807,7 +810,7 @@ function term_kids(cf: Carb, tm: HTerm): HTerm[] {
 // tail position (under annotations, binders, arms and let bodies).
 function term_any(cf: Carb, t: HTerm, p: (s: HTerm, tail: boolean) => boolean,
   tail = true, seen: Set<HTerm> = new Set()): boolean {
-  const s = Bend.term_force(t);
+  const s = term_lit(Bend.term_force(t));
   if (seen.has(s)) {
     return false;
   }
@@ -828,8 +831,13 @@ function term_nodes(cf: Carb, t: HTerm): number {
   return n;
 }
 
+function term_lit(t: HTerm): HTerm {
+  return t.$ === "Lit" ? memo(LITS, t, () => Bend.term_higher(typeof t.v === "number" && t.v > Bend.NAT_LITERAL_MAX
+    ? Bend.App(Bend.Ref("U32.to_nat"), Bend.u32_to_term(t.v)) : Bend.lit_full(t))) : t;
+}
+
 function term_const(t: HTerm): boolean {
-  const s = Bend.term_strip(t);
+  const s = term_lit(Bend.term_strip(t));
   return s.$ === "Ctr" && memo(CONSTS, s, () => s.x.every(term_const));
 }
 
@@ -929,7 +937,7 @@ function ty_peel(tm: HTerm,
     ty = x.$ === "Ann" ? x.T : ty;
     x = Bend.term_force(x.$ === "Ann" ? x.x : x.f);
   }
-  return [x, ty];
+  return [term_lit(x), ty];
 }
 
 function ty_adt(book: Bend.Book, A: HTerm | null): HAdt | null {
@@ -2390,7 +2398,7 @@ function emit_unfold(fl: File, s: HTerm): HTerm | null {
         xs = xs.slice(1);
         continue;
       }
-      const c = w.$ === "Mat" ? Bend.term_strip(xs[0]) : null;
+      const c = w.$ === "Mat" ? term_lit(Bend.term_strip(xs[0])) : null;
       if (c === null || c.$ !== "Ctr" || !term_const(c)) {
         return null;
       }
