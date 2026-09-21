@@ -2999,8 +2999,8 @@ function compile_segs(fl: File): string {
 }
 
 export function compile_book(book: Bend.Book): string {
-  const show = show_main(book);
   const cb = carb_book(book, ["main", ...RUNTIME_ADTS]);
+  const show = show_main(book);
   const facts = () => JSON.stringify([[...cb.own], [...cb.hot],
     [...cb.stat]]);
   const pass = (defs: [Bend.Name, Def][]): File => {
@@ -3326,8 +3326,9 @@ export function js_lib(book: Bend.Book, roots: Bend.Name[],
 }
 
 export function js_book(book: Bend.Book): string {
+  const lib = js_lib(book, ["main"], null);
   const show = show_main(book);
-  return js_lib(book, ["main"], null) + "\n" + RUNTIME_MAIN
+  return lib + "\n" + RUNTIME_MAIN
     + "\ncli(process.argv.slice(2));\nio_exit(" + js_sat("main") + ", "
     + JSON.stringify(show && [show.cells.map((c) => typeof c === "string"
       ? 0 : c), show.names]) + ");";
