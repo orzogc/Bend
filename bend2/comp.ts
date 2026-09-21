@@ -163,10 +163,11 @@ const BOX: Lay = { ks: ["box"], arms: null };
 
 const W64: Lay = { ks: ["w64"], arms: null };
 
-const WORDS: Record<string, Lay> = { U32: W32, F32: W32, Nat: W64 };
+const WORDS: Record<string, Lay> = Object.setPrototypeOf(
+  { U32: W32, F32: W32, Nat: W64 }, null);
 
-// The widest flat datatype: the shader's Tri is 24 words.
-const WIDE = 256;
+// The widest flat layouts (the u8 arity tables): the shader's Tri is 24 words.
+const WIDE = 255;
 
 const ERRS = ("|*|*|out of memory: run again with a bigger span, as in"
   + " --gpu 8GB|a function the device does not hold|a Nat past the"
@@ -625,7 +626,7 @@ const SPINES: Map<HTerm, Spine> = new Map();
 
 const NODES: Map<Bend.Name, Lay> = new Map();
 
-const LAYS: Map<HTerm, Lay> = new Map();
+const LAYS: Map<string, Lay> = new Map();
 
 const CYCLES: Map<Bend.Name, boolean> = new Map();
 
@@ -976,22 +977,24 @@ function ty_clo(book: Bend.Book, A: HTerm | null,
 // ===
 
 // An Array is a block, an IO.OP holds the foreign requests beyond its
-// constructors, and a datatype past WIDE words (a record nested K deep is
-// F^K) is a node: boxes. Memoized on the type's term, which a fill shares.
+// constructors, a recursive datatype is a node, and a field re-entering
+// the datatype under layout (a family hid the cycle) is one: boxes.
+// Memoized on the type's key.
 function lay_of(book: Bend.Book, A: HTerm | null): Lay {
   const t = ty_adt(book, A);
   if (t === null) {
     return BOX;
   }
-  return WORDS[t.k] ?? memo(LAYS, A!, () => {
+  const key = Bend.term_key(Bend.term_lower(t));
+  return WORDS[t.k] ?? memo(LAYS, key, () => {
     const tld = book.tlds[t.k];
     if (t.k === "Array" || t.k === "IO.OP" || tld?.$ !== "ADT"
       || lay_cyclic(book, t.k)) {
       return BOX;
     }
-    const lay = lay_pack(tld.c.map((c): Arm =>
+    LAYS.set(key, BOX);
+    return lay_pack(tld.c.map((c): Arm =>
       ({ k: c.k, fs: lay_fields(book, ctr_doms(book, c, t.x)) })));
-    return lay.ks.length > WIDE ? BOX : lay;
   });
 }
 
@@ -1007,12 +1010,16 @@ function lay_el(book: Bend.Book, A: HTerm | null): Lay {
 function lay_fields(book: Bend.Book, As: (HTerm | null)[]): Field[] {
   const fs: Field[] = [];
   let at = 0;
-  for (const A of As) {
-    const lay = lay_of(book, A);
+  for (const lay of lay_wide(As.map((A) => lay_of(book, A)))) {
     fs.push({ at, lay });
     at += lay.ks.length;
   }
   return fs;
+}
+
+function lay_wide(lays: Lay[]): Lay[] {
+  return lays.flatMap((l) => l.ks).length > WIDE
+    ? lays.map((l) => l.ks.length > 1 ? BOX : l) : lays;
 }
 
 function lay_pack(arms: Arm[]): Lay {
@@ -1050,8 +1057,8 @@ function lay_cyclic(book: Bend.Book, k: Bend.Name): boolean {
 function lay_node(book: Bend.Book, k: Bend.Name): Lay {
   return memo(NODES, k, () => {
     const ctr = book.ctrs[k];
-    const As = ctr ? ctr_doms(book, ctr) : [];
-    return lay_pack([{ k, fs: lay_fields(book, As) }]);
+    return lay_pack([{ k, fs: lay_fields(book, ctr ? ctr_doms(book, ctr)
+      : []) }]);
   });
 }
 
@@ -1189,7 +1196,7 @@ function sig_def(cb: Carb, k: Bend.Name): Sig {
     }
     const ret = lay_of(cb.book, Bend.tele_fill(cb.book, tld.T,
       Array(tld.n).fill(DUMMY), Bend.ctx_nil()));
-    return { live, lays, ret: ret.ks.length === 0 ? BOX : ret };
+    return { live, lays: lay_wide(lays), ret: ret.ks.length === 0 ? BOX : ret };
   });
 }
 
@@ -1302,8 +1309,8 @@ function show_main(book: Bend.Book): Show | null {
     if (adt === null || adt.k === "IO.OP" || tld?.$ !== "ADT") {
       return refuse();
     }
-    const kind = { U32: 0, F32: 1, Nat: 2, Char: 3, String: 4, Array: 6 }[adt.k]
-      ?? 7;
+    const kind = "U32 F32 Nat Char String . Array".split(" ").indexOf(adt.k)
+      & 7;
     const id = show.cells.push(kind) - 1;
     ids.set(key, id);
     const refs: [number, HTerm, Lay][] = [];
