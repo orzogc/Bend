@@ -712,11 +712,23 @@ function probe(k: Bend.Name): Probe {
 }
 
 function probe_of(t: HTerm): Probe {
-  return PROBES[(Bend.term_force(t) as Probe).i];
+  return PROBES[(term_force(t) as Probe).i];
 }
 
 // Term
 // ====
+
+function term_force(t: HTerm): HTerm {
+  const s = Bend.term_force(t);
+  return s.$ !== "Lit" ? s : memo(LITS, s, () => Bend.term_higher(
+    typeof s.v === "number" && s.v > Bend.NAT_LITERAL_MAX
+      ? Bend.App(Bend.Ref("U32.to_nat"), Bend.u32_to_term(s.v))
+      : Bend.lit_full(s)));
+}
+
+function term_strip(t: HTerm): HTerm {
+  return term_force(Bend.term_strip(t));
+}
 
 function term_open(t: Of<"Lam"> | HLet): { ps: Probe[]; b: HTerm } {
   return memo(OPENS, t, () => {
@@ -749,13 +761,13 @@ function term_spine(cf: Carb, tm: HTerm): Spine {
   return memo(SPINES, tm, () => {
     const apps: Of<"App">[] = [];
     let h = tm;
-    let c = Bend.term_force(tm);
+    let c = term_force(tm);
     while (c.$ === "Ann" || c.$ === "App") {
       if (c.$ === "App") {
         apps.push(c);
         h = c.f;
       }
-      c = Bend.term_force(c.$ === "App" ? c.f : c.x);
+      c = term_force(c.$ === "App" ? c.f : c.x);
     }
     apps.reverse();
     const tld = c.$ === "Ref" ? def_body(cf, c.k) : undefined;
@@ -787,7 +799,7 @@ function term_eta(book: Bend.Book, t: HTerm, T: HTerm, n: number): HTerm {
 }
 
 function term_kids(cf: Carb, tm: HTerm): HTerm[] {
-  const t = term_lit(Bend.term_force(tm));
+  const t = term_force(tm);
   switch (t.$) {
     case "Ann": return [t.x];
     case "Lam": return [term_open(t).b];
@@ -810,7 +822,7 @@ function term_kids(cf: Carb, tm: HTerm): HTerm[] {
 // tail position (under annotations, binders, arms and let bodies).
 function term_any(cf: Carb, t: HTerm, p: (s: HTerm, tail: boolean) => boolean,
   tail = true, seen: Set<HTerm> = new Set()): boolean {
-  const s = term_lit(Bend.term_force(t));
+  const s = term_force(t);
   if (seen.has(s)) {
     return false;
   }
@@ -831,13 +843,8 @@ function term_nodes(cf: Carb, t: HTerm): number {
   return n;
 }
 
-function term_lit(t: HTerm): HTerm {
-  return t.$ === "Lit" ? memo(LITS, t, () => Bend.term_higher(typeof t.v === "number" && t.v > Bend.NAT_LITERAL_MAX
-    ? Bend.App(Bend.Ref("U32.to_nat"), Bend.u32_to_term(t.v)) : Bend.lit_full(t))) : t;
-}
-
 function term_const(t: HTerm): boolean {
-  const s = term_lit(Bend.term_strip(t));
+  const s = term_strip(t);
   return s.$ === "Ctr" && memo(CONSTS, s, () => s.x.every(term_const));
 }
 
@@ -848,7 +855,7 @@ function term_use(u: UMap, p: Probe): number {
 // The uses of each probe in a term.
 function term_uses(cb: Carb, tm: HTerm): UMap {
   return memo(USES, tm, () => {
-    const t = Bend.term_force(tm);
+    const t = term_force(tm);
     switch (t.$) {
       case "Var": {
         const p = probe_of(t);
@@ -918,7 +925,7 @@ function tele_unbind(book: Bend.Book,
 // ==
 
 function ty_ann(t: HTerm): HTerm | null {
-  const v = Bend.term_force(t);
+  const v = term_force(t);
   return v.$ === "Ann" ? v.T : null;
 }
 
@@ -932,12 +939,12 @@ function ty_all(book: Bend.Book, ty: HTerm | null): HAll | null {
 
 function ty_peel(tm: HTerm,
   ty: HTerm | null): [HTerm, HTerm | null] {
-  let x = Bend.term_force(tm);
+  let x = term_force(tm);
   while (x.$ === "Ann" || x.$ === "Rwt") {
     ty = x.$ === "Ann" ? x.T : ty;
-    x = Bend.term_force(x.$ === "Ann" ? x.x : x.f);
+    x = term_force(x.$ === "Ann" ? x.x : x.f);
   }
-  return [term_lit(x), ty];
+  return [x, ty];
 }
 
 function ty_adt(book: Bend.Book, A: HTerm | null): HAdt | null {
@@ -1075,13 +1082,12 @@ function lay_arr(lay: Lay): { arr: boolean; lgs: number } {
 function ctr_adt(fl: File, x: Of<"Ctr">,
   ty: HTerm | null): [HAdt, number | null] {
   const ctr = fl.book.ctrs[x.k];
-  const T = ty ?? (ctr ? tele_unbind(fl.book, ctr.T).ret : null);
-  const adt = ty_adt(fl.book, T);
-  if (adt === null || (ty === null && adt.x.length > 0)) {
+  const adt = adt_of(fl.book, ty ?? (ctr ? tele_unbind(fl.book, ctr.T).ret
+    : null));
+  if (ty === null && adt.x.length > 0) {
     die("a constructor outside a datatype");
   }
-  return [arr_open(fl.book, adt),
-    WORDS[adt.k] === W32 ? Bend.u32_from_term(x, adt.k) : null];
+  return [adt, WORDS[adt.k] === W32 ? Bend.u32_from_term(x, adt.k) : null];
 }
 
 // A constructor's fields: the last n domains of its type, over the
@@ -1129,8 +1135,10 @@ function ctr_build(fl: File, k: Bend.Name, exprs: string[],
 // Mat
 // ===
 
-function mat_adt(book: Bend.Book, A: HTerm | null): HAdt {
-  return arr_open(book, ty_adt(book, A) ?? die("a match off a datatype"));
+function adt_of(book: Bend.Book, A: HTerm | null): HAdt {
+  const adt = ty_adt(book, A) ?? die("a constructor's or a match's datatype");
+  adt.k === "Array" && lay_el(book, adt.x[0]);
+  return adt;
 }
 
 function mat_head(t: HTerm): boolean {
@@ -1146,7 +1154,7 @@ function fun_live(book: Bend.Book, x: HTerm, ty: HTerm | null): boolean {
 function mat_arms(t: HTerm): { arms: [Bend.Name, HTerm][]; end: HTerm } {
   const arms: [Bend.Name, HTerm][] = [];
   let cur = t;
-  for (let m = Bend.term_strip(cur); m.$ === "Mat"; m = Bend.term_strip(cur)) {
+  for (let m = term_strip(cur); m.$ === "Mat"; m = term_strip(cur)) {
     arms.push([m.k, m.h]);
     cur = m.m;
   }
@@ -1194,7 +1202,7 @@ function brw_of(cb: Carb, k: Bend.Name): boolean[] {
 }
 
 function def_raise(book: Bend.Book, t: HTerm, left: number): number {
-  const s = Bend.term_strip(t);
+  const s = term_strip(t);
   if (s.$ === "Lam") {
     const b = term_open(s).b;
     return left > 0 ? def_raise(book, b, left - 1) : 1 + def_raise(book, b, 0);
@@ -1349,7 +1357,7 @@ function anf(cb: Carb, t: HTerm, ty: HTerm | null = null): HTerm {
     return Bend.Ann(p, T as HTerm);
   };
   const go = (u: HTerm, top: boolean, T: HTerm | null): HTerm => {
-    const s = Bend.term_force(u);
+    const s = term_force(u);
     if (term_const(s)) {
       return s;
     }
@@ -1370,7 +1378,7 @@ function anf(cb: Carb, t: HTerm, ty: HTerm | null = null): HTerm {
         // A spine's proper prefix that is a call (an over-application) cuts;
         // an erased application of a variable is the variable.
         const spine = (v: HTerm): HTerm => {
-          const f = Bend.term_force(v);
+          const f = term_force(v);
           if (f.$ === "Ann") {
             const x = spine(f.x);
             return x === f.x ? f : Bend.Ann(x, f.T, f.s);
@@ -1406,7 +1414,7 @@ function anf(cb: Carb, t: HTerm, ty: HTerm | null = null): HTerm {
   };
   const wrap = (b: HTerm): HTerm =>
     binds.reduceRight((b2, [p, v]) => let_open([p], [v], b2), b);
-  const x = Bend.term_force(t);
+  const x = term_force(t);
   if (x.$ !== "Let") {
     const b = go(x, true, ty);
     return wrap(binds.length === 0 || ty === null ? b : Bend.Ann(b, ty));
@@ -1756,7 +1764,7 @@ function facts_hot(fl: File, B: HTerm | null, force: boolean,
 // per family; its arguments, like an ADT's, at every instantiation.
 function facts_fam(fl: File, w: HTerm, local: boolean): boolean {
   const m = term_spine(fl, w);
-  const fam = m.tld?.$ === "Def" && m.tld.v !== null && Bend.term_strip(
+  const fam = m.tld?.$ === "Def" && m.tld.v !== null && term_strip(
     Bend.term_unapply(m.all.reduce((b, x) => Bend.term_apply(b, x),
       m.tld.v))[0]);
   if (!fam || fam.$ !== "Mat") {
@@ -1795,7 +1803,7 @@ function facts_lend(cb: Carb): void {
 
 // A value with no heap: a constructor packed into its word.
 function facts_packed(cb: Carb, t: HTerm): boolean {
-  const s = Bend.term_strip(t);
+  const s = term_strip(t);
   return s.$ === "Ctr"
     && ["", "w32"].includes(lay_node(cb.book, s.k).ks.join());
 }
@@ -1929,13 +1937,6 @@ function val_unbox(fl: File, v: Val, lay: Lay): Val {
 
 // Arr
 // ===
-
-function arr_open(book: Bend.Book, adt: HAdt): HAdt {
-  if (adt.k === "Array" && ty_adt(book, adt.x[0]) === null) {
-    die("an open Array element type");
-  }
-  return adt;
-}
 
 function arr_lay(el: Lay): Lay {
   return lay_pack([{ k: "Tuple",
@@ -2115,7 +2116,7 @@ function emit_args(fl: File, ck: Call, jump = false, fork = false): string[] {
   const brw = brw_of(fl, ck.k);
   ck.all.forEach((a, q) =>
     fl.hot.has(ck.k + "~" + q) && facts_hot(fl, a, true));
-  const xs = ck.args.map((a) => Bend.term_strip(a));
+  const xs = ck.args.map((a) => term_strip(a));
   const vars = xs.filter((x) => x.$ === "Var");
   const rest = fl.rest;
   const lays = sig_def(fl, ck.k).lays;
@@ -2354,7 +2355,7 @@ function emit_ctr(fl: File, x: Of<"Ctr">, ty: HTerm | null,
 }
 
 function emit_fold(fl: File, t: HTerm): HTerm | null {
-  const s = Bend.term_strip(t);
+  const s = term_strip(t);
   const r = memo(FOLDS, s, () => {
     if (term_const(s)) {
       return s;
@@ -2392,19 +2393,19 @@ function emit_unfold(fl: File, s: HTerm): HTerm | null {
     let b = d.h as HTerm;
     let xs = ys;
     let hit = m.args.every((a) => term_const(fs[m.all.indexOf(a)]));
-    for (let w = Bend.term_strip(b); xs.length > 0; w = Bend.term_strip(b)) {
+    for (let w = term_strip(b); xs.length > 0; w = term_strip(b)) {
       if (w.$ === "Lam") {
         b = w.f(xs[0]);
         xs = xs.slice(1);
         continue;
       }
-      const c = w.$ === "Mat" ? term_lit(Bend.term_strip(xs[0])) : null;
+      const c = w.$ === "Mat" ? term_strip(xs[0]) : null;
       if (c === null || c.$ !== "Ctr" || !term_const(c)) {
         return null;
       }
       const { arms, end } = mat_arms(w);
       const arm = arms.find(([k]) => k === c.k);
-      if (arm === undefined && Bend.term_strip(end).$ === "Efq") {
+      if (arm === undefined && term_strip(end).$ === "Efq") {
         return null;
       }
       b = arm === undefined ? end : arm[1];
@@ -2422,7 +2423,7 @@ function emit_unfold(fl: File, s: HTerm): HTerm | null {
       return walk(ys) as HTerm;
     }
     if (!m.args.includes(m.all[i]) || term_const(a)
-      || Bend.term_strip(a).$ === "Var") {
+      || term_strip(a).$ === "Var") {
       return bind(i + 1, [...ys, a]);
     }
     return Bend.Let(["a"], [0], [Bend.Ann(a, doms[i][2])], (xs: HTerm[]) =>
@@ -2675,9 +2676,9 @@ function emit_row(fl: File, t: HTerm, ty: HTerm | null): string | null {
   if (ty !== null && WORDS[k] === undefined) {
     return null;
   }
-  let s = Bend.term_strip(t);
+  let s = term_strip(t);
   while (s.$ === "Lam") {
-    s = Bend.term_strip(term_open(s).b);
+    s = term_strip(term_open(s).b);
   }
   s = emit_fold(fl, s) ?? s;
   const bits = k === "F32" && fl.decl !== "const";
@@ -2715,7 +2716,7 @@ function emit_nats(x: HTerm): Chain {
     const { arms, end } = mat_arms(m);
     const { Zero, Succ } = Object.fromEntries(arms);
     ls.push([Zero ?? end, Zero ? null : n]);
-    m = Bend.term_strip(Succ ?? end);
+    m = term_strip(Succ ?? end);
     if (Succ === undefined || m.$ !== "Mat") {
       return [...ls, [Succ ?? end, Succ ? n + 1 : n]];
     }
@@ -2779,7 +2780,7 @@ function emit_match(fl: File, x: Of<"Mat"> | Of<"Efq">,
   }
   const rest = args.slice(1);
   const all = ty_all(fl.book, ty) ?? die("an untyped match");
-  const adt = mat_adt(fl.book, all.A);
+  const adt = adt_of(fl.book, all.A);
   const word = WORDS[adt.k] === W32;
   const lay = word ? lay_node(fl.book, adt.k) : lay_of(fl.book, all.A);
   const u = val_hold(fl, val_to(fl, args[0], word ? W32 : lay), "s");
@@ -3155,8 +3156,7 @@ function js_expr(fl: File, tm: HTerm,
         die("a " + m.t.$ + "-headed spine in an expression");
       }
       const it = intr_of(fl, m.t.k, true);
-      it?.call === true && it.C === undefined && ty_adt(fl.book, m.all[0]) === null
-        && die("an open Array element type");
+      it?.call === true && it.C === undefined && lay_el(fl.book, m.all[0]);
       return js_call(fl, m.t.k, m.args, false);
     }
     case "Ctr": {
@@ -3214,7 +3214,7 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
     const s = emit_alias(fl, args[0], "$t");
     const rest = args.slice(1);
     const all = ty_all(fl.book, ty) ?? die("an untyped match");
-    const adt = mat_adt(fl.book, all.A);
+    const adt = adt_of(fl.book, all.A);
     const { arms, end } = mat_arms(x);
     const total = Bend.book_adt(fl.book, adt, Bend.Emp()).c.length;
     if (adt.k === "IO.OP") {
