@@ -2094,7 +2094,7 @@ function emit_jump(fl: File, args: string[], k: Bend.Name,
   const fid = seg_fid(k);
   fl.seg.fork ||= bang;
   if (bang || fl.seg.def !== k) {
-    block(fl, `if (!seq${bang ? "" : ` && fid_nofk(${fid})`}) {`, () =>
+    block(fl, `if (${bang ? "!seq" : `!DEVICE && !seq && fid_nofk(${fid})`}) {`, () =>
       file_push(fl, `return term_tsk(${fid}, ${
         emit_task(fl, fid, 0, args)});`));
   }

@@ -1,9 +1,8 @@
-# A leaf handed off from a forky segment under ! runs on a lane stack of
-# STAK_LEN words on the device: three exit words and one a level, so 2045
-# levels fill it exactly. One more dies with the ERR_DEEP line on the device
-# (before the bound ended at the static image, lanes under it kept a 2049th
-# word over the image instead); the host runs the same leaf on its 2 GiB
-# stack at any depth.
+# A leaf handed off from a forky segment under ! runs on the host's 2 GiB
+# stack; the device hands no leaf off (#930), so the same leaf runs there on
+# heap continuations at any depth. Only a bang's root and a fork kid run on
+# a lane's STAK_LEN-word stack on the device: three exit words and one a
+# level, so 2045 levels fill it exactly.
 import Base
 
 def deep(+n: Nat) -> U32:
