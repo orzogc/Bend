@@ -1963,35 +1963,28 @@ function arr_new(fl: File, d: string, v: Val, el: Lay): string {
 
 function arr_op(fl: File, k: string, el: Lay, args: Val[]): Val {
   const { arr, lgs } = lay_arr(el);
-  switch (k) {
-    case "array_new": {
-      return val_new([arr_new(fl, val_word(args[0]), args[1], el)], BOX);
-    }
-    case "array_size": {
-      const a = emit_alias(fl, val_own(fl, args[0])[0], "a");
-      return val_new([a, `(1ull << (blk_cls(${a}) - ${lgs}))`],
-        arr_lay(W32));
-    }
-    default: {
-      const a = emit_alias(fl, val_own(fl, args[0])[0], "a");
-      const [l, at] = emit_hold(fl, [`blk_loc(e.mem, ${a})`,
-        `blk_at(${a}, ${val_word(args[1])}, ${lgs})`], "at");
-      if (k === "array_get") {
-        return val_new([a, ...arr_cells(fl, l, at, el, "blk_keep(e, $)").ws],
-          arr_lay(el));
-      }
-      const old = arr_cells(fl, l, at, el, "e.mem[$]");
-      val_own(fl, val_to(fl, args[2], el)).forEach((w, j) => {
-        file_push(fl, `blk_write(e.mem, ${Number(arr)}, ${l}, `
-          + `${at} + ${j}, ${w});`);
-      });
-      if (k === "array_swap") {
-        return val_new([a, ...old.ws], arr_lay(el));
-      }
+  if (k === "array_new") {
+    return val_new([arr_new(fl, val_word(args[0]), args[1], el)], BOX);
+  }
+  const a = emit_alias(fl, val_own(fl, args[0])[0], "a");
+  if (k === "array_size") {
+    return val_new([a, `(1ull << (blk_cls(${a}) - ${lgs}))`], arr_lay(W32));
+  }
+  const [l, at] = emit_hold(fl, [`blk_loc(e.mem, ${a})`,
+    `blk_at(${a}, ${val_word(args[1])}, ${lgs})`], "at");
+  const old = arr_cells(fl, l, at, el,
+    k === "array_get" ? "blk_keep(e, $)" : "e.mem[$]");
+  if (k !== "array_get") {
+    val_own(fl, val_to(fl, args[2], el)).forEach((w, j) => {
+      file_push(fl, `blk_write(e.mem, ${Number(arr)}, ${l}, `
+        + `${at} + ${j}, ${w});`);
+    });
+    if (k !== "array_swap") {
       val_sink(fl, old);
       return val_new([a], BOX);
     }
   }
+  return val_new([a, ...old.ws], arr_lay(el));
 }
 
 function arr_leaf(fl: File, s: string, el: Lay): Val {
