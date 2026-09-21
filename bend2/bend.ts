@@ -1217,7 +1217,7 @@ export function lit_full(t: Extract<LTerm, { $: "Lit" }>): LTerm {
 // past it, "n + T" is Nat.add(n, T) and the compiler emits U32.to_nat(n)
 export const NAT_LITERAL_MAX = 256;
 
-// a Succ chain's count, with the literal it may end in
+// a Succ chain's count, with the literal it may end in, up to the cap
 export function nat_from_term(t: LTerm): number | null {
   let n = 0;
   while (t.$ === "Ctr" && t.k === "Succ" && t.x.length === 1) {
@@ -1225,7 +1225,8 @@ export function nat_from_term(t: LTerm): number | null {
     t = t.x[0];
   }
   return t.$ === "Ctr" && t.k === "Zero" && t.x.length === 0 ? n
-    : t.$ === "Lit" && typeof t.v === "number" ? n + t.v : null;
+    : t.$ === "Lit" && typeof t.v === "number" && n + t.v <= 0xffffffff
+    ? n + t.v : null;
 }
 
 export function u32_from_term<X>(tm: TermOf<X>, k: Name = "U32"): number | null {
@@ -2007,11 +2008,11 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
         parse_term_ns(p, xs[0], T);
         let d = n;
         if (cnt) {
-          const k = nat_from_term(n) ?? 0;
-          if (k === 0 || (k & (k - 1)) !== 0) {
+          const k = Math.log2(nat_from_term(n) ?? 0);
+          if (!Number.isInteger(k)) {
             throw Err(p.book, ctx_nil(), "a power of two count (^d takes a depth)", undefined, n.s);
           }
-          d = Lit(Math.log2(k), n.s);
+          d = Lit(k, n.s);
         }
         return App(App(App(Ref("Array.new", s), T, s), d, s), xs[0], s);
       }
@@ -3618,16 +3619,16 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       const { xs, us } = tele_check(book, lhs, tel, tm.x, qt, ctx, d, tm.s);
       return Check(Ctr(tm.k, xs, tm.s), ty, us);
     }
-    // T == String (or Nat) with the literal's head: SNil or SCon (Zero or Succ)
+    // T == Base's String (or Nat) with the literal's head: SNil/SCon (Zero/Succ)
     // where any other T checks the literal's first step, which reports
     //       as the constructor it is
     // ----------------------------------------------------------- check-lit
     // Γ ⊢ "text" : T ~ {}    Γ ⊢ 3n : T ~ {}
     case "Lit": {
       const t_wnf = term_wnf(book, ty);
-      const [T, c] = typeof tm.v === "number" ? ["Nat", tm.v === 0 ? "Zero" : "Succ"]
-                   : ["String", tm.v === "" ? "SNil" : "SCon"];
-      if (t_wnf.$ === "ADT" && t_wnf.k === T
+      const c = typeof tm.v === "number" ? tm.v === 0 ? "Zero" : "Succ"
+              : tm.v === "" ? "SNil" : "SCon";
+      if (t_wnf.$ === "ADT" && book.tlds[t_wnf.k]?.b === true
         && ctrs_find(book_adt(book, t_wnf, ctx, lhs.def).c, c) !== null) {
         return Check(tm, ty, uses_nil());
       }

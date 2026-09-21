@@ -1,5 +1,5 @@
 # a nat literal prints back as a literal, a Succ chain that ends in a
-# literal prints as one number, and "n + T" past 256 is Nat.add
+# literal prints as one number up to the nat cap, and "n + T" past 256 is Nat.add
 import Base
 
 def small(n: Nat) -> Nat:
@@ -14,4 +14,4 @@ def chain() -> Nat:
 def main(a: Nat, b: Nat) -> Nat:
   Nat.add(small(a), Nat.add(big(b), Nat.add(chain(), 4294967295n)))
 
-#|a => b => 2n+Nat.add(a, 300n+Nat.add(b, 4294967597n))
+#|a => b => 2n+Nat.add(a, 300n+Nat.add(b, 302n+4294967295n))
