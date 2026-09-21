@@ -1448,6 +1448,17 @@ def U32.from_nat(n: Nat) -> U32:
     case 1n+p:
       U32.inc(U32.from_nat(p))
 
+def U32.log2.go(+k: Nat, +n: U32, +d: Nat) -> Nat:
+  match k:
+    case 0n:
+      d
+    case 1n+p:
+      U32.log2.go(p, U32.shr(n),
+        Nat.add(d, U32.to_nat(Bool.to_u32(U32.is_lt(1, n)))))
+
+def U32.log2(+n: U32) -> Nat:
+  U32.log2.go(32n, n, 0n)
+
 def U32.divmod.go.fin(-p: Nat, q: Word(p), s: U32, b: U32, g: Bool) ->
   Word(1n+p) & U32:
   match g:
@@ -2389,13 +2400,32 @@ def Array.to_list.go(~T: Type, a: Array<T>, acc: List<T>) -> List<T>:
 def Array.to_list(~T: Type, a: Array<T>) -> List<T>:
   Array.to_list.go(~T, a, Nil{})
 
-def Array.map(~T: Type, ~U: Type, ~f: T -> U, a: Array<T>) -> Array<U>:
-  match a:
-    case ALeaf{x}:
-      ALeaf{f(x)}
-    case ANode{xs, ys}:
-      l r = Array.map(~T, ~U, ~f, xs) Array.map(~T, ~U, ~f, ys)
-      ANode{l, r}
+def Array.map.go(
+  ~T: Data, ~U: Data, ~f: T -> U, +n: Nat, +i: U32, b: Array<U>,
+  r: Array<T> & T
+) -> Array<U>:
+  match n:
+    case 0n:
+      b
+    case 1n+p:
+      (a, x) = r
+      +j = U32.inc(i)
+      Array.map.go(~T, ~U, ~f, p, j, Array.set(U, b, i, f(x)),
+        Array.get(T, a, j))
+
+def Array.map.at(
+  ~T: Data, ~U: Data, ~f: T -> U, v: U, an: Array<T> & U32
+) -> Array<U>:
+  (a, +n) = an
+  Array.map.go(~T, ~U, ~f, U32.to_nat(U32.sub(n, 1)), 1,
+    Array.new(U, U32.log2(n), v), Array.get(T, a, 1))
+
+def Array.map.seed(~T: Data, ~U: Data, ~f: T -> U, r: Array<T> & T) -> Array<U>:
+  (a, x) = r
+  Array.map.at(~T, ~U, ~f, f(x), Array.size(T, a))
+
+def Array.map(~T: Data, ~U: Data, ~f: T -> U, a: Array<T>) -> Array<U>:
+  Array.map.seed(~T, ~U, ~f, Array.get(T, a, 0))
 
 # Map
 # ---
