@@ -3331,7 +3331,9 @@ const TEMPLATE = String.raw`
 #include <metal_stdlib>
 using namespace metal;
 #elif !defined(BEND_RTC)
-#ifndef __APPLE__
+#ifdef __APPLE__
+#define _DARWIN_UNLIMITED_SELECT
+#else
 #define _GNU_SOURCE
 #endif
 #include <stdint.h>
@@ -3348,6 +3350,7 @@ using namespace metal;
 #include <sys/mman.h>
 #include <time.h>
 #include <poll.h>
+#include <sys/select.h>
 #ifdef __APPLE__
 #include <mach-o/dyld.h>
 #endif
@@ -5413,10 +5416,8 @@ OUTLINE Term corpus_eval(Corpus H, Term t) {
 #define IO_TIME 2
 #define IO_PARK TERM_HOLE
 
-// A handle is its host value, a descriptor or a pointer, packed in one
-// word (a pointer split over the aux and loc bits). Its type is a law of
-// base, opaque and linear: a program cannot forge, copy or reuse one, so
-// nothing stands between the value and the host.
+// Base's opaque, linear handles pack host fds/pointers into aux/loc:
+// no forging, copying, reuse or host wrapper.
 #define io_hand(v)   term_make(TAG_PAK, (u64)(v) >> 40, (u64)(v) & LOC_MASK)
 #define io_hand_v(t) (((u64)term_aux(t) << 40) | term_loc(t))
 
@@ -5478,12 +5479,11 @@ static int io_sys_addr(const char* host, u32 port, struct sockaddr_in* at) {
 }
 
 // The program's arguments (IO.args).
-static int    io_argc = 0;
-static char** io_argv = NULL;
+static int    io_argc;
+static char** io_argv;
 
 static void io_eff(u32 cid, Effect run, u32 need) {
-  IoEff row = { run, need };
-  io_eff_rows[cid] = row;
+  io_eff_rows[cid] = (IoEff){ run, need };
 }
 
 static u64 io_sys_end(IoWork* w, ssize_t n) {
@@ -5491,10 +5491,9 @@ static u64 io_sys_end(IoWork* w, ssize_t n) {
   return n < 0 ? 0 : (u64)n;
 }
 
-// A computation's activation for its whole life: cont over item is its
-// next request; parked, work.word and time are its fd and deadline, evts
-// what the fd must be ready for, and work.pack resumes it (io_exec runs
-// cont, the request); work leads, so an effect's IoWork* is its activation.
+// cont(item) is the next request (run by io_exec). Parked, word/time/evts
+// hold fd/deadline/readiness; pack resumes. Leading work permits IoWork*
+// to IoAct* casts.
 // IoAct ::=
 //   | IoAct(work, cont, item, time, evts, next)
 typedef struct IoAct {
@@ -5537,10 +5536,8 @@ static void io_spawn(Term m) {
   io_live += 1;
 }
 
-// Parks the effect's activation until fd is ready for evts (POLLIN or
-// POLLOUT; 0 for no fd), or until time (a tick; 0 for no deadline),
-// whichever comes first; the loop then calls more on its thread, whose
-// value readies the activation, or IO_PARK, a re-park.
+// Park until evts (POLLIN/POLLOUT; 0 ignores fd) or time (0: no deadline).
+// The loop calls more: a value resumes, IO_PARK re-parks.
 static Term io_wait_on(IoWork* w, int fd, short evts, u64 time, IoPack more) {
   IoAct* a     = (IoAct*)w;
   a->work.word = (u32)fd;
@@ -5551,7 +5548,7 @@ static Term io_wait_on(IoWork* w, int fd, short evts, u64 time, IoPack more) {
   return IO_PARK;
 }
 
-// the deadline a parked activation waits for (0 for none)
+// Parked deadline (0: none).
 static u64 io_wait_time(IoWork* w) {
   return ((IoAct*)w)->time;
 }
@@ -5713,8 +5710,7 @@ static void* io_help(void* arg) {
   }
 }
 
-// A helper takes the effect's activation: call on its thread, then pack
-// on the loop's, whose value readies the activation.
+// Run call on a helper thread, then pack on the loop to resume the effect.
 static Term io_work(IoWork* w, IoCall call, IoPack pack) {
   w->call  = call;
   w->pack  = pack;
@@ -5734,8 +5730,7 @@ static Term io_work(IoWork* w, IoCall call, IoPack pack) {
   return IO_PARK;
 }
 
-// Runs the request in cont: the effect takes its fields (the node goes)
-// and answers a value, which readies the activation, or IO_PARK, a moved.
+// Consume cont's request node; the effect returns a value or IO_PARK.
 static Term io_exec(Env e, IoWork* w) {
   IoAct* a = (IoAct*)w;
   Term   fs[256];
@@ -5746,47 +5741,55 @@ static Term io_exec(Env e, IoWork* w) {
   return io_eff_rows[c].run(e, fs, w);
 }
 
+// macOS poll misses FIFO EOF. Size select sets to the highest fd;
+// _DARWIN_UNLIMITED_SELECT allows fds past FD_SETSIZE.
+static bool io_bit(u8* set, int fd, bool put) {
+  u8* at = set + fd / 8;
+  *at |= put << fd % 8;
+  return *at >> fd % 8 & 1;
+}
+
 static void io_wait(Env e) {
-  struct pollfd* fds = io_mem(malloc((io_live + 1) * sizeof *fds));
-  u32 n    = 1;
+  int top  = io_wake_fd[0];
   u64 soon = 0;
-  int ms   = -1;
-  fds[0].fd     = io_wake_fd[0];
-  fds[0].events = POLLIN;
   for (IoAct* a = io_park.head; a != NULL; a = a->next) {
-    if (a->time != 0) {
-      soon = soon == 0 || a->time < soon ? a->time : soon;
+    if (a->time != 0 && (soon == 0 || a->time < soon)) {
+      soon = a->time;
     }
+    if (a->evts != 0 && (int)a->work.word > top) {
+      top = (int)a->work.word;
+    }
+  }
+  u64 len = (u64)top / 64 * 8 + 8;
+  u8* set[2] = { io_mem(calloc(2, len)), NULL };
+  set[1] = set[0] + len;
+  io_bit(set[0], io_wake_fd[0], true);
+  for (IoAct* a = io_park.head; a != NULL; a = a->next) {
     if (a->evts != 0) {
-      fds[n].fd     = (int)a->work.word;
-      fds[n].events = a->evts;
-      n += 1;
+      io_bit(set[a->evts == POLLOUT], (int)a->work.word, true);
     }
   }
-  if (soon != 0) {
-    u64 now = io_tick();
-    u64 gap = soon > now ? (soon - now) / 1000000 + 1 : 0;
-    ms = gap > 0x7fffffff ? 0x7fffffff : (int)gap;
-  }
+  u64 tick = io_tick();
+  u64 ms = soon > tick ? (soon - tick) / 1000000 + 1 : 0;
+  struct timeval tv = { ms / 1000, ms % 1000 * 1000 };
   io_sync();
-  while (poll(fds, n, ms) < 0) {
+  while (select(top + 1, (fd_set*)set[0], (fd_set*)set[1], NULL,
+    soon == 0 ? NULL : &tv) < 0) {
     if (errno != EINTR) {
       err_fail("the poller failed");
     }
   }
-  if (fds[0].revents != 0) {
+  if (io_bit(set[0], io_wake_fd[0], false)) {
     io_take(e);
   }
   u64   now  = io_tick();
-  u32   i    = 1;
   IoQue todo = io_park;
-  io_park.head = NULL;
-  io_park.last = NULL;
+  io_park = (IoQue){0};
   while (todo.head != NULL) {
     IoAct* a   = io_pop(&todo);
-    bool   due = (a->evts != 0 && fds[i].revents != 0)
+    bool   due = (a->evts != 0
+        && io_bit(set[a->evts == POLLOUT], (int)a->work.word, false))
       || (a->time != 0 && a->time <= now);
-    i += a->evts != 0;
     if (!due) {
       io_push(&io_park, a);
       continue;
@@ -5797,7 +5800,7 @@ static void io_wait(Env e) {
       io_push(&io_runs, a);
     }
   }
-  free(fds);
+  free(set[0]);
 }
 
 ${NATIVE.IO}
@@ -6375,34 +6378,36 @@ function io_sys() {
     const ffi = require("bun:ffi");
     const mac = process.platform === "darwin";
     const err = mac ? "__error" : "__errno_location";
+    // Darwin's extended select supports high fds.
+    const sel = mac ? "select$DARWIN_EXTSN" : "select";
     const T = { i: "i32", u: "u32", U: "u64", I: "i64", p: "ptr",
       c: "cstring" };
-    // fcntl is variadic. Apple arm64 passes variadic arguments on the
-    // stack, where the fixed convention puts arguments past the eighth, so
-    // there the flags ride as a ninth argument; elsewhere in a register.
+    // Apple arm64 stacks variadic fcntl flags: use the ninth fixed arg.
+    // Other targets use the third.
     const vari = mac && process.arch === "arm64";
     const lib = ffi.dlopen(mac ? "libSystem.dylib" : "libc.so.6",
       Object.fromEntries(("socket:iii>i bind:ipu>i listen:ii>i connect:ipu>i"
         + " accept:ipp>i send:ipUi>I recv:ipUi>I read:ipU>I pread:ipUI>I"
-        + " sendto:ipUipu>I"
-        + " recvfrom:ipUipp>I close:i>i poll:pui>i setsockopt:iiipu>i"
+        + " sendto:ipUipu>I recvfrom:ipUipp>I close:i>i setsockopt:iiipu>i"
+        + " " + sel + ":ipppp>i"
         + (vari ? " fcntl:iiiiiiiii>i" : " fcntl:iii>i") + " getsockopt:iiipp>i"
         + " strerror:i>c " + err + ":>p").split(" ").map((s) => {
         const [name, args, ret] = s.split(/[:>]/);
         return [name, { args: [...args].map((a) => T[a]), returns: T[ret] }];
-      })));
+      }))).symbols;
     const fcntl = (fd, cmd, arg) => vari
-      ? lib.symbols.fcntl(fd, cmd, 0, 0, 0, 0, 0, 0, arg)
-      : lib.symbols.fcntl(fd, cmd, arg);
-    globalThis.BEND_SYS = { ...lib.symbols, fcntl, ptr: ffi.ptr, mac,
-      errno: () => ffi.read.i32(lib.symbols[err](), 0) };
+      ? lib.fcntl(fd, cmd, 0, 0, 0, 0, 0, 0, arg)
+      : lib.fcntl(fd, cmd, arg);
+    globalThis.BEND_SYS = { ...lib, fcntl, select: lib[sel],
+      ptr: ffi.ptr, mac,
+      errno: () => ffi.read.i32(lib[err](), 0) };
   }
   return globalThis.BEND_SYS;
 }
 
 function io_fail(code) {
-  const text = String(io_sys().strerror(code));
-  return { $: "Fail", error: io_tup(code >>> 0, text) };
+  return { $: "Fail",
+    error: io_tup(code >>> 0, String(io_sys().strerror(code))) };
 }
 
 function io_done(value) {
@@ -6410,7 +6415,7 @@ function io_done(value) {
 }
 
 function io_tup(...xs) {
-  return xs.reduceRight((snd, fst) => ({ $: "Tuple", fst: fst, snd: snd }));
+  return xs.reduceRight((snd, fst) => ({ $: "Tuple", fst, snd }));
 }
 
 function io_bytes(text) {
@@ -6418,8 +6423,7 @@ function io_bytes(text) {
 }
 
 function io_text(b, n) {
-  const dec = new TextDecoder("utf-8", { ignoreBOM: true });
-  return dec.decode(b.subarray(0, n));
+  return new TextDecoder("utf-8", { ignoreBOM: true }).decode(b.subarray(0, n));
 }
 
 function io_addr(host, port) {
@@ -6436,40 +6440,48 @@ function io_addr(host, port) {
 
 function io_push(fun, arg, fresh) {
   const io = globalThis.BEND_IO;
-  io.runs.push({ fun: fun, arg: arg });
+  io.runs.push({ fun, arg });
   io.live += fresh ? 1 : 0;
 }
 
 function io_wait(io) {
   const soon = io.waits.reduce((m, w) => Math.min(m, w.at ?? m), Infinity);
-  let ms = -1;
-  if (soon !== Infinity) {
-    ms = Math.ceil(soon - performance.now());
-    ms = Math.min(Math.max(0, ms), 2147483647);
-  }
+  const ms = soon === Infinity ? -1
+    : Math.max(0, Math.ceil(soon - performance.now()));
   const fds = io.waits.filter((w) => w.fd !== undefined);
-  const buf = Int32Array.from(fds.flatMap((w) => [w.fd, w.out ? 4 : 1]));
-  io_sys().poll(fds.length > 0 ? io_sys().ptr(buf) : null, fds.length, ms);
-  const now = performance.now();
-  const fire = io.waits.filter((w) =>
-    (buf[2 * fds.indexOf(w) + 1] >>> 16) !== 0 || w.at <= now);
-  io.waits = io.waits.filter((w) => !fire.includes(w));
-  for (const w of fire) {
-    io_push(io_wake, w, false);
+  const top = fds.reduce((m, w) => Math.max(m, w.fd), 0);
+  const len = (top >> 6 << 3) + 8;
+  const set = new Uint8Array(2 * len);
+  const at = (w) => (w.out ? len : 0) + (w.fd >> 3);
+  for (const w of fds) {
+    set[at(w)] |= 1 << (w.fd & 7);
   }
+  const tv = new BigInt64Array([BigInt(ms / 1000 | 0),
+    BigInt(ms % 1000 * 1000)]);
+  const sys = io_sys();
+  sys.select(top + 1, sys.ptr(set), sys.ptr(set, len), null,
+    ms < 0 ? null : sys.ptr(tv));
+  const now = performance.now();
+  io.waits = io.waits.filter((w) => {
+    const ready = w.at <= now || w.fd !== undefined
+      && set[at(w)] & 1 << (w.fd & 7);
+    if (ready) {
+      io_push(io_wake, w, false);
+    }
+    return !ready;
+  });
 }
 
-// A park's wake: more's value goes to k, or undefined, a re-park.
+// Resume k with more's value; undefined means re-parked.
 function io_wake(w) {
   const x = w.more();
   return x === undefined ? undefined : w.k(x);
 }
 
-// Parks the running effect until fd is readable (out false) or writable,
-// or until at (a performance.now() tick; undefined for no deadline),
-// whichever comes first.
+// Park for read/write (out) or deadline at (performance.now()).
+// Undefined fd/at disables that source.
 function io_park_on(fd, out, k, more, at) {
-  globalThis.BEND_IO.waits.push({ fd: fd, out: out, k: k, more: more, at: at });
+  globalThis.BEND_IO.waits.push({ fd, out, k, more, at });
 }
 
 function io_run(m) {
@@ -6491,10 +6503,7 @@ function io_run(m) {
       }
       const s = io.runs.shift();
       let op = s.fun(s.arg);
-      for (;;) {
-        if (op === undefined) {
-          break;
-        }
+      while (op !== undefined) {
         if (op.$ === "Emit") {
           io.live -= 1;
           break;
@@ -6504,12 +6513,10 @@ function io_run(m) {
           return op.code;
         }
         const need = op.need?.() ?? {};
-        const fd = need.read ? op.args[0] : null;
-        if (need.time || fd !== null) {
+        if (need.time || need.read) {
           const more = () => op.run(...op.args, op.kont);
-          io.waits.push(fd === null
-            ? { at: performance.now() + Number(op.args[0]), k: op.kont, more }
-            : { fd: fd, k: op.kont, more });
+          io_park_on(need.read ? op.args[0] : undefined, false, op.kont, more,
+            need.read ? undefined : performance.now() + Number(op.args[0]));
           break;
         }
         const x = op.run(...op.args, op.kont);
