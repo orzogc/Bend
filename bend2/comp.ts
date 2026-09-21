@@ -3001,8 +3001,7 @@ function compile_segs(fl: File): string {
 export function compile_book(book: Bend.Book): string {
   const cb = carb_book(book, ["main", ...RUNTIME_ADTS]);
   const show = show_main(book);
-  const facts = () => JSON.stringify([[...cb.own], [...cb.hot],
-    [...cb.stat]]);
+  const facts = () => cb.own.size + cb.hot.size + cb.stat.size;
   const pass = (defs: [Bend.Name, Def][]): File => {
     [cb.lend, BRWS].forEach((m) => m.clear());
     const fl = file_new(cb, "Term");
@@ -3018,10 +3017,10 @@ export function compile_book(book: Bend.Book): string {
     facts_lend(cb);
     return fl;
   };
-  // Emitted callees first until a pass changes nothing (own, hot and poly
+  // Emitted callees first until a pass changes nothing (own, hot and stat
   // only grow): that pass is kept.
   let fl: File;
-  let was: string;
+  let was: number;
   do {
     was = facts();
     fl = pass(done_defs(cb).reverse());
