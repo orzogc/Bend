@@ -3,6 +3,26 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.23 (2026-09-20)
+
+- **`Array.map` walks the block**: Base's map reads each cell and writes the
+  result into a fresh array instead of splitting and rebuilding the tree, so
+  16M U32 map in 15 ms instead of 176 ms at a fifth of the memory. Its
+  elements are `Data` now; a map over affine elements is written from the
+  tree by hand (#911, #913).
+- A template refuses a second `~` binder of one name, in a def or a law's
+  `for ~T` clauses; the two became one opaque constant in the generic check
+  and let a closed `Empty` through (#905).
+- The C lane heats a stuck family's type argument at every instantiation, so
+  a record carried through `F(n, RT)` is opened as the record it is (#916).
+- Inside an imported module, a local named like one of the module's own defs
+  binds, in a let, a `+` let, a pattern, a `+` pattern and a lambda (#915).
+- A right spine of forks under `!` runs on the GPU at any depth the cores
+  take: the device grow pass no longer stops after 128 turns (#918).
+- The JS lane names a def from a hyphenated or absolute import path legally,
+  `--checkup` opens an absolute import as the run does, and `-o out.cjs`
+  emits the CommonJS program (#904, #906, #908, #910).
+
 ## 2.0.22 (2026-09-20)
 
 - **An `@unsafe` def forks an array**: `Array.fork` gives two handles to one
