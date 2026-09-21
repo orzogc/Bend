@@ -756,7 +756,8 @@ function let_live(cb: Carb, t: HLet): boolean[] {
 // A term's application view: the annotated head `h`, the head `t`, its
 // TLD, every argument, the live ones, and the call the term is: the direct
 // call when the live arguments meet the def's, else, when over-applied or
-// on a variable, Clo.apply over the outermost live application.
+// on no def (a variable, a lambda, a match), Clo.apply over the outermost
+// live application.
 function term_spine(cf: Carb, tm: HTerm): Spine {
   return memo(SPINES, tm, () => {
     const apps: Of<"App">[] = [];
@@ -780,7 +781,7 @@ function term_spine(cf: Carb, tm: HTerm): Spine {
       && (done_live(tld) || def_foreign(tld)) ? c.k : null;
     const need = def === null ? 0 : sig_def(cf, def).lays.length;
     const dyn = def !== null ? args.length > need
-      : c.$ === "Var" && args.length > 0;
+      : c.$ !== "Ref" && args.length > 0;
     const a = apps[live.lastIndexOf(true)];
     const call = def !== null && args.length === need
       ? { k: def, args, all, bang: (c as Of<"Ref">).b }
@@ -3149,11 +3150,8 @@ function js_expr(fl: File, tm: HTerm,
         return js_expr(fl, eta, ty);
       }
       const m = term_spine(fl, x);
-      if (m.t.$ === "Var" && m.args.length === 0) {
-        return m.t.k;
-      }
       if (m.t.$ !== "Ref") {
-        die("a " + m.t.$ + "-headed spine in an expression");
+        return js_expr(fl, m.h, ty);
       }
       const it = intr_of(fl, m.t.k, true);
       it?.call === true && it.C === undefined && lay_el(fl.book, m.all[0]);
