@@ -532,7 +532,7 @@ law f:                                   # a claim, proven by def f
   exs z: C                               # a witness the proof must return
   T                                      # the claim
 @unsafe def f(x: A) -> T:                # skips the termination check
-def f!(x: A) -> T:                       # the same, as a sugar
+def f?(x: A) -> T:                       # the same, as a sugar
 def e(x: A) -> IO(B):                    # a foreign effect
   import "./e.c"
   import "./e.js"

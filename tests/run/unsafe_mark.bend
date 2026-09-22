@@ -1,4 +1,4 @@
-# def f!(..) is @unsafe def f(..): the ! after the name skips the
+# def f?(..) is @unsafe def f(..): the ? after the name skips the
 # descent check and lets f call a def written below it
 import Base
 
@@ -7,14 +7,14 @@ type Term is Type:
   TLam{f: Term -> Term}
   TApp{f: Term, x: Term}
 
-def wnf!(x: Term) -> Term:
+def wnf?(x: Term) -> Term:
   match x:
     case TApp{f, a}:
       wnf_app(wnf(f), a)
     case term:
       term
 
-def wnf_app!(f: Term, x: Term) -> Term:
+def wnf_app?(f: Term, x: Term) -> Term:
   match f:
     case TLam{b}:
       wnf(b(x))
