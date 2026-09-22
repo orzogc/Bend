@@ -241,7 +241,7 @@ try {
   const guide = await bend(["guide"]);
   const base  = await bend(["base", "Map"]);
   fs.writeFileSync(path.join(TMP, "sum.bend"),
-    "import Base\ndef main() -> Nat:\n  2n + 3n\n");
+    "import Base\ndef main() -> Nat:\n  (2n + 3n : Nat)\n");
   const sum5 = await bend([path.join(TMP, "sum.bend")]);
   check("guide, base and a program run through the executable",
     guide.out.startsWith("# Bend") && base.out.startsWith("type Map")
