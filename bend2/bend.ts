@@ -48,7 +48,7 @@
 // ADT    ::= "type" Name ("<" [Bind ","?] ">")? "is" Term ":" [Ctr]
 // Clause ::= ("for" (Quant | "~") | "exs") Name ":" Term ("where" Term)?
 // Law    ::= "law" Name ":" [Clause] Body
-// Def    ::= ("@unsafe")? "def" Name "(" [Bind ","?] ")" ("->" Term)? ":" (Body | ["import" STRING]+)
+// Def    ::= ("@unsafe")? "def" Name "!"? "(" [Bind ","?] ")" ("->" Term)? ":" (Body | ["import" STRING]+)
 // TLD    ::= ADT | Assert | Def
 // Import ::= "import" "Base" | "import" Path "as" Name   (Path ends in .bend)
 // Book   ::= [Import] [TLD]
@@ -89,6 +89,7 @@
 // an unknown name is the file's own, unless its bare spelling is Base's.
 // a def with no prior law types itself: a Bind telescope and a
 // "->" return type. a def after its law takes bare names, no "->".
+// "def f!(..)" is "@unsafe def f(..)".
 // a bare Bind name is -Name: Quant. Fill and Plus omit a datatype's
 // leading Quant parameters as a block; Plus alone fills a quant-only D.
 // a literal expands to one node per unit, unbounded by design, but a
@@ -2533,6 +2534,7 @@ export function parse_fresh(p: Parse, k: Name): void {
 export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   parse_word(p, "def");
   const nm  = parse_name(p);
+  const un  = parse_take(p, "!") || u;
   const q   = parse_reso(p, nm);
   const tld = book.tlds[q];
   const law = tld?.$ === "Def" && tld.v === null && tld.b !== true && !tld.i ? tld : undefined;
@@ -2565,7 +2567,7 @@ export function parse_def(p: Parse, book: Book, u: Bool = false): void {
     }
     def = book.tlds[k] = { $: "Def", n: tele.length, x: tk.length, T: term_higher(tele_bind(tele, parse_term(p))), v: null };
   }
-  def.u ||= u;
+  def.u ||= un;
   parse_eat(p, ":");
   if (parse_at_word(p, "import")) {
     if (def.x > 0) {
