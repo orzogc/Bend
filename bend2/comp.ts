@@ -1433,6 +1433,7 @@ function carb_book(src: Bend.Book, roots: Bend.Name[]): Carb {
   [TELES, SRCS, NODES, LAYS, CYCLES, FLATS, SIGS, BRWS].forEach((m) =>
     m.clear());
   LOCAL.clear();
+  PROBES.length = 1;
   for (const [k, tld] of Object.entries(src.tlds)) {
     if (def_foreign(tld)) {
       LOCAL.set(k, name_own(k, tld, "(def|law) "));
