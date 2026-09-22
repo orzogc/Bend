@@ -85,7 +85,8 @@
 // own namespace, read from BEND_LIB and fetched from BEND_HUB on a
 // miss. "as Name" binds a per-file alias: Name.x resolves to the
 // file's canonical name, so two aliases of one file agree, and a def
-// of an aliased name fills it. "import Base" is the empty namespace.
+// of an aliased name fills it. "import Base" is the empty namespace;
+// an unknown name is the file's own, unless its bare spelling is Base's.
 // a def with no prior law types itself: a Bind telescope and a
 // "->" return type. a def after its law takes bare names, no "->".
 // a bare Bind name is -Name: Quant. Fill and Plus omit a datatype's
@@ -227,9 +228,10 @@
 // erased columns skipped. trusted claims: subject reduction (for
 // by-value reduction), progress, weak normalization of closed live
 // terms, no closed live inhabitant of Empty.
-// an @unsafe def opts out of the wall: its self-calls skip descent
-// and its binder domains form + at any kind, so the claims above do
-// not cover a book that uses one. a hole ?name fails every check,
+// an @unsafe def opts out of the wall: its self-calls skip descent, its
+// binder domains form + at any kind, and it calls an unfilled law or a
+// def below it, so the claims above do not cover a book that uses one.
+// a hole ?name fails every check,
 // shown against the goal; ?TODO alone checks at any goal and marks
 // the book incomplete.
 
@@ -1754,10 +1756,9 @@ export function parse_reso(p: Parse, k: Name): Name {
   if (dot !== -1 && k.slice(0, dot) in p.al) {
     q = p.al[k.slice(0, dot)] + k.slice(dot);
   }
-  if (q in p.book.tlds || q in p.book.ctrs) {
-    return q;
-  }
-  return k;
+  const own = q in p.book.tlds || q in p.book.ctrs;
+  const far = k in p.book.tlds || k in p.book.ctrs;
+  return own || !far ? q : k;
 }
 
 // Quant
@@ -3358,9 +3359,10 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     //       lhs columns left to right until one is LT; an erased (-)
     //       column is skipped; a bare or non-shrinking self-reference
     //       is an error, so a self-reference never escapes as a value
-    //       k has a body in a live region, unless base declared it or it
-    //       is a template's ~ parameter (an unfilled law is a dead claim;
-    //       base's are native, and a ~ parameter an opaque constant)
+    //       k has a body in a live region, unless base declared it, it
+    //       is a template's ~ parameter, or the def is @unsafe (an
+    //       unfilled law is a dead claim; base's are native, a ~
+    //       parameter an opaque constant, and an unsafe body trusts it)
     //       a template k in a live region outside a template's own text
     //       takes its x ~ arguments here: the call is k~n, the instance
     //       at them (def_inst), and the x applications above pass
@@ -3835,15 +3837,13 @@ export function def_inst(book: Book, lhs: LHS, tm: Extract<HTerm, { $: "Ref" }>,
 // =====
 // book_valid throws the first Err (its first done entries are taken
 // as validated: a harness resumes past a seeded base); an order entry
-// is an event: an
-// law's name declares (bodiless, type checked) at its law and
-// defines at its fill, so it is visible and stuck between the two and
-// unfolds after; a plain def or ADT does both at once. the book checks
-// in place: every name in the order hides, then each event reveals its
-// own against the book so far, so a forward reference fails as
-// undefined, and a live reference to a bodiless def errs (infer-ref),
-// so mutual recursion cannot bypass the wall. a def is declared, body
-// null, until its check passes: an unchecked body never unfolds, a
+// is an event. every def declares (bodiless) up front and defines at
+// its event (a law: type checked at its law, defined at its fill), so
+// it is visible and stuck before, and unfolds after; an ADT hides until
+// its event. the book checks in place, each event against the book so
+// far: a forward reference is a live reference to a bodiless def, which
+// errs (infer-ref) unless the def is @unsafe, so mutual recursion
+// cannot bypass the wall. an unchecked body never unfolds, a
 // declared ref is stuck. a def checks its type against Type, then its
 // tree against it (def_check); an ADT checks its signature against Type
 // and reads its declared kind Kind(G) off the tip, then checks every
@@ -3866,8 +3866,11 @@ export function book_valid(book: Book, done: number = 0): void {
   book.tlds = Object.create(null);
   book.ctrs = Object.create(null);
   for (const k in tlds) {
+    const t = tlds[k];
     if (!last.has(k)) {
-      book.tlds[k] = tlds[k];
+      book.tlds[k] = t;
+    } else if (t.$ === "Def") {
+      book.tlds[k] = { ...t, v: null };
     }
   }
   for (let i = 0; i < book.order.length; i++) {
@@ -3917,16 +3920,14 @@ export function book_valid(book: Book, done: number = 0): void {
       }
       continue;
     }
-    const dec: Def = { ...tld, v: null };
+    const def: Def = fin ? tld : { ...tld, v: null };
     if (i < done) {
-      book.tlds[k] = fin ? tld : dec;
+      book.tlds[k] = def;
       continue;
     }
     if (fin && tld.v === null && tld.b !== true && !tld.i) {
       book.open += 1;
     }
-    book.tlds[k] = dec;
-    const def = fin ? tld : dec;
     term_check(book, { t: Ref(k), n: 0, def: k, qs: [], u: def.u }, def.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
     if (def.i) {
       let tel = term_strip(def.T);

@@ -115,7 +115,8 @@ keep Bend's proofs sound, as a function that never returns could otherwise prove
 anything. A loop bounded by the outside world, like a server's, counts down a
 `Nat` fuel argument instead, and two mutually recursive functions become one def
 with an extra argument selecting which to run. A `def` marked `@unsafe` recurses
-freely, but falls outside Bend's proof guarantees.
+freely and may call a def written below it, but falls outside Bend's proof
+guarantees.
 
 A `match` inspects a parameter or a variable bound by a pattern, never a
 computed value: `match sum(xs, 0):` is rejected. Scrutinees follow binder order,
