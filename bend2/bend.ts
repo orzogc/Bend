@@ -3870,12 +3870,15 @@ export function def_inst(book: Book, lhs: LHS, tm: Extract<HTerm, { $: "Ref" }>,
 // as validated: a harness resumes past a seeded base); an order entry
 // is an event. every def declares (bodiless) up front and defines at
 // its event (a law: type checked at its law, defined at its fill), so
-// it is visible and stuck before, and unfolds after; an ADT hides until
-// its event. the book checks in place, each event against the book so
-// far: a forward reference is a live reference to a bodiless def, which
-// errs (infer-ref) unless the def is @unsafe, so mutual recursion
-// cannot bypass the wall. an unchecked body never unfolds, a
-// declared ref is stuck. a def checks its type against Type, then its
+// it is visible and stuck before, and unfolds after; an ADT declares
+// whole (constructors too) up front and its event only checks it: a
+// declaration is no computation, so seeing it early runs nothing, and
+// families name each other in any order. the book checks in place,
+// each event against every declaration and the bodies so far: a
+// forward reference is a live reference to a bodiless def, which errs
+// (infer-ref) unless the def is @unsafe, so mutual recursion cannot
+// bypass the wall. an unchecked body never unfolds, a declared ref is
+// stuck. a def checks its type against Type, then its
 // tree against it (def_check); an ADT checks its signature against Type
 // and reads its declared kind Kind(G) off the tip, then checks every
 // constructor telescope domain (parameters, then fields) in the real
@@ -3895,24 +3898,15 @@ export function book_valid(book: Book, done: number = 0): void {
     last.set(book.order[i], i);
   }
   book.tlds = Object.create(null);
-  book.ctrs = Object.create(null);
   for (const k in tlds) {
     const t = tlds[k];
-    if (!last.has(k)) {
-      book.tlds[k] = t;
-    } else if (t.$ === "Def") {
-      book.tlds[k] = { ...t, v: null };
-    }
+    book.tlds[k] = last.has(k) && t.$ === "Def" ? { ...t, v: null } : t;
   }
   for (let i = 0; i < book.order.length; i++) {
     const k   = book.order[i];
     const tld = tlds[k];
     const fin = last.get(k) === i;
     if (tld.$ === "ADT") {
-      book.tlds[k] = tld;
-      for (const c of tld.c) {
-        book.ctrs[c.k] = c;
-      }
       if (i >= done) {
         term_check(book, { t: Ref(k), n: 0, def: k, qs: [] }, tld.T, None(), Typ(Qua(Lone())), ctx_nil(), 0);
         const { doms, ret: kind } = tele_unbind(book, tld.T);
