@@ -83,7 +83,8 @@
 // a file's namespace is its path without ".bend": an import's path
 // joins onto the importer's namespace dir; a "0x<hash>/" path is its
 // own namespace, read from BEND_LIB and fetched from BEND_HUB on a
-// miss. "as Name" binds a per-file alias: Name.x resolves to the
+// miss; a "<name>@<version>/" path is the hash the hub names it, kept under
+// BEND_LIB/names. "as Name" binds a per-file alias: Name.x resolves to the
 // file's canonical name, so two aliases of one file agree, and a def
 // of an aliased name fills it. "import Base" is the empty namespace;
 // an unknown name is the file's own, unless its bare spelling is Base's.
@@ -1017,6 +1018,9 @@ export const BASE_BEND = fs.realpathSync(path.join(BEND_DIR, "base.bend"));
 const BEND_LIB = path.resolve(process.env.BEND_LIB ?? path.join(os.homedir(), ".bend", "lib"));
 export const BEND_HUB   = process.env.BEND_HUB ?? "https://hub.bend-lang.com";
 
+// a package's <name>@<version>, as the hub rules it
+export const NAMED = /^([a-z][a-z0-9-]{11,63})@((?:0|[1-9][0-9]*)(?:\.(?:0|[1-9][0-9]*)){3})$/;
+
 async function hub_get(book: Book, sub: string, hash: string, spn?: Span): Promise<string> {
   const res = await fetch(BEND_HUB + "/" + sub);
   const src = res.ok ? await res.text() : "";
@@ -1025,6 +1029,27 @@ async function hub_get(book: Book, sub: string, hash: string, spn?: Span): Promi
     throw Err(book, ctx_nil(), "a file at " + BEND_HUB + "/" + sub + " hashing to " + hash, undefined, spn);
   }
   return src;
+}
+
+// name_hash asks the hub once what a name@version names
+async function name_hash(book: Book, nv: string, spn?: Span): Promise<string> {
+  if (!NAMED.test(nv)) {
+    throw Err(book, ctx_nil(), "a package as <name>@<version>: a-z, 0-9 and -, 12 to 64 characters, at four numbers like 1.0.0.0", "'" + nv + "'", spn);
+  }
+  const at  = path.join(BEND_LIB, "names", nv);
+  const old = fs.existsSync(at) ? fs.readFileSync(at, "utf8").trim() : "";
+  if (/^0x[0-9a-f]{32}$/.test(old)) {
+    return old;
+  }
+  const res = await fetch(BEND_HUB + "/name/" + nv).catch(() => null);
+  const got = res?.ok ? (await res.text()).trim() : "";
+  if (!/^0x[0-9a-f]{32}$/.test(got)) {
+    throw Err(book, ctx_nil(), "a package named " + nv + " on " + BEND_HUB
+      + (res?.status === 410 ? " (it was taken down)" : ""), undefined, spn);
+  }
+  fs.mkdirSync(path.dirname(at), { recursive: true });
+  fs.writeFileSync(at, got + "\n");
+  return got;
 }
 
 export async function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>, spn?: Span): Promise<number> {
@@ -1072,9 +1097,13 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
       if (h[2] === undefined) {
         await book_load(book, BASE_BEND, "", seen, sp);
       } else {
-        const rel = path.posix.normalize(h[1]);
+        let rel = path.posix.normalize(h[1]);
         if (!rel.endsWith(".bend")) {
           throw Err(book, ctx_nil(), "an import of a .bend file", "'" + h[1] + "'", sp);
+        }
+        const nv = rel.match(/^([^/]*@[^/]*)\//);
+        if (nv !== null) {
+          rel = await name_hash(book, nv[1], sp) + rel.slice(nv[1].length);
         }
         let at  = dir + rel;
         let sub = path.posix.join(path.posix.dirname(ns), rel);

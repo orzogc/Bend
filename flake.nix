@@ -1,5 +1,5 @@
 # Nix flake for Bend, written by release.ts (in the bend-lang.com repo,
-# from deploy/flake.nix.in) with the version and the sha256 of each
+# from release/flake.nix.in) with the version and the sha256 of each
 # release archive filled in: do not bump it by hand. The package fetches
 # the host's archive from GitHub Releases, the same one install.sh and
 # the Homebrew formula install, lands it whole in libexec/bend (bin/bend
@@ -17,12 +17,12 @@
 
   outputs = { self, nixpkgs }:
     let
-      ver = "2.0.25";
+      ver = "2.0.26";
       archives = {
-        aarch64-darwin = { target = "darwin-arm64"; sha256 = "c5bb22ba029d5909da9c6db82aa037278a66d1cf8a5572f433879f7dcd866c31"; };
-        x86_64-darwin  = { target = "darwin-x64";   sha256 = "78e70cda4068f83736649c760575f4382259d5817be96d2eb04b9d078d943af0"; };
-        aarch64-linux  = { target = "linux-arm64";  sha256 = "c7cce7508fd13201d544180cca531a87a89c41829876c431cdfa0ea7f5308481"; };
-        x86_64-linux   = { target = "linux-x64";    sha256 = "91c0e2640f8d2e3e73fd3dd62ed4d178ce9a6f7ce8f8980b4dc4abf7a6f9ccd4"; };
+        aarch64-darwin = { target = "darwin-arm64"; sha256 = "a340f4f004860921fb9697e185a05bb1cd4398c74c6192d0b43fc91a36f329ab"; };
+        x86_64-darwin  = { target = "darwin-x64";   sha256 = "d904aafdb9999a2c57dd4328d4f86b56b7ba368c302151dab946f7d095f7e3ca"; };
+        aarch64-linux  = { target = "linux-arm64";  sha256 = "0818627723b4ebde029be7aadb5a66ebb842917aa9b058301bb574b67642d373"; };
+        x86_64-linux   = { target = "linux-x64";    sha256 = "5edcc8e5c12d525655431ab02659ddf88e362aafbe7c7bb7f783a1ffaeb6165c"; };
       };
       each = f: nixpkgs.lib.mapAttrs (system: archive:
         f (import nixpkgs { inherit system; }) archive) archives;

@@ -3,6 +3,32 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.26 (2026-09-23)
+
+- **A package has a name on the hub** (#996): `import <name>@<version>/file.bend
+  as P` asks hub.bend-lang.com once what the name and version name, keeps the
+  answer under `~/.bend/lib/names`, and loads the package by that hash as
+  before, so a version never moves and a cached name works offline. `bend
+  <file> --publish <name>@<version>` publishes and names in one run, after
+  the hub confirms the name is yours or free and the version goes up; `bend
+  link <name>@<version> 0x<hash>` names a package already published; `bend
+  login` logs in to Bender for both. A name is a-z, 0-9 and -, 12 to 64
+  characters; a version is four numbers like 1.0.0.0. The first:
+  `import bend-tensors@0.0.0.1/bend_tensors.bend as T`.
+- **The effects guide calls `io_node` and `io_wait_on` as the runtime
+  declares them** (#947): `io_node` takes four arguments and `io_wait_on`
+  five, the fourth an absolute `io_tick()` deadline, 0 for none, so an
+  effect written from the guide compiles.
+- **A second book compiled in one process starts from a fresh probe list**
+  (#976): the bun loader and `io_run` no longer retain the binder variables
+  of every previous compilation.
+- **Simpler compiler, same output**: the channel runtime lives in
+  `effs/chan.c` and `effs/chan.js` beside `Chan.new`, `send`, `recv` and
+  `close`, so a program carries it only when it uses a channel, and both
+  match emitters share their table and arms; emitted C and JS are
+  byte-identical except the channel programs' requests.
+- The README links the standalone `bend2-lsp` (#953, by don2e4).
+
 ## 2.0.25 (2026-09-21)
 
 - **A literal is a `Nat` or `String` by name only where the datatype is
