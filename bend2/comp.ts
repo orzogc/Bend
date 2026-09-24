@@ -684,16 +684,19 @@ function probe_of(t: HTerm): Probe {
 // Term
 // ====
 
+// A literal is a constant tree, except a Nat past the cap: U32.to_nat of
+// its word.
+function lit_call(s: Of<"Lit">): HTerm | null {
+  return s.k === "Nat" && s.v > Bend.NAT_LITERAL_MAX
+    ? Bend.App(Bend.Ref("U32.to_nat"), Bend.Lit("U32", s.v)) : null;
+}
+
 function term_force(t: HTerm): HTerm {
   const s = Bend.term_force(t);
   if (s.$ !== "Lit") {
     return s;
   }
-  // a Nat literal past the cap is U32.to_nat of its word
-  return memo(LITS, s, () => Bend.term_higher(
-    typeof s.v === "number" && s.v > Bend.NAT_LITERAL_MAX
-      ? Bend.App(Bend.Ref("U32.to_nat"), Bend.u32_to_term(s.v))
-      : Bend.lit_full(s)));
+  return memo(LITS, s, () => lit_call(s) ?? Bend.lit_step(s));
 }
 
 function term_strip(t: HTerm): HTerm {
@@ -810,8 +813,9 @@ function term_nodes(cf: Carb, t: HTerm): number {
 }
 
 function term_const(t: HTerm): boolean {
-  const s = term_strip(t);
-  return s.$ === "Ctr" && memo(CONSTS, s, () => s.x.every(term_const));
+  const s = Bend.term_strip(t);
+  return s.$ === "Lit" ? lit_call(s) === null
+    : s.$ === "Ctr" && memo(CONSTS, s, () => s.x.every(term_const));
 }
 
 function term_use(u: UMap, p: Probe): number {
@@ -1059,7 +1063,7 @@ function ctr_adt(fl: File, x: Of<"Ctr">,
   if (ty === null && adt.x.length > 0) {
     die("a constructor outside a datatype");
   }
-  return [adt, WORDS[adt.k] === W32 ? Bend.u32_from_term(x, adt.k) : null];
+  return [adt, adt.k === "U32" || adt.k === "F32" ? Bend.u32_from_term(x, adt.k) : null];
 }
 
 // A constructor's fields: the last n domains of its type, over the

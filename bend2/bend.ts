@@ -67,9 +67,9 @@
 // List   | "[" [A ","?] "]", A "<>" B | Con{A, ..Nil{}}, Con{A, B}
 // Array  | "[" A ":" T ("*" 2^D "n" | "^" D) "]" | Array.new(T, D, A)
 // Nat    | NUMBER "n" ("+" T)?        | Lit, read as Succ{..Zero{}}; Succ{..T}
-// U32    | NUMBER                     | U32{WCon{b, ..WNil{}}}
-// F32    | NUMBER "." NUMBER [EXP]    | F32{WCon{b, ..WNil{}}}
-// Chr    | "'" CHAR "'"               | Chr{U32}
+// U32    | NUMBER                     | Lit, read as U32{WCon{b, ..WNil{}}}
+// F32    | NUMBER "." NUMBER [EXP]    | Lit, read as F32{WCon{b, ..WNil{}}}
+// Chr    | "'" CHAR "'"               | Chr{U32}, its U32 a Lit
 // Str    | "\"" [CHAR] "\""           | Lit, read as SCon{Chr, ..SNil{}}
 // Index  | x "[" i "]" ("<-" v)?      | Array.get(U32, x, i), ..set(..)
 // Fill   | D "<" [A ","?] ">"         | D<&1.., A..>
@@ -94,7 +94,7 @@
 // a bare Bind name is -Name: Quant. Fill and Plus omit a datatype's
 // leading Quant parameters as a block; Plus alone fills a quant-only D.
 // a literal expands to one node per unit, unbounded by design, but a
-// string and a nat stay one Lit node and unfold a unit at a time where
+// number, a string and a char's code stay one Lit node and unfold where
 // a chain is read (a match, a comparison, a descent, a pattern); a full
 // word, a Nat, a Char, a String, a list, a tuple and an array (its
 // slots) print back as literals; "*" takes a power of two. Arrow is
@@ -292,7 +292,8 @@ export type TermOf<B> = (
   | { $: "App"; f: TermOf<B>; x: TermOf<B> }                                       // f(x)
   | { $: "ADT"; k: Name; x: TermOf<B>[]; r: Name[] }                               // A<x0,x1,...>
   | { $: "Ctr"; k: Name; x: TermOf<B>[] }                                          // A{x0,x1,...}
-  | { $: "Lit"; v: string | number }                                               // "text", 3n
+  | { $: "Lit"; k: "Nat" | "U32" | "F32"; v: number }                            // 3n, 7, 1.5 (its bits)
+  | { $: "Lit"; k: "String"; v: string }                                          // "text"
   | { $: "Mat"; k: Name; h: TermOf<B>; m: TermOf<B> }                              // \{A: h; m}
   | { $: "Efq" }                                                                   // \{}
   | { $: "Eql"; a: TermOf<B>; b: TermOf<B>; T: TermOf<B> }                         // {a == b : T}
@@ -414,8 +415,10 @@ export function Ctr<X>(k: Name, x: TermOf<X>[], s?: Span): TermOf<X> {
   return { $: "Ctr", k, x, s };
 }
 
-export function Lit<X>(v: string | number, s?: Span): TermOf<X> {
-  return { $: "Lit", v, s };
+export function Lit<X>(k: "Nat" | "U32" | "F32", v: number, s?: Span): TermOf<X>;
+export function Lit<X>(k: "String", v: string, s?: Span): TermOf<X>;
+export function Lit<X>(k: Name, v: number | string, s?: Span): TermOf<X> {
+  return { $: "Lit", k, v, s } as TermOf<X>;
 }
 
 export function Mat<X>(k: Name, h: TermOf<X>, m: TermOf<X>, s?: Span): TermOf<X> {
@@ -680,19 +683,11 @@ export function term_apply(fn: HTerm, tm: HTerm, s?: Span): HTerm {
 export function term_unapply<X>(tm: TermOf<X>): [TermOf<X>, TermOf<X>[]] {
   const xs: TermOf<X>[] = [];
   let cur = tm;
-  while (true) {
-    switch (cur.$) {
-      case "App": {
-        xs.push(cur.x);
-        cur = cur.f;
-        break;
-      }
-      default: {
-        xs.reverse();
-        return [cur, xs];
-      }
-    }
+  while (cur.$ === "App") {
+    xs.push(cur.x);
+    cur = cur.f;
   }
+  return [cur, xs.reverse()];
 }
 
 export function term_cell(t: HTerm, k: Name = "_"): HTerm {
@@ -900,7 +895,7 @@ export function term_descend(q: Quant, arg: HTerm, col: HTerm): Cmp {
   }
   const s = term_strip(arg);
   const p = term_strip(col);
-  const a = s.$ === "Lit" && p.$ === "Ctr" ? term_higher(lit_step(s)) : s;
+  const a: HTerm = s.$ === "Lit" && p.$ === "Ctr" ? lit_step(s) : s;
   switch (p.$) {
     case "Var": {
       if (a.$ === "Var" && a.i === p.i) {
@@ -1191,59 +1186,40 @@ export function tele_unbind(book: Book, T: HTerm): { doms: Array<[Quant, Name, H
 // Word
 // ====
 
-export function word_to_term(n: U32, s?: Span): LTerm {
-  let out: LTerm = Ctr("WNil", [], s);
+export function word_to_term<X>(n: U32, s?: Span): TermOf<X> {
+  let out: TermOf<X> = Ctr("WNil", [], s);
   for (let i = 31; i >= 0; i--) {
     out = Ctr("WCon", [Ctr((n >>> i) & 1 ? "True" : "False", [], s), out], s);
   }
   return out;
 }
 
-// U32
-// ===
-
-export function u32_to_term(n: U32, s?: Span): LTerm {
-  return Ctr("U32", [word_to_term(n, s)], s);
-}
-
 // Lit
 // ===
-// a string or nat literal is one node holding its text or number: it
-// means its chain (SCon per character, Succ per unit) and unfolds one
-// unit at a time where a chain is read, so the checker pays nothing per
-// unit. a JS string holds Unicode scalar values only, so a literal that
-// spells a surrogate or a code point past U+10FFFF is its chain.
+// a literal is one node holding a closed value of its Base type k. it
+// means its constructor tree and unfolds one layer at a time where a head
+// is read, so the checker pays nothing per unit. a JS string holds
+// Unicode scalar values only, so a literal that spells a surrogate or a
+// code point past U+10FFFF is its chain.
 
 export function lit_of(cs: U32[], s?: Span): LTerm {
-  return cs.every((c) => c <= 0x10ffff && (c < 0xd800 || c > 0xdfff))
-    ? Lit(cs.map((c) => String.fromCodePoint(c)).join(""), s) : lit_chain(cs, s);
-}
-
-export function lit_chain(cs: U32[], s?: Span): LTerm {
+  if (cs.every((c) => c <= 0x10ffff && (c < 0xd800 || c > 0xdfff))) {
+    return Lit("String", cs.map((c) => String.fromCodePoint(c)).join(""), s);
+  }
   return cs.reduceRight<LTerm>((out, c) =>
-    Ctr("SCon", [Ctr("Chr", [u32_to_term(c, s)], s), out], s), Ctr("SNil", [], s));
+    Ctr("SCon", [Ctr("Chr", [Lit("U32", c, s)], s), out], s), Ctr("SNil", [], s));
 }
 
-// one step: "" is SNil{}, "ct.." is SCon{Chr{c}, "t.."}, 0n is Zero{}, n is Succ{n-1}
-export function lit_step(t: Extract<LTerm, { $: "Lit" }>): LTerm {
-  if (typeof t.v === "number") {
-    return t.v === 0 ? Ctr("Zero", [], t.s) : Ctr("Succ", [Lit(t.v - 1, t.s)], t.s);
+export function lit_step<X>({ k, v, s }: Extract<TermOf<X>, { $: "Lit" }>): TermOf<X> {
+  if (k === "String") {
+    const c = v.codePointAt(0);
+    return c === undefined ? Ctr("SNil", [], s)
+      : Ctr("SCon", [Ctr("Chr", [Lit("U32", c, s)], s), Lit(k, v.slice(c > 0xffff ? 2 : 1), s)], s);
   }
-  const c = t.v.codePointAt(0);
-  return c === undefined ? Ctr("SNil", [], t.s)
-    : Ctr("SCon", [Ctr("Chr", [u32_to_term(c, t.s)], t.s), Lit(t.v.slice(c > 0xffff ? 2 : 1), t.s)], t.s);
-}
-
-// the whole chain: a pattern's view
-export function lit_full(t: Extract<LTerm, { $: "Lit" }>): LTerm {
-  if (typeof t.v === "string") {
-    return lit_chain([...t.v].map((c) => c.codePointAt(0) as U32), t.s);
+  if (k !== "Nat") {
+    return Ctr(k, [word_to_term(v, s)], s);
   }
-  let out: LTerm = Ctr("Zero", [], t.s);
-  for (let i = 0; i < t.v; i++) {
-    out = Ctr("Succ", [out], t.s);
-  }
-  return out;
+  return v === 0 ? Ctr("Zero", [], s) : Ctr("Succ", [Lit(k, v - 1, s)], s);
 }
 
 // past it, "n + T" is Nat.add(n, T) and the compiler emits U32.to_nat(n)
@@ -1257,12 +1233,15 @@ export function nat_from_term(t: LTerm): number | null {
     t = t.x[0];
   }
   return t.$ === "Ctr" && t.k === "Zero" && t.x.length === 0 ? n
-    : t.$ === "Lit" && typeof t.v === "number" && n + t.v <= 0xffffffff
+    : t.$ === "Lit" && t.k === "Nat" && n + t.v <= 0xffffffff
     ? n + t.v : null;
 }
 
-export function u32_from_term<X>(tm: TermOf<X>, k: Name = "U32"): number | null {
+export function u32_from_term<X>(tm: TermOf<X>, k: "U32" | "F32" = "U32"): number | null {
   const w0 = term_strip(tm);
+  if (w0.$ === "Lit") {
+    return w0.k === k ? w0.v : null;
+  }
   if (w0.$ !== "Ctr" || w0.k !== k || w0.x.length !== 1) {
     return null;
   }
@@ -1413,7 +1392,7 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
   function term_show_sugar_str(tm: LTerm): string | null {
     const [cs, t] = term_show_chain(tm, "SCon", 2);
     const ss = cs.map((c) => term_show_sugar_chr(c, "\""));
-    const tl = t.$ === "Lit" && typeof t.v === "string" ? lit_text(t.v)
+    const tl = t.$ === "Lit" && t.k === "String" ? lit_text(t.v)
              : t.$ === "Ctr" && t.k === "SNil" && t.x.length === 0 ? "" : null;
     if (tl === null || ss.includes(null)) {
       return null;
@@ -1512,7 +1491,7 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
         return tm.k + "{" + as.join(", ") + "}";
       }
       case "Lit": {
-        return typeof tm.v === "number" ? String(tm.v) + "n" : "\"" + lit_text(tm.v) + "\"";
+        return go(lit_step(tm), prc);
       }
       case "Mat": {
         const arms: string[] = [];
@@ -1835,7 +1814,7 @@ export function parse_patt(p: Parse, t: LTerm): Patt {
       return { $: "PCtr", k: t.k, x: t.x.map((x) => parse_patt(p, x)), s: t.s };
     }
     case "Lit": {
-      return parse_patt(p, lit_full(t));
+      return parse_patt(p, lit_step(t));
     }
     default: {
       throw Err(book, ctx_nil(), "a pattern (a binder or a constructor)", term_show(term_lower(term_higher(t), 0)), t.s);
@@ -2043,7 +2022,7 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
           if (!Number.isInteger(k)) {
             throw Err(p.book, ctx_nil(), "a power of two count (^d takes a depth)", undefined, n.s);
           }
-          d = Lit(k, n.s);
+          d = Lit("Nat", k, n.s);
         }
         return App(App(App(Ref("Array.new", s), T, s), d, s), xs[0], s);
       }
@@ -2059,7 +2038,7 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
         parse_fail(p, "a closing '");
       }
       const spn = parse_span(p, beg);
-      return Ctr("Chr", [u32_to_term(n, spn)], spn);
+      return Ctr("Chr", [Lit("U32", n, spn)], spn);
     }
     case '"': {
       parse_bump(p);
@@ -2335,7 +2314,7 @@ export function parse_term_num(p: Parse): LTerm {
       parse_fail(p, "a float literal with a finite f32 value (got " + m[0] + ")");
     }
     const spn = parse_span(p, beg);
-    return Ctr("F32", [word_to_term(f32_to_bits(v), spn)], spn);
+    return Lit("F32", f32_to_bits(v), spn);
   }
   if (m[2] === undefined) {
     if (char_is_name(parse_peek(p))) {
@@ -2345,7 +2324,7 @@ export function parse_term_num(p: Parse): LTerm {
     if (w > 0xffffffff) {
       parse_fail(p, "a u32 literal up to 4294967295 (got " + s + ")");
     }
-    return u32_to_term(w, parse_span(p, beg));
+    return Lit("U32", w, parse_span(p, beg));
   }
   const n = Number(s);
   if (n > 0xffffffff) {
@@ -2354,11 +2333,11 @@ export function parse_term_num(p: Parse): LTerm {
   if (parse_take(p, "+")) {
     let out = parse_term(p);
     const spn = parse_span(p, beg);
-    if (out.$ === "Lit" && typeof out.v === "number" && n + out.v <= 0xffffffff) {
-      return Lit(n + out.v, spn);
+    if (out.$ === "Lit" && out.k === "Nat" && n + out.v <= 0xffffffff) {
+      return Lit("Nat", n + out.v, spn);
     }
     if (n > NAT_LITERAL_MAX) {
-      return App(App(Ref("Nat.add", spn), Lit(n, spn), spn), out, spn);
+      return App(App(Ref("Nat.add", spn), Lit("Nat", n, spn), spn), out, spn);
     }
     for (let i = 0; i < n; i++) {
       out = Ctr("Succ", [out], spn);
@@ -2368,7 +2347,7 @@ export function parse_term_num(p: Parse): LTerm {
   if (char_is_name(parse_peek(p))) {
     parse_fail(p, "a nat literal (NUMBER n)");
   }
-  return Lit(n, parse_span(p, beg));
+  return Lit("Nat", n, parse_span(p, beg));
 }
 
 export function parse_fill(p: Parse, k: Name, xs: LTerm[], s?: Span): LTerm[] {
@@ -3089,7 +3068,7 @@ export function term_wnf(book: Book, term: HTerm): HTerm {
           }
           case "MAT": {
             if (tm.$ === "Lit") {
-              tm = term_higher(lit_step(tm));
+              tm = lit_step(tm);
             }
             if (tm.$ === "Ctr") {
               const ctr = tm;
@@ -3238,10 +3217,10 @@ export function term_compare(mode: "EQ" | "LE", book: Book, lhs: HTerm, rhs: HTe
     return term_compare(mode, book, term_apply(a, x), term_apply(b, x), dep + 1);
   }
   if (a.$ === "Lit" && b.$ === "Ctr") {
-    a = term_higher(lit_step(a));
+    a = lit_step(a);
   }
   if (b.$ === "Lit" && a.$ === "Ctr") {
-    b = term_higher(lit_step(b));
+    b = lit_step(b);
   }
   switch (a.$) {
     case "Var": {
@@ -3311,7 +3290,7 @@ export function term_compare(mode: "EQ" | "LE", book: Book, lhs: HTerm, rhs: HTe
           && a.x.every((x, j) => term_compare("EQ", book, x, b.x[j], dep));
     }
     case "Lit": {
-      return b.$ === "Lit" && a.v === b.v;
+      return b.$ === "Lit" && a.k === b.k && a.v === b.v;
     }
     case "Mat": {
       return b.$ === "Mat" && a.k === b.k
@@ -3652,20 +3631,17 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       const { xs, us } = tele_check(book, lhs, tel, tm.x, qt, ctx, d, tm.s);
       return Check(Ctr(tm.k, xs, tm.s), ty, us);
     }
-    // T == Base's String (or Nat) with the literal's head: SNil/SCon (Zero/Succ)
+    // T == Base's type k of the literal, no constructor removed
     // where any other T checks the literal's first step, which reports
     //       as the constructor it is
     // ----------------------------------------------------------- check-lit
     // Γ ⊢ "text" : T ~ {}    Γ ⊢ 3n : T ~ {}
     case "Lit": {
       const t_wnf = term_wnf(book, ty);
-      const c = typeof tm.v === "number" ? tm.v === 0 ? "Zero" : "Succ"
-              : tm.v === "" ? "SNil" : "SCon";
-      if (t_wnf.$ === "ADT" && book.tlds[t_wnf.k]?.b === true
-        && ctrs_find(book_adt(book, t_wnf, ctx, lhs.def).c, c) !== null) {
+      if (t_wnf.$ === "ADT" && t_wnf.k === tm.k && t_wnf.r.length === 0 && book.tlds[tm.k]?.b === true) {
         return Check(tm, ty, uses_nil());
       }
-      return term_check(book, lhs, term_higher(lit_step(tm)), qt, ty, ctx, d);
+      return term_check(book, lhs, lit_step(tm), qt, ty, ctx, d);
     }
     // T == @q s:D<p..> -> P
     // D.c[k] = @r1 x1:F1 -> .. -> D<p..>
