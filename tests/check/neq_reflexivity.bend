@@ -23,9 +23,10 @@ def main():
 
 #|Error:
 #|- expected : @_:{0 == 0 : U32} -> Empty
-#|- observed : non-inferrable term '{==}'
+#|- observed : non-inferrable term
 #|Location: prf
 #|15 | def prf():
 #|16>|   {==}
+#|   |   ^^^^
 #|17 |
 #|exit 1

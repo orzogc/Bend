@@ -1558,12 +1558,6 @@ export function expr_show(book: Book, x: Expr, bnd: Name[] = []): string {
   }
 }
 
-export function typeless_show(book: Book, ctx: Ctx, tm: HTerm): string {
-  return "non-inferrable term '" + expr_show(book, tm, ctx_scope(ctx)) + "'"
-    + (tm.$ === "Ctr" && book.tlds[tm.k]?.$ === "ADT"
-      ? " (" + tm.k + " is a datatype: write its arguments as <>)" : "");
-}
-
 export function err_show(err: Err): string {
   const bnd  = ctx_scope(err.ctx);
   const anns = pmap_to_array(err.ctx).sort((a, b) => a[0] - b[0]);
@@ -1578,11 +1572,15 @@ export function err_show(err: Err): string {
   let   spn  = "";
   if (err.spn !== undefined) {
     const lns = err.spn.src.split("\n");
-    const at  = err.spn.src.slice(0, err.spn.beg).split("\n").length;
+    const pre = err.spn.src.slice(0, err.spn.beg).split("\n");
+    const at  = pre.length;
     const beg = Math.max(1, at - 1);
     const end = Math.min(lns.length, at + 1);
+    const num = String(end).length;
+    const lft = pre[at - 1];
+    const car = " ".repeat(num) + " | " + lft.replace(/[^\t]/g, " ") + "^".repeat(Math.max(1, Math.min(err.spn.end - err.spn.beg, lns[at - 1].length - lft.length)));
     spn = "\n" + lns.slice(beg - 1, end).map((l, j) =>
-      String(beg + j).padStart(String(end).length) + (beg + j === at ? ">| " : " | ") + l).join("\n");
+      String(beg + j).padStart(num) + (beg + j === at ? ">| " + l + "\n" + car : " | " + l)).join("\n");
   }
   const loc  = def === "" && spn === "" ? "" : "\nLocation:" + def + spn;
   const nte = err.nte === undefined ? "" : "\n" + err.nte;
@@ -1608,9 +1606,9 @@ export function parse_span(p: Parse, beg: Loc): Span {
   return { src: p.str, beg, end: p.pos };
 }
 
-export function parse_fail(p: Parse, exp: string): never {
-  const obs = p.pos < p.str.length ? "'" + p.str[p.pos] + "'" : "end of input";
-  throw Err(p.book, ctx_nil(), exp, obs, { src: p.str, beg: p.pos, end: p.pos });
+export function parse_fail(p: Parse, exp: string, beg: Loc = p.pos, end: Loc = p.pos): never {
+  const obs = beg < end ? "'" + p.str.slice(beg, end) + "'" : p.pos < p.str.length ? "'" + p.str[p.pos] + "'" : "end of input";
+  throw Err(p.book, ctx_nil(), exp, obs, { src: p.str, beg, end });
 }
 
 export function parse_peek(p: Parse): string {
@@ -1690,7 +1688,7 @@ export function parse_lexeme(p: Parse): Name {
   }
   const k = p.str.slice(beg, p.pos);
   if (!/^[A-Za-z_]\w*(\.[A-Za-z_]\w*)*$/.test(k)) {
-    parse_fail(p, "a name (words joined by dots, got '" + k + "')");
+    parse_fail(p, "a name (words joined by dots, got '" + k + "')", beg);
   }
   return k;
 }
@@ -1698,7 +1696,7 @@ export function parse_lexeme(p: Parse): Name {
 export function parse_name(p: Parse): Name {
   const k = parse_lexeme(p);
   if (KEYWORDS.has(k)) {
-    parse_fail(p, "a name (got the keyword '" + k + "')");
+    parse_fail(p, "a name (got the keyword '" + k + "')", p.pos - k.length);
   }
   return k;
 }
@@ -1871,16 +1869,16 @@ export function parse_term_base(p: Parse, beg: Loc): LTerm {
       return parse_term_do_stmt(p, m, ts, parse_col(p.str, p.pos));
     }
     if (k === "match") {
-      parse_fail(p, "a term (a match heads a def body, not a term)");
+      parse_fail(p, "a term (a match heads a def body, not a term)", beg);
     }
     if (k === "case") {
-      parse_fail(p, "a match heading this case (this case is orphaned)");
+      parse_fail(p, "a match heading this case (this case is orphaned)", beg);
     }
     if (k === "return") {
-      parse_fail(p, "a do-block heading this return");
+      parse_fail(p, "a do-block heading this return", beg);
     }
     if (KEYWORDS.has(k)) {
-      parse_fail(p, "a term (the keyword '" + k + "' cannot head one)");
+      parse_fail(p, "a term (the keyword '" + k + "' cannot head one)", beg);
     }
     if (parse_at(p, "{")) {
       parse_bump(p);
@@ -2320,7 +2318,7 @@ export function parse_term_num(p: Parse): LTerm {
   if (m[2] !== undefined && m[2] !== "n") {
     const v = Math.fround(Number(m[0]));
     if (!isFinite(v)) {
-      parse_fail(p, "a float literal with a finite f32 value (got " + m[0] + ")");
+      parse_fail(p, "a float literal with a finite f32 value (got " + m[0] + ")", beg);
     }
     const spn = parse_span(p, beg);
     return Lit("F32", f32_to_bits(v), spn);
@@ -2331,7 +2329,7 @@ export function parse_term_num(p: Parse): LTerm {
     }
     const w = Number(s);
     if (w > 0xffffffff) {
-      parse_fail(p, "a u32 literal up to 4294967295 (got " + s + ")");
+      parse_fail(p, "a u32 literal up to 4294967295 (got " + s + ")", beg);
     }
     return Lit("U32", w, parse_span(p, beg));
   }
@@ -2417,9 +2415,11 @@ export function parse_body(p: Parse, col: number = 0): Body {
     while (ccol > col && parse_at_word(p, "case") && parse_col(p.str, p.pos) >= ccol) {
       const rcol = parse_col(p.str, p.pos);
       parse_word(p, "case");
+      parse_skip(p);
+      const qbeg = p.pos;
       const qs = parse_terms(p);
       if (qs.length !== es.length) {
-        parse_fail(p, String(es.length) + " patterns (one per scrutinee)");
+        parse_fail(p, String(es.length) + " patterns (one per scrutinee)", qbeg, p.pos - 1);
       }
       const n0 = p.sc.stk.length;
       const pp = qs.map((q) => parse_patt(p, q));
@@ -2521,7 +2521,7 @@ export function parse_tele(p: Parse, close: string, tk: Name[] = []): Array<[Qua
     const beg = p.pos;
     const k   = parse_name(p);
     if (close === "}" && tele.some((cell) => cell[1] === k)) {
-      parse_fail(p, "a fresh field name (duplicate declaration: " + k + ")");
+      parse_fail(p, "a fresh field name (duplicate declaration: " + k + ")", p.pos - k.length);
     }
     const s   = parse_span(p, beg);
     parse_skip(p);
@@ -2548,7 +2548,7 @@ export function parse_fresh(p: Parse, nm: Name, tab: Record<Name, unknown> = p.b
   const k = parse_qual(p, nm);
   const a = nm.includes(".") ? nm.slice(0, nm.indexOf(".")) : "";
   if (k in tab || nm in tab || a in p.al) {
-    parse_fail(p, what + " (" + (a in p.al ? a + " is an import's alias" : "duplicate declaration: " + nm) + ")");
+    parse_fail(p, what + " (" + (a in p.al ? a + " is an import's alias" : "duplicate declaration: " + nm) + ")", p.pos - nm.length);
   }
   return k;
 }
@@ -2556,11 +2556,11 @@ export function parse_fresh(p: Parse, nm: Name, tab: Record<Name, unknown> = p.b
 export function parse_def(p: Parse, book: Book, u: Bool = false): void {
   parse_word(p, "def");
   const nm  = parse_name(p);
-  const un  = parse_take(p, "?") || u;
   const q   = parse_reso(p, nm);
   const tld = book.tlds[q];
   const law = tld?.$ === "Def" && tld.v === null && tld.b !== true && !tld.i ? tld : undefined;
   const k   = law ? q : parse_fresh(p, nm);
+  const un  = parse_take(p, "?") || u;
   const n0 = p.sc.stk.length;
   parse_eat(p, "(");
   parse_skip(p);
@@ -3564,7 +3564,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
     case "Lam": {
       const t_wnf = term_wnf(book, ty);
       if (t_wnf.$ !== "All") {
-        throw Err(book, ctx, ty, typeless_show(book, ctx, tm), tm.s, lhs.def);
+        throw Err(book, ctx, ty, "non-inferrable term", tm.s, lhs.def);
       }
       const x: HTerm = Var(tm.k, d);
       let f_lhs = lhs;
@@ -3620,7 +3620,8 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       const t_wnf = term_wnf(book, ty);
       if (t_wnf.$ !== "ADT") {
         const fam = book_ctr(book, tm.k) === null ? null : book_fam(book, tm.k);
-        throw Err(book, ctx, ty, fam === null ? typeless_show(book, ctx, tm) : Ref(fam, tm.s), tm.s, lhs.def);
+        const nte = fam === null && book.tlds[tm.k]?.$ === "ADT" ? "Note: " + tm.k + " is a datatype: write its arguments as <>" : undefined;
+        throw Err(book, ctx, ty, fam === null ? "non-inferrable term" : Ref(fam, tm.s), tm.s, lhs.def, nte);
       }
       const adt = book_adt(book, t_wnf, ctx, lhs.def);
       const ctr = ctrs_find(adt.c, tm.k);
@@ -3670,7 +3671,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
     case "Efq": {
       const t_wnf = term_wnf(book, ty);
       if (t_wnf.$ !== "All") {
-        throw Err(book, ctx, ty, typeless_show(book, ctx, tm), tm.s, lhs.def);
+        throw Err(book, ctx, ty, "non-inferrable term", tm.s, lhs.def);
       }
       if (qt.$ !== "None" && t_wnf.q.$ === "None") {
         throw Err(book, ctx, "a live scrutinee (a - scrutinee matches only in a dead region)", undefined, tm.s, lhs.def);
@@ -3723,7 +3724,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
     case "Rfl": {
       const t_wnf = term_wnf(book, ty);
       if (t_wnf.$ !== "Eql") {
-        throw Err(book, ctx, ty, typeless_show(book, ctx, tm), tm.s, lhs.def);
+        throw Err(book, ctx, ty, "non-inferrable term", tm.s, lhs.def);
       }
       if (!term_compare("EQ", book, t_wnf.a, t_wnf.b, d)) {
         throw Err(book, ctx, t_wnf.a, t_wnf.b, tm.s, lhs.def);

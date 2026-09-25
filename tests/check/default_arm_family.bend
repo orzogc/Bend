@@ -35,11 +35,12 @@ def main(): 0
 
 #|Error:
 #|- expected : Pq(b)
-#|- observed : non-inferrable term '{==}'
+#|- observed : non-inferrable term
 #|Context:
 #|- b : Bq
 #|Location: ev
 #|28 |     case c:
 #|29>|       {==}
+#|   |       ^^^^
 #|30 |
 #|exit 1

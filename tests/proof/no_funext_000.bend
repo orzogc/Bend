@@ -42,9 +42,10 @@ def main(): Z{}
 
 #|Error:
 #|- expected : {(x => add(x, Z{})) == (x => x) : @_:N -> N}
-#|- observed : non-inferrable term 'x => add_zero(x)'
+#|- observed : non-inferrable term
 #|Location: add_zero_eta
 #|35 | 
 #|36>| def add_zero_eta(): x => add_zero(x)
+#|   |                     ^
 #|37 |
 #|exit 1
