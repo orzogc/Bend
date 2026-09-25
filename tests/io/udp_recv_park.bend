@@ -1,5 +1,5 @@
 # io (io_udp_recv_park): a recv_from on a quiet socket parks its
-# computation and nothing else waits: main's three 100 ms ticks land
+# computation and nothing else waits: main's three 1 ms ticks land
 # while the receiver sits parked, then main's datagram wakes it and
 # it prints. The socket is non-blocking and the receive runs on the
 # loop's thread after the park, re-parking on a datagram that vanished
@@ -47,7 +47,7 @@ def ticks(n):
       IO.pure(Unit, Unit{})
     case 1n+p:
       do IO<Unit>:
-        u : Unit <- IO.sleep(100)
+        u : Unit <- IO.sleep(1)
         w : Unit <- IO.print("tick")
         ticks(p)
 
