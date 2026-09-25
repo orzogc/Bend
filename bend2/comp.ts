@@ -5066,6 +5066,13 @@ static void gpu_load(u64 bytes) {
   gpu_buf = [gpu_dev newBufferWithBytesNoCopy:CORPUS length:bytes
     options:MTLResourceStorageModeShared
       | MTLResourceHazardTrackingModeUntracked deallocator:nil];
+  u64 most = [gpu_dev maxBufferLength];
+  if (!gpu_buf && bytes > most) {
+    char msg[96];
+    snprintf(msg, sizeof msg, "--gpu %lluMB is over the device's %lluMB",
+      (unsigned long long)(bytes >> 20), (unsigned long long)(most >> 20));
+    err_fail(msg);
+  }
   if (!gpu_buf) {
     err_fail("the GPU span is more than the device has");
   }
