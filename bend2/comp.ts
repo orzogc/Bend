@@ -5763,14 +5763,12 @@ static void io_wait(Env e) {
   u64 ms = soon > tick ? (soon - tick) / 1000000 + 1 : 0;
   struct timeval tv = { ms / 1000, ms % 1000 * 1000 };
   io_sync();
-  while (select(top + 1, (fd_set*)set[0], (fd_set*)set[1], NULL,
+  if (select(top + 1, (fd_set*)set[0], (fd_set*)set[1], NULL,
     soon == 0 ? NULL : &tv) < 0) {
     if (errno != EINTR) {
       err_fail("the poller failed");
     }
-    tick = io_tick();
-    ms   = soon > tick ? (soon - tick) / 1000000 + 1 : 0;
-    tv   = (struct timeval){ ms / 1000, ms % 1000 * 1000 };
+    memset(set[0], 0, 2 * len);
   }
   if (io_bit(set[0], io_wake_fd[0], false)) {
     io_take(e);
@@ -6330,19 +6328,12 @@ function io_wait(io) {
   const tv = new BigInt64Array([BigInt(ms / 1000 | 0),
     BigInt(ms % 1000 * 1000)]);
   const sys = io_sys();
-  // A signal fails select with EINTR (4) and leaves the sets as they were,
-  // every parked fd still set: wait again, as in C, for the time that is
-  // left (Linux counts the timeout down; macOS leaves it as it was).
-  while (sys.select(top + 1, sys.ptr(set), sys.ptr(set, len), null,
+  if (sys.select(top + 1, sys.ptr(set), sys.ptr(set, len), null,
     ms < 0 ? null : sys.ptr(tv)) < 0) {
     if (sys.errno() !== 4) {
       throw "bend: the poller failed";
     }
-    if (ms >= 0) {
-      const left = Math.max(0, Math.ceil(soon - performance.now()));
-      tv[0] = BigInt(left / 1000 | 0);
-      tv[1] = BigInt(left % 1000 * 1000);
-    }
+    set.fill(0);
   }
   const now = performance.now();
   io.waits = io.waits.filter((w) => {
