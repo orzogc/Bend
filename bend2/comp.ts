@@ -165,8 +165,7 @@ const W64: Lay = { ks: ["w64"], arms: null };
 const WORDS: Record<string, Lay> = Object.setPrototypeOf(
   { U32: W32, F32: W32, Nat: W64 }, null);
 
-// The widest flat layout (u8 arity tables); the shader's Tri is 24 words.
-const WIDE = 255;
+const WIDE = 247;
 
 const ERRS = ("|*|*|out of memory: run again with a bigger span, as in"
   + " --gpu 8GB|a function the device does not hold|a Nat past the"
@@ -961,8 +960,9 @@ function lay_of(book: Bend.Book, A: HTerm | null): Lay {
       return BOX;
     }
     LAYS.set(key, BOX);
-    return lay_pack(tld.c.map((c) =>
-      [c.k, lay_wide(ctr_doms(book, c, t.x).map((A) => lay_of(book, A)))]));
+    const lay = lay_pack(tld.c.map((c) =>
+      [c.k, ctr_doms(book, c, t.x).map((A) => lay_of(book, A))]));
+    return lay.ks.length > WIDE ? BOX : lay;
   });
 }
 
@@ -973,12 +973,6 @@ function lay_el(book: Bend.Book, A: HTerm | null): Lay {
   const tld = book.tlds[t.k];
   return lay_of(book, tld?.$ === "ADT" && tld.c[0]
     ? tele_unbind(book, tld.c[0].T).ret : A);
-}
-
-// Past WIDE words in total, the multi-word layouts go boxed.
-function lay_wide(lays: Lay[]): Lay[] {
-  return lays.flatMap((l) => l.ks).length > WIDE
-    ? lays.map((l) => l.ks.length > 1 ? BOX : l) : lays;
 }
 
 // Fields start after the tag; the packer owns their final offsets.
@@ -1025,8 +1019,14 @@ function lay_cyclic(book: Bend.Book, k: Name): boolean {
 }
 
 function lay_node(book: Bend.Book, k: Name): Lay {
-  return memo(NODES, k, () => lay_pack([[k, lay_wide((book.ctrs[k]
-    ? ctr_doms(book, book.ctrs[k]) : []).map((A) => lay_of(book, A)))]]));
+  return memo(NODES, k, () => {
+    const lay = lay_pack([[k, (book.ctrs[k] ? ctr_doms(book, book.ctrs[k])
+      : []).map((A) => lay_of(book, A))]]);
+    while (lay.ks.length > WIDE && lay.ks.length & (lay.ks.length - 1)) {
+      lay.ks.push("w32");
+    }
+    return lay;
+  });
 }
 
 function lay_eq(a: Lay, b: Lay): boolean {
@@ -1163,7 +1163,9 @@ function sig_def(cb: Carb, k: Name): Sig {
     }
     const ret = lay_of(cb.book, Bend.tele_fill(cb.book, tld.T,
       Array(tld.n).fill(DUMMY), Bend.ctx_nil()));
-    return { live, lays: lay_wide(lays), ret: ret.ks.length === 0 ? BOX : ret };
+    const wide = lays.flatMap((l) => l.ks).length > WIDE;
+    return { live, lays: wide ? lays.map((l) => l.ks.length > 1 ? BOX : l)
+      : lays, ret: ret.ks.length === 0 ? BOX : ret };
   });
 }
 
@@ -3006,7 +3008,8 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
       | Number(!forky.has(s.fid)) << 1)],
     ["FID_RESW_T", entries.map((s) =>
       s.frame === null ? 0 : s.params.length - s.frame.at.length)],
-    ["CID_ARITY_T", [...fl.cids.values()]],
+    ["CID_ARITY_T", [...fl.cids.values()].map((n) =>
+      n > WIDE ? 240 + Math.log2(n) : n)],
     ["CID_HOT_T", [...fl.cids.keys()].map((k) => Number(fl.hot.has(k)))],
   ];
   const defs: string[] = [];
@@ -3018,8 +3021,8 @@ function compile_tables(fl: File, entries: Seg[]): string[] {
     defs.push(...ms.map((m, i) => `#define ${m} ${i}`));
   }
   for (const [nm, vals] of tabs) {
-    if (vals.some((v) => v > 255)) {
-      die("an arity over 255");
+    if (vals.some((v) => v > (nm === "CID_ARITY_T" ? 255 : WIDE))) {
+      die("an arity over " + WIDE);
     }
     defs.push(`CONSTV u8 ${nm}[] = { ${vals.join(", ")} };`);
   }
@@ -4177,6 +4180,7 @@ FAR void term_drop(Env e, Term t) {
         u32 n   = tag == TAG_ARR ? 0 : tag == TAG_CTR ? cid_arity(aux)
           : fid_arity(aux) - (tag == TAG_CLO);
         Cls cls = tag == TAG_ARR ? 64 | blk_cls(t)
+          : n > ${WIDE} ? 64 | (n - 240)
           : cls_fit(tag == TAG_TSK ? n + 2 : n);
         c0 = H[loc];
         H[loc] = cur;
