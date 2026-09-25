@@ -6247,7 +6247,6 @@ function io_sys() {
     const ffi = require("bun:ffi");
     const mac = process.platform === "darwin";
     const err = mac ? "__error" : "__errno_location";
-    // Darwin's extended select supports high fds.
     const sel = mac ? "select$DARWIN_EXTSN" : "select";
     const T = { i: "i32", u: "u32", U: "u64", I: "i64", p: "ptr",
       c: "cstring" };
