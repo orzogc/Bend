@@ -3,7 +3,7 @@
 
 function process_run(program, args, input, maxOutput, timeoutMs) {
   const argv = [program];
-  for (let xs = args; xs.$ === "Con"; xs = xs.tail) {
+  for (let xs = args; xs.$ === CID(Con); xs = xs.tail) {
     argv.push(xs.head);
   }
   if (maxOutput === 0 || timeoutMs === 0
@@ -31,3 +31,5 @@ function process_run(program, args, input, maxOutput, timeoutMs) {
   const code = got.exitCode ?? (128 + (sig ?? 0));
   return io_done(io_tup(code, out.toString("utf8"), err.toString("utf8")));
 }
+
+io_eff(CID(Process.run), process_run);
