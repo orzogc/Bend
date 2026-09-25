@@ -27,6 +27,15 @@ def timeout(r: Result<&1, &1, U32 & String, U32 & (String & String)>) ->
     case Fail{(+code, message)}:
       Bool.show(Bool.or(U32.is_eq(code, 110), U32.is_eq(code, 60)))
 
+def contains_answer(r: Result<&1, &1, U32 & String, U32 & (String & String)>,
+  want: U32, needle: String) -> String:
+  match r:
+    case Done{(code, (stdout, stderr))}:
+      Bool.show(Bool.and(U32.is_eq(code, want),
+        Bool.and(String.contains(stdout, needle), String.eq(stderr, ""))))
+    case Fail{error}:
+      "unexpected failure"
+
 def main() -> IO(Unit):
   do IO<Unit>:
     a : Result<&1, &1, U32 & String, U32 & (String & String)> <-
@@ -78,6 +87,9 @@ def main() -> IO(Unit):
     p : Result<&1, &1, U32 & String, U32 & (String & String)> <-
       Process.run("/bin/sh", ["-c", "sleep 3 & echo hi"], "", 128, 1500)
     IO.print("inherited pipe: " ++ answer(p, 0, "hi\n", ""))
+    q : Result<&1, &1, U32 & String, U32 & (String & String)> <-
+      Process.run("/bin/sh", ["-c", "yes & echo hi"], "", 1048576, 1500)
+    IO.print("descendant output: " ++ contains_answer(q, 0, "hi"))
 
 #|stdin: True
 #|literal argv: True
@@ -94,3 +106,4 @@ def main() -> IO(Unit):
 #|signal: True
 #|sigpipe default: True
 #|inherited pipe: True
+#|descendant output: True

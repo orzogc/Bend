@@ -2,7 +2,13 @@
 // =======
 
 #include <spawn.h>
+#include <sys/ioctl.h>
 #include <sys/wait.h>
+#ifdef __APPLE__
+#include <sys/event.h>
+#else
+#include <sys/syscall.h>
+#endif
 
 extern char** environ;
 
@@ -60,6 +66,41 @@ static bool process_append(ProcessCall* p, bool error, const char* data,
   return true;
 }
 
+static void process_drain(ProcessCall* p, int fd, bool error) {
+  int left = 0;
+  if (ioctl(fd, FIONREAD, &left) != 0) {
+    p->code = errno;
+  }
+  while (left > 0 && p->code == 0) {
+    char buf[8192];
+    ssize_t n = read(fd, buf, left < 8192 ? (size_t)left : 8192);
+    if (n <= 0) {
+      p->code = n < 0 ? errno : 0;
+      break;
+    }
+    process_append(p, error, buf, (u64)n);
+    left -= (int)n;
+  }
+}
+
+// A descriptor that polls readable once the child exits.
+static int process_exitfd(pid_t child) {
+#ifdef __APPLE__
+  int kq = kqueue();
+  struct kevent ev;
+  EV_SET(&ev, child, EVFILT_PROC, EV_ADD | EV_ONESHOT, NOTE_EXIT, 0, NULL);
+  if (kq >= 0 && kevent(kq, &ev, 1, NULL, 0, NULL) != 0) {
+    close(kq);
+    kq = -1;
+  }
+  return kq;
+#elif defined(SYS_pidfd_open)
+  return (int)syscall(SYS_pidfd_open, child, 0);
+#else
+  return -1;
+#endif
+}
+
 static int process_nonblock(int fd) {
   int flags = fcntl(fd, F_GETFL);
   return flags < 0 ? -1 : fcntl(fd, F_SETFL, flags | O_NONBLOCK);
@@ -90,6 +131,7 @@ static void process_call(IoWork* w) {
   int pipes[3][2] = {{-1, -1}, {-1, -1}, {-1, -1}};
   pid_t child = -1;
   int status = 0;
+  int exitfd = -1;
   for (int i = 0; i < 3; i += 1) {
     if (process_pipe(pipes[i]) != 0) {
       p->code = errno;
@@ -156,27 +198,30 @@ static void process_call(IoWork* w) {
   if (p->input_len == 0) {
     close(pipes[0][1]); pipes[0][1] = -1;
   }
+  exitfd = process_exitfd(child);
   u64 deadline = io_tick() + (u64)p->timeout * 1000000ull;
   u64 written  = 0;
   while (p->code == 0) {
-    if (child >= 0) {
-      pid_t got = waitpid(child, &status, WNOHANG);
-      if (got == child) {
-        child = -1;
-        if (pipes[0][1] >= 0) {
-          close(pipes[0][1]); pipes[0][1] = -1;
+    pid_t got = waitpid(child, &status, WNOHANG);
+    if (got == child) {
+      child = -1;
+      for (int i = 1; i < 3; i += 1) {
+        if (pipes[i][0] >= 0) {
+          process_drain(p, pipes[i][0], i == 2);
         }
-      } else if (got < 0 && errno != EINTR) {
-        p->code = errno;
-        break;
       }
+      break;
+    }
+    if (got < 0 && errno != EINTR) {
+      p->code = errno;
+      break;
     }
     u64 now = io_tick();
-    if (child >= 0 && now >= deadline) {
+    if (now >= deadline) {
       p->code = ETIMEDOUT;
       break;
     }
-    struct pollfd fds[3];
+    struct pollfd fds[4];
     int roles[3];
     nfds_t count = 0;
     for (int i = 0; i < 3; i += 1) {
@@ -186,15 +231,12 @@ static void process_call(IoWork* w) {
         roles[count++] = i;
       }
     }
-    if (child < 0 && count == 0) {
-      break;
+    if (exitfd >= 0) {
+      fds[count++] = (struct pollfd){exitfd, POLLIN, 0};
     }
-    int ms = 0;
-    if (child >= 0) {
-      u64 left = (deadline - now + 999999ull) / 1000000ull;
-      ms = (int)(left > 50 ? 50 : left);
-    }
-    int ready = poll(fds, count, ms);
+    u64 left = (deadline - now + 999999ull) / 1000000ull;
+    u64 most = exitfd >= 0 ? 1000000 : 50;
+    int ready = poll(fds, count, (int)(left > most ? most : left));
     if (ready < 0) {
       if (errno == EINTR) {
         continue;
@@ -202,8 +244,8 @@ static void process_call(IoWork* w) {
       p->code = errno;
       break;
     }
-    if (ready == 0 && child < 0) {
-      break;
+    if (exitfd >= 0 && fds[count - 1].revents != 0) {
+      continue;
     }
     for (nfds_t k = 0; k < count && p->code == 0; k += 1) {
       if (fds[k].revents == 0) {
@@ -248,6 +290,9 @@ static void process_call(IoWork* w) {
       : WIFSIGNALED(status) ? 128 + (u32)WTERMSIG(status) : 1;
   }
 done:
+  if (exitfd >= 0) {
+    close(exitfd);
+  }
   for (int i = 0; i < 3; i += 1) {
     for (int j = 0; j < 2; j += 1) {
       if (pipes[i][j] >= 0) {
