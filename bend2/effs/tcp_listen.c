@@ -14,7 +14,7 @@ Term tcp_listen_run(Env e, Term* f, IoWork* w) {
     return io_fail(e, EINVAL, NULL);
   }
   int bound = bind(fd, (struct sockaddr*)&at, sizeof(at));
-  if (bound < 0 || listen(fd, 16) < 0
+  if (bound < 0 || listen(fd, 512) < 0
     || fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK) < 0) {
     uint32_t code = (uint32_t)errno;
     close(fd);
