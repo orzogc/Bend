@@ -3090,7 +3090,9 @@ export function compile_book(book: Bend.Book): string {
   const spins = [`CONSTV u64 STAT_IMG[] = { ${fl.img.join(", ") || 0} };`,
     ...fl.spins.map((s) => s.text)].join("\n\n");
   const segs = compile_segs(fl);
-  if (/\bundefined\b/.test([tabs, spins, segs, fl.reqs].join("\n"))) {
+  // In the generated C the word undefined is a leaked JS undefined; the
+  // effect sources (reqs) are hand-written, and may say it.
+  if (/\bundefined\b/.test([tabs, spins, segs].join("\n"))) {
     die("an unbound name in the emitted C");
   }
   return c_ids(fl, runtime_c([tabs, ...desc].join("\n\n"), spins, segs,
