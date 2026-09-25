@@ -284,6 +284,8 @@ const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
     C:  "($0 < $1)",
     JS: "($0 < $1)",
   },
+  ...tpl_ops("nat_", "min:< max:>", "($0 $o $1 ? $0 : $1)",
+    "($0 $o $1 ? $0 : $1)"),
   nat_divmod: {
     C:    ["($1 == 0 ? 0 : $0 / $1)", "($1 == 0 ? $0 : $0 % $1)"],
     call: true,
@@ -576,6 +578,8 @@ const SRCS: Map<Name, Src> = new Map();
 const FOLDS: Map<HTerm, HTerm | null> = new Map();
 
 const FLATS: Map<Name, boolean> = new Map();
+
+const LOOPS: Map<Name, Name[]> = new Map();
 
 const SIGS: Map<Name, Sig> = new Map();
 
@@ -1409,7 +1413,7 @@ function def_body(cb: Carb, k: Name): TLD | undefined {
 // refs, calls and flatness (no fork, no bang call, only tail self-calls).
 function carb_book(src: Bend.Book, roots: Name[]): Carb {
   book_owned(src);
-  [TELES, SRCS, NODES, LAYS, CYCLES, FLATS, SIGS, BRWS].forEach((m) =>
+  [TELES, SRCS, NODES, LAYS, CYCLES, FLATS, LOOPS, SIGS, BRWS].forEach((m) =>
     m.clear());
   ids_reset();
   PROBES.length = 1;
@@ -1492,6 +1496,34 @@ function flat_of(k: Name): boolean {
     FLATS.set(k, false);
     return own !== undefined && own.flat && [...own.deps].every(flat_of);
   });
+}
+
+function loop_of(cb: Carb, k: Name): Name[] {
+  const stack: Name[] = [];
+  const visit = (k: Name): number => {
+    const id = stack.push(k) - 1;
+    const tld = def_body(cb, k);
+    let low = id;
+    let self = false;
+    if (done_live(tld)) {
+      term_any(cb, tld.h as HTerm, (s, tail) => {
+        const d = tail ? call_kind(cb, s)?.k : undefined;
+        if (d !== undefined) {
+          const at = stack.indexOf(d);
+          self ||= d === k;
+          low = Math.min(low, at >= 0 ? at : LOOPS.has(d) ? low : visit(d));
+        }
+        return false;
+      });
+    }
+    if (low === id) {
+      const all = stack.splice(id);
+      const loop = all.length > 1 || self ? all : [];
+      all.forEach((d) => LOOPS.set(d, loop));
+    }
+    return low;
+  };
+  return memo(LOOPS, k, () => (visit(k), LOOPS.get(k)!));
 }
 
 // Done
@@ -3143,11 +3175,10 @@ function js_call(fl: File, k: Name, args: HTerm[],
   if (v !== "") {
     return "(" + v + ") => " + call;
   }
-  if (def_foreign(tld)) {
+  if (tail || def_foreign(tld)) {
     return call;
   }
-  return tail ? "run_jump(" + js_sat(k) + ", [" + exprs.join(", ") + "])"
-    : "run_loop(" + call + ")";
+  return "run_loop(" + call + ")";
 }
 
 function js_open(fl: File, x: HLet): HTerm {
@@ -3242,7 +3273,10 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null,
     return js_func(fl, term_eta(fl.book, x, ty!, 1), ty, args);
   }
   const ck = call_kind(fl, x);
-  file_push(fl, "return " + (ck === null ? js_expr(fl, x, ty)
+  const at = ck === null ? -1 : loop_of(fl, fl.seg.def).indexOf(ck.k);
+  file_push(fl, at >= 0 ? ck!.args.map((a, i) => "$" + i + " = "
+    + js_expr(fl, a, null) + "; ").join("") + "$pc = " + at + "; continue;"
+    : "return " + (ck === null ? js_expr(fl, x, ty)
     : js_call(fl, ck.k, ck.args, true)) + ";");
 }
 
@@ -3301,11 +3335,17 @@ function js_def(fl: File, k: Name, def: Def): void {
   if (intr_of(fl, k, true) !== undefined) {
     return;
   }
-  const params = sig_def(fl, k).live.map(([, n]) => name_local(fl, n));
+  fl.seg.def = k;
+  const loop = loop_of(fl, k);
+  const n = Math.max(0, ...loop.map((d) => sig_def(fl, d).live.length));
+  const params = loop.length > 0 ? Array.from({ length: n }, (_, i) => "$" + i)
+    : sig_def(fl, k).live.map(([, x]) => name_local(fl, x));
   const kont = def.i ? [name_local(fl, "k")] : [];
   block(fl, `function ${js_sat(k)}(${[...params, ...kont].join(", ")}) {`,
     () => {
-      if (def.i === undefined) {
+      if (loop.length > 0) {
+        js_loop(fl, k, loop);
+      } else if (def.i === undefined) {
         js_func(fl, def.h!, def.T, params);
       } else {
         const n = JSON.stringify(k);
@@ -3314,6 +3354,21 @@ function js_def(fl: File, k: Name, def: Def): void {
       }
     });
   file_push(fl, "");
+}
+
+// A loop sets $i and $pc to the callee's case and turns, binding each
+// turn's parameters afresh, so a closure keeps its own.
+function js_loop(fl: File, k: Name, loop: Name[]): void {
+  file_push(fl, `let $pc = ${loop.indexOf(k)};`);
+  block(fl, "for (;;) switch ($pc) {", () => loop.forEach((d, i) => {
+    memo_gc();
+    fl.fresh = new Map();
+    fl.fuel = FOLD_FUEL;
+    const def = fl.book.tlds[d] as Def;
+    const ps = sig_def(fl, d).live.map(([, x]) => name_local(fl, x));
+    const bind = ps.map((p, j) => `const ${p} = $${j};`).join(" ");
+    block(fl, `case ${i}: { ${bind}`, () => js_func(fl, def.h!, def.T, ps));
+  }));
 }
 
 export function js_lib(book: Bend.Book, roots: Name[],
@@ -6108,10 +6163,6 @@ function array_rmw(a, i, f) {
 
 // Run
 // ===
-
-function run_jump(f, x) {
-  return {$: "$JMP", f: f, x: x};
-}
 
 function run_tail(f, x) {
   return {$: "$JMP", f: f.j?.f === f ? f.j : f, x: [x]};
