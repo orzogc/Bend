@@ -210,6 +210,10 @@ def IO.now() -> IO(Nat):
   import "./effs/now.c"
   import "./effs/now.js"
 
+def IO.thread_count() -> IO(U32):
+  import "./effs/thread_count.c"
+  import "./effs/thread_count.js"
+
 def Chan.new(-A: Type, room: U32) -> IO(Chan(A)):
   import "./effs/chan.c"
   import "./effs/chan.js"
