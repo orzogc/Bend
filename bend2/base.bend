@@ -2084,40 +2084,21 @@ def Nat.read.go(s, acc):
       +d = U32.sub(x, 48)
       Nat.read.if(t, acc, d, U32.is_lt(d, 10))
 
-# 2^48-1 is the text 281474976710655. Leading zeros are stripped, then
-# fewer than fifteen digits are in range, more are not, and fifteen
-# compare as text. A longer string can still sort before that text, so
-# the length is part of the check. A law that reads "7" never builds
-# the unary nat (each digit once divided it).
-def Nat.read.len.no(rest: Maybe<&2, Nat>) -> Maybe<&2, Nat>:
-  match rest:
-    case None{}:
-      None{}
-    case Some{n}:
-      None{}
-
-def Nat.read.len.suc(rest: Maybe<&2, Nat>) -> Maybe<&2, Nat>:
-  match rest:
-    case None{}:
-      None{}
-    case Some{n}:
-      Some{1n+n}
-
-def Nat.read.len.if(rest: Maybe<&2, Nat>, ok: Bool) -> Maybe<&2, Nat>:
-  match ok:
-    case False{}:
-      Nat.read.len.no(rest)
-    case True{}:
-      Nat.read.len.suc(rest)
-
-def Nat.read.len(s: String) -> Maybe<&2, Nat>:
+# 2^48-1 is the text 281474976710655. Past leading zeros, fewer than
+# fifteen characters fit, more do not, and fifteen compare as text;
+# Nat.read.go still refuses a non-digit. The gate is a def, not a
+# Bool.pick: an argument is built before the call, and reading a string
+# that does not fit would build a Nat past the bound. A law that reads
+# "7" never builds the unary nat (each digit once divided it).
+def Nat.read.trim(s: String) -> String:
   match s:
-    case SNil{}:
-      Some{0n}
-    case SCon{Chr{x}, t}:
-      Nat.read.len.if(Nat.read.len(t), U32.is_lt(U32.sub(x, 48), 10))
+    case SCon{'0', t}:
+      Nat.read.trim(t)
+    case t:
+      t
 
-def Nat.read.under(+n: Nat, s: String) -> Bool:
+def Nat.read.fits(+s: String) -> Bool:
+  +n = String.length(s)
   Bool.or(Nat.is_lt(n, 15n),
     Bool.and(Nat.is_eq(n, 15n), String.is_le(s, "281474976710655")))
 
@@ -2128,27 +2109,13 @@ def Nat.read.gate(+s: String, ok: Bool) -> Maybe<&2, Nat>:
     case False{}:
       None{}
 
-def Nat.read.pick(+s: String, got: Maybe<&2, Nat>) -> Maybe<&2, Nat>:
-  match got:
-    case None{}:
-      None{}
-    case Some{n}:
-      Nat.read.gate(s, Nat.read.under(n, s))
-
-def Nat.read.trim(s: String) -> String:
-  match s:
-    case SCon{'0', t}:
-      Nat.read.trim(t)
-    case t:
-      t
-
 def Nat.read(s: String) -> Maybe<&2, Nat>:
   match s:
     case SNil{}:
       None{}
     case SCon{h, t}:
       +u = Nat.read.trim(SCon{h, t})
-      Nat.read.pick(u, Nat.read.len(u))
+      Nat.read.gate(u, Nat.read.fits(u))
 
 law U32.show.go:
   for f   : Nat
