@@ -22,6 +22,7 @@ import type { BunPlugin } from "bun";
 
 import * as Bend from "./bend.ts";
 import * as Comp from "./comp.ts";
+import * as Safe from "./safe.ts";
 
 // Main
 // ====
@@ -37,6 +38,8 @@ usage:
   bend <file.bend> [args]       check the file, then run main with args
   bend <file.bend> -o <out>     build a binary; <out>.c emits C, <out>.js JS
   bend <file.bend> --check-only check the file and its imports; run nothing
+  bend <file.bend> --safe       check it, then check its BendTT elaboration
+                                (<file>.bendtt) with the proven kernel
   bend <file.bend> --publish    publish the file and its imports to the hub
   bend <file.bend> --publish <name>@<version>
                                 publish, then name it (needs login)
@@ -213,6 +216,7 @@ async function cli_file(args: string[]): Promise<void> {
   const argv: string[] = [];
   let file: string | undefined;
   let only = false;
+  let safe = false;
   let checkup = false;
   let publish = false;
   let named: string | undefined;
@@ -222,6 +226,8 @@ async function cli_file(args: string[]): Promise<void> {
       return cli_say(1, HELP);
     } else if (a === "--check-only") {
       only = true;
+    } else if (a === "--safe") {
+      safe = true;
     } else if (a === "--checkup") {
       checkup = true;
     } else if (a === "--publish") {
@@ -257,8 +263,8 @@ async function cli_file(args: string[]): Promise<void> {
   if (publish && (outs.length !== 0 || only || checkup)) {
     cli_fail("--publish takes no other option");
   }
-  if (only && (outs.length !== 0 || checkup)) {
-    cli_fail("--check-only takes no other option");
+  if ((only || safe) && (outs.length !== 0 || checkup || (only && safe))) {
+    cli_fail((safe ? "--safe" : "--check-only") + " takes no other option");
   }
   if (argv.length !== 0 && (outs.length !== 0 || only || checkup || publish)) {
     cli_fail("arguments go to a run: bend <file.bend> [args]");
@@ -276,6 +282,14 @@ async function cli_file(args: string[]): Promise<void> {
     }
     if (only) {
       return cli_report(...await book_read(file), 1);
+    }
+    if (safe) {
+      const [book, n0] = await book_read(file);
+      cli_report(book, n0, 1);
+      const [ok, text] = Safe.safe_check(book, file);
+      cli_say(1, text);
+      process.exitCode = ok ? 0 : 1;
+      return;
     }
     const seen = new Map<string, string | null>();
     const [book, n0] = await book_read(file, undefined, seen);
