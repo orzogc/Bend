@@ -3,6 +3,35 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.29 (2026-09-26)
+
+- **The JS lane runs about 2.3x faster** (PR #1061 by nicolas-abril, and a
+  Nat that is a JS number): a Nat is a double, exact below the 2^48 - 1 cap
+  the C lane shares, and BigInt only where a value crosses to the host; a
+  tail cycle is a loop, and a def calls another directly unless the callee
+  can bounce. The JS lane recurses at least as deep as before. A Nat that a
+  host passes in (negative, past 2^53 or not an integer) now fails with the
+  C lane's Nat message instead of printing garbage.
+- **Errors underline their span** (PR #1063 by nicolas-abril): a location
+  marks the exact text, and a non-inferrable term is no longer echoed.
+- **A checked recursion on a Nat literal is linear** (#983): the descent
+  check no longer takes 2^n steps on a literal like `30n`.
+- **A constructor of any width builds on C** (#991, PR #1068 by
+  nicolas-abril).
+- **Compiled binaries pass `--help` to `IO.args`** (#934, PR #988 by
+  YidaWeng); the runtime's own help is `--bend-help`.
+- **Fixes**: a boxed Bool from a generic pick reaches `Bool.or` as a flat tag
+  on C (#1026, PR #1038 by vicmcorrea); `Process.run` stops at the child's
+  exit even when a descendant holds its pipes (#1051, PR #1054 by
+  Yi-111-a); `TCP.listen`'s backlog is 512, so a burst of 10k connections is
+  answered in full (PR #977 by aldeni).
+- **Simpler compiler and checker, same output**: the compiler's types go
+  from 31 to 16 and the C runtime's type names from 26 to 14, with one
+  atomic family for the host, Metal and CUDA; the parser reads operators
+  from one table (parsing 7-22% faster, checking 2-6% faster). A file that
+  ends in `<` now says "expected a term". Tested on macOS (Metal), Linux
+  x86-64, and CUDA from Pascal to Blackwell.
+
 ## 2.0.28 (2026-09-25)
 
 - **The macOS `bend` has a valid signature** (#1025): `bun build --compile`
