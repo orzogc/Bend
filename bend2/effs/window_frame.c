@@ -11,7 +11,7 @@ static Term window_node(Env e, const u32* ev) {
     return term_pak(CID(Close), 0);
   }
   u32 n = ev[0] == 1 ? 4 : 2;
-  Loc l = heap_alloc(e, cls_fit(n));
+  u64 l = heap_alloc(e, cls_fit(n));
   for (u32 j = 0; j < n; j += 1) {
     e.mem[l + j] = ev[1 + j];
   }
@@ -22,7 +22,7 @@ static Term window_list(Env e, const u32* p, u64 n) {
   Term list = term_pak(CID(Nil), 0);
   for (u64 i = n; i > 0;) {
     i -= 1;
-    Loc l = heap_alloc(e, 1);
+    u64 l = heap_alloc(e, 1);
     e.mem[l]     = io_seal(e, window_node(e, p + 5 * i), CID(Con));
     e.mem[l + 1] = io_seal(e, list, CID(Con));
     list = term_ctr(CID(Con), l);
@@ -284,7 +284,7 @@ static u64         window_len;
 static void window_fill(Env e, u32* pix, u32 w, u32 h, Term image, u32 k) {
 #if BEND_CUDA
   if (io_gpu) {
-    Corpus H    = e.mem;
+    u64*   H    = e.mem;
     u64    len  = (u64)w * h * 4;
     void*  args[] = { &H, &image, &w, &h, &k, &window_buf };
     if (window_pso == NULL && cuModuleGetFunction(&window_pso, gpu_lib,

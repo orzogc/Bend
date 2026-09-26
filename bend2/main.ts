@@ -774,7 +774,7 @@ async function book_read(file: string, base?: Bend.Book,
     cli_fail("PROOF.bend must import ./LAWS.bend");
   }
   Bend.book_valid(book, base?.order.length ?? 0);
-  const hols = book.hols + book.open;
+  const hols = book.hols;
   if (hols > 0) {
     throw "Error: " + String(hols) + " TODO" + (hols === 1 ? "" : "s")
       + " found.\nThe code is incomplete, and not a valid proof yet.";

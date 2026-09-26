@@ -605,7 +605,7 @@ do M<xs.., R>:                           # a monadic block over M.bind, M.pure
 
 Inside `(.. : T)`, `+ - * / %` call `T.add` through `T.mod`, `.&. .|. .^.` the
 bit operations, `<< >>` the shifts (by a `Nat`), and `< <= > >=` the `T.is_lt`
-family; without a `: T` they belong to `Nat`. `&& ||` work on `Bool` and `++` on
+family; without a `: T` they are refused. `&& ||` work on `Bool` and `++` on
 `String` anywhere. Operators need spaces on both sides.
 Equality of values is a call, `T.is_eq(a, b)`; `==` is only the type.
 A `Nat` literal past `256n` is `U32.to_nat(n)` underneath, up to `4294967295n`.

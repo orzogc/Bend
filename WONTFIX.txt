@@ -5,9 +5,9 @@ Read this file before you open an issue.
 DESIGN (intentional choices)
 
 @unsafe programs check and exit 0 (#776, #805)
-  The checker prints "All terms check, with N unsafe annotations." and exits
-  0. `@unsafe` is a choice the author made in the source; read the note, not
-  the exit code.
+  The checker prints "All terms check, but N defs rely on unsafe or foreign
+  code:", lists them, and exits 0. `@unsafe` is a choice the author made in
+  the source; read the note, not the exit code.
 
 `bend file.bend` runs a pure main lazily; compiled lanes are strict (#775)
   The checker skips an unused argument; a binary evaluates it. Same value,
@@ -25,7 +25,7 @@ The checker skips dead code (#820, #878)
 
 Allocation failure fail-stops the runtime (#792)
   Out of memory is fatal everywhere, not a `Fail`. A program bounds the `max`
-  it passes to a receive effect; the runtime does not clamp it.
+  it passes to a receive effect; the runtime only caps it at INT32_MAX.
 
 The C compiler is clang only (#773)
   The C output uses `#embed` and clang pragmas. gcc is not a target.

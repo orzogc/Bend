@@ -6,7 +6,7 @@ static void file_read_call(IoWork* w) {
   w->size = io_sys_end(w, read(fd, w->data, w->word));
 }
 
-static Term file_read_start(Term file, U32 max, IoWork* w,
+static Term file_read_start(Term file, u64 max, IoWork* w,
   IoCall call, IoPack pack) {
   w->hand = (intptr_t)io_hand_v(file);
   w->word = max < INT32_MAX ? max : INT32_MAX;
