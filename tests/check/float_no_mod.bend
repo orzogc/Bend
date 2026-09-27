@@ -8,6 +8,7 @@ law main:
 def main():
   5.5 .%. 2.0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : 'def', 'type' or 'law'
 #|- observed : '.'

@@ -20,6 +20,7 @@ law main:
 def main():
   f(2n)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '!'

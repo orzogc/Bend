@@ -16,6 +16,7 @@ def grow(~f: Nat -> Nat, x: Nat) -> Nat:
 def main() -> Nat:
   grow(~inc, 2n)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a ~ argument that stops growing
 #|- observed : grow

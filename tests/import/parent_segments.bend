@@ -11,6 +11,7 @@ law main:
 def main():
   0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : an import of a .bend file
 #|- observed : '/up/up/native_mod.c'

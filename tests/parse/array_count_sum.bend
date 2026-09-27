@@ -12,6 +12,7 @@ def Array.new(-T: Type, d: Nat, x: T) -> Nat:
 def bad() -> Nat:
   [0n : Nat*2n+4294967295n]
 
+#|SOME TERMS FAIL
 #|Error:
 #|- message  : a power of two count (^d takes a depth)
 #|Location:

@@ -21,6 +21,7 @@ law main:
 def main():
   0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : @_:{0 == 0 : U32} -> Empty
 #|- observed : non-inferrable term

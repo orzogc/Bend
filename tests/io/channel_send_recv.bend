@@ -16,6 +16,7 @@ def main():
     x : Unit <- Chan.close(U32, c)
     return 0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- message  : a declared datatype (unknown: Sender)
 #|Location: main

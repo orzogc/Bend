@@ -10,6 +10,7 @@ def main():
   do Result:
     return 1
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : '<'
 #|- observed : ':'

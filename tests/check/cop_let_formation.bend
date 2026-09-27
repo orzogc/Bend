@@ -17,6 +17,7 @@ law main:
 
 def main(): dupl(Nat, 1n)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Type

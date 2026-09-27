@@ -13,6 +13,7 @@ law main:
 def main():
   0n
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Kind(a)

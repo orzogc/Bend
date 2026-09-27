@@ -8,6 +8,7 @@ law main:
 
 def main(): ()
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ')'

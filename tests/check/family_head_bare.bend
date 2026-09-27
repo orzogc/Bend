@@ -10,6 +10,7 @@ law bare:
 def bare():
   List
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a family instance (write List<..>)
 #|- observed : List

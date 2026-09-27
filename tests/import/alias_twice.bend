@@ -7,6 +7,7 @@ import ./tmpl_chain_lib.bend as M
 def main() -> Nat:
   M.two()
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a fresh alias (M names an earlier import)
 #|- observed : 'import ./tmpl_chain_lib.bend as M'

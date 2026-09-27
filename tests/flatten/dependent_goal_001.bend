@@ -62,6 +62,7 @@ law main:
 def main(n):
   \{T: \{T: {==}; F: {==}}(odd(n)); F: \{T: {==}; F: {==}}(odd(n))}(pos(n))
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : an annotated term (cannot infer)
 #|- observed : \{T: \{T: {==}; F: {==}}(odd(n)); F: \{T: {==}; F: {==}}(odd(n))}

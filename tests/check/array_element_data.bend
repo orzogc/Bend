@@ -19,6 +19,7 @@ def main():
   h = (![0:1, _:0; 2] : [:U32 -> U32])
   0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ':'

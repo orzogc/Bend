@@ -63,4 +63,5 @@ def even_dbl(n):
       %add_succ(p, p) : IsEven(S{_})
       even_dbl(p)
 
-#|All terms check.
+#|ALL TERMS CHECK
+#|Use --safe for mathematical validity.

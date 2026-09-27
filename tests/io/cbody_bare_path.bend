@@ -19,6 +19,7 @@ law main:
 def main():
   window("x", 1, 1)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : '"'
 #|- observed : 'p'

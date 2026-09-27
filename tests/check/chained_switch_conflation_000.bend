@@ -23,6 +23,7 @@ law main:
 def main():
   g(1)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : 1 patterns (one per scrutinee)
 #|- observed : '2+q'

@@ -14,6 +14,7 @@ law main:
 
 def main(): x <- half(10)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : 'def', 'type' or 'law'
 #|- observed : '<'

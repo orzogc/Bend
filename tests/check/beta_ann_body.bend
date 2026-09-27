@@ -9,6 +9,7 @@ def w(b: Nat) -> Nat:
 def main() -> Nat:
   (x => {w : Bool -> Bool})(0n)(5n)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : @_:Bool -> Bool
 #|- observed : @b:Nat -> Nat

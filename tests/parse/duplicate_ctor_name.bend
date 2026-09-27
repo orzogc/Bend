@@ -10,6 +10,7 @@ law main:
 
 def main(): Kk{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a fresh constructor name (duplicate declaration: Kk)
 #|- observed : 'Kk'

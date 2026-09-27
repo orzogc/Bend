@@ -12,6 +12,7 @@ def g(x: Nat) -> Nat:
 def main() -> Nat:
   g(1n)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a bound variable
 #|- observed : y^-1

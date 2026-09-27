@@ -80,6 +80,7 @@ law boom:
 def boom():
   delta(KRoll{delta})
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Kind(L)

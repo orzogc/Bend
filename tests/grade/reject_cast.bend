@@ -19,6 +19,7 @@ law cast:
 def cast(A):
   A
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Type

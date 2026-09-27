@@ -3,6 +3,7 @@
 def match(x):
   x
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a name (got the keyword 'match')
 #|- observed : 'match'

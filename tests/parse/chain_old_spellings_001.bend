@@ -5,6 +5,7 @@ import Base
 def main() -> F32:
   1.0 +. 2.0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '.'

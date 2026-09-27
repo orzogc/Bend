@@ -39,6 +39,7 @@ law main:
 def main(n):
   \{T: {==}; F: {==}}(even(n))
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : an annotated term (cannot infer)
 #|- observed : \{T: {==}; F: {==}}

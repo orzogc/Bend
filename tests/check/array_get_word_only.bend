@@ -15,6 +15,7 @@ def main(xs):
   x = xs@ys[0]
   x
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ':'

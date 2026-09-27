@@ -43,6 +43,7 @@ law turn_turn:
 def turn_turn(d):
   {==}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : turn(turn(d))
 #|- observed : back(d)

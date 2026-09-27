@@ -8,6 +8,7 @@ law main:
 
 def main(): Mk9{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : Missing9

@@ -9,6 +9,7 @@ def main():
   m = [7; 16]
   0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ';'

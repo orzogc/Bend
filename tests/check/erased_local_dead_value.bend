@@ -7,4 +7,5 @@ def g(x: Nat, f: Nat -> Nat) -> Nat:
   -y = f(f(x))
   0n
 
-#|All terms check.
+#|ALL TERMS CHECK
+#|Use --safe for mathematical validity.

@@ -8,6 +8,7 @@ import ./LAWS.Nat.bend as H
 def main() -> U32:
   0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : an import path of plain names (letters, digits, _ and -; the hub's files import the hub's)
 #|- observed : './LAWS.Nat.bend'

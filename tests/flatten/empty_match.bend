@@ -9,6 +9,7 @@ law main:
 def main(e):
   (\{})(e)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : an annotated term (cannot infer)
 #|- observed : \{}

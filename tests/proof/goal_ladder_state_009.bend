@@ -44,6 +44,7 @@ def add_swap(x, y, z):
     case S{q}:
       Type
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : {S{add(q, add(y, z))} == add(y, S{add(q, z)}) : N}
 #|- observed : Type

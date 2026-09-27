@@ -8,6 +8,7 @@ law main:
 def main():
   Parser.digits()
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : Parser.digits

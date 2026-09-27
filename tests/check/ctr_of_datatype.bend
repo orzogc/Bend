@@ -9,6 +9,7 @@ def t(b: Bool) -> Maybe{&2, Bool}:
     case False{}:
       None{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Type
 #|- observed : non-inferrable term

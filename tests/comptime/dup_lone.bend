@@ -9,6 +9,7 @@ def app(~f: Nat -> Nat, x: Nat) -> Nat:
 def main() -> Nat:
   app(~(y => Nat.add(y, y)), 3n)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : x
 #|- observed : x (consumed more than once)

@@ -8,6 +8,7 @@ law main:
 def main():
   JSON.read("{\"a\": 1}")
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : JSON.read

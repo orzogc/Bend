@@ -8,6 +8,7 @@ law claim:
 def claim(n) -> {0n == 1n : Nat}:
   {==}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : ':'
 #|- observed : '-'

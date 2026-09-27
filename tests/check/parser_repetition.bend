@@ -8,6 +8,7 @@ law main:
 def main():
   Parser.many(U32, Parser.digit())
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : Parser.many

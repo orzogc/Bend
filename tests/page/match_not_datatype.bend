@@ -18,6 +18,7 @@ law main:
 
 def main(): f(x => x)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a datatype
 #|- observed : @_:U32 -> U32

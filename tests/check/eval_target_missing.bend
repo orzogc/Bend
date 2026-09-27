@@ -15,6 +15,7 @@ law main:
 
 def main(): gamma
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : gamma

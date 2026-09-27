@@ -3,6 +3,7 @@
 def bad() -> Type:
   &x: Type -> Type
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : Exists

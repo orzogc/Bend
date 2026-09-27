@@ -22,6 +22,7 @@ law main:
 
 def main(): mix(Ob{}, Ob{})
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : cases for Ib
 #|- observed : \{}

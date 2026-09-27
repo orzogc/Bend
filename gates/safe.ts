@@ -1,15 +1,13 @@
 #!/usr/bin/env bun
 // The --safe gate: for each file of a corpus, bend2's verdict against
-// BendTT's, from one `bend <f> --safe` run on a mini (it prints bend2's
-// verdict, then "BendTT: ..."), each under a 30 s alarm. Classes: agree
-// (both check), v vacuous (bend2 checks, and the file has no def or
-// datatype of its own: comments or imports only), p partial (the defs in scope check, the rest are out of
-// scope), bend2 rejects (--safe stops there, so the kernel never accepts
-// more), ! false reject (bend2 checks, the kernel rejects), - out of
-// scope (every def is), u user unsafe (partial or out of scope, and
-// the file's own code has an @unsafe def or a foreign def with no model
-// out of scope: the goal allows it), t timeout. A live
-// check failure goes through safe_diag.ts, which names the failing call.
+// BendTT's, from one `bend <f> --safe` run on a mini (ALL TERMS CHECK, or
+// SOME TERMS FAIL and why; safe_node.ts adds why to a mismatch), each
+// under a 30 s alarm. Classes: agree (both check), u unsafe (a def relies
+// on @unsafe or foreign code: the goal allows it), bend2 rejects (--safe
+// stops there, so the kernel never accepts more), - out of scope (the
+// kernel cannot express a def), ! false reject (bend2 checks, the kernel
+// rejects), t timeout. A live check failure goes through safe_diag.ts,
+// which names the failing call.
 // The table lands in .tmp/safe/<corpus>.txt; the hub corpus is a pulled
 // BendHub store ($SAFE_HUB), sent as BEND_LIB. The kernel binary is built
 // on a Lean node (bendtt.lean's CLI). Each worktree stages in its own
@@ -76,30 +74,22 @@ await node_pool(live, shards.map((fs_) => async (node: number) => {
 gots.sort((a, b) => a.f < b.f ? -1 : 1);
 // a verdict's class and its reason (the kernel's or elaborator's first words)
 function judge(g: Got): [string, string] {
-  const at = g.out.indexOf("BendTT: ");
-  const b2 = (at < 0 ? g.out : g.out.slice(0, at)).trim();
-  const ok2 = b2.startsWith("All terms check");
+  const out = g.out.trim();
   if (g.code === null || (g.code as unknown) === null || g.ms >= 29000) {
-    return [ok2 ? "t" : " ", "timeout"];
+    return ["t", "timeout"];
   }
-  if (!ok2) {
-    return [" ", "bend2 rejects: " + b2.split("\n").slice(0, 2).join(" ").slice(0, 80)];
-  }
-  if (at < 0) {
-    return ["!", "crash: " + g.out.split("\n").filter((l) => l.trim() !== "").slice(-2).join(" ").slice(0, 100)];
-  }
-  const tt = g.out.slice(at + 8).trim();
-  if (tt.startsWith("nothing to check")) {
-    return ["v", "vacuous"];
-  }
-  const part = tt.startsWith("All terms check,");
-  if (part || tt.startsWith("out of scope")) {
-    const why = [...tt.matchAll(/^- \S+: (.*)$/gm)].map((m) => m[1]);
-    const c = why.some((r) => /(uses the @unsafe def|no model for the foreign def) \S+$/.test(r)) ? "u" : part ? "p" : "-";
-    return [c, (part ? "partial: " : "out of scope: ") + why.slice(0, 2).join(" | ").slice(0, 160)];
-  }
-  if (tt.startsWith("All terms check")) {
+  if (g.code === 0 && out === "ALL TERMS CHECK") {
     return [" ", "agree"];
+  }
+  if (/^Error: \d+ defs? rel(y|ies) on unsafe or foreign code/m.test(out)) {
+    return ["u", "unsafe: " + [...out.matchAll(/^- (\S+)$/gm)].map((m) => m[1]).slice(0, 3).join(" ")];
+  }
+  if (!out.includes("Sorry - ")) {
+    return [" ", "bend2 rejects: " + out.split("\n").slice(1, 3).join(" ").slice(0, 80)];
+  }
+  const tt = out.slice(out.indexOf("BendTT: ") + 8);
+  if (tt.startsWith("out of scope")) {
+    return ["-", "out of scope: " + [...tt.matchAll(/^- \S+: (.*)$/gm)].map((m) => m[1]).slice(0, 2).join(" | ").slice(0, 160)];
   }
   return ["!", tt.split("\n").slice(0, 2).join(" | ").slice(0, 300)];
 }
@@ -114,8 +104,8 @@ for (const [c] of rows) {
 const agree = rows.filter(([c, r]) => c === " " && r === "agree").length;
 const b2rej = rows.filter(([c, r]) => c === " " && r !== "agree").length;
 console.log(corpus + ": " + rows.length + " files on " + live.length + " nodes in " + (Date.now() - t0) + " ms");
-console.log("agree (both check): " + agree + ", v vacuous: " + (tally.get("v") ?? 0) + ", p partial (rest checks): " + (tally.get("p") ?? 0) + ", bend2 rejects: " + b2rej + ", ! false reject: " + (tally.get("!") ?? 0)
-  + ", - out of scope: " + (tally.get("-") ?? 0) + ", u user unsafe: " + (tally.get("u") ?? 0) + ", t timeout: " + (tally.get("t") ?? 0));
+console.log("agree (both check): " + agree + ", u unsafe: " + (tally.get("u") ?? 0) + ", bend2 rejects: " + b2rej
+  + ", - out of scope: " + (tally.get("-") ?? 0) + ", ! false reject: " + (tally.get("!") ?? 0) + ", t timeout: " + (tally.get("t") ?? 0));
 // the false rejects by failing def, most files first
 const why = new Map<string, number>();
 for (const [c, r] of rows) {

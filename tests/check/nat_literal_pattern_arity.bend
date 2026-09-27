@@ -16,6 +16,7 @@ def f(b: N) -> U:
     case Succ{p}:
       f(p)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- message  : a Zero pattern with 1 field
 #|Location:

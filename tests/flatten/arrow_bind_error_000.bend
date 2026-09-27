@@ -19,6 +19,7 @@ law main:
 
 def main(): go(Pp{1, 2})
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : 'def', 'type' or 'law'
 #|- observed : '<'

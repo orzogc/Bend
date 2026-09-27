@@ -8,6 +8,7 @@ law main:
 def main():
   1.x
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a numeric literal (NUMBER is U32, NUMBER n is Nat)
 #|- observed : '.'

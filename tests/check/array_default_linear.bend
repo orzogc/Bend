@@ -26,6 +26,7 @@ law main:
 def main():
   0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '!'

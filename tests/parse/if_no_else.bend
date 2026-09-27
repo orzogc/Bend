@@ -16,6 +16,7 @@ law main:
 def main():
   f(True{})
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : '='
 #|- observed : ':'

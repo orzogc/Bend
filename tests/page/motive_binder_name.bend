@@ -29,4 +29,5 @@ def f(n, e, h2, h3):
   %e : N
   NZ{}
 
-#|All terms check.
+#|ALL TERMS CHECK
+#|Use --safe for mathematical validity.

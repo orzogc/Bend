@@ -14,6 +14,7 @@ law main:
 
 def main(): blk()
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : ':'
 #|- observed : '='

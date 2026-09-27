@@ -14,6 +14,7 @@ law main:
 def main():
   n => \{T: {==}; F: n}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : an annotated term (cannot infer)
 #|- observed : \{T: {n == n : Nt}; F: Nt}

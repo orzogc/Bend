@@ -1,6 +1,8 @@
 // safe.ts's node side: runs `bend <f> --safe` on each file named on
 // stdin, PAR at a time, each capped at CAP s, and prints one JSON array
-// of { f, code, ms, out }
+// of { f, code, ms, out }. On a mismatch (bend2 checks, the kernel does
+// not), out gains why: the defs `-o` leaves out of scope, or else the
+// kernel's error on the translation, with the failing call if live
 import * as child from "node:child_process";
 import * as fs from "node:fs";
 
@@ -18,10 +20,17 @@ function one(f: string): Promise<void> {
     const bomb = setTimeout(() => kid.kill("SIGKILL"), CAP);
     kid.on("close", (code) => {
       clearTimeout(bomb);
-      const m = /BendTT: In (\S+):\naffine live code/.exec(txt);
-      if (m !== null) {
-        const d = child.spawnSync(process.execPath, ["gates/safe_diag.ts", f.replace(/\.bend$/, ".bendtt"), m[1]], { encoding: "utf8", timeout: 20000 });
-        txt = txt.replace("affine live code, calls that descend", "affine live code, calls that descend: " + (d.stdout + d.stderr).trim().slice(0, 300));
+      if (txt.includes("Sorry - ")) {
+        const tt = f.replace(/\.bend$/, ".bendtt");
+        const run = (bin: string, args: string[]) => child.spawnSync(bin, args, { encoding: "utf8", timeout: 20000 });
+        const oos = run(process.execPath, ["bend2/main.ts", f, "-o", tt]).stderr.trim();
+        let why = oos !== "" ? oos : "BendTT: " + run(process.env.BENDTT ?? "", [tt]).stdout.trim();
+        const m = /BendTT: In (\S+):\naffine live code/.exec(why);
+        if (m !== null) {
+          const d = run(process.execPath, ["gates/safe_diag.ts", tt, m[1]]);
+          why = why.replace("affine live code, calls that descend", "affine live code, calls that descend: " + (d.stdout + d.stderr).trim().slice(0, 300));
+        }
+        txt += why + "\n";
       }
       res.push({ f, code, ms: Date.now() - t0, out: txt.slice(0, 1500) });
       done();

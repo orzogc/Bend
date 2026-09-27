@@ -17,6 +17,7 @@ law main:
 def main():
   IO.print("hi")
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : '"'
 #|- observed : '.'

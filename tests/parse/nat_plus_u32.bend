@@ -6,6 +6,7 @@ def main() -> Nat:
   1n+5
 
 #|
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Nat
 #|- observed : U32

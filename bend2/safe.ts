@@ -30,8 +30,8 @@
 // names; a name in a type may come later. A def with no body (a law, a
 // native, a foreign fill) goes out opaque at a model: the kernel checks
 // the model, then never unfolds the def. What the kernel cannot express
-// is out of scope: it goes, with every def that names it, and the rest
-// checks.
+// is out of scope: it goes, with every def that names it, and --safe
+// fails.
 
 import * as child from "node:child_process";
 import * as crypto from "node:crypto";
@@ -139,7 +139,7 @@ function oos(why: string): never {
 // the BendTT text of a checked book: every def and datatype not in base,
 // in bend2's fill order, and what they name; a def out of scope goes, as
 // does every def that names it, and oos says why, for each book name
-export function safe_book(book: Book): { text: string; oos: Array<[Name, string]>; n: number } {
+export function safe_book(book: Book): { text: string; oos: Array<[Name, string]> } {
   const e: Safe = { book, mb: { ...book, tlds: Object.create(book.tlds) as Book["tlds"] }, out: [], names: new Map(), seen: new Set(),
     todo: [], taken: new Set(), fail: new Map(), spec: new Map(), groups: new Map(),
     inst: new Map(Object.entries(book.tmps).flatMap(([k, is]) => Object.entries(is).map(([key, n]): [Name, [Name, HTerm[]]] =>
@@ -174,15 +174,14 @@ export function safe_book(book: Book): { text: string; oos: Array<[Name, string]
   }
   e.out = e.out.filter(([k]) => !bad.has(k));
   const oos = roots.filter(([, n]) => bad.has(n)).map(([k, n]): [Name, string] => [k, bad.get(n) as string]);
-  return { text: book_show(e), oos, n: roots.length - oos.length };
+  return { text: book_show(e), oos };
 }
 
 // the columns root k checks at, from its telescope T's parameter j on:
 // a specialized parameter of a finite type (Quant, or a datatype whose
 // constructors have no fields) at each value, any other at an opaque
 // constant k~p of its type, which models read at its model (as bend2
-// checks a template: its body holds at every argument); a template whose
-// constant has no model checks at bend2's instances only, where used
+// checks a template: its body holds at every argument)
 function root_cols(e: Safe, k: Name, T: HTerm, j: number): Cols[] {
   const sp = spec_of(e, k);
   const F = B.term_wnf(e.book, T);
@@ -210,9 +209,6 @@ function root_cols(e: Safe, k: Name, T: HTerm, j: number): Cols[] {
   const def: Def = { $: "Def", n: 0, x: 0, T: F.A, v: null };
   e.book.tlds[c] = def;
   const m = model(e, F.A);
-  if (m === null && e.book.tmps[k] !== undefined) {
-    return [];
-  }
   if (m !== null) {
     e.mb.tlds[c] = { ...def, v: m };
   }
@@ -1399,40 +1395,36 @@ export function kernel_bin(): string {
   return bin;
 }
 
-// the kernel's verdict on a .bendtt file: [ok, text]. Its output goes
-// to a file, not a pipe: under load, bun's spawnSync returned an empty
-// pipe for a kernel that printed its verdict and exited 0 (4 in 32 gate
-// runs; 0 in 24 with a file)
-function kernel_check(file: string): [boolean, string] {
+// the kernel's verdict on a book's text: ok on exit 0 with its exact
+// success line. The text and the kernel's output are files in a fresh
+// private dir, which no one else can swap, not pipes: under load, bun's
+// spawnSync returned an empty pipe for a kernel that printed its verdict
+// and exited 0 (4 in 32 gate runs; 0 in 24 with a file), and a kernel
+// reading /dev/stdin got EBADF (1 in 1486)
+function kernel_check(text: string): boolean {
   const env = { ...process.env, LEAN_STACK_SIZE_KB: "4194304" };
-  const log = path.join(os.tmpdir(), "bendtt-" + String(process.pid) + ".out");
-  const fd = fs.openSync(log, "w");
-  const got = child.spawnSync(kernel_bin(), [file], { stdio: ["ignore", fd, fd], env });
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bendtt-"));
+  const [inp, log] = [path.join(dir, "in.bendtt"), path.join(dir, "out")];
+  fs.writeFileSync(inp, text, { flag: "wx" });
+  const fd = fs.openSync(log, "wx");
+  const got = child.spawnSync(kernel_bin(), [inp], { stdio: ["ignore", fd, fd], env });
   fs.closeSync(fd);
-  const text = fs.readFileSync(log, "utf8").trim();
-  fs.unlinkSync(log);
-  return text === "" ? [false, "the kernel gave no verdict (status " + String(got.status) + ", signal " + String(got.signal)
-    + (got.error === undefined ? "" : ", " + got.error.message) + ")"]
-    : [got.status === 0, text];
+  const out = fs.readFileSync(log, "utf8");
+  fs.rmSync(dir, { recursive: true });
+  return got.status === 0 && out.trim() === "All terms check.";
 }
 
 // -o <out>.bendtt: writes the elaboration of a book bend2 checked to
-// out; gives its root count and a line per def out of scope, with why
-export function safe_emit(book: Book, out: string): [number, string[]] {
+// out; gives a line per def out of scope, with why
+export function safe_emit(book: Book, out: string): string[] {
   const got = safe_book(book);
   fs.writeFileSync(out, got.text);
-  return [got.n, got.oos.map(([k, why]) => "- " + k + ": " + why + "\n")];
+  return got.oos.map(([k, why]) => "- " + k + ": " + why + "\n");
 }
 
-// --safe: elaborates a book bend2 checked to <file>.bendtt, then gives
-// the kernel's verdict on it, and the defs out of its scope with why
-export function safe_check(book: Book, file: string): [boolean, string] {
-  const out = file.replace(/\.bend$/, "") + ".bendtt";
-  const [n, oos] = safe_emit(book, out);
-  if (n === 0) {
-    return [oos.length === 0, "BendTT: " + (oos.length === 0 ? "nothing to check.\n" : "out of scope:\n" + oos.join(""))];
-  }
-  const [ok, text] = kernel_check(out);
-  const but = ok && oos.length !== 0 ? ", but " + String(oos.length) + " out of scope:" : "";
-  return [ok, "BendTT: " + (but === "" ? text : text.replace(/\.$/, "") + but) + "\n" + (ok ? oos.join("") : "")];
+// --safe: whether every def of a book bend2 checked is in the kernel's
+// scope, and the kernel checks them all
+export function safe_check(book: Book): boolean {
+  const got = safe_book(book);
+  return got.oos.length === 0 && kernel_check(got.text);
 }

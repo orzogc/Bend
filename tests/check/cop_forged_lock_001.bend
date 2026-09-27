@@ -25,6 +25,7 @@ law main:
 def main():
   Type
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Type

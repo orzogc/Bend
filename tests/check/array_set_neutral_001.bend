@@ -12,6 +12,7 @@ def main(a):
   x = a@m[0] <- 5
   x
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ':'

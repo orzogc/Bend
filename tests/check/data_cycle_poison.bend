@@ -36,6 +36,7 @@ def main():
   a = mk()
   use2(a, a)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a
 #|- observed : a (consumed more than once)

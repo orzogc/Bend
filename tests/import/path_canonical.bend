@@ -10,6 +10,7 @@ law main:
 def main():
   0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- message  : no such file: /mods/canonical.bend
 #|Location:

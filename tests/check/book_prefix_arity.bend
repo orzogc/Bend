@@ -16,6 +16,7 @@ law main:
 
 def main(): Uu6{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a fresh constructor name (duplicate declaration: K6)
 #|- observed : 'K6'

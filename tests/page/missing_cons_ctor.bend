@@ -12,6 +12,7 @@ law main:
 def main():
   [1]
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Fx
 #|- observed : List

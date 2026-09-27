@@ -28,6 +28,7 @@ law main:
 
 def main(): f(Oy{}, Ay{})
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : cases for By, Cy
 #|- observed : \{}

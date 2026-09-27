@@ -17,6 +17,7 @@ law main:
 
 def main(): f(Tt{})
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : cases for Tt, Ff
 #|- observed : \{}

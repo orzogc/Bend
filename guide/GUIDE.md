@@ -116,7 +116,8 @@ anything. A loop bounded by the outside world, like a server's, counts down a
 `Nat` fuel argument instead, and two mutually recursive functions become one def
 with an extra argument selecting which to run. A `def` marked `@unsafe` recurses
 freely and may call a def written below it, but falls outside Bend's proof
-guarantees. Types are not code, so the order binds only defs: two datatypes, or
+guarantees: `bend` runs it, but a check prints SOME TERMS FAIL and names every
+def that relies on it. Types are not code, so the order binds only defs: two datatypes, or
 a datatype and a type-level def, may name each other in any order.
 
 A `match` inspects a parameter or a variable bound by a pattern, never a
@@ -319,16 +320,15 @@ By convention, a project keeps its laws in two files at its root. `LAWS.bend`
 imports the code and states the laws, each an open claim: the human writes it,
 the AI does not touch it. `PROOF.bend` imports `LAWS.bend` and proves each law
 with a def of the same name (`law sorted` is proven by `def Laws.sorted`): the
-AI writes it, along with the code. `bend PROOF.bend` is the gate: it fails while
-any law is open or false, and prints "All terms check." once every law holds.
+AI writes it, along with the code. `bend PROOF.bend` is the gate: it prints SOME
+TERMS FAIL while any law is open or false, and ALL TERMS CHECK once every law holds.
 bend refuses a `PROOF.bend` that sits beside a `LAWS.bend` without importing it.
 
 `bend PROOF.bend --safe` checks the proofs a second time, with a small kernel
-that has a proof in Lean. It translates the checked file to BendTT, writes it to
-`PROOF.bendtt`, and gives it to the kernel (`-o PROOF.bendtt` only writes it).
-The translation has no proof, so read the `.bendtt` file to confirm a law. A
-foreign def is checked as a model built from its type, not as its C or JS code.
-`@unsafe` defs are out of scope: `--safe` lists what it leaves out, and why.
+that has a proof in Lean: it prints ALL TERMS CHECK only when every def outside
+Base is a valid proof, which bend2 and the kernel both accept, and which relies
+on no `@unsafe` or foreign code. `-o PROOF.bendtt` writes the translation the
+kernel reads; the translation has no proof, so read it to confirm a law.
 
 Bend has no tactics: a proposition is a type, and a proof is a def of that type.
 `{a == b : T}` is an equality; `{==}` proves it when both sides compute to the

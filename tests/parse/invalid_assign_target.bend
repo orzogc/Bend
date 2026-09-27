@@ -17,6 +17,7 @@ def main():
   f(1) = 3
   0
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a pattern (a binder or a constructor)
 #|- observed : f(1)

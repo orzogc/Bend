@@ -9,6 +9,7 @@ law main:
 
 def main(): Unit{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : 'def', 'type' or 'law'
 #|- observed : ':'

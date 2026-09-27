@@ -12,6 +12,7 @@ def caller(k: Nat, x: Nat) -> Nat:
 def main() -> Nat:
   caller(1n, 2n)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a template applied to closed ~ arguments (k is a variable here, not comptime: pass it at run time)
 #|- observed : T

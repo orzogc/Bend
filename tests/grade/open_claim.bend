@@ -21,6 +21,7 @@ law main:
 def main():
   Zero{}
 
+#|SOME TERMS FAIL
 #|Error: 1 TODO found.
 #|The code is incomplete, and not a valid proof yet.
 #|exit 1

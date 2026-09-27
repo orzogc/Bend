@@ -23,6 +23,7 @@ def main(a):
     case FZero{}:
       B{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : cases for True
 #|- observed : \{}

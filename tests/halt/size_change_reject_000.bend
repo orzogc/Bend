@@ -34,6 +34,7 @@ law main:
 
 def main(): go(S{Z{}}, S{Z{}})
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)
 #|- observed : go

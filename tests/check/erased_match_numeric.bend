@@ -16,6 +16,7 @@ law main:
 def main():
   hidden(5)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : '}'
 #|- observed : ':'

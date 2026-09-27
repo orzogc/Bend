@@ -9,6 +9,7 @@ law main:
 def main():
   \{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : cases for U32
 #|- observed : \{}

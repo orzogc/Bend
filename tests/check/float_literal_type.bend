@@ -9,6 +9,7 @@ law main:
 def main():
   1.5
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : U32
 #|- observed : F32

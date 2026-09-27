@@ -12,6 +12,7 @@ law main:
 
 def main(): id(7)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : 'λ'

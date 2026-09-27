@@ -8,6 +8,7 @@ law main:
 
 def main(): Tru{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a declared constructor (MB declares T, F)
 #|- observed : Tru{}

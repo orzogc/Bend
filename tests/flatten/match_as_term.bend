@@ -23,6 +23,7 @@ def main(x, b):
       y = S{x}
       S{y}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : an annotated term (cannot infer)
 #|- observed : S{x}

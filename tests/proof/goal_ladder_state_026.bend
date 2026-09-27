@@ -55,6 +55,7 @@ def le_bump(r, d1, ev, e):
     case 1n+a, 1n+b:
       le_bump(a, b, ev, e)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Empty
 #|- observed : Type

@@ -23,6 +23,7 @@ law main:
 
 def main(): omega(Ln{t => t})
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : f
 #|- observed : f (consumed more than once)

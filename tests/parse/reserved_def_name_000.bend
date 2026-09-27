@@ -9,6 +9,7 @@ law U32:
 def U32():
   Type
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a fresh name (duplicate declaration: U32)
 #|- observed : 'U32'

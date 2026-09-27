@@ -8,6 +8,7 @@ def T(~n: Nat, x: Nat) -> Nat:
 def main() -> Nat:
   T(~True{}, 2n)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : Nat
 #|- observed : Bool

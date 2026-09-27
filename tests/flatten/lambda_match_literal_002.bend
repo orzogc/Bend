@@ -17,6 +17,7 @@ def main():
     F: Z{}
   }
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : an annotated term (cannot infer)
 #|- observed : \{T: @x:W -> W; F: W}

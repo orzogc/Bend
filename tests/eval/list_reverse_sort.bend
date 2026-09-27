@@ -74,4 +74,5 @@ law srt:
 def srt():
   {==}
 
-#|All terms check.
+#|ALL TERMS CHECK
+#|Use --safe for mathematical validity.

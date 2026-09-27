@@ -3,6 +3,7 @@
 # ported from bend3
 def match(): Unit{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a name (got the keyword 'match')
 #|- observed : 'match'

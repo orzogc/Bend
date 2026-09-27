@@ -4,6 +4,7 @@
 type Bad<match: Type>:
   Bb10{}
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a name (got the keyword 'match')
 #|- observed : 'match'

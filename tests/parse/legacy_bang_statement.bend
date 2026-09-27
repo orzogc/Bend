@@ -9,6 +9,7 @@ law main:
 
 def main(): ! x = 1; x
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '!'

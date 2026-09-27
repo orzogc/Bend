@@ -32,6 +32,7 @@ law main:
 def main():
   u0(1)
 
+#|SOME TERMS FAIL
 #|Error:
 #|- expected : a plain clause (only leading clauses take ~)
 #|- observed : '~'
