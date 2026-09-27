@@ -20,7 +20,7 @@ def main():
     x : U32 <- beep(3)
     return x
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : '"'
 #|- observed : '.'

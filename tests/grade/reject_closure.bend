@@ -19,7 +19,7 @@ law dupf:
 def dupf(f):
   f(f(Zero{}))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Type

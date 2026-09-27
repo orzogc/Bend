@@ -6,7 +6,7 @@ type Bool is Data:
 def bad() -> Bool -> Bool:
   \{True: True{}}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : cases for False
 #|- observed : \{}

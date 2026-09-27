@@ -10,7 +10,7 @@ law main:
 def main():
   F32.sqrt(4)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : F32
 #|- observed : U32

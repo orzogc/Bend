@@ -37,7 +37,7 @@ const USAGE = [
   ["bend <file.bend> [args]", "check the file, then run main with args"],
   ["bend <file.bend> -o <out>", "build a binary, or C, JS or BendTT by extension"],
   ["bend <file.bend> --check-only", "check the file and its imports; run nothing"],
-  ["bend <file.bend> --safe", "check it, then recheck it with the proven kernel"],
+  ["bend <file.bend> --verdict", "check it, then recheck it with the proven kernel"],
   ["bend <file.bend> --publish [<name>@<version>]", "publish the file and its imports; a name needs login"],
   ["bend link <name>@<version> 0x<hash>", "name a package already on the hub"],
   ["bend login", "log in to Bender for --publish <name>@…"],
@@ -74,11 +74,11 @@ const DAY = 86400000;
 
 // the verdict on a book: PASS when every def outside Base is a valid proof
 // (see cli_verdict), else FAIL and why
-const PASS = "ALL TERMS CHECK";
+const PASS = "ALL PROOFS CHECK";
 
-const FAIL = "SOME TERMS FAIL";
+const FAIL = "SOME PROOFS FAIL";
 
-const HINT = "Use --safe for mathematical validity.";
+const HINT = "Use --verdict for mathematical validity.";
 
 const MISMATCH = "Sorry - this is a mismatch between the TypeScript implementation,"
   + " and the formalized BendTT kernel. Your proofs may or may not be correct, and"
@@ -232,7 +232,7 @@ async function cli_file(args: string[]): Promise<void> {
   const argv: string[] = [];
   let file: string | undefined;
   let only = false;
-  let safe = false;
+  let verdict = false;
   let checkup = false;
   let publish = false;
   let named: string | undefined;
@@ -242,8 +242,8 @@ async function cli_file(args: string[]): Promise<void> {
       return cli_say(1, HELP);
     } else if (a === "--check-only") {
       only = true;
-    } else if (a === "--safe") {
-      safe = true;
+    } else if (a === "--verdict") {
+      verdict = true;
     } else if (a === "--checkup") {
       checkup = true;
     } else if (a === "--publish") {
@@ -279,8 +279,8 @@ async function cli_file(args: string[]): Promise<void> {
   if (publish && (outs.length !== 0 || only || checkup)) {
     cli_fail("--publish takes no other option");
   }
-  if ((only || safe) && (outs.length !== 0 || checkup || (only && safe))) {
-    cli_fail((safe ? "--safe" : "--check-only") + " takes no other option");
+  if ((only || verdict) && (outs.length !== 0 || checkup || (only && verdict))) {
+    cli_fail((verdict ? "--verdict" : "--check-only") + " takes no other option");
   }
   if (argv.length !== 0 && (outs.length !== 0 || only || checkup || publish)) {
     cli_fail("arguments go to a run: bend <file.bend> [args]");
@@ -298,8 +298,8 @@ async function cli_file(args: string[]): Promise<void> {
     }
     const seen = new Map<string, string | null>();
     const book = await book_read(file, undefined, seen);
-    if (only || safe) {
-      process.exitCode = cli_verdict(book, safe);
+    if (only || verdict) {
+      process.exitCode = cli_verdict(book, verdict);
       return;
     }
     if (outs.length === 0) {

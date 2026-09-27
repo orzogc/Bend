@@ -10,7 +10,7 @@ def M.three() -> Nat:
 def main() -> Nat:
   M.three()
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a fresh name (M is an import's alias)
 #|- observed : 'M.three'

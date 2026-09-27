@@ -15,7 +15,7 @@ law main:
 
 def main(): hidden(T8{})
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- message  : a live scrutinee (a - scrutinee matches only in a dead region)
 #|Location: hidden

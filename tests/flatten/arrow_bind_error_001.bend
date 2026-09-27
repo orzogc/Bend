@@ -16,7 +16,7 @@ law main:
 
 def main(): f(k => k(41))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : 'def', 'type' or 'law'
 #|- observed : '<'

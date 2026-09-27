@@ -8,7 +8,7 @@ law main:
 
 def main(): (\x.x)(3)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : '{'
 #|- observed : 'x'

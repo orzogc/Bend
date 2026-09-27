@@ -45,7 +45,7 @@ def add_swap(x, y, z):
       %add_succ(y, add(q, z)) : {S{add(q, add(y, z))} == _ : N}
       Type
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : {S{add(q, add(y, z))} == S{add(y, add(q, z))} : N}
 #|- observed : Type

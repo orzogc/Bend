@@ -8,7 +8,7 @@ law main:
 def main():
   @Type -> x => Type
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a name (got the keyword 'Type')
 #|- observed : 'Type'

@@ -9,7 +9,7 @@ def coerce(x): x
 
 def F(A): A -> Data
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : F(Type)
 #|- observed : F(Data)

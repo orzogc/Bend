@@ -10,7 +10,7 @@ def main():
   m : [:U32] = ![1:5, _:0; 2]
   m[1]
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ':'

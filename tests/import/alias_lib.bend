@@ -7,5 +7,5 @@ def add(a: Nat, b: Nat) -> Nat:
 def two() -> Nat:
   2n
 
-#|ALL TERMS CHECK
-#|Use --safe for mathematical validity.
+#|ALL PROOFS CHECK
+#|Use --verdict for mathematical validity.

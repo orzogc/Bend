@@ -9,7 +9,7 @@ law main:
 def main():
   GFX.from_fn(3, x => x)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : GFX.from_fn

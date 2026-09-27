@@ -14,7 +14,7 @@ def main():
   b = (![0:P4{1,2}, 1:P4{3,4}, _:N4{}; 8] : [:P4])
   0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '!'

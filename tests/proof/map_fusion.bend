@@ -52,5 +52,5 @@ def fuse(xs):
       %fuse(t) : {U32.add(U32.mul(h, 2), 1) <> map(AddOne{}, map(MulTwo{}, t)) == U32.add(U32.mul(h, 2), 1) <> _ : List<&2, U32>}
       {==}
 
-#|ALL TERMS CHECK
-#|Use --safe for mathematical validity.
+#|ALL PROOFS CHECK
+#|Use --verdict for mathematical validity.

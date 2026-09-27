@@ -12,7 +12,7 @@ def main(a):
   z = a@m[0]
   z
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ':'

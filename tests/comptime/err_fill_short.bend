@@ -17,7 +17,7 @@ def F(f):
 def main() -> Nat:
   F(~(h => h(1n)), ~inc)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a name for each ~ clause of the law (2)
 #|- observed : ':'

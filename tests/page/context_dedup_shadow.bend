@@ -14,7 +14,7 @@ law f:
 def f(x):
   x => {==}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : x^0
 #|- observed : NS{x^0}

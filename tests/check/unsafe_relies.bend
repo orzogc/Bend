@@ -17,7 +17,7 @@ def by_type(e: {boom() == boom() : Empty}) -> Nat:
 def sound(n: Nat) -> Nat:
   n
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error: 3 defs rely on unsafe or foreign code:
 #|- boom
 #|- innocent

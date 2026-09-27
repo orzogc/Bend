@@ -20,7 +20,7 @@ law main:
 def main():
   0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a filled definition (an unfilled law is a dead claim: live code cannot use it)
 #|- observed : EVIL_ADD_HOM

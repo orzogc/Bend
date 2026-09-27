@@ -11,7 +11,7 @@ law relax:
 def relax(f):
   f
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : @x:Nat -> Nat
 #|- observed : @+x:Nat -> Nat

@@ -23,7 +23,7 @@ law main:
 def main():
   0n
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- message  : a parameter or field scrutinee (a match cannot scrutinize a computed value: give it its own def)
 #|Location:

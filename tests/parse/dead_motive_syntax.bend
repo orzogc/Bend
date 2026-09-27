@@ -18,7 +18,7 @@ law main:
 def main():
   0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : ':'
 #|- observed : 'e'

@@ -6,7 +6,7 @@ import ./unsafe_lib.bend as L
 def keep(n: Nat) -> Nat:
   L.safe(n)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error: 1 def relies on unsafe or foreign code:
 #|- unsafe_lib.boom
 #|exit 1

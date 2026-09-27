@@ -3,7 +3,7 @@
 import Base
 import ./unsafe-law/safe.bend as S
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error: 1 def relies on unsafe or foreign code:
 #|- unsafe-law/safe.spin
 #|exit 1

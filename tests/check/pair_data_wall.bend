@@ -60,7 +60,7 @@ law main:
 
 def main(): twice((2, 3))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : p
 #|- observed : p (consumed more than once)

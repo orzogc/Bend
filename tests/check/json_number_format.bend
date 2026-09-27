@@ -8,7 +8,7 @@ law main:
 def main():
   JSON.show(JSON.read("12.50"))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : JSON.show

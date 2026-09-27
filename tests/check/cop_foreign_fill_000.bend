@@ -25,7 +25,7 @@ law dup:
 def dup(A, x):
   magic(A, x)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a foreign definition returning base IO(...) directly (return type aliases are not unfolded)
 #|- observed : magic

@@ -19,7 +19,7 @@ def Pick(~x: Type) -> Type:
 def contradiction() -> (Pick(~Unit + Unit) : Bar):
   Unit{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- message  : a type for this operator (write (a + b : Nat))
 #|Location:

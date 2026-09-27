@@ -3,7 +3,7 @@
 import Base
 import ./unsafe-law/derived.bend as D
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error: 3 defs rely on unsafe or foreign code:
 #|- unsafe-law/laws.false_law
 #|- unsafe-law/succ.succ_is_id

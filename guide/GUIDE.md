@@ -116,9 +116,9 @@ anything. A loop bounded by the outside world, like a server's, counts down a
 `Nat` fuel argument instead, and two mutually recursive functions become one def
 with an extra argument selecting which to run. A `def` marked `@unsafe` recurses
 freely and may call a def written below it, but falls outside Bend's proof
-guarantees: `bend` runs it, but a check prints SOME TERMS FAIL and names every
-def that relies on it. Types are not code, so the order binds only defs: two datatypes, or
-a datatype and a type-level def, may name each other in any order.
+guarantees: `bend` runs it, but a check prints SOME PROOFS FAIL and names every
+def that relies on it. Types are not code, so the order binds only defs: two
+datatypes, or a datatype and a type-level def, may name each other in any order.
 
 A `match` inspects a parameter or a variable bound by a pattern, never a
 computed value: `match sum(xs, 0):` is rejected. Scrutinees follow binder order,
@@ -320,12 +320,13 @@ By convention, a project keeps its laws in two files at its root. `LAWS.bend`
 imports the code and states the laws, each an open claim: the human writes it,
 the AI does not touch it. `PROOF.bend` imports `LAWS.bend` and proves each law
 with a def of the same name (`law sorted` is proven by `def Laws.sorted`): the
-AI writes it, along with the code. `bend PROOF.bend` is the gate: it prints SOME
-TERMS FAIL while any law is open or false, and ALL TERMS CHECK once every law holds.
+AI writes it, along with the code. `bend PROOF.bend` is the gate: it prints
+SOME PROOFS FAIL while any law is open or false, and ALL PROOFS CHECK once every
+law holds.
 bend refuses a `PROOF.bend` that sits beside a `LAWS.bend` without importing it.
 
-`bend PROOF.bend --safe` checks the proofs a second time, with a small kernel
-that has a proof in Lean: it prints ALL TERMS CHECK only when every def outside
+`bend PROOF.bend --verdict` checks the proofs a second time, with a small kernel
+that has a proof in Lean: it prints ALL PROOFS CHECK only when every def outside
 Base is a valid proof, which bend2 and the kernel both accept, and which relies
 on no `@unsafe` or foreign code. `-o PROOF.bendtt` writes the translation the
 kernel reads; the translation has no proof, so read it to confirm a law.
@@ -533,7 +534,7 @@ bend file.bend            # check; run main (IO compiled; a value normalized)
 bend file.bend -o file    # compile to a native binary (clang 14+; 19+ with `!`)
 bend file.bend -o file.c  # emit the C source instead
 bend file.bend -o file.js # emit the JS source instead
-bend file.bend --safe     # check; then recheck with the proven BendTT kernel
+bend file.bend --verdict  # check; then recheck with the proven BendTT kernel
 bend page.html -o dist    # bundle a web page that imports .bend files
 ./file --threads 8        # run a native binary on 8 CPU threads
 ./file --gpu off          # run ! calls on the CPU (the GPU is on by default)
@@ -641,7 +642,7 @@ erased arguments and equations are checked *dead*. Dead code may loop forever or
 inhabit `Empty`, but nothing dead ever counts as live evidence, and live
 recursion must terminate. `bend2/bendtt.lean` is BendTT's kernel in Lean, with
 a proof that no def it accepts has type `Empty` and that live code halts;
-`--safe` checks a file with it. `paper/BendTT.pdf` is the paper.
+`--verdict` checks a file with it. `paper/BendTT.pdf` is the paper.
 
 ## Further Reading
 

@@ -3,7 +3,7 @@
 import Base
 import ./unsafe-law/fill.bend as F
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error: 1 def relies on unsafe or foreign code:
 #|- unsafe-law/laws.false_law
 #|exit 1

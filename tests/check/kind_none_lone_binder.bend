@@ -15,7 +15,7 @@ def g(+x: Z) -> Z:
 def main() -> Nat:
   0n
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Kind(&0)

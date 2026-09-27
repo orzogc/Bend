@@ -15,7 +15,7 @@ law main:
 def main(n):
   \{Sn: (k => T{}); Zn: F{}}({Sn{n} : Nt})
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : an annotated term (cannot infer)
 #|- observed : \{Sn: (k => T{}); Zn: F{}}

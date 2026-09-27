@@ -9,7 +9,7 @@ law main:
 def main():
   1.0 .+. 2.0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : 'def', 'type' or 'law'
 #|- observed : '.'

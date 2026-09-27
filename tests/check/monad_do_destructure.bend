@@ -18,7 +18,7 @@ law main:
 def main():
   0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a pattern (a binder or a constructor)
 #|- observed : Result.bind(&1, &1, U32, Pair(U32, U32), U32, Done{(1, 2)}, p => {(a, b) : Result<&1, &1, U32, U32>})

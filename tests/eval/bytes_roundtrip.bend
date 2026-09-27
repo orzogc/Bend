@@ -9,7 +9,7 @@ law main:
 def main():
   Bytes.to_string(Bytes.from_string("hi"))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : Bytes.to_string

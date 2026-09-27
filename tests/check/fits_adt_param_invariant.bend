@@ -14,7 +14,7 @@ def cData(): Contra{cid}
 law cType: Contra<Type>
 def cType(): cData
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : Contra<Type>
 #|- observed : Contra<Data>

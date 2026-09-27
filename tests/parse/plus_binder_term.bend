@@ -6,7 +6,7 @@ def main() -> U32:
   x = U32.add(1, 1)
   U32.add(+x, 1)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a bound variable
 #|- observed : x^-1

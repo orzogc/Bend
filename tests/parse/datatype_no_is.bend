@@ -11,7 +11,7 @@ law main:
 
 def main(): Unit{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : 'is'
 #|- observed : ':'

@@ -1,4 +1,4 @@
-// safe.ts's node side: runs `bend <f> --safe` on each file named on
+// safe.ts's node side: runs `bend <f> --verdict` on each file named on
 // stdin, PAR at a time, each capped at CAP s, and prints one JSON array
 // of { f, code, ms, out }. On a mismatch (bend2 checks, the kernel does
 // not), out gains why: the defs `-o` leaves out of scope, or else the
@@ -12,7 +12,7 @@ const res: unknown[] = [];
 
 function one(f: string): Promise<void> {
   return new Promise((done) => {
-    const kid = child.spawn(process.execPath, ["bend2/main.ts", f, "--safe"], { env: process.env });
+    const kid = child.spawn(process.execPath, ["bend2/main.ts", f, "--verdict"], { env: process.env });
     let txt = "";
     kid.stdout.on("data", (d) => { txt += d; });
     kid.stderr.on("data", (d) => { txt += d; });

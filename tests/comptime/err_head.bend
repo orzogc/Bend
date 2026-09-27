@@ -5,7 +5,7 @@ import Base
 def main() -> Nat:
   Nat.add(~1n, 2n)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '~'

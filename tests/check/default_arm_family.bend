@@ -33,7 +33,7 @@ law main:
 
 def main(): 0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : Pq(b)
 #|- observed : non-inferrable term

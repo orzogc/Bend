@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
-// The --safe gate: for each file of a corpus, bend2's verdict against
-// BendTT's, from one `bend <f> --safe` run on a mini (ALL TERMS CHECK, or
-// SOME TERMS FAIL and why; safe_node.ts adds why to a mismatch), each
+// The --verdict gate: for each file of a corpus, bend2's verdict against
+// BendTT's, from one `bend <f> --verdict` run on a mini (ALL PROOFS CHECK, or
+// SOME PROOFS FAIL and why; safe_node.ts adds why to a mismatch), each
 // under a 30 s alarm. Classes: agree (both check), u unsafe (a def relies
-// on @unsafe or foreign code: the goal allows it), bend2 rejects (--safe
+// on @unsafe or foreign code: the goal allows it), bend2 rejects (--verdict
 // stops there, so the kernel never accepts more), - out of scope (the
 // kernel cannot express a def), ! false reject (bend2 checks, the kernel
 // rejects), t timeout. A live check failure goes through safe_diag.ts,
@@ -78,7 +78,7 @@ function judge(g: Got): [string, string] {
   if (g.code === null || (g.code as unknown) === null || g.ms >= 29000) {
     return ["t", "timeout"];
   }
-  if (g.code === 0 && out === "ALL TERMS CHECK") {
+  if (g.code === 0 && out === "ALL PROOFS CHECK") {
     return [" ", "agree"];
   }
   if (/^Error: \d+ defs? rel(y|ies) on unsafe or foreign code/m.test(out)) {

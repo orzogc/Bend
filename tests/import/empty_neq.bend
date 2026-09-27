@@ -16,7 +16,7 @@ law main:
 def main():
   Zx{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : Empty

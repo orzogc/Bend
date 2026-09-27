@@ -59,7 +59,7 @@ def main():
     d : Unit <- IO.print(U32.show(lsum(xs)))
     return Unit{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : xs
 #|- observed : xs (consumed more than once)

@@ -11,11 +11,11 @@ lines its run must print, and the gates run on the mini cluster.
     bend2/bend.ts       the language: parser, theory, checker
     bend2/comp.ts       the compiler and the runtimes (C, Metal, CUDA, JS)
     bend2/main.ts       the CLI; imported, the .bend loader for bun and node
-    bend2/safe.ts       --safe and -o <out>.bendtt: the elaborator from a
+    bend2/safe.ts       --verdict and -o <out>.bendtt: the elaborator from a
                         checked book to BendTT text
     bend2/bendtt.lean   BendTT: the kernel, its claims (no checked def has type
-                        Empty, live code halts) and their proofs; --safe builds
-                        its CLI once, with Lean v4.34.0
+                        Empty, live code halts) and their proofs; --verdict
+                        builds its CLI once, with Lean v4.34.0
     bend2/base.bend     the base library
     bend2/effs/         IO effect sources per backend; related effects may share
     bend2/pack/         package.json, tsconfig.json, bun.lock

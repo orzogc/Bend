@@ -31,7 +31,7 @@ def main() -> IO(Unit):
   do List<Unit>:
     IO.print("5")
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : List<&1, Unit>
 #|- observed : @-R:Type -> @k:(@_:Unit -> IO.OP<R>) -> IO.OP<R>

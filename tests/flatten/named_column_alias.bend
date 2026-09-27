@@ -17,7 +17,7 @@ def main(x):
     case S{p}:
       x
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ')'

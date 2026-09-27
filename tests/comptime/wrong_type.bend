@@ -9,7 +9,7 @@ def app(~f: Nat -> Nat, x: Nat) -> Nat:
 def main() -> Nat:
   app(~Bool.not, 3n)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : @_:Nat -> Nat
 #|- observed : @b:Bool -> Bool

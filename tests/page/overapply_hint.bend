@@ -9,7 +9,7 @@ law main:
 
 def main(): id(1, 2)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a function type
 #|- observed : U32

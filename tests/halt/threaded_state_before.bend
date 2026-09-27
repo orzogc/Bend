@@ -22,7 +22,7 @@ law main:
 def main():
   U32.to_nat(go(10, 3n))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a decreasing self-call (arguments are read left to right: each passed unchanged until one shrinks)
 #|- observed : go

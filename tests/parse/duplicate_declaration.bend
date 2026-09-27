@@ -12,7 +12,7 @@ law main:
 
 def main(): Un{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a fresh name (duplicate declaration: main)
 #|- observed : 'main'

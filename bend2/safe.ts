@@ -1,6 +1,6 @@
 // Safe
 // ====
-// `bend f.bend --safe` checks f.bend twice: bend2 checks it, then
+// `bend f.bend --verdict` checks f.bend twice: bend2 checks it, then
 // safe_book elaborates the checked book to BendTT (bend2/bendtt.lean,
 // the minimal kernel with a proof) and the kernel's CLI checks the text.
 // The elaborator reads bend2's checked terms (Def.e: every node wrapped
@@ -30,7 +30,7 @@
 // names; a name in a type may come later. A def with no body (a law, a
 // native, a foreign fill) goes out opaque at a model: the kernel checks
 // the model, then never unfolds the def. What the kernel cannot express
-// is out of scope: it goes, with every def that names it, and --safe
+// is out of scope: it goes, with every def that names it, and --verdict
 // fails.
 
 import * as child from "node:child_process";
@@ -1387,7 +1387,7 @@ export function kernel_bin(): string {
     const got = child.spawnSync(bin, args, { cwd: dir, encoding: "utf8" });
     if (got.status !== 0) {
       throw new Error("the kernel did not build (" + bin + ": " + (got.error?.message ?? got.stderr.slice(0, 300))
-        + "); --safe needs Lean v4.34.0 (elan toolchain leanprover/lean4:v4.34.0), or $BENDTT set to a built kernel");
+        + "); --verdict needs Lean v4.34.0 (elan toolchain leanprover/lean4:v4.34.0), or $BENDTT set to a built kernel");
     }
   };
   run(tool("lean"), ["-c", "bendtt.c", "bendtt.lean"]);
@@ -1422,7 +1422,7 @@ export function safe_emit(book: Book, out: string): string[] {
   return got.oos.map(([k, why]) => "- " + k + ": " + why + "\n");
 }
 
-// --safe: whether every def of a book bend2 checked is in the kernel's
+// --verdict: whether every def of a book bend2 checked is in the kernel's
 // scope, and the kernel checks them all
 export function safe_check(book: Book): boolean {
   const got = safe_book(book);

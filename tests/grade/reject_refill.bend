@@ -10,7 +10,7 @@ law boom:
 def boom():
   IO.pure(Unit, Unit{})
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a fresh name (duplicate declaration: IO)
 #|- observed : 'IO'

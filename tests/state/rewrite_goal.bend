@@ -46,7 +46,7 @@ def spec_thm(n, x):
       %spec_thm(p, S{x}) : {S{plus1(p, x)} == _ : MN}
       {==}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : S{plus1(p, x)}
 #|- observed : plus1(p, S{x})

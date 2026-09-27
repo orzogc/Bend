@@ -10,7 +10,7 @@ def main():
   x = (1, 2)
   Type
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a declared constructor
 #|- observed : (1, 2)

@@ -18,7 +18,7 @@ law main:
 def main():
   opnd(5)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : -x
 #|- observed : x

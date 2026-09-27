@@ -21,7 +21,7 @@ def f(b: N) -> Empty:
 def boom() -> Empty:
   f(Zero{Un{}})
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- message  : a Zero pattern with 1 field
 #|Location:

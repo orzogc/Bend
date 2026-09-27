@@ -10,7 +10,7 @@ def main():
   a = (![70000: 9, _: 1; 131072] : [:U32])
   0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '!'

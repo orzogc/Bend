@@ -9,7 +9,7 @@ law main:
 def main():
   Deque.push_front(1, Deque.new())
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : Deque.push_front

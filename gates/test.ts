@@ -42,7 +42,7 @@ const MARK = "@@B4";
 const BUN = lib.BUN;
 
 // the head of a failed check's output, or of a failed program's
-const FAILS = /^(SOME TERMS FAIL|Error:)/;
+const FAILS = /^(SOME PROOFS FAIL|Error:)/;
 
 // Test
 // ====
@@ -69,7 +69,7 @@ function test_path(t: Test): string {
   return t.name.replace("_", "/") + ".bend";
 }
 
-// a test that fails: its check (SOME TERMS FAIL) or its program (Error:)
+// a test that fails: its check (SOME PROOFS FAIL) or its program (Error:)
 function test_fails(t: Test): boolean {
   return FAILS.test(t.want);
 }

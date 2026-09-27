@@ -10,7 +10,7 @@ def K(T): @+x:T -> Empty
 law KAny: @T:Type -> Type
 def KAny(T): ({K : @U:Type -> Type})(T)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : @U:Type -> Type
 #|- observed : @T:Data -> Type

@@ -34,7 +34,7 @@ law main:
 
 def main(): f(Nl1{}, Nl1{}, Nl1{})
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : cases for Cl1
 #|- observed : \{}

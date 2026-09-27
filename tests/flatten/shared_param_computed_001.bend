@@ -17,7 +17,7 @@ def main(v):
     case S{p}:
       p
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- message  : a parameter or field scrutinee (a match cannot scrutinize a local binder: give it its own def)
 #|Location:

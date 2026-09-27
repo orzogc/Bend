@@ -16,7 +16,7 @@ law main:
 
 def main(): id2
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : U32
 #|- observed : @-A:Type -> @x:A -> A

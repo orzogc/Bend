@@ -43,7 +43,7 @@ law main:
 
 def main(): delta(Empty, MkD2{delta(Empty)})
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a fresh name (duplicate declaration: String.eq)
 #|- observed : 'String.eq'

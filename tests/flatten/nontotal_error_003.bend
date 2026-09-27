@@ -18,7 +18,7 @@ law main:
 
 def main(): pred(Se3{Ze3{}})
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : cases for Ze3
 #|- observed : \{}

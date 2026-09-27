@@ -48,7 +48,7 @@ law main:
 def main():
   total(shift(10, C{1, C{2, N{}}}))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a plain clause (only leading clauses take ~)
 #|- observed : '~'

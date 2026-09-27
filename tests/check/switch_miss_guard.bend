@@ -33,7 +33,7 @@ law main:
 def main():
   0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : isZ(U32{WCon{_4, _5}})
 #|- observed : F32

@@ -6,7 +6,7 @@ type String is Data:
 def s() -> String:
   "abc"
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a declared constructor (String declares Foo)
 #|- observed : "abc"

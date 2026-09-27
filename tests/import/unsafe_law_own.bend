@@ -5,7 +5,7 @@ import ./unsafe-law/laws.bend as Laws
 def Laws.false_law?():
   Laws.false_law()
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error: 1 def relies on unsafe or foreign code:
 #|- unsafe-law/laws.false_law
 #|exit 1

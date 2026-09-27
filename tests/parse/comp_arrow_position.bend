@@ -18,7 +18,7 @@ law main:
 def main():
   f(3)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '~'

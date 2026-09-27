@@ -9,7 +9,7 @@ law main:
 def main():
   [0:1,0:2,_:0;2]
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : '^'
 #|- observed : ','

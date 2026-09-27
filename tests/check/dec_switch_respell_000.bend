@@ -27,7 +27,7 @@ law main:
 def main():
   0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : 1 patterns (one per scrutinee)
 #|- observed : '1+p'

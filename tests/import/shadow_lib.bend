@@ -6,7 +6,7 @@ import Base
 def Nat.add(a: Nat, b: Nat) -> Bool:
   True{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a fresh name (duplicate declaration: Nat.add)
 #|- observed : 'Nat.add'

@@ -13,7 +13,7 @@ law main:
 
 def main(): 0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : x => y => x
 #|- observed : x => y => y

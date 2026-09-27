@@ -40,7 +40,7 @@ law main:
 def main():
   2n
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : ':'
 #|- observed : '='

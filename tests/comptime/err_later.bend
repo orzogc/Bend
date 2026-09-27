@@ -8,7 +8,7 @@ def main() -> Nat:
 def app(~f: Nat -> Nat, x: Nat) -> Nat:
   f(x)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '~'

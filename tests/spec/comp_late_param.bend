@@ -37,7 +37,7 @@ law main:
 def main():
   total(each(C{1, C{2, C{3, N{}}}}, x => (x * 2 : U32)))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a plain clause (only leading clauses take ~)
 #|- observed : '~'

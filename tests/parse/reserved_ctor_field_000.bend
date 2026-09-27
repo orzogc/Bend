@@ -8,7 +8,7 @@ law main:
 
 def main(): Mk8{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a name (got the keyword 'Type')
 #|- observed : 'Type'

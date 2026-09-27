@@ -13,7 +13,7 @@ def main():
     x : Unit <- TLS.close(h)
     return 0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : TLS.connect

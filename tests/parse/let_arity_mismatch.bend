@@ -18,7 +18,7 @@ def main():
   a, b = f(1)
   a
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : 'def', 'type' or 'law'
 #|- observed : ','

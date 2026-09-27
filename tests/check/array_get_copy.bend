@@ -13,7 +13,7 @@ def main():
   x = b@b1[0]
   (x + x : U32)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : '!'

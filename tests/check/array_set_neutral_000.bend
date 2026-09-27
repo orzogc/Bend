@@ -12,7 +12,7 @@ def main(a):
   old = a@m[0] <- 9
   m
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ':'

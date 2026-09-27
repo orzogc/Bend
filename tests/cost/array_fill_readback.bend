@@ -11,7 +11,7 @@ def main():
   m : [:U32] = ![31:0, _:0; 32]
   m[0]
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a term
 #|- observed : ':'

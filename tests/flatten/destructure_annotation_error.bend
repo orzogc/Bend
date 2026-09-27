@@ -29,7 +29,7 @@ law main:
 
 def main(): swap(Pq2{1, 2})
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : Bw7
 #|- observed : Pw2

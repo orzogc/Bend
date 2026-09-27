@@ -54,7 +54,7 @@ law main:
 def main():
   fold(a => b => (a + b : U32), odds(), 0)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : '='
 #|- observed : ':'

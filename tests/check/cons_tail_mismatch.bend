@@ -8,7 +8,7 @@ law main:
 def main():
   1 <> 2
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : List<&2, U32>
 #|- observed : U32

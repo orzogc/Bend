@@ -32,7 +32,7 @@ law main:
 def main():
   once(10, 1)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a template applied to closed ~ arguments (k is a variable here, not comptime: pass it at run time)
 #|- observed : apply

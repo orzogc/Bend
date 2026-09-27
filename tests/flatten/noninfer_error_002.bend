@@ -21,7 +21,7 @@ law main:
 def main():
   Z{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : an annotated term (cannot infer)
 #|- observed : \{Sn: (k => Z{})}

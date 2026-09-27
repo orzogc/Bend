@@ -8,7 +8,7 @@ law main:
 def main():
   Bag.total(Bag.add(1, Bag.new()))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : Bag.total

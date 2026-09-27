@@ -46,7 +46,7 @@ law main:
 def main():
   main_route(routes())
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : HTTP.Router

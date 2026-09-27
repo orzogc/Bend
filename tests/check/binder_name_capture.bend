@@ -22,7 +22,7 @@ law main:
 
 def main(): worse(Unit5, Empty5, U5{})
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : b
 #|- observed : a

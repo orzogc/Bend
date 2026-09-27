@@ -34,7 +34,7 @@ def main():
   b = mk()
   U32.add(use(b), use(b))
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : b
 #|- observed : b (consumed more than once)

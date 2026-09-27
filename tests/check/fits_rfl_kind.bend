@@ -7,7 +7,7 @@ type Empty is Data:
 law data_type: {Data == Type : Type}
 def data_type(): {==}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Type

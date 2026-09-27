@@ -18,7 +18,7 @@ law main:
 def main():
   pick<U32>!(1, 2)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : '('
 #|- observed : '<'

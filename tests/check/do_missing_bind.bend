@@ -14,7 +14,7 @@ def main():
     x : U32 <- Mk{3}
     return x
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a defined name
 #|- observed : Box.bind

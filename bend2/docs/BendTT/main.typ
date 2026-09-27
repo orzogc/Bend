@@ -1041,7 +1041,7 @@ The theorem `consistent` is about `Book.check`, the function that
 `main` runs. So the theorem covers the checker that runs, and no model
 stands between the two. Two parts sit outside the proof. The parser is
 not verified. And Bend reaches BendTT through a translation, written in
-TypeScript, that has no proof. The command `bend --safe` runs this
+TypeScript, that has no proof. The command `bend --verdict` runs this
 translation and then the kernel, and it writes the translated book to a
 file, where a reader can check what a law states.
 

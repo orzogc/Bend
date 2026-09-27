@@ -3,7 +3,7 @@
 law F: Type -> Type
 type Bad is F(Type):
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : a kind (type Bad<..> is Kind(g))
 #|- observed : F(Type)

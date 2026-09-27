@@ -9,7 +9,7 @@ def innocent() -> Empty:
 def keep(n: Nat) -> Nat:
   L.safe(n)
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error: 2 defs rely on unsafe or foreign code:
 #|- unsafe_lib.boom
 #|- innocent

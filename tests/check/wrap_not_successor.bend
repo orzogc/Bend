@@ -29,7 +29,7 @@ law main:
 def main():
   0
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : f(U32.add(1, x))
 #|- observed : 0

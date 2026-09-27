@@ -35,7 +35,7 @@ def tag.on():
   import "./marshal_imported_nullary_type.c"
   import "./marshal_imported_nullary_type.js"
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error: 2 defs rely on unsafe or foreign code:
 #|- tag.off
 #|- tag.on

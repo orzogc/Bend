@@ -22,7 +22,7 @@ law dupr:
 def dupr(r):
   Zero{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Type

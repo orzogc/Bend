@@ -9,7 +9,7 @@ def f(e):
   %e : U32
   3
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : an equation {a == b : T}
 #|- observed : U32

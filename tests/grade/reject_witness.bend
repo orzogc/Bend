@@ -29,7 +29,7 @@ law dup:
 def dup(T, c, x):
   Tuple{x, x}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error:
 #|- expected : Data
 #|- observed : Type

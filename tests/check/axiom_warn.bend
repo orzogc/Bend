@@ -16,7 +16,7 @@ law main:
 
 def main(): Zn1{}
 
-#|SOME TERMS FAIL
+#|SOME PROOFS FAIL
 #|Error: 1 TODO found.
 #|The code is incomplete, and not a valid proof yet.
 #|exit 1
