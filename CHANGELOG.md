@@ -3,6 +3,22 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.30 (2026-09-27)
+
+- **`bend f.bend --safe` rechecks a file with a proven kernel**: after
+  bend's own checker, it translates the file to BendTT (`f.bendtt`) and
+  checks that with `bend2/bendtt.lean`, a small kernel with a Lean proof
+  that no def it accepts has type `Empty` and that live code halts. The
+  first run builds the kernel with Lean v4.34.0 (elan's toolchain, or
+  `$BENDTT` names a built one). `@unsafe` defs stay out of scope, and
+  `--safe` lists them. `-o f.bendtt` only writes the translation.
+- **The kernel has full J**: a rewrite's motive can name the evidence.
+- **base.bend**: the `Array.get`, `Array.swap` and `Map` helpers recurse on
+  their own pieces, so the kernel checks them; a few `.if`/`.bit`/`.deep`
+  helpers and five laws are gone.
+- **The BendTT paper** (`paper/BendTT.pdf`) is rewritten for the new kernel;
+  `bend2/bend.lean` is gone, and `bend2/bendtt.lean` is the only Lean file.
+
 ## 2.0.29 (2026-09-26)
 
 - **The JS lane runs about 2.3x faster** (PR #1061 by nicolas-abril, and a

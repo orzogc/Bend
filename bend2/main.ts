@@ -30,7 +30,7 @@ import * as Safe from "./safe.ts";
 // Constants
 // =========
 
-const VERSION = "2.0.29";
+const VERSION = "2.0.30";
 
 const HELP = `Bend ${VERSION}: check, run, build and publish Bend programs.
 
