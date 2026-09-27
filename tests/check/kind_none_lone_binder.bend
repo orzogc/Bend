@@ -24,4 +24,5 @@ def main() -> Nat:
 #|12>| def g(+x: Z) -> Z:
 #|   |           ^
 #|13 |   x
+#|Note: +x can be used many times, so its type must be Data.
 #|exit 1

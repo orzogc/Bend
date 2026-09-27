@@ -31,4 +31,5 @@ def dupr(r):
 #|19>|   for +r: Res
 #|   |           ^^^
 #|20 |   Nat
+#|Note: +r can be used many times, so its type must be Data.
 #|exit 1

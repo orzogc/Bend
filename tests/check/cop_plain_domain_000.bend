@@ -28,4 +28,5 @@ def main():
 #|8>|   for +x: T
 #|  |           ^
 #|9 |   T & T
+#|Note: +x can be used many times, so its type must be Data.
 #|exit 1

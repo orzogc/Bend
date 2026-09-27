@@ -79,6 +79,8 @@ type Event is Data:
   Key{code: U32, down: Bool}
   Mouse{x: U32, y: U32, button: U32, down: Bool}
   Move{x: U32, y: U32}
+  Look{dx: F32, dy: F32}
+  Scroll{x: U32, y: U32, dx: F32, dy: F32}
   Close{}
 
 type Map<a, -V: Kind(a)> is Kind(a):
@@ -171,6 +173,8 @@ def IO.get_env(name: String) -> IO(Result<&1, &1, U32 & String, String>):
   import "./effs/get_env.c"
   import "./effs/get_env.js"
 
+# The command line, less the runtime's own options: the program as invoked
+# (the binary, the JS file or the .bend file), then its arguments.
 def IO.args() -> IO(List<String>):
   import "./effs/args.c"
   import "./effs/args.js"
@@ -248,6 +252,15 @@ def IO.join.go(-A: Type, chan: Chan(A), got: Maybe<&1, A>) -> IO(A):
 def IO.join(-A: Type, +chan: Chan(A)) -> IO(A):
   IO.bind(Maybe<&1, A>, A, Chan.recv(A, chan), IO.join.go(A, chan))
 
+# Some{x} if act answers x within ms milliseconds, else None{}. The loser
+# is not cancelled: it runs to its end before the program exits.
+def IO.within(-A: Type, ms: U32, act: IO(A)) -> IO(Maybe<&1, A>):
+  won = IO.bind(A, Maybe<&1, A>, act, x => IO.pure(Maybe<&1, A>, Some{x}))
+  late = IO.bind(Unit, Maybe<&1, A>, IO.sleep(ms), u => IO.pure(Maybe<&1, A>, None{}))
+  both = IO.bind(Chan(Maybe<&1, A>), Chan(Maybe<&1, A>), IO.fork(Maybe<&1, A>, won),
+    IO.fork.go(Maybe<&1, A>, late))
+  IO.bind(Chan(Maybe<&1, A>), Maybe<&1, A>, both, c => IO.join(Maybe<&1, A>, c))
+
 def File.open(path: String, mode: String) ->
   IO(Result<&1, &1, U32 & String, File>):
   import "./effs/file_open.c"
@@ -287,7 +300,7 @@ def File.close(file: File) -> IO(Unit):
   import "./effs/file_close.c"
   import "./effs/file_close.js"
 
-def TCP.listen(port: U32) -> IO(Result<&1, &1, U32 & String, Listener>):
+def TCP.listen(host: String, port: U32) -> IO(Result<&1, &1, U32 & String, Listener>):
   import "./effs/tcp_listen.c"
   import "./effs/tcp_listen.js"
 
@@ -311,12 +324,25 @@ def TCP.recv(sock: Socket, max: U32) ->
   import "./effs/tcp_recv.c"
   import "./effs/tcp_recv.js"
 
+# The bytes as they are (0..255), one List cell each: no UTF-8 decoding, so
+# binary data and a character split between two reads survive. A value past
+# 255 fails with EINVAL before any byte is sent.
+def TCP.send_bytes(sock: Socket, data: List<&2, U32>) ->
+  IO(Socket & Result<&1, &1, U32 & String, Unit>):
+  import "./effs/tcp_send.c"
+  import "./effs/tcp_send.js"
+
+def TCP.recv_bytes(sock: Socket, max: U32) ->
+  IO(Socket & Result<&1, &1, U32 & String, List<&2, U32>>):
+  import "./effs/tcp_recv.c"
+  import "./effs/tcp_recv.js"
+
 def TCP.poll(sock: Socket, max: U32, ms: U32) ->
   IO(Socket & Result<&1, &1, U32 & String, Maybe<&1, String>>):
   import "./effs/tcp_poll.c"
   import "./effs/tcp_poll.js"
 
-def UDP.bind(port: U32) -> IO(Result<&1, &1, U32 & String, Socket>):
+def UDP.bind(host: String, port: U32) -> IO(Result<&1, &1, U32 & String, Socket>):
   import "./effs/udp_bind.c"
   import "./effs/udp_bind.js"
 
@@ -345,20 +371,26 @@ def Listener.close(listener: Listener) -> IO(Unit):
 
 def Window.open(title: String, width: U32, height: U32) ->
   IO(Result<&1, &1, U32 & String, Window>):
-  import "./effs/window_open.c"
+  import "./effs/window.c"
   import "./effs/window_open.js"
 
 def Window.frame(window: Window, image: Image) ->
   IO(Window & Image & List<Event>):
-  import "./effs/window_frame.c"
+  import "./effs/window.c"
   import "./effs/window_frame.js"
 
 def Window.set_title(window: Window, title: String) -> IO(Window):
-  import "./effs/window_set_title.c"
+  import "./effs/window.c"
   import "./effs/window_set_title.js"
 
+# While grabbed, the cursor is hidden and held, and the mouse's motion
+# comes as Look deltas instead of Move; losing focus releases it.
+def Window.grab(window: Window, on: Bool) -> IO(Window):
+  import "./effs/window.c"
+  import "./effs/window_grab.js"
+
 def Window.close(window: Window) -> IO(Unit):
-  import "./effs/window_close.c"
+  import "./effs/window.c"
   import "./effs/window_close.js"
 
 def Audio.open(rate: U32) -> IO(Result<&1, &1, U32 & String, Audio>):
@@ -2972,7 +3004,7 @@ def App.run(
 ) -> IO(Unit):
   do IO<Unit>:
     window : Window <- IO.try(Window, Window.open(title, width, height))
-    App.loop(~S, ~app, U32.to_nat(4294967295), window, state)
+    App.loop(~S, ~app, 4294967295n, window, state)
 
 def App.more(-S: Type, rest: S -> IO(Maybe<S>), next: Maybe<S>) ->
   IO(Maybe<S>):

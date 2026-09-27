@@ -25,7 +25,7 @@ function one(f: string): Promise<void> {
         const run = (bin: string, args: string[]) => child.spawnSync(bin, args, { encoding: "utf8", timeout: 20000 });
         const oos = run(process.execPath, ["bend2/main.ts", f, "-o", tt]).stderr.trim();
         let why = oos !== "" ? oos : "BendTT: " + run(process.env.BENDTT ?? "", [tt]).stdout.trim();
-        const m = /BendTT: In (\S+):\naffine live code/.exec(why);
+        const m = /^In (\S+):\naffine live code/m.exec(why);
         if (m !== null) {
           const d = run(process.execPath, ["gates/safe_diag.ts", tt, m[1]]);
           why = why.replace("affine live code, calls that descend", "affine live code, calls that descend: " + (d.stdout + d.stderr).trim().slice(0, 300));

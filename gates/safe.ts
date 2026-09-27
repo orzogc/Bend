@@ -91,7 +91,7 @@ function judge(g: Got): [string, string] {
   if (tt.startsWith("out of scope")) {
     return ["-", "out of scope: " + [...tt.matchAll(/^- \S+: (.*)$/gm)].map((m) => m[1]).slice(0, 2).join(" | ").slice(0, 160)];
   }
-  return ["!", tt.split("\n").slice(0, 2).join(" | ").slice(0, 300)];
+  return ["!", tt.split("\n").slice(1, 3).join(" | ").slice(0, 300)];
 }
 const rows = gots.map((g) => [...judge(g), g.f, g.out] as const);
 fs.mkdirSync(OUT, { recursive: true });

@@ -1301,10 +1301,10 @@ def main (args : List String) : IO UInt32 := do
     let s ← IO.FS.readFile path
     match Book.parse s >>= Book.check with
     | .ok _ =>
-      IO.println "All terms check."
+      IO.println "ALL PROOFS CHECK"
       pure 0
     | .error e =>
-      IO.println e
+      IO.println ("SOME PROOFS FAIL\n" ++ e)
       pure 1
   | _ =>
     IO.println "usage: bendtt <file.bendtt>"

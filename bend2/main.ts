@@ -30,12 +30,12 @@ import * as Safe from "./safe.ts";
 // Constants
 // =========
 
-const VERSION = "2.0.31";
+const VERSION = "2.0.32";
 
 // the commands, one row each: [usage, what it does]; bend guide stays last
 const USAGE = [
   ["bend <file.bend> [args]", "check the file, then run main with args"],
-  ["bend <file.bend> -o <out>", "build a binary, or C, JS or BendTT by extension"],
+  ["bend <file.bend> -o <out>", "build a binary, or C, JS, .mjs or BendTT by extension"],
   ["bend <file.bend> --check-only", "check the file and its imports; run nothing"],
   ["bend <file.bend> --verdict", "check it, then recheck it with the proven kernel"],
   ["bend <file.bend> --publish [<name>@<version>]", "publish the file and its imports; a name needs login"],
@@ -93,10 +93,9 @@ const SPDX_RE = /^\s*SPDX-License-Identifier:\s*([A-Za-z0-9.+\-() ]{1,80}?)\s*$/
 
 // A package's proof of work is a nonce whose sha256(hash + " " + nonce)
 // opens (its top 53 bits) with a number under 2^53 / work, where work is
-// POW hashes (two seconds of an M4 Max's sixteen cores) per 256 KiB of
-// package, and no less. Every core mines; the hub checks it with one hash.
-const POW = 140000000;
-
+// the hub's pow hashes (GET /pow.json; two seconds of an M4 Max's sixteen
+// cores) per 256 KiB of package, and no less. Every core mines; the hub
+// checks it with one hash.
 const POW_JS = `
 const crypto = require("node:crypto");
 const { parentPort, workerData: { pre, lim, from, step } }
@@ -303,7 +302,7 @@ async function cli_file(args: string[]): Promise<void> {
       return;
     }
     if (outs.length === 0) {
-      process.exitCode = book_run(book, argv);
+      process.exitCode = book_run(book, [file, ...argv]);
       return;
     }
     const ins = new Set([...seen.keys(), ...Object.values(book.tlds).flatMap((t) =>
@@ -338,7 +337,7 @@ async function cli_checkup(file: string): Promise<void> {
     let code = 1;
     try {
       const own = /^import Base$/m.test(fs.readFileSync(at, "utf8"));
-      code = book_run(await book_read(at, own ? base : undefined), []);
+      code = book_run(await book_read(at, own ? base : undefined), [at]);
     } catch (e) {
       cli_say(2, book_err(e) + "\n");
     }
@@ -357,7 +356,9 @@ function path_real(p: string): string {
 }
 
 function cli_emit(book: Bend.Book, out: string): void {
-  if (/\.c?js$/.test(out)) {
+  if (out.endsWith(".mjs")) {
+    fs.writeFileSync(out, Comp.js_lib(book, true));
+  } else if (/\.c?js$/.test(out)) {
     fs.writeFileSync(out, Comp.js_book(book));
   } else if (out.endsWith(".c")) {
     fs.writeFileSync(out, Comp.compile_book(book));
@@ -396,14 +397,14 @@ function cc_find(gpu: boolean): string {
   const olds: string[] = [];
   const ccs  = [...(process.env.CC ? [process.env.CC] : []), "clang", ...nums];
   for (const cc of ccs) {
-    const out = child.spawnSync(cc, ["--version"], { encoding: "utf8" }).stdout ?? "";
+    const [got, out] = Safe.run_read(cc, ["--version"]);
     const m   = /^(Apple )?(?:\w+ )?clang version (\d+)/m.exec(out);
     const need = gpu ? (m?.[1] === undefined ? 19 : 17) : 14;
     if (m !== null && Number(m[2]) >= need) {
       return cc;
     }
     olds.push(m !== null ? "clang " + m[2] + " as " + cc
-      : out ? cc + ", which is not clang" : "no " + cc);
+      : got.status === 0 && out ? cc + ", which is not clang" : "no " + cc);
   }
   throw "Error: bend needs clang " + (gpu ? "19 (Apple clang 17)" : "14")
     + " or newer to build " + (gpu ? "a GPU program" : "binaries") + " (found "
@@ -689,8 +690,9 @@ function sha256(text: string): string {
 }
 
 async function pow_mine(hash: string, bytes: number): Promise<number> {
+  const pow  = Number((await hub_ask("/pow.json", "")).pow);
   const step = os.availableParallelism();
-  const lim  = 2 ** 53 / (POW * Math.max(1, bytes / 262144));
+  const lim  = 2 ** 53 / (pow * Math.max(1, bytes / 262144));
   const ws   = Array.from({ length: step }, (_, k) => new thr.Worker(POW_JS,
     { eval: true, workerData: { pre: hash + " ", lim, from: k, step } }));
   const n = await new Promise<number>((res) =>
@@ -803,7 +805,7 @@ async function book_read(file: string, base?: Bend.Book,
     const laws = path.join(path.dirname(file), "LAWS.bend");
     if (path.basename(file) === "PROOF.bend" && fs.existsSync(laws)
       && !seen.has(fs.realpathSync(laws))) {
-      cli_fail("PROOF.bend must import ./LAWS.bend");
+      throw "Error: PROOF.bend must import ./LAWS.bend";
     }
     Bend.book_valid(book, base?.order.length ?? 0);
     if (book.hols > 0) {
@@ -870,14 +872,7 @@ function book_err(e: unknown): string {
 
 async function load_js(path: string): Promise<string> {
   try {
-    const book = await book_read(path);
-    const outs = [...new Set(book.order)].filter((k) => {
-      const tld = book.tlds[k];
-      return tld.$ === "Def" && tld.v !== null && tld.b !== true
-        && tld.x === 0 && tld.i === undefined
-        && Comp.io_base(book, tld.T) === null;
-    });
-    return Comp.js_lib(book, outs, outs);
+    return Comp.js_lib(await book_read(path), true);
   } catch (e) {
     throw new Error(book_err(e));
   }

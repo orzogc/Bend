@@ -3,6 +3,47 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.32 (2026-09-27)
+
+- **One verdict: `ALL PROOFS CHECK` or `SOME PROOFS FAIL`**: `bend f.bend`
+  on a file with no main (or `--check-only`) prints one of the two. A proof
+  holds when bend checks it and it uses no `@unsafe` def and no user foreign
+  code, imports included. `--verdict` (was `--safe`) also rechecks every
+  def with the proven BendTT kernel; it no longer writes `f.bendtt`, and
+  `-o f.bendtt` does. Function-typed terms go to the kernel η-long.
+- **Breaking: `TCP.listen` and `UDP.bind` take the address to bind** (#1088,
+  PR #1098 by oxura): a server no longer listens on every interface.
+- **Breaking: `IO.args()` starts with the program as invoked** (#935), as C's
+  argv does; the arguments start at index 1.
+- **`IO.within` races an action against a deadline** (#1034).
+- **`TCP.send_bytes` and `TCP.recv_bytes`** carry bytes as they are (#846).
+- **`-o f.mjs` writes an ES module** of a Bend file (#1029).
+- **Windows**: `Window.grab` holds the cursor for a first-person camera, and
+  the mouse's motion comes as `Look{dx, dy}` (#921, PR #1073 by
+  nicolas-abril); `Scroll{x, y, dx, dy}` events come from the wheel and the
+  trackpad (#1020, PR #1114 by oxura); macOS input no longer lags (#842);
+  Shift+Tab on X11 gives the Mac's back tab; the Linux window fills a frame
+  by squares, about 6x faster (PR #1115 by costamatheus97).
+- **Fixes**:
+  - A native intrinsic on a nullary def keeps its result layout (#1093,
+    PR #1094 by chiliec).
+  - One file is one module however an import spells its path (#1087,
+    PR #1103 by MattCozendey), and an alias that matches the file name
+    works (#1082).
+  - F32 text rounds once to the nearest f32 on every lane and in literals
+    (#1055); `F32.pow(±1, y)` is 1 on JS as on C (#1060).
+  - A pure main that prints a datatype through a family field builds (#1067).
+  - Two defs with the same body are equal (#1028).
+  - A fallback arm past a datatype's last constructor is dead code (#1091).
+  - An error names a hub def the way you write it (#965), and a `+` binder's
+    error names the right binder (#980).
+  - A compound type argument without parens is a clean parse error (#1110).
+  - A shared Array's redirect reads cannot race its count (#975).
+  - Timers wake in deadline order; clang's version probe no longer fails
+    under load.
+  - `--gpu on` names the reason a CUDA GPU is unusable (#1064).
+  - A JS host tag the type lacks is a clean error (#1105).
+
 ## 2.0.31 (2026-09-27)
 
 - **`bend` help: one aligned line per command**: a table builds the list,

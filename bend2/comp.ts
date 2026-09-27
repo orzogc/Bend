@@ -206,9 +206,15 @@ const OPERATIONS: Record<string, Intr> = Object.setPrototypeOf({
   ...tpl_ops("f32_", "sqrt exp log log2 log10 sin cos tan asin acos atan"
     + " sinh cosh tanh floor ceil trunc abs:fabs:abs",
     "f32_rewrap((f32)$o(f32_unbox($0)))", "Math.fround(Math.$o($0))"),
-  ...tpl_ops("f32_", "pow atan2",
+  ...tpl_ops("f32_", "atan2",
     "f32_rewrap((f32)$o(f32_unbox($0), f32_unbox($1)))",
     "Math.fround(Math.$o($0, $1))"),
+  // IEEE's pow(1, y) and pow(-1, inf) are 1; JS's Math.pow says NaN
+  f32_pow: {
+    C:  "f32_rewrap((f32)pow(f32_unbox($0), f32_unbox($1)))",
+    JS: "($0 === 1 || $0 === -1 && Math.abs($1) === Infinity ? 1"
+      + " : Math.fround(Math.pow($0, $1)))",
+  },
   f32_mod: {
     C:  "f32_rewrap((f32)fmod(f32_unbox($0), f32_unbox($1)))",
     JS: "Math.fround($0 % $1)",
@@ -520,7 +526,7 @@ function f32_show(x) {
       : x === 0 ? "-0" : "inf";
   }
   let s = "x";
-  for (let p = 1; p <= 9 && Math.fround(Number(s)) !== x; p += 1) {
+  for (let p = 1; p <= 9 && f32_round(s) !== x; p += 1) {
     s = String(Number(x.toExponential(p - 1)));
   }
   return s;
@@ -536,9 +542,11 @@ function f32_from_bits(u) {
 
 function f32_read(s) {
   const re = /^\s*[+-]?((\d+\.?\d*|\.\d+)(e[+-]?\d+)?|inf(inity)?|nan)$/i;
-  const v = Number(s.replace(/inf\w*/i, "Infinity"));
-  return re.test(s) ? {$: "Some", value: Math.fround(v)} : {$: "None"};
+  const v = f32_round(s.replace(/inf\w*/i, "Infinity"));
+  return re.test(s) ? {$: "Some", value: v} : {$: "None"};
 }
+
+const f32_round = ${Bend.f32_round};
 
 function char_new(code) {
   if (code > 0x10FFFF || (code >= 0xD800 && code <= 0xDFFF)) {
@@ -1333,8 +1341,8 @@ export function io_type(book: Bend.Book): HTerm | null {
   return xs?.length === 1 ? xs[0] : null;
 }
 
-export function io_run(book: Bend.Book, args: string[] = []): number {
-  const src = js_lib(book, ["main"], null) + "\n" + RUNTIME_MAIN
+export function io_run(book: Bend.Book, args: string[]): number {
+  const src = js_lib(book) + "\n" + RUNTIME_MAIN
     + "\ncli_args = " + JSON.stringify(args) + ";\nreturn io_run("
     + js_sat("main") + ");";
   return new Function("require", src)(import.meta.require) as number;
@@ -1645,7 +1653,7 @@ function node_fields(fl: File, t: string, k: Name, tail = false): Val[] {
     file_push(fl, `Term ${fb}${n}];`);
     file_push(fl, `u64 ${sp} = ctr_take(e, ${t}, ${n}, ${fb.slice(0, -1)});`);
   } else {
-    file_push(fl, `u64 ${sp} = ${r === undefined ? "term_loc(" : "term_peek(e, "
+    file_push(fl, `u64 ${sp} = ${r === undefined ? "term_loc(" : "term_peek(e.mem, "
     }${t});`);
   }
   const ws = emit_hold(fl, node.ks.map((_, j) => `${fb}${j}]`), "f", node.ks);
@@ -2306,20 +2314,18 @@ function emit_intr(fl: File, it: Intr, m: Spine, ty: HTerm | null): Val {
   }
   const ws = args.map((v, i) =>
     val_own(fl, val_to(fl, v, fun_of(fl, k).lays[i]))[0]);
+  const lay = lay_of(fl.book, ty);
   if (Array.isArray(it.C)) {
     const as = ws.map((z) => emit_alias(fl, z, "a"));
     const vs: string[] = [];
     for (const p of it.C) {
       vs.push(emit_alias(fl, tpl(p, [...as, ...vs]), "a"));
     }
-    const lay = lay_of(fl.book, ty ?? tele_unbind(fl.book,
-      (fl.book.tlds[k] as Bend.Def).T).ret);
     return val_new(vs, lay);
   }
   const C = it.C as string;
   const out = tpl(C, /\$(\d)[^]*\$\1/.test(C)
     ? ws.map((a) => emit_alias(fl, a, "a")) : ws);
-  const lay = lay_of(fl.book, ty);
   return val_new([out], lay.ks.length === 1 ? lay : BOX);
 }
 
@@ -2414,7 +2420,8 @@ function emit_fold(fl: File, t: HTerm): HTerm | null {
     return it.call === true ? null : as.every((a, i) => a === m.all[i]) ? s
       : as.reduce((f, x) => Bend.App(f, x), m.t as HTerm);
   });
-  return r === s ? t : r;
+  const T = ty_ann(t);
+  return r === s ? t : r === null || T === null ? r : Bend.Ann(r, T);
 }
 
 function emit_unfold(fl: File, m: Spine): HTerm | null {
@@ -2935,8 +2942,12 @@ function compile_segs(fl: File, dev: Set<string>): string {
 }
 
 export function compile_book(book: Bend.Book): string {
-  const fl = file_book(book, ["main", ...RUNTIME_ADTS], false);
+  // a pure main's descriptor names constructors of the types it prints,
+  // so their datatypes are roots too
   const show = show_main(book);
+  const fams = (show ?? []).flatMap((c) =>
+    typeof c === "string" ? [Bend.book_fam(book, c)] : []);
+  const fl = file_book(book, ["main", ...RUNTIME_ADTS, ...fams], false);
   const facts = () => fl.own.size + fl.hot.size + fl.stat.size;
   let was: number;
   let reqs: string;
@@ -3282,7 +3293,8 @@ function js_marshal(fl: File, A: HTerm | null, out: boolean): string {
   }
   const name = "$0m" + fl.spun.size;
   fl.spun.set(key, name);
-  const arms = (book.tlds[t.k] as Bend.ADT).c.flatMap((c) => {
+  const cs = (book.tlds[t.k] as Bend.ADT).c;
+  const arms = cs.map((c) => {
     const fs = js_ctr(book, c, t.x).flatMap(([, n, B]) => {
       const f = js_marshal(fl, B, out);
       return f === "" ? [] : [[n, f]];
@@ -3292,12 +3304,17 @@ function js_marshal(fl: File, A: HTerm | null, out: boolean): string {
       `, ${js_key(m)}${f}(v["${m}"])`).join("");
     const end = n === undefined ? "return top[0];"
       : `key = "${n}"; v = v[key]; continue;`;
-    return fs.length === 0 ? []
-      : [`case "${c.k}": at = at[key] = {...v${copy}}; ${end}`];
+    return fs.length === 0 ? `case "${c.k}": at[key] = v; return top[0];`
+      : `case "${c.k}": at = at[key] = {...v${copy}}; ${end}`;
   });
   fl.spins.push({ ...seg_new("", BOX, ["v"]), lines: [`function ${name}(v) {`,
     "const top = [v];", "for (let at = top, key = 0;;) {", "switch (v.$) {",
-    ...arms, "default: at[key] = v; return top[0];", "}", "}", "}", ""] });
+    // TODO(#1105): a tag is the key the loading book gives its constructor,
+    // so it depends on the root file; make tags the same in every book
+    ...arms, `default: throw "bend: ${t.k} has no tag " + v?.$ + " (its tags: ${
+      cs.map((c) => c.k).join(", ")}); a tag names its constructor as the"
+      + " loading file sees it, which a later version will make the same"
+      + " everywhere (#1105)";`, "}", "}", "}", ""] });
   return name;
 }
 
@@ -3313,9 +3330,15 @@ function js_host(fl: File, k: Name): string {
     }(run_loop(${js_sat(k)}(${xs.join(", ")}))); ${back.join(" ")} return r; }`;
 }
 
-export function js_lib(book: Bend.Book, roots: Name[],
-  outs: Name[] | null): string {
-  const fl = file_book(book, roots, true);
+// A module (for the .bend loader and -o <out>.mjs) roots and exports each
+// def a host can call: filled, not Base's, not foreign, not IO.
+export function js_lib(book: Bend.Book, mod = false): string {
+  const outs = !mod ? null : [...new Set(book.order)].filter((k) => {
+    const tld = book.tlds[k];
+    return tld.$ === "Def" && tld.v !== null && tld.b !== true
+      && tld.x === 0 && tld.i === undefined && io_base(book, tld.T) === null;
+  });
+  const fl = file_book(book, outs ?? ["main"], true);
   for (const [k, def] of done_defs(fl, (t) => done_live(t) || def_foreign(t))) {
     memo_gc();
     js_def(fl, k, def);
@@ -3341,10 +3364,10 @@ export function js_lib(book: Bend.Book, roots: Name[],
 }
 
 export function js_book(book: Bend.Book): string {
-  const lib = js_lib(book, ["main"], null);
+  const lib = js_lib(book);
   const show = show_main(book);
   return lib + "\n" + RUNTIME_MAIN
-    + "\ncli(process.argv.slice(2));\nio_exit(" + js_sat("main") + ", "
+    + "\ncli(process.argv.slice(1));\nio_exit(" + js_sat("main") + ", "
     + JSON.stringify(show && [show.map((c) => typeof c === "string"
       ? 0 : c), show.filter((c) => typeof c === "string")]) + ");";
 }
@@ -4001,8 +4024,11 @@ INLINE Term rfc_seal(Env e, Term t) {
   return rfc_wrap(e, t, 1);
 }
 
-INLINE u64 rfc_view(Env e, u64 r) {
-  DEV u32* w = a32_at(e.mem, r);
+// A redirect cell holds its target's loc over a 24-bit count, which
+// changes by atomic adds on the low half: the cell is read as two atomic
+// halves, never as one plain word.
+INLINE u64 rfc_view(DEV u64* H, u64 r) {
+  DEV u32* w = a32_at(H, r);
   u64 cell = ((u64)a32_load(w + 1) << 32) | a32_load(w);
   if ((cell & RFC_CNT) == 1) {
     a32_acq(w);
@@ -4028,9 +4054,9 @@ INLINE Term term_keep(Env e, Term t, u32 k) {
   return rfc_wrap(e, t, 1 + k);
 }
 
-INLINE u64 term_peek(Env e, Term t) {
+INLINE u64 term_peek(DEV u64* H, Term t) {
   if (term_rfc(t)) {
-    return rfc_view(e, term_loc(t)) >> 24;
+    return rfc_view(H, term_loc(t)) >> 24;
   }
   return term_loc(t);
 }
@@ -4038,7 +4064,7 @@ INLINE u64 term_peek(Env e, Term t) {
 #define blk_shr(t) (BLK_SHR && term_rfc(t))
 
 INLINE u64 blk_loc(DEV u64* H, Term a) {
-  return blk_shr(a) ? H[term_loc(a)] >> 24 : term_loc(a);
+  return BLK_SHR ? term_peek(H, a) : term_loc(a);
 }
 
 INLINE u32 blk_cls(Term t) {
@@ -4154,7 +4180,7 @@ INLINE u64 ctr_take(Env e, Term t, u32 n, THR Term* out) {
     return term_loc(t);
   }
   u64 r    = term_loc(t);
-  u64 cell = rfc_view(e, r);
+  u64 cell = rfc_view(H, r);
   u64 src  = cell >> 24;
   for (u32 j = 0; j < n; j += 1) {
     out[j] = H[src + j];
@@ -4171,7 +4197,7 @@ INLINE Term term_word(Env e, Term w) {
   u32 x = 0;
   Term t = w;
   for (u32 i = 0; i < 32 && term_aux(t) == CID(WCon); i += 1) {
-    u64 l = term_peek(e, t);
+    u64 l = term_peek(e.mem, t);
     x |= (u32)(e.mem[l] & 1) << i;
     t = e.mem[l + 1];
   }
@@ -4726,8 +4752,7 @@ INLINE u32 window_pix(DEV u64* H, Term t, u32 k, u32 x, u32 y) {
       i -= 1;
       j = ((y >> i) & 1) * 2 + ((x >> i) & 1);
     }
-    u64 l = term_rfc(t) ? H[term_loc(t)] >> 24 : term_loc(t);
-    t = H[l + j];
+    t = H[term_peek(H, t) + j];
   }
   return (u32)term_loc(t) & 0xFFFFFF;
 }
@@ -5485,12 +5510,27 @@ static void io_spawn(Term m) {
   io_live += 1;
 }
 
+// io_park stays in deadline order (time 0, none, sorts last; ties keep
+// their park order), so io_wait wakes due timers in the order they expire.
+static void io_park_add(IoWork* w) {
+  IoWork* p = io_park;
+  if (p == NULL || p->time - 1 <= w->time - 1) {
+    io_push(&io_park, w);
+    return;
+  }
+  while (p->next->time - 1 <= w->time - 1) {
+    p = p->next;
+  }
+  w->next = p->next;
+  p->next = w;
+}
+
 static Term io_wait_on(IoWork* w, int fd, short evts, u64 time, IoPack more) {
   w->word = (u32)fd;
   w->pack = more;
   w->time = time;
   w->evts = evts;
-  io_push(&io_park, w);
+  io_park_add(w);
   return IO_PARK;
 }
 
@@ -5516,24 +5556,38 @@ static u64 io_utf8(char* buf, u64 c) {
   return k;
 }
 
-OUTLINE char* io_cstr(Env e, Term s, u64* len) {
+// io_cbuf writes a String (cons SCon) as UTF-8, or a List (cons Con) as
+// its bytes, with no UTF-8: NULL if a value is past 255.
+OUTLINE char* io_cbuf(Env e, Term s, u64* len, u64 cons) {
   u64   cap = 64;
   u64   n   = 0;
+  u64   bad = 0;
   char* buf = io_mem(malloc(cap));
-  while (term_aux(s) == CID(SCon)) {
+  while (term_aux(s) == cons) {
     Term fb[2];
     spare_free(e, cls_fit(2), ctr_take(e, s, 2, fb));
     if (n + 5 > cap) {
       cap *= 2;
       buf = io_mem(realloc(buf, cap));
     }
-    n += io_utf8(buf + n, fb[0]);
+    if (cons == CID(SCon)) {
+      n += io_utf8(buf + n, fb[0]);
+    } else {
+      bad |= fb[0] > 255;
+      buf[n++] = (char)fb[0];
+    }
     s = fb[1];
   }
   buf[n] = 0;
   *len = n;
+  if (bad) {
+    free(buf);
+    return NULL;
+  }
   return buf;
 }
+
+#define io_cstr(e, s, len) io_cbuf(e, s, len, CID(SCon))
 
 OUTLINE void io_errs(Env e, Term s) {
   u64   n    = 0;
@@ -5598,6 +5652,19 @@ static Term io_str(Env e, const char* p, u64 n) {
   }
   return s;
 }
+
+// Bytes cross as they are (0..255), one List cell each, with no UTF-8.
+#ifdef CID(Con)
+
+static Term io_list(Env e, const char* p, u64 n) {
+  Term xs = term_pak(CID(Nil), 0);
+  for (u64 i = n; i > 0; i -= 1) {
+    xs = io_node(e, CID(Con), (uint8_t)p[i - 1], xs);
+  }
+  return xs;
+}
+
+#endif
 
 #define io_tup(e, a, b) io_node(e, CID(Tuple), a, b)
 #define io_done(e, v)   io_box(e, CID(Done), v)
@@ -5726,7 +5793,7 @@ static void io_wait(Env e) {
         && io_bit(set[a->evts == POLLOUT], (int)a->word, false))
       || (a->time != 0 && a->time <= now);
     if (!due) {
-      io_push(&io_park, a);
+      io_park_add(a);
       continue;
     }
     Term x = a->pack(e, a);
@@ -5804,7 +5871,7 @@ static void show_val(Env e, u32 d, const Term* w, char chain) {
     case 4:
       putchar('"');
       for (Term s = w[0]; term_aux(s) == CID(SCon);) {
-        u64 l = term_peek(e, s);
+        u64 l = term_peek(e.mem, s);
         show_chr(e.mem[l], '"');
         s = e.mem[l + 1];
       }
@@ -5819,7 +5886,7 @@ static void show_val(Env e, u32 d, const Term* w, char chain) {
         Term v[1u << g];
         for (u32 j = 0; j < 1u << g; j += 1) {
           v[j] = blk_read(e.mem, term_tag(w[0]) == TAG_ARR,
-            term_peek(e, w[0]), (i << g) + j);
+            term_peek(e.mem, w[0]), (i << g) + j);
         }
         fputs(i > 0 ? ", " : "", stdout);
         show_val(e, D[d + 1], v, 0);
@@ -5836,7 +5903,7 @@ static void show_val(Env e, u32 d, const Term* w, char chain) {
       }
       if (box) {
         one = term_loc(t);
-        w   = term_tag(t) == TAG_PAK ? &one : e.mem + term_peek(e, t);
+        w   = term_tag(t) == TAG_PAK ? &one : e.mem + term_peek(e.mem, t);
       }
       char o = "{[("[D[a + 3]];
       if (o == '{') {
@@ -5879,7 +5946,7 @@ static void io_step(Env e, IoWork* a) {
     e.mem[ap + 1] = a->item;
     Term req = corpus_eval(e.mem, term_tsk(FID(Clo~apply), ap));
     u32  c   = (u32)term_aux(req);
-    u64  at  = term_peek(e, req);
+    u64  at  = term_peek(e.mem, req);
     if (c == CID(Emit)) {
       term_drop(e, req);
       free(a);
@@ -5955,7 +6022,8 @@ int main(int argc, char** argv) {
   long thr = 0;
   int  gpu = -1;
   u64  mem = 0;
-  io_argv = argv + 1;
+  io_argv = argv;
+  io_argc = 1;
   for (int i = 1; i < argc; i += 1) {
     const char* a = argv[i];
     const char* v = i + 1 < argc ? argv[i + 1] : NULL;
@@ -5999,7 +6067,8 @@ int main(int argc, char** argv) {
   }
   bool dev = gpu != 0 && BANGS != 0 && gpu_probe();
   if (gpu == 1 && BANGS != 0 && !dev) {
-    err_fail("--gpu on, but this binary found no GPU device");
+    err_fail("--gpu on, but this binary found no usable GPU (a CUDA GPU needs"
+      " concurrent managed access, which WSL2's lack)");
   }
   io_loop(corpus_setup(dev, thr > 0 ? thr : cpu_count(), mem));
   io_sync();
@@ -6086,12 +6155,13 @@ const RUNTIME_MAIN: string = String.raw`
 let cli_args = [];
 
 function cli(argv) {
-  for (let i = 0; i < argv.length; i += 1) {
+  cli_args.push(argv[0]);
+  for (let i = 1; i < argv.length; i += 1) {
     if (argv[i] === "--") {
       cli_args.push(...argv.slice(i + 1));
       break;
     } else if (argv[i] === "--bend-help") {
-      io_out(1, io_bytes("usage: " + process.argv[1] + "\n"));
+      io_out(1, io_bytes("usage: " + argv[0] + "\n"));
       process.exit(0);
     } else if (argv[i] === "--threads" || argv[i] === "--gpu") {
       i += 1;
@@ -6148,7 +6218,8 @@ function show_val(D, N, d, v, chain) {
 // binds fcntl there with the flags as the ninth fixed argument. A
 // parked effect waits for fd (a write when out) or until at
 // (performance.now()), either one undefined when unused; io_wake
-// resumes k with the value of more, and undefined parks it again.
+// resumes k with the value of more, and undefined parks it again. The
+// waits stay in deadline order, as io_park does in C.
 
 function io_exit(main, show) {
   try {
@@ -6236,6 +6307,24 @@ function io_text(b, n) {
   return new TextDecoder("utf-8", { ignoreBOM: true }).decode(b.subarray(0, n));
 }
 
+// Bytes cross as they are (0..255), one List cell each, with no UTF-8 in
+// either direction; io_unlist answers null if a value is past 255.
+function io_list(b, n) {
+  let xs = { $: "Nil" };
+  for (let i = n; i > 0; i -= 1) {
+    xs = { $: "Con", head: b[i - 1], tail: xs };
+  }
+  return xs;
+}
+
+function io_unlist(xs) {
+  const b = [];
+  for (; xs.$ === "Con"; xs = xs.tail) {
+    b.push(xs.head);
+  }
+  return b.some((x) => x > 255) ? null : Uint8Array.from(b);
+}
+
 function io_addr(host, port) {
   const part = host.split(".");
   const deci = (p) => /^(0|[1-9]\d{0,2})$/.test(p) && Number(p) < 256;
@@ -6293,7 +6382,9 @@ function io_wake(w) {
 }
 
 function io_park_on(fd, out, k, more, at) {
-  globalThis.BEND_IO.waits.push({ fd, out, k, more, at });
+  const ws = globalThis.BEND_IO.waits;
+  const i = ws.findLastIndex((w) => (w.at ?? Infinity) <= (at ?? Infinity));
+  ws.splice(i + 1, 0, { fd, out, k, more, at });
 }
 
 function io_run(m) {

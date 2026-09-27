@@ -385,9 +385,9 @@ mismatch.
 #figure(kind: image, supplement: [Figure], placement: top, scope: "parent",
 caption: [Hurkens' paradox in BendTT. `*1` is #Ty, `<>` is the empty
 type, and `<()>` is the unit type. Each `!-` binds an erased let. The
-kernel prints `All terms check.` When the lets are live (`!` in place
+kernel prints `ALL PROOFS CHECK`. When the lets are live (`!` in place
 of `!-`) and `girard` returns `false` at type `<>`, the kernel prints
-`affine live code, calls that descend`.],
+`SOME PROOFS FAIL` and `affine live code, calls that descend`.],
 ```
 P : ∀S : *1 -> *1 =
   λS => ∀x : S -> *1
@@ -1042,8 +1042,9 @@ The theorem `consistent` is about `Book.check`, the function that
 stands between the two. Two parts sit outside the proof. The parser is
 not verified. And Bend reaches BendTT through a translation, written in
 TypeScript, that has no proof. The command `bend --verdict` runs this
-translation and then the kernel, and it writes the translated book to a
-file, where a reader can check what a law states.
+translation and then the kernel. The command `bend -o F.bendtt` writes
+the translated book to a file, where a reader can check what a law
+states.
 
 = Related Work <sec:related>
 

@@ -333,8 +333,9 @@ export type Local = { $: "Local"; k: Patt[]; q: Quant; v: LTerm[]; f: Body };
 export type Body  = Match | Local | LTerm
 
 // Parser
-export type Parse = { book: Book; dir: string; str: string; pos: number; stk: Array<[Name, number]>; frs: number; ns: string; al: Record<Name, Name>; };
-export type Span  = { src: string; beg: number; end: number; };
+export type File  = { str: string; ns: string; al: Record<Name, Name>; };
+export type Parse = File & { book: Book; dir: string; pos: number; stk: Array<[Name, number]>; frs: number; };
+export type Span  = { file: File; beg: number; end: number; };
 
 // Machine
 export type LHS   = { t: HTerm; n: number; def: Name; qs: Quant[]; u?: Bool; z?: number };
@@ -706,7 +707,7 @@ export function term_higher(tm: LTerm, env: Env = null): HTerm {
     }
     case "Ref": {
       if (tm.k.lastIndexOf(".") === 0) {
-        const op = tm.s === undefined ? tm.k : tm.s.src.slice(tm.s.beg, tm.s.end);
+        const op = tm.s === undefined ? tm.k : tm.s.file.str.slice(tm.s.beg, tm.s.end);
         throw Err(book_nil(), ctx_nil(), "a type for this operator (write (a " + op + " b : Nat))", undefined, tm.s, undefined,
           "Note: we broke this after launch, sorry. Until 2.0.16 a bare operator meant Nat.\n"
           + "That was a bug: operators demand annotation. Wrap the expression and it'll work again.");
@@ -948,7 +949,7 @@ async function book_file(book: Book, file: string, spn?: Span): Promise<string> 
   return fs.realpathSync(file);
 }
 
-export async function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>, spn?: Span): Promise<number> {
+export async function book_load(book: Book, file: string, ns: string, seen: Map<string, string | null>, spn?: Span, root?: string): Promise<number> {
   const real = await book_file(book, file, spn);
   if (seen.has(real)) {
     if (seen.get(real) === null) {
@@ -958,6 +959,7 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
   }
   seen.set(real, null);
   const dir   = real.slice(0, real.lastIndexOf("/") + 1);
+  const top   = root ?? dir;
   const text  = fs.readFileSync(real, "utf8");
   const lines = text.split("\n");
   const body  = lines.slice();
@@ -975,7 +977,7 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
     }
     const m   = /^import\s+(\S+)(?:\s+as\s+([A-Za-z_]\w*))?\s*(?:#.*)?$/.exec(line);
     const beg = at + lines[i].indexOf(m?.[1] ?? line);
-    const sp  = { src: text, beg, end: beg };
+    const sp  = { file: { str: text, ns, al }, beg, end: beg };
     if (m === null || (m[2] === undefined && m[1] !== "Base")) {
       throw Err(book, ctx_nil(), "an import ('import Base', or 'import <path> as <Name>')", "'" + line + "'", sp);
     }
@@ -1000,12 +1002,12 @@ export async function book_load(book: Book, file: string, ns: string, seen: Map<
     const got = await book_file(book, hub(as) ? BEND_LIB + "/" + rel : path.posix.resolve(dir, rel), sp);
     const lib = fs.existsSync(BEND_LIB) ? fs.realpathSync(BEND_LIB) + "/" : "\0";
     const sub = (got.startsWith(lib) ? got.slice(lib.length)
-      : path.posix.join(path.posix.dirname(ns), path.posix.relative(dir, got))).replace(/\.bend$/, "");
+      : path.posix.relative(top, got)).replace(/\.bend$/, "");
     if (!ok(sub, got.startsWith(lib)) || (hub(ns) && !got.startsWith(lib))) {
       throw bad();
     }
     al[m[2]] = sub;
-    await book_load(book, got, sub, seen, sp);
+    await book_load(book, got, sub, seen, sp, top);
   }
   const n0 = book.order.length;
   parse_book(book, dir, body.join("\n"), ns, al);
@@ -1150,6 +1152,30 @@ export function f32_from_bits(n: U32): number {
   return F32_VIEW.getFloat32(0);
 }
 
+// f32_round rounds a decimal text to the nearest f32, once. Number rounds
+// it to f64 first, which only errs when that f64 is the midpoint g of f
+// and its other f32 neighbour; there the exact text picks the side, and a
+// text that is the midpoint itself keeps f, the even one. comp.ts splices
+// this function's source into the JS runtime, so it names nothing else.
+export function f32_round(s: string): number {
+  const d = Number(s);
+  const a = Math.abs(d);
+  const f = Math.fround(a);
+  const g = 2 * a - Math.min(f, 2 ** 128);
+  if (g === f || Math.fround(g) !== g || g === Infinity) {
+    return Math.sign(d) * f;
+  }
+  let k = 0;
+  while (a * 2 ** k % 1 !== 0) {
+    k += 1;
+  }
+  const [, i, r, e] = /(\d*)\.?(\d*)(?:e([+-]?\d+))?$/i.exec(s)!;
+  const n = Number(e ?? 0) - r.length;
+  const x = BigInt(i + r) * 2n ** BigInt(k) * 10n ** BigInt(Math.max(n, 0));
+  const y = BigInt(a * 2 ** k) * 10n ** BigInt(Math.max(-n, 0));
+  return Math.sign(d) * (x === y || x > y !== g > f ? f : g);
+}
+
 // Show
 // ====
 // f32_show prints the shortest decimal that reads back to the same f32,
@@ -1169,13 +1195,26 @@ export function term_key(tm: LTerm): string {
 
 function f32_show(x: number): string {
   let s = "nan";
-  for (let p = 1; x === x && p <= 9 && Math.fround(Number(s)) !== x; p += 1) {
+  for (let p = 1; x === x && p <= 9 && f32_round(s) !== x; p += 1) {
     s = String(Number(x.toExponential(p - 1)));
   }
   return (Object.is(x, -0) ? "-0" : s).replace(/^-?\d+(?=e|$)/, "$&.0").replace("Infinity", "inf");
 }
 
-export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): string {
+// a key as a file spells it: its own names bare, an imported file's
+// through its alias; any other key as is
+export function name_show(file: File | undefined, k: Name): string {
+  if (file === undefined) {
+    return k;
+  }
+  if (file.ns !== "" && k.startsWith(file.ns + ".")) {
+    return k.slice(file.ns.length + 1);
+  }
+  const a = Object.keys(file.al).find((a) => k.startsWith(file.al[a] + "."));
+  return a === undefined ? k : a + k.slice(file.al[a].length);
+}
+
+export function term_show(term: LTerm, top: number = -1, bnd: Name[] = [], file?: File): string {
   function term_show_sugar_exi(tm: LTerm, prc: number): string | null {
     const [h, xs] = term_unapply(tm);
     const b = xs[1];
@@ -1277,7 +1316,8 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
         return bnd.lastIndexOf(tm.k) === tm.i ? tm.k : tm.k + "^" + String(tm.i);
       }
       case "Ref": {
-        return (bnd.includes(tm.k) ? tm.k + "^" : tm.k) + (tm.b === true ? "!" : "");
+        const k = name_show(file, tm.k);
+        return (bnd.includes(k) ? k + "^" : k) + (tm.b === true ? "!" : "");
       }
       case "Sub": {
         return go(tm.f, prc);
@@ -1340,8 +1380,8 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
       }
       case "ADT": {
         const as = tm.x.map((x) => go(x, 0));
-        const rs = tm.r.map((c) => " - " + c + "{}").join("");
-        const s  = tm.k + (as.length === 0 && rs === "" ? "" : "<" + as.join(", ") + ">") + rs;
+        const rs = tm.r.map((c) => " - " + name_show(file, c) + "{}").join("");
+        const s  = name_show(file, tm.k) + (as.length === 0 && rs === "" ? "" : "<" + as.join(", ") + ">") + rs;
         return rs !== "" && prc > 1 ? "(" + s + ")" : s;
       }
       case "Ctr": {
@@ -1360,7 +1400,7 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
           return sug;
         }
         const as = tm.x.map((x) => go(x, 0));
-        return tm.k + "{" + as.join(", ") + "}";
+        return name_show(file, tm.k) + "{" + as.join(", ") + "}";
       }
       case "Lit": {
         return go(lit_step(tm), prc);
@@ -1369,7 +1409,7 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
         const arms: string[] = [];
         let m: LTerm = tm;
         while (m.$ === "Mat") {
-          arms.push(m.k + ": " + go(m.h, 1));
+          arms.push(name_show(file, m.k) + ": " + go(m.h, 1));
           m = m.m;
         }
         if (m.$ !== "Efq") {
@@ -1415,30 +1455,31 @@ export function term_show(term: LTerm, top: number = -1, bnd: Name[] = []): stri
   return go(term, top);
 }
 
-export function expr_show(book: Book, x: Expr, bnd: Name[] = []): string {
+export function expr_show(book: Book, x: Expr, bnd: Name[] = [], file?: File): string {
   if (typeof x === "string") {
     return x;
   } else {
     const t = term_lower(term_snf(book, x), bnd.length);
-    return term_show(t, -1, bnd);
+    return term_show(t, -1, bnd, file);
   }
 }
 
 export function err_show(err: Err): string {
+  const file = err.spn?.file;
   const bnd  = ctx_scope(err.ctx);
   const anns = pmap_to_array(err.ctx).sort((a, b) => a[0] - b[0]);
   const wid  = Math.max(0, ...anns.map(([, a]) => a.k.length));
   const msg  = err.obs === undefined
-    ? "\n- message  : " + expr_show(err.bok, err.exp, bnd)
-    : "\n- expected : " + expr_show(err.bok, err.exp, bnd)
-    + "\n- observed : " + expr_show(err.bok, err.obs, bnd);
+    ? "\n- message  : " + expr_show(err.bok, err.exp, bnd, file)
+    : "\n- expected : " + expr_show(err.bok, err.exp, bnd, file)
+    + "\n- observed : " + expr_show(err.bok, err.obs, bnd, file);
   const ctx  = anns.map(([i, a]) =>
-    "\n- " + a.k.padEnd(wid) + " : " + expr_show(err.bok, a.T, bnd.slice(0, i))).join("");
-  const def  = err.def === undefined ? "" : " " + err.def;
+    "\n- " + a.k.padEnd(wid) + " : " + expr_show(err.bok, a.T, bnd.slice(0, i), file)).join("");
+  const def  = err.def === undefined ? "" : " " + name_show(file, err.def);
   let   spn  = "";
   if (err.spn !== undefined) {
-    const lns = err.spn.src.split("\n");
-    const pre = err.spn.src.slice(0, err.spn.beg).split("\n");
+    const lns = err.spn.file.str.split("\n");
+    const pre = err.spn.file.str.slice(0, err.spn.beg).split("\n");
     const at  = pre.length;
     const beg = Math.max(1, at - 1);
     const end = Math.min(lns.length, at + 1);
@@ -1472,12 +1513,12 @@ export function parse_col(src: string, pos: number): number {
 }
 
 export function parse_span(p: Parse, beg: number): Span {
-  return { src: p.str, beg, end: p.pos };
+  return { file: p, beg, end: p.pos };
 }
 
 export function parse_fail(p: Parse, exp: string, beg = p.pos, end = p.pos): never {
   const obs = beg < end ? "'" + p.str.slice(beg, end) + "'" : p.pos < p.str.length ? "'" + p.str[p.pos] + "'" : "end of input";
-  throw Err(p.book, ctx_nil(), exp, obs, { src: p.str, beg, end });
+  throw Err(p.book, ctx_nil(), exp, obs, { file: p, beg, end });
 }
 
 export function parse_peek(p: Parse): string {
@@ -1628,7 +1669,7 @@ export function parse_reso(p: Parse, k: Name): Name {
   let q = parse_qual(p, k);
   if (dot !== -1 && k.slice(0, dot) in p.al) {
     q = p.al[k.slice(0, dot)] + k.slice(dot);
-    if ((q in p.book.tlds || q in p.book.ctrs) && (k in p.book.tlds || k in p.book.ctrs)) {
+    if (q !== k && (q in p.book.tlds || q in p.book.ctrs) && (k in p.book.tlds || k in p.book.ctrs)) {
       parse_fail(p, "an unambiguous name (the alias " + k.slice(0, dot) + " shadows " + k + ")");
     }
   }
@@ -2051,6 +2092,11 @@ export function parse_term_ops(p: Parse, tm: LTerm, beg: number, lvl: number): L
     const b = parse_term(p, right ? prc : prc + 1);
     const s = parse_span(p, beg);
     parse_skip(p);
+    // a glued < whose first operand stops at a type operator is a type
+    // argument that needs parens, since a comparison never types there
+    if (op === "<" && gl && /^(->|[&|](?![&|]))/.test(p.str.slice(p.pos, p.pos + 2))) {
+      parse_fail(p, "'>' or ',' (a compound type argument takes parens: F<(A & B)>)");
+    }
     if (op === "<" && (parse_at(p, ">") || parse_at(p, ","))) {
       if (out.$ !== "Var" && out.$ !== "Ref") {
         parse_fail(p, "a family name before <..> (a comparison here needs parens)");
@@ -2152,7 +2198,7 @@ export function parse_term_num(p: Parse): LTerm {
   const n = Number(m[1]);
   p.pos += m[0].length;
   if (m[2] !== undefined && m[2] !== "n") {
-    const v = Math.fround(Number(m[0]));
+    const v = f32_round(m[0]);
     if (!isFinite(v)) {
       parse_fail(p, "a float literal with a finite f32 value (got " + m[0] + ")", beg);
     }
@@ -3023,8 +3069,18 @@ export function term_compare(mode: "EQ" | "LE", book: Book, lhs: HTerm, rhs: HTe
     case "Var": {
       return b.$ === "Var" && a.i === b.i;
     }
+    // a bare def is under-applied, so a function: two defs convert when
+    // they agree on fresh arguments (eta, as for a lambda)
     case "Ref": {
-      return b.$ === "Ref" && a.k === b.k;
+      if (b.$ !== "Ref" || a.k === b.k) {
+        return b.$ === "Ref";
+      }
+      const n = Math.max(book.tlds[a.k]?.n ?? 0, book.tlds[b.k]?.n ?? 0);
+      let [f, g]: HTerm[] = [a, b];
+      for (let j = 0; j < n; j++) {
+        [f, g] = [App(f, Var("_", dep + j)), App(g, Var("_", dep + j))];
+      }
+      return n > 0 && term_compare(mode, book, f, g, dep + n);
     }
     case "Typ": {
       if (b.$ !== "Typ") {
@@ -3069,10 +3125,14 @@ export function term_compare(mode: "EQ" | "LE", book: Book, lhs: HTerm, rhs: HTe
           && term_compare(mode, book, b.A, a.A, dep)
           && term_compare(mode, book, a.B(x), b.B(x), dep + 1);
     }
+    // a stuck call is canonical: its head def compares by name, not by eta
     case "App": {
-      return b.$ === "App"
-          && term_compare("EQ", book, a.f, b.f, dep)
-          && term_compare("EQ", book, a.x, b.x, dep);
+      if (b.$ !== "App") {
+        return false;
+      }
+      const head = a.f.$ === "Ref" && b.f.$ === "Ref" ? a.f.k === b.f.k
+        : term_compare("EQ", book, a.f, b.f, dep);
+      return head && term_compare("EQ", book, a.x, b.x, dep);
     }
     case "ADT": {
       if (b.$ !== "ADT" || a.k !== b.k || a.x.length !== b.x.length) {
@@ -3285,7 +3345,7 @@ export function term_infer(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ctx: Ctx,
     // Γ ⊢ @q x:A -> B : Type
     case "All": {
       const B_ctx = ctx_bind(ctx, d, tm.q, tm.k, tm.A);
-      const A_chk = term_check(book, lhs, tm.A, None(), Typ(Qua(lhs_kind(lhs, tm.q)), tm.s), ctx, d);
+      const A_chk = term_check_kind(book, lhs, tm.A, tm.q, tm.k, ctx, d, tm.A.s ?? tm.s);
       const B_chk = term_check(book, lhs, tm.B(Var(tm.k, d)), None(), Typ(Qua(Lone()), tm.s), B_ctx, d+1);
       return Infer(All(tm.q, tm.k, d, A_chk.tm, B_chk.tm, tm.s), Typ(Qua(Lone()), tm.s), uses_nil());
     }
@@ -3374,13 +3434,16 @@ export function tele_check(book: Book, lhs: LHS, tel: HTerm, xs: HTerm[], qt: Qu
   return { xs: out, us, tel };
 }
 
-export function term_check_kind(book: Book, lhs: LHS, T: HTerm, q: Quant, ctx: Ctx, d: number, s?: Span): void {
+// the type T of a binder q k fits Kind(q); a miss is reported at s, and
+// a + binder's miss says why it needs Data
+export function term_check_kind(book: Book, lhs: LHS, T: HTerm, q: Quant, k: Name, ctx: Ctx, d: number, s?: Span): Check {
   const kind = Typ<HBody>(Qua(lhs_kind(lhs, q)), s);
   try {
-    term_check(book, lhs, T, None(), kind, ctx, d);
+    return term_check(book, lhs, T, None(), kind, ctx, d);
   } catch (e) {
     const err = e as Err;
-    throw err?.$ === "Err" && err.exp === kind ? { ...err, spn: s ?? err.spn } : e;
+    const nte = q.$ === "Many" ? "Note: +" + k + " can be used many times, so its type must be Data." : undefined;
+    throw err?.$ === "Err" && err.exp === kind ? { ...err, spn: s ?? err.spn, nte } : e;
   }
 }
 
@@ -3424,7 +3487,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       let q = t_wnf.q;
       if (tm.q?.$ === "Many" && q.$ === "Lone") {
         q = tm.q;
-        term_check_kind(book, lhs, t_wnf.A, q, ctx, d, tm.s);
+        term_check_kind(book, lhs, t_wnf.A, q, tm.k, ctx, d, tm.s);
       }
       const f_ctx = ctx_bind(ctx, d, q, tm.k, t_wnf.A);
       const f_chk = term_check(book, f_lhs, tm.f(x), qt, t_wnf.B(x), f_ctx, d+1);
@@ -3445,7 +3508,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
       for (let j = 0; j < n; j++) {
         const v_dem = quant_dem(tm.q[j], qt);
         const v_inf = term_infer(book, lhs, tm.v[j], v_dem, ctx, d);
-        term_check_kind(book, lhs, v_inf.ty, tm.q[j], ctx, d, tm.s);
+        term_check_kind(book, lhs, v_inf.ty, tm.q[j], tm.k[j], ctx, d, tm.s);
         vx.push(v_inf.tm);
         us = uses_add(us, v_inf.us);
         f_ctx = ctx_bind(f_ctx, d + j, tm.q[j], tm.k[j], v_inf.ty);
@@ -3505,6 +3568,8 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
     // where q is not - in a live region
     //       si = ri · q (a field's quantity times its scrutinee's)
     //       h's lhs steps by k{x1, .., xn} while a parameter remains
+    //       m is dead past D's last constructor k: a default there (a
+    //       flattened fallback) is \{}, unvisited; a case still checks
     // -------------------------------------------------------------- check-mat
     // Γ ⊢ \ {k: h; m} : T ~ hu | mu
     //
@@ -3561,7 +3626,7 @@ export function term_check(book: Book, lhs: LHS, tm: HTerm, qt: Quant, ty: HTerm
           }
           const h_chk = term_check(book, h_lhs, tm.h, qt, term_check_mat_goal(tel, ctr.n, []), ctx, d);
           const m_gol = All(t_wnf.q, t_wnf.k, t_wnf.i, ADT(a_wnf.k, a_wnf.x, tm.s, a_wnf.r.concat([ctr.k])), t_wnf.B, tm.s);
-          const m_chk = term_check(book, lhs, tm.m, qt, m_gol, ctx, d);
+          const m_chk = rem.length === 1 && tm.m.$ !== "Mat" ? Check(Efq(tm.s), m_gol, uses_nil()) : term_check(book, lhs, tm.m, qt, m_gol, ctx, d);
           return Check(Mat(tm.k, h_chk.tm, m_chk.tm, tm.s), ty, pmap_union(h_chk.us, m_chk.us, quant_join));
         }
       }

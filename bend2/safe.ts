@@ -5,7 +5,11 @@
 // the minimal kernel with a proof) and the kernel's CLI checks the text.
 // The elaborator reads bend2's checked terms (Def.e: every node wrapped
 // in its type), so it needs no inference of its own; the kernel trusts
-// none of it. A book bend2 rejects never reaches the kernel.
+// none of it. A book bend2 rejects never reaches the kernel. bend2
+// converts functions up to η; the kernel does not, and unfolds a def
+// only when applied. So a term of a function type goes out η-long: an
+// equation bend2 closes by η has λs on both sides, which the kernel
+// compares under the binder.
 //
 // A datatype D<ps> with constructors cs is two defs: D.arms(ps, t)
 // switches on the tag t and gives the Σ chain of that constructor's
@@ -127,7 +131,7 @@ const NAT_MAX = 4096;
 // ======
 
 // a book the kernel cannot express
-export class Scope_Error extends Error {}
+class Scope_Error extends Error {}
 
 function oos(why: string): never {
   throw new Scope_Error(why);
@@ -139,7 +143,7 @@ function oos(why: string): never {
 // the BendTT text of a checked book: every def and datatype not in base,
 // in bend2's fill order, and what they name; a def out of scope goes, as
 // does every def that names it, and oos says why, for each book name
-export function safe_book(book: Book): { text: string; oos: Array<[Name, string]> } {
+function safe_book(book: Book): { text: string; oos: Array<[Name, string]> } {
   const e: Safe = { book, mb: { ...book, tlds: Object.create(book.tlds) as Book["tlds"] }, out: [], names: new Map(), seen: new Set(),
     todo: [], taken: new Set(), fail: new Map(), spec: new Map(), groups: new Map(),
     inst: new Map(Object.entries(book.tmps).flatMap(([k, is]) => Object.entries(is).map(([key, n]): [Name, [Name, HTerm[]]] =>
@@ -598,14 +602,14 @@ function tree(e: Safe, s: Scope, t: HTerm, fs: Chain[]): O {
   if (x.$ === "Lam" && all !== null && is_qnt(e, all.A)) {
     oos("a Quant parameter bound inside a match");
   }
+  // a leaf of a function type goes η-long: a chain splits its fields
+  // under λs, and the kernel converts without η, so each side of an
+  // equation bend2 closes by η must be a λ
   if (x.$ !== "Lam" && x.$ !== "Mat" && x.$ !== "Efq") {
-    if (top === undefined) {
-      return term(e, s, t, true);
+    if (all !== null) {
+      return tree(e, s, eta(t, all), fs);
     }
-    if (all === null) {
-      oos("a match arm with no known type");
-    }
-    return tree(e, s, eta(t, all), fs);
+    return top === undefined ? term(e, s, t, true) : oos("a match arm with no known type");
   }
   // inside a chain, split the field off first; else take the column
   const fs2 = top === undefined ? fs : [...fs.slice(0, -1), { ...top, n: top.n - 1 }];
@@ -749,29 +753,6 @@ function eta(t: HTerm, all: Extract<HTerm, { $: "All" }>): HTerm {
   return B.Ann(B.Lam(all.k, 0, (y: HTerm) => B.Ann(B.App(t, y), all.B(y))), all);
 }
 
-// f when x is λy => f(y) and y is not free in f (bend2 converts up to
-// eta; the kernel does not, so a dead λ goes eta-short)
-function eta_reduce(e: Safe, s: Scope, x: Extract<HTerm, { $: "Lam" }>, T: HTerm | null): HTerm | null {
-  const d = s.d;
-  const [b] = open(x.f(B.Var(x.k, d)));
-  if (b.$ !== "App") {
-    return null;
-  }
-  const [y] = open(b.x);
-  if (y.$ !== "Var" || y.i !== d) {
-    return null;
-  }
-  if (mentions(B.term_lower(b.f, d + 1), (i) => i === d) || T === null) {
-    return null;
-  }
-  // f's binder must be the λ's: the kernel compares quantities
-  const [h, hT] = open(b.f);
-  const U = hT ?? (h.$ === "Ref" ? e.book.tlds[h.k]?.T : h.$ === "Var" ? s.c[h.i]?.T : null) ?? null;
-  const F = U === null ? null : B.term_wnf(e.book, U);
-  const G = B.term_wnf(e.book, T);
-  return F?.$ === "All" && G.$ === "All" && F.q.$ === G.q.$ ? b.f : null;
-}
-
 // whether a lowered term mentions a variable at a level p holds for
 function mentions(t: unknown, p: (i: number) => boolean): boolean {
   if (typeof t !== "object" || t === null) {
@@ -851,8 +832,7 @@ function term(e: Safe, s0: Scope, t: HTerm, live: boolean): O {
     case "Lam":
     case "Mat":
     case "Efq": {
-      const f = live || x.$ !== "Lam" ? null : eta_reduce(e, s, x, T);
-      return f !== null ? term(e, s, f, live) : tree(e, { ...s, cols: [] }, t, []);
+      return tree(e, { ...s, cols: [] }, t, []);
     }
     case "Let": {
       return let_term(e, s, x, live);
@@ -1111,19 +1091,24 @@ function refs(e: Safe, k: Name): Set<Name> {
 }
 
 // an argument at its domain A: an untyped λ or match (in a type) takes
-// A as its goal
+// A as its goal. Any other argument of a function type goes η-long at A
+// (a tree leaf does): the kernel converts without η, and an argument may
+// reach a type, as a side of an equation whose carrier only the call
+// knows. A live self-call's argument stays whole, as the live check
+// reads it, unless its binders differ from A's
 function arg_term(e: Safe, s: Scope, x: HTerm, A: HTerm, live: boolean): O {
   const [y, T] = open(x);
   const tree = y.$ === "Lam" || y.$ === "Mat" || y.$ === "Efq";
-  if (!tree && T !== null && !qsig_eq(e, T, A, s.d)) {
-    return term(e, s, eta_full(e, x, A, s.d), live);
+  const all = all_of(e, A);
+  if (!tree && all !== null && (!(live && s.sub) || T !== null && !qsig_eq(e, T, A, s.d))) {
+    return term(e, s, eta(x, all), live);
   }
   return term(e, s, T === null && tree ? B.Ann(x, A) : x, live);
 }
 
 // whether two function types bind at the same quantities (the kernel
 // compares binders exactly; bend2 lets a function fit a domain whose
-// binders differ, so such an argument goes eta-long at the domain's)
+// binders differ)
 function qsig_eq(e: Safe, T: HTerm, A: HTerm, d: number): boolean {
   const F = B.term_wnf(e.book, T);
   const G = B.term_wnf(e.book, A);
@@ -1136,15 +1121,6 @@ function qsig_eq(e: Safe, T: HTerm, A: HTerm, d: number): boolean {
   }
   const x = B.Var(G.k, d);
   return F.q.$ === G.q.$ && qsig_eq(e, F.B(x), G.B(x), d + 1);
-}
-
-// λy.. => x(y..), at the telescope A, annotated at each level
-function eta_full(e: Safe, x: HTerm, A: HTerm, d: number): HTerm {
-  const G = B.term_wnf(e.book, A);
-  if (G.$ !== "All") {
-    return x;
-  }
-  return B.Ann(B.Lam(G.k, d, (y: HTerm) => eta_full(e, B.App(x, y), G.B(y), d + 1)), A);
 }
 
 // a constructor as a tuple of its tag and fields
@@ -1366,7 +1342,7 @@ function o_show(o: O, p: string): string {
 // the kernel's CLI: $BENDTT, else a build of bendtt.lean (in BEND_DIR,
 // beside base.bend) cached in ~/.bend/bendtt/<hash>, made once with Lean
 // v4.34.0 (elan's toolchain, or lean and leanc on the PATH)
-export function kernel_bin(): string {
+function kernel_bin(): string {
   const env = process.env.BENDTT;
   if (env !== undefined && env !== "") {
     return env;
@@ -1384,9 +1360,9 @@ export function kernel_bin(): string {
   fs.mkdirSync(dir, { recursive: true });
   fs.copyFileSync(src, path.join(dir, "bendtt.lean"));
   const run = (bin: string, args: string[]): void => {
-    const got = child.spawnSync(bin, args, { cwd: dir, encoding: "utf8" });
+    const [got, text] = run_read(bin, args, { cwd: dir });
     if (got.status !== 0) {
-      throw new Error("the kernel did not build (" + bin + ": " + (got.error?.message ?? got.stderr.slice(0, 300))
+      throw new Error("the kernel did not build (" + bin + ": " + (got.error?.message ?? text.slice(0, 300))
         + "); --verdict needs Lean v4.34.0 (elan toolchain leanprover/lean4:v4.34.0), or $BENDTT set to a built kernel");
     }
   };
@@ -1395,23 +1371,35 @@ export function kernel_bin(): string {
   return bin;
 }
 
+// run_read runs a child to its end: its result, and its stdout and stderr
+// as one text. The text goes through a file, not a pipe: bun's spawnSync
+// (1.3.14) can lose a pipe's bytes under load (status 0, stdout ""; seen
+// for the kernel, and for clang --version behind a tee that got its text)
+export function run_read(bin: string, args: string[],
+  opts: child.SpawnSyncOptionsWithBufferEncoding = {}): [child.SpawnSyncReturns<Buffer>, string] {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bend-run-"));
+  const log = path.join(dir, "out");
+  const fd = fs.openSync(log, "w");
+  try {
+    const got = child.spawnSync(bin, args, { ...opts, stdio: ["ignore", fd, fd] });
+    return [got, fs.readFileSync(log, "utf8")];
+  } finally {
+    fs.closeSync(fd);
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+}
+
 // the kernel's verdict on a book's text: ok on exit 0 with its exact
-// success line. The text and the kernel's output are files in a fresh
-// private dir, which no one else can swap, not pipes: under load, bun's
-// spawnSync returned an empty pipe for a kernel that printed its verdict
-// and exited 0 (4 in 32 gate runs; 0 in 24 with a file), and a kernel
-// reading /dev/stdin got EBADF (1 in 1486)
+// success line. It checks a copy in a fresh private dir, which no one
+// else can swap, and a kernel reading /dev/stdin got EBADF (1 in 1486)
 function kernel_check(text: string): boolean {
   const env = { ...process.env, LEAN_STACK_SIZE_KB: "4194304" };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bendtt-"));
-  const [inp, log] = [path.join(dir, "in.bendtt"), path.join(dir, "out")];
+  const inp = path.join(dir, "in.bendtt");
   fs.writeFileSync(inp, text, { flag: "wx" });
-  const fd = fs.openSync(log, "wx");
-  const got = child.spawnSync(kernel_bin(), [inp], { stdio: ["ignore", fd, fd], env });
-  fs.closeSync(fd);
-  const out = fs.readFileSync(log, "utf8");
+  const [got, out] = run_read(kernel_bin(), [inp], { env });
   fs.rmSync(dir, { recursive: true });
-  return got.status === 0 && out.trim() === "All terms check.";
+  return got.status === 0 && out.trim() === "ALL PROOFS CHECK";
 }
 
 // -o <out>.bendtt: writes the elaboration of a book bend2 checked to
