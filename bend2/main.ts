@@ -30,26 +30,30 @@ import * as Safe from "./safe.ts";
 // Constants
 // =========
 
-const VERSION = "2.0.30";
+const VERSION = "2.0.31";
+
+// the commands, one row each: [usage, what it does]; bend guide stays last
+const USAGE = [
+  ["bend <file.bend> [args]", "check the file, then run main with args"],
+  ["bend <file.bend> -o <out>", "build a binary, or C, JS or BendTT by extension"],
+  ["bend <file.bend> --check-only", "check the file and its imports; run nothing"],
+  ["bend <file.bend> --safe", "check it, then recheck it with the proven kernel"],
+  ["bend <file.bend> --publish [<name>@<version>]", "publish the file and its imports; a name needs login"],
+  ["bend link <name>@<version> 0x<hash>", "name a package already on the hub"],
+  ["bend login", "log in to Bender for --publish <name>@…"],
+  ["bend <page.html> -o <dir>", "bundle a page that imports .bend files"],
+  ["bend base [--types|<name>]", "print Base, its types, or a name and subnames"],
+  ["bend update", "install the latest bend (curl | sh, shown first)"],
+  ["bend version", "print the version"],
+  ["bend guide", "print the Bend guide"],
+];
+
+const USE_W = Math.max(...USAGE.map(([use]) => use.length));
 
 const HELP = `Bend ${VERSION}: check, run, build and publish Bend programs.
 
 usage:
-  bend <file.bend> [args]       check the file, then run main with args
-  bend <file.bend> -o <out>     build a binary, or C, JS or BendTT by extension
-  bend <file.bend> --check-only check the file and its imports; run nothing
-  bend <file.bend> --safe       check it, then recheck it with the proven kernel
-  bend <file.bend> --publish    publish the file and its imports to the hub
-  bend <file.bend> --publish <name>@<version>
-                                publish, then name it (needs login)
-  bend link <name>@<version> 0x<hash>
-                                name a package already on the hub
-  bend login                    log in to Bender for --publish <name>@…
-  bend <page.html> -o <dir>     bundle a page that imports .bend files
-  bend base [--types|<name>]    print Base, its types, or a name and subnames
-  bend guide                    print the Bend guide
-  bend update                   install the latest bend (curl | sh, shown first)
-  bend version                  print the version
+${USAGE.map(([use, say]) => `  ${use.padEnd(USE_W)}  ${say}`).join("\n")}
 
 Read the guide (\`bend guide\`) before writing Bend code.
 `;

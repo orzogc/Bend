@@ -3,6 +3,12 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.31 (2026-09-27)
+
+- **`bend` help: one aligned line per command**: a table builds the list,
+  so every description starts in one column; `--publish [<name>@<version>]`
+  is one line, and `bend guide` is the last command.
+
 ## 2.0.30 (2026-09-27)
 
 - **`bend f.bend --safe` rechecks a file with a proven kernel**: after
