@@ -32,7 +32,7 @@ const find = (dir: string, cwd: string) => child.spawnSync("find", [dir, "-name"
 let all: string[];
 const stage = fs.mkdtempSync("/tmp/bend-safe-");
 fs.copyFileSync(bin, path.join(stage, "bendtt"));
-const base = ["-czf", "-", "-s", ",^\\./,lib/,", "--exclude", "bend2/docs", "--exclude", "bend2/pack", "--exclude", "bend2/bend.lean",
+const base = ["-czf", "-", "-s", ",^\\./,lib/,", "--exclude", "bend2/docs", "--exclude", "bend2/pack",
   "--exclude", "*.bendtt", "-C", ROOT, "bend2", "gates/safe_node.ts", "gates/safe_diag.ts", "-C", stage, "bendtt"];
 let tar: Buffer;
 if (corpus === "tests") {

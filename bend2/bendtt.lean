@@ -1,76 +1,63 @@
 import Std.Data.HashMap
 
-/-
-BendTT
-======
-
-BendTT is Bend's kernel: a dependent affine calculus with Type : Type,
-no universe levels and no native datatypes. This file holds the whole
-kernel and the argument for its consistency, in three parts:
-
-1. THEORY: terms, evaluator, conversion, the bidirectional checker, the
-   live check, a parser for .bendtt text and a CLI.
-2. CLAIMS: the declarative theory, and the claims about Part 1's check.
-3. PROOF: the lemmas, in order.
-
-A term has a dead part and a live part, read off its syntax. Types,
-annotations, motives, and the argument, field or value of a q=0 App,
-Tup or Let are dead: they are checked for types only, never run, and
-may be inconsistent (Girard's paradox fits there). All else is live.
-Every binder, App and Tup states its quantity, so the live part needs
-no types. The typing checker (Checker) ignores usage; the live check
-(Termination) ignores types. The live part of a def must be affine (a
-q=1 variable is used at most once, a q=0 one never), may call only
-earlier defs, and may call its own def only on parameters it rebuilt,
-then a piece of one.
-A q=2 binder needs a Data domain, and Data holds no λ and no call.
-
-Then live evaluation terminates by a measure that ignores types: a call
-is replaced by smaller calls, and all else shrinks. Subject reduction
-and progress carry the type along, and no value has type <>. So no live
-term inhabits Empty: termination follows from linearity, and types
-only rule out stuck terms.
-
-A datatype is a Σ over a label: Nat = Σt:<Z, S> -> (Nat.arms t). A
-match is a λ-match: λ{(,): h} splits a pair, λ{.k: h; m} switches on
-a label, λ{} eliminates the empty enum. A def's leading λs and λ-matches
-(and λ-matches applied to variables it bound) are its case tree: a call
-unfolds only when its arguments walk the whole tree, so a stuck call
-stays a call, and compares by its spine.
-
-Where this kernel departs from the old one (bendtt.bend), and why:
-- No Qnt, Qua or Min: a quantity is a literal. The bend elaborator
-  specializes each quantity-generic def; BendHub needs 69 copies, and
-  none fails.
-- No μ: a type recurses through its def's name, as Nat does above.
-- Rwt is transport: its motive binds x only. No corpus proof uses J.
-- The two arms of a match add their uses, as the termination measure
-  needs. The elaborator passes a q=1 variable that both arms use to
-  each arm as an argument.
-- App and Tup state a quantity (the old App had none).
-
-  Term ::=
-  | Var ::= k                            # a bound name
-  | Ref ::= k                            # a def's name
-  | Ann ::= "{" x ":" T "}"
-  | Let ::= "!" q k "=" v ";" f          # transparent
-  | Typ ::= "*1" | "*2"                  # Type, Data
-  | All ::= "∀" q k ":" A "->" B
-  | Lam ::= "λ" q k "=>" f
-  | App ::= "(" f (q x)+ ")"
-  | Sig ::= "Σ" q k ":" A "->" B
-  | Tup ::= "(" q a "," b ")"            # (a, b, c) is (a, (b, c))
-  | Prj ::= "λ{(,):" h "}"
-  | Enu ::= "<" k,* ">"                  # k may be ()
-  | Lab ::= "." k | "()"
-  | Mat ::= "λ{" Lab ":" h ";" m "}"
-  | Efq ::= "λ{}"
-  | Eql ::= "{" a "==" b ":" T "}"
-  | Rfl ::= "{==}"
-  | Rwt ::= "%" e ":" k "=>" P ";" f     # transport along e
-  q    ::= "-" | "" | "+"                # 0, 1, 2
-  Def  ::= ["opaque"] k ":" T "=" v
--/
+-- BendTT
+-- ======
+--
+-- BendTT is Bend's kernel: a dependent affine calculus with Type : Type,
+-- no universe levels and no native datatypes. This file holds the whole
+-- kernel and the argument for its consistency, in three parts:
+--
+-- 1. THEORY: terms, evaluator, conversion, the bidirectional checker, the
+--    live check, a parser for .bendtt text and a CLI.
+-- 2. CLAIMS: the declarative theory, and the claims about Part 1's check.
+-- 3. PROOF: the lemmas, in order.
+--
+-- A term has a dead part and a live part, read off its syntax. Types,
+-- annotations, motives, and the argument, field or value of a q=0 App,
+-- Tup or Let are dead: they are checked for types only, never run, and
+-- may be inconsistent (Girard's paradox fits there). All else is live.
+-- Every binder, App and Tup states its quantity, so the live part needs
+-- no types. The typing checker (Checker) ignores usage; the live check
+-- (Termination) ignores types. The live part of a def must be affine (a
+-- q=1 variable is used at most once, a q=0 one never), may call only
+-- earlier defs, and may call its own def only on parameters it rebuilt,
+-- then a piece of one.
+-- A q=2 binder needs a Data domain, and Data holds no λ and no call.
+--
+-- Then live evaluation terminates by a measure that ignores types: a call
+-- is replaced by smaller calls, and all else shrinks. Subject reduction
+-- and progress carry the type along, and no value has type <>. So no live
+-- term inhabits Empty: termination follows from linearity, and types
+-- only rule out stuck terms.
+--
+-- A datatype is a Σ over a label: Nat = Σt:<Z, S> -> (Nat.arms t). A
+-- match is a λ-match: λ{(,): h} splits a pair, λ{.k: h; m} switches on
+-- a label, λ{} eliminates the empty enum. A def's leading λs and λ-matches
+-- (and λ-matches applied to variables it bound) are its case tree: a call
+-- unfolds only when its arguments walk the whole tree, so a stuck call
+-- stays a call, and compares by its spine.
+--
+--   Term ::=
+--   | Var ::= k                            # a bound name
+--   | Ref ::= k                            # a def's name
+--   | Ann ::= "{" x ":" T "}"
+--   | Let ::= "!" q k "=" v ";" f          # transparent
+--   | Typ ::= "*1" | "*2"                  # Type, Data
+--   | All ::= "∀" q k ":" A "->" B
+--   | Lam ::= "λ" q k "=>" f
+--   | App ::= "(" f (q x)+ ")"
+--   | Sig ::= "Σ" q k ":" A "->" B
+--   | Tup ::= "(" q a "," b ")"            # (a, b, c) is (a, (b, c))
+--   | Prj ::= "λ{(,):" h "}"
+--   | Enu ::= "<" k,* ">"                  # k may be ()
+--   | Lab ::= "." k | "()"
+--   | Mat ::= "λ{" Lab ":" h ";" m "}"
+--   | Efq ::= "λ{}"
+--   | Eql ::= "{" a "==" b ":" T "}"
+--   | Rfl ::= "{==}"
+--   | Rwt ::= "%" e ":" k "," k "=>" P ";" f  # J: P binds x, h : {a == x}
+--   q    ::= "-" | "" | "+"                # 0, 1, 2
+--   Def  ::= ["opaque"] k ":" T "=" v
 
 -- Types
 -- =====
@@ -245,7 +232,7 @@ def Term.ren (r : Ren) : Term → Term
   | Rfl => Rfl
   | Rwt e P f =>
     let e := Term.ren r e
-    let P := Term.ren (Ren.up r) P
+    let P := Term.ren (Ren.up (Ren.up r)) P
     let f := Term.ren r f
     Rwt e P f
 
@@ -331,7 +318,7 @@ def Term.sub (s : Subst) : Term → Term
   | Rfl => Rfl
   | Rwt e P f =>
     let e := Term.sub s e
-    let P := Term.sub (Subst.up s) P
+    let P := Term.sub (Subst.up (Subst.up s)) P
     let f := Term.sub s f
     Rwt e P f
 
@@ -392,7 +379,7 @@ def Term.subk (s : Subst) (d : Nat) : Term → Term
   | Rfl => Rfl
   | Rwt e P f =>
     let e := Term.subk s d e
-    let P := Term.subk s (d + 1) P
+    let P := Term.subk s (d + 2) P
     let f := Term.subk s d f
     Rwt e P f
 
@@ -544,9 +531,9 @@ def Term.show : Term → Nat → String
   | Rfl, _ => "{==}"
   | Rwt e P f, d =>
     let e := Term.show e d
-    let P := Term.show P (d + 1)
+    let P := Term.show P (d + 2)
     let f := Term.show f d
-    "%" ++ e ++ " : " ++ Nat.name d ++ " => " ++ P ++ "; " ++ f
+    "%" ++ e ++ " : " ++ Nat.name d ++ ", " ++ Nat.name (d + 1) ++ " => " ++ P ++ "; " ++ f
 
 -- Parser
 -- ======
@@ -761,9 +748,11 @@ partial def Term.parse_rwt (vs : List String) : Parse Term := do
   Parse.eat "%"
   let e ← Term.parse vs
   Parse.eat ":"
-  let k ← Parse.name
+  let x ← Parse.name
+  Parse.eat ","
+  let h ← Parse.name
   Parse.eat "=>"
-  let P ← Term.parse (k :: vs)
+  let P ← Term.parse (h :: x :: vs)
   Parse.eat ";"
   let f ← Term.parse vs
   return Rwt e P f
@@ -1031,9 +1020,10 @@ def Term.infer (ck : Lib) : Nat → Ctx → Term → Res Term
 -- ------------------------ efq    ----------------------- rfl
 -- Γ ⊢ λ{} : T                     Γ ⊢ {==} : T
 --
--- Γ ⊢ e : {a == b : A}   Γ, A ⊢ P : *1   P[b] ≤ T   Γ ⊢ f : P[a]
--- ------------------------------------------------------------ rwt
--- Γ ⊢ %e : x => P; f : T
+-- Γ ⊢ e : {a == b : A}   Γ, x : A, h : {a == x : A} ⊢ P : *1
+-- P[b, e] ≤ T   Γ ⊢ f : P[a, {==}]
+-- ------------------------------------------------------- rwt
+-- Γ ⊢ %e : x, h => P; f : T
 --
 -- Γ ⊢ x : A   Γ ⊢ f : ∀q s:A -> T[x := s]    f's head is a λ or a λ-match
 -- -------------------------------------------------------------- elim
@@ -1111,9 +1101,10 @@ def Term.check (ck : Lib) : Nat → Ctx → Term → Term → Res Unit
     let E ← Term.infer ck n c e
     match Ctx.wnf ck c E with
     | Eql a b A => do
-      Term.check ck n ((A, none) :: c) P (Typ Q1)
-      Ctx.fit ck c (Term.inst P b) T
-      Term.check ck n c f (Term.inst P a)
+      let E := Eql (Term.ren Nat.succ a) (Var 0) (Term.ren Nat.succ A)
+      Term.check ck n ((E, none) :: (A, none) :: c) P (Typ Q1)
+      Ctx.fit ck c (Term.inst (Term.inst P (Term.ren Nat.succ e)) b) T
+      Term.check ck n c f (Term.inst (Term.inst P Rfl) a)
     | E => Ctx.fail c "an equation" E
   | n + 1, c, App q f (Var i), T =>
     if Term.takes (Term.unspine f []).1 then do
@@ -1319,22 +1310,20 @@ def main (args : List String) : IO UInt32 := do
     IO.println "usage: bendtt <file.bendtt>"
     pure 2
 
-/-
-CLAIMS
-======
-
-Part 2 states what Part 1's check guarantees. First the declarative
-theory: parallel reduction (Par), its closure (Pars), conversion (Conv),
-subsumption (Fits) and typing (Typed); the rules mirror the checker's,
-one for one. Then the run-time semantics the proof uses: Data, values
-(Value), the walk of a call through its def's case tree (Walk) and
-call-by-value evaluation (Eval). Eval never runs a dead part, fires a
-call only when its arguments walk the whole tree, and checks at run
-time what types promise (a q=2 copy is Data, a λ-match gets a live
-pair or label). The measure of the termination proof needs no types,
-since these checks are in Eval; progress shows typed terms pass them.
-Part 2 ignores the opaque flag: an opaque def unfolds to its model.
--/
+-- CLAIMS
+-- ======
+--
+-- Part 2 states what Part 1's check guarantees. First the declarative
+-- theory: parallel reduction (Par), its closure (Pars), conversion (Conv),
+-- subsumption (Fits) and typing (Typed); the rules mirror the checker's,
+-- one for one. Then the run-time semantics the proof uses: Data, values
+-- (Value), the walk of a call through its def's case tree (Walk) and
+-- call-by-value evaluation (Eval). Eval never runs a dead part, fires a
+-- call only when its arguments walk the whole tree, and checks at run
+-- time what types promise (a q=2 copy is Data, a λ-match gets a live
+-- pair or label). The measure of the termination proof needs no types,
+-- since these checks are in Eval; progress shows typed terms pass them.
+-- Part 2 ignores the opaque flag: an opaque def unfolds to its model.
 
 -- Reduction
 -- ---------
@@ -1429,9 +1418,10 @@ inductive Typed (bk : Book) : List Term → Term → Term → Prop
   | eql  : Typed bk Γ T (Typ Q1) → Typed bk Γ a T → Typed bk Γ b T →
            Typed bk Γ (Eql a b T) (Typ Q2)
   | rfl  : Conv bk a b → Typed bk Γ Rfl (Eql a b T)
-  | rwt  : Typed bk Γ e (Eql a b A) → Typed bk (A :: Γ) P (Typ Q1) →
-           Fits bk (Term.inst P b) T → Typed bk Γ f (Term.inst P a) →
-           Typed bk Γ (Rwt e P f) T
+  | rwt  : Typed bk Γ e (Eql a b A) →
+           Typed bk (Eql (Term.ren Nat.succ a) (Var 0) (Term.ren Nat.succ A) :: A :: Γ) P (Typ Q1) →
+           Fits bk (Term.inst (Term.inst P (Term.ren Nat.succ e)) b) T →
+           Typed bk Γ f (Term.inst (Term.inst P Rfl) a) → Typed bk Γ (Rwt e P f) T
   | conv : Typed bk Γ t U → Fits bk U T → Typed bk Γ t T
 
 -- every def's type is a type and its closed body has it
@@ -1566,45 +1556,43 @@ def Claim.halts : Prop :=
 def Claim.empty : Prop :=
   ∀ bk t, Book.WellTyped bk → Value bk t → ¬ Typed bk [] t (Enu [])
 
-/-
-PROOF
-=====
-
-The route has no logical relation, no step index and no universe:
-Takahashi confluence, syntactic subject reduction and progress, and an
-untyped measure for live evaluation. Type : Type is harmless, since
-nothing here asks a type to normalize: conversion is joinability, and
-termination measures the live term, not its type.
-
-Why the measure works. A live term is affine (Term.live), and Eval
-never enters a dead part. Each Eval step either removes a redex node
-(β, split, hit, miss, let, ann, cast) without copying a call, since a
-q=1 value lands in at most one live place and a q=2 value is Data (no
-λ, no call, no redex); or it fires a call, which replaces one call
-label (def index, sizes of its columns) by the labels of the reached
-branch: calls to earlier defs (a smaller index), and self-calls whose
-columns are, left to right, rebuilt values (no bigger) and then a strict
-piece (smaller). Labels live in a Dershowitz–Manna multiset, where each
-redex node adds the least label. A dead region may hold Girard's
-paradox: it is never run, and never measured.
-
-Sections, and their key lemmas:
-  S1 Syntax             ren and sub compose (sub_sub)
-  S2 Confluence         Takahashi's complete development (confluent)
-  S3 Evaluator          wnf is a Pars step, conv a join (wnf_pars, conv_sound)
-  S4 Typing             typing survives substitution (typed_sub)
-  S5 Checker            each checker rule lands on its Typed rule (chk)
-  S6 Subject reduction  Par keeps the type (sr, eval_pars)
-  S7 Progress           canonical forms, the tree walk (progress, empty)
-  S8 Termination        a call becomes smaller calls (hcl, tp, halts)
-  S9 Assembly           consistent
-
-Where the checker's side conditions are used:
-  live scrutinee (prj, mat, efq)  progress: Eval fires only on a live one
-  q=2 binder needs Data           canon_data: a q=2 copy holds no λ
-  uses (affinity)                 eval_decreases: β copies no call
-  called (order, descent)         hcl, tp, label_wf, dm_wf
--/
+-- PROOF
+-- =====
+--
+-- The route has no logical relation, no step index and no universe:
+-- Takahashi confluence, syntactic subject reduction and progress, and an
+-- untyped measure for live evaluation. Type : Type is harmless, since
+-- nothing here asks a type to normalize: conversion is joinability, and
+-- termination measures the live term, not its type.
+--
+-- Why the measure works. A live term is affine (Term.live), and Eval
+-- never enters a dead part. Each Eval step either removes a redex node
+-- (β, split, hit, miss, let, ann, cast) without copying a call, since a
+-- q=1 value lands in at most one live place and a q=2 value is Data (no
+-- λ, no call, no redex); or it fires a call, which replaces one call
+-- label (def index, sizes of its columns) by the labels of the reached
+-- branch: calls to earlier defs (a smaller index), and self-calls whose
+-- columns are, left to right, rebuilt values (no bigger) and then a strict
+-- piece (smaller). Labels live in a Dershowitz–Manna multiset, where each
+-- redex node adds the least label. A dead region may hold Girard's
+-- paradox: it is never run, and never measured.
+--
+-- Sections, and their key lemmas:
+--   S1 Syntax             ren and sub compose (sub_sub)
+--   S2 Confluence         Takahashi's complete development (confluent)
+--   S3 Evaluator          wnf is a Pars step, conv a join (wnf_pars, conv_sound)
+--   S4 Typing             typing survives substitution (typed_sub)
+--   S5 Checker            each checker rule lands on its Typed rule (chk)
+--   S6 Subject reduction  Par keeps the type (sr, eval_pars)
+--   S7 Progress           canonical forms, the tree walk (progress, empty)
+--   S8 Termination        a call becomes smaller calls (hcl, tp, halts)
+--   S9 Assembly           consistent
+--
+-- Where the checker's side conditions are used:
+--   live scrutinee (prj, mat, efq)  progress: Eval fires only on a live one
+--   q=2 binder needs Data           canon_data: a q=2 copy holds no λ
+--   uses (affinity)                 eval_decreases: β copies no call
+--   called (order, descent)         hcl, tp, label_wf, dm_wf
 
 -- Syntax
 -- ------
@@ -1660,6 +1648,9 @@ theorem inst_sub : Term.sub σ (Term.inst f v) =
   simp only [Term.inst, sub_sub]; congr 1; funext i; cases i
   · rfl
   · show _ = Term.sub _ (Term.ren _ _); rw [sub_ren]; exact (sub_var _).symm
+
+theorem sub_succ : Term.sub (Subst.up σ) (Term.ren Nat.succ t) = Term.ren Nat.succ (Term.sub σ t) := by
+  rw [sub_ren, ren_sub]; rfl
 
 theorem pick_inst : Term.inst (Term.ren (Ren.pick i) T) (Var i) = T := by
   have : Subst.one (Var i) ∘ Ren.pick i = Var := by
@@ -1765,11 +1756,13 @@ theorem par_ren : Par bk t u → Par bk (Term.ren r t) (Term.ren r u) := by
 
 theorem par_sub : Par bk t u → (∀ i, Par bk (σ i) (τ i)) →
     Par bk (Term.sub σ t) (Term.sub τ u) := by
+  have U {σ τ : Subst} (h : ∀ i, Par bk (σ i) (τ i)) : ∀ i, Par bk (Subst.up σ i) (Subst.up τ i)
+    | 0 => .var | _ + 1 => par_ren (h _)
   intro h hs; induction h generalizing σ τ <;> simp only [Term.sub, inst_sub]
   case var => exact hs _
   case delta hk hc => rw [hc]; exact .delta hk hc
   all_goals first | apply Par.split | apply Par.miss | constructor
-  all_goals first | assumption | (apply_assumption; first | exact hs | exact fun | 0 => .var | _ + 1 => par_ren (hs _))
+  all_goals first | assumption | (apply_assumption; first | exact hs | exact U hs | exact U (U hs))
 
 theorem par_inst (hf : Par bk f f') (hv : Par bk v v') :
     Par bk (Term.inst f v) (Term.inst f' v') :=
@@ -2092,24 +2085,10 @@ theorem typed_gen (K : List Term → Subst → List Term → Prop)
   induction h generalizing Δ σ <;> intro k <;> (try simp only [Term.sub, inst_sub, tup_sub] at *)
   case var h => exact hv k _ _ h
   case ref h => rw [sub_sub]; exact .ref h
-  case ann ih1 ih2 => exact .ann (ih1 k) (ih2 k)
-  case lett ih1 ih2 ih3 => exact .lett (ih1 k) (fun e => ih2 e k) (ih3 k)
-  case typ => exact .typ
-  case all ih1 ih2 => exact .all (ih1 k) (ih2 (hu _ k))
-  case lam h _ _ ih1 ih2 => exact .lam h (fun e => ih1 e k) (ih2 (hu _ k))
-  case app ih1 ih2 => exact .app (ih1 k) (ih2 k)
-  case sig ih1 ih2 => exact .sig (ih1 k) (ih2 (hu _ k))
-  case tup ih1 ih2 => exact .tup (ih1 k) (ih2 k)
-  case prj h _ ih => exact .prj h (ih k)
-  case enu => exact .enu
-  case lab h => exact .lab h
-  case mat h1 h2 _ _ ih1 ih2 => exact .mat h1 h2 (ih2 k) (ih1 k)
-  case efq h => exact .efq h
-  case eql ih1 ih2 ih3 => exact .eql (ih1 k) (ih2 k) (ih3 k)
-  case rfl h => exact .rfl (conv_sub h)
   case rwt h _ ih1 ih2 ih3 =>
-    exact .rwt (ih1 k) (ih2 (hu _ k)) (by simpa only [inst_sub] using fits_sub h) (ih3 k)
-  case conv h ih => exact .conv (ih k) (fits_sub h)
+    exact .rwt (ih1 k) (by simpa only [Term.sub, Subst.up, sub_succ] using ih2 (hu _ (hu _ k)))
+      (by simpa only [inst_sub, sub_succ] using fits_sub h) (ih3 k)
+  all_goals constructor <;> solve_by_elim [conv_sub, fits_sub]
 
 theorem typed_ren : Typed bk Γ t T → RenOk Δ r Γ →
     Typed bk Δ (Term.ren r t) (Term.ren r T) := by
@@ -2320,11 +2299,13 @@ theorem chk (hcl : Sees ck bk) (n : Nat) : ∀ c t T, Ctx.ok bk c →
       split at h <;> simp at h
       rename_i e
       obtain ⟨h2, h3, h4⟩ := h
+      have h2 := (ih ((_, none) :: (_, none) :: c) _ _ (substok_up (substok_up hc))).2 h2
       have h3 := fit_sound hcl h3
       have h4 := C _ _ h4
-      rw [Chk, inst_sub] at h4
-      rw [inst_sub] at h3
-      exact .rwt (.conv (I _ _ h1) (wnf_fits hcl e).2) (B h2) h3 h4
+      simp only [Chk, Ctx.decl, Ctx.drop, Term.sub, Subst.up, sub_succ] at h2
+      rw [Chk, inst_sub, inst_sub] at h4
+      rw [inst_sub, inst_sub, sub_succ] at h3
+      exact .rwt (.conv (I _ _ h1) (wnf_fits hcl e).2) h2 h3 h4
 
 theorem lib_get : (Lib.of bk)[k]? = Book.get bk k := by
   induction bk with
@@ -2368,8 +2349,6 @@ end
 
 -- Subject reduction
 -- -----------------
-
-theorem fits_refl : Fits bk T T := .inl ⟨T, .refl, .refl⟩
 
 theorem csym : Conv bk a b → Conv bk b a
   | ⟨c, h1, h2⟩ => ⟨c, h2, h1⟩
@@ -2416,7 +2395,7 @@ theorem gen (h : Typed bk Γ t T) :
     ∃ U, Gen bk Γ t U ∧ Fits bk U T ∧ (t.former ≠ 0 → U.former = t.tform) := by
   induction h
   all_goals first
-    | refine ⟨_, ?_, fits_refl, by simp [Term.former, Term.tform]⟩; simp only [Gen] <;>
+    | refine ⟨_, ?_, .inl ⟨_, .refl, .refl⟩, by simp [Term.former, Term.tform]⟩; simp only [Gen] <;>
       first
         | exact ⟨_, rfl, ‹_›⟩ | exact ⟨_, _, rfl, ‹_›⟩ | exact ⟨_, _, rfl, ‹_›, ‹_›⟩
         | exact ⟨_, rfl, ‹_›, ‹_›⟩ | exact ⟨_, _, _, rfl, ‹_›⟩ | exact ⟨_, _, _, rfl, ‹_›, ‹_›, ‹_›⟩
@@ -2442,8 +2421,6 @@ theorem conv_eql (h : Conv bk (Eql a b T) (Eql a' b' T')) : Conv bk a a' ∧ Con
   have ⟨x, y, z, e, h3, h4⟩ := pars_eql h1 rfl
   have ⟨x', y', z', e', h5, h6⟩ := pars_eql h2 rfl
   subst e; cases e'; exact ⟨⟨_, h3, h5⟩, ⟨_, h4, h6⟩⟩
-
-theorem typ_inj : Conv bk (Typ p) (Typ q) → p = q := (conv_leaf (ks := []) (js := [])).1
 
 theorem enu_inj : Conv bk (Enu ks) (Enu js) → ks = js := (conv_leaf (p := Q0) (q := Q0)).2
 
@@ -2484,8 +2461,8 @@ theorem sr : Claim.sr := by
       exact .eql (ihT _ pT) (.conv (iha _ pa) (.inl (pconv pT))) (.conv (ihb _ pb) (.inl (pconv pT)))
   | rwt he _ hF _ ihe ihP ihf => cases hp with
     | rwt pe pP pf =>
-      exact .rwt (ihe _ pe) (ihP _ pP) (fits_trans (.inl (csym (pconv (par_inst pP (par_refl _))))) hF)
-        (.conv (ihf _ pf) (.inl (pconv (par_inst pP (par_refl _)))))
+      exact .rwt (ihe _ pe) (ihP _ pP) (fits_trans (.inl (csym (pconv (par_inst (par_inst pP (par_ren pe)) (par_refl _))))) hF)
+        (.conv (ihf _ pf) (.inl (pconv (par_inst (par_inst pP .rfl) (par_refl _)))))
     | cast pf =>
       have ⟨_, ⟨a, b, _, e, hc⟩, hU, _⟩ := gen he; subst e
       have ⟨ha, hb⟩ := conv_eql (fits_conv hU)
@@ -2538,15 +2515,11 @@ theorem walk_pars' (w : Walk bk t e xs o) : ∃ v,
     | exact .hit (par_refl _)
     | exact .miss ‹_› (par_refl _)
 
-theorem walk_pars : Book.Closed bk → Walk bk t e xs (some u) →
-    Pars bk (Term.spine (Term.sub (Env.sub e) t) xs) u := by
-  intro _ w; have ⟨v, p, h⟩ := walk_pars' w
-  rcases h with h | ⟨h, _⟩ <;> cases h; exact p
-
 theorem eval_pars : Book.Closed bk → Eval bk t u → Pars bk t u := by
   intro hc h; induction h
   case call e _ w =>
-    have := walk_pars hc w; rw [env_nil, sub_var] at this; exact .step (par_spine (.delta e (hc _ _ e))) this
+    obtain ⟨_, p, h | ⟨h, _⟩⟩ := walk_pars' w <;> cases h
+    rw [env_nil, sub_var] at p; exact .step (par_spine (.delta e (hc _ _ e))) p
   all_goals first
     | exact pars_map _ (.app · (par_refl _)) ‹_›
     | exact pars_map _ (.app (par_refl _)) ‹_›
@@ -2639,9 +2612,6 @@ theorem eval_value : Eval bk t u → Value bk t → False
   | .rwt _, v | .cast, v => by
     have ⟨_, _, _, e, _⟩ := value_inv v rfl; have := spine_head e; simp [Term.unspine] at this
 
-theorem value_stuck : Value bk t → ¬ Eval bk t u :=
-  fun v h => eval_value h v
-
 theorem tform_ne : Term.tform t ≠ 0 := by
   cases t <;> simp [Term.tform]
 
@@ -2697,7 +2667,7 @@ theorem canon_enu (wt : Book.WellTyped bk) (v : Value bk t) (h : Typed bk [] t T
   (canon_pair (r := Q0) (A := Rfl) (B := Rfl) (a := Rfl) (b := Rfl) wt v h).2.1 c
 
 theorem typ2 : Fits bk (Typ g) (Typ Q2) → g = Q2 := by
-  rintro (c | ⟨c, _⟩ | ⟨_, _, c, _⟩) <;> first | exact typ_inj c | exact (conv_typ_enu c).elim
+  rintro (c | ⟨c, _⟩ | ⟨_, _, c, _⟩) <;> first | exact (conv_leaf (ks := []) (js := [])).1 c | exact (conv_typ_enu c).elim
 
 -- a type of kind *2 is no kind and no ∀
 theorem no_kind2 (wt : Book.WellTyped bk) (hT : Typed bk [] T (Typ Q2)) (f : Fits bk U T)
@@ -3230,14 +3200,14 @@ theorem size_sub : Size.le (Arg.size bk (q, Term.sub σ y)) (Arg.size bk (q, y))
 -- Closed terms, uses
 -- ------------------
 
+theorem closed_ren (h : Term.Closed t) : Term.ren r t = t := by
+  rw [ren_as_sub]; exact h _
+
 theorem closed_iff : Term.Closed t ↔ Term.ren Nat.succ t = t :=
-  ⟨fun h => by rw [ren_as_sub]; exact h _, ren_closed⟩
+  ⟨closed_ren, ren_closed⟩
 
 -- splits a closed term into its closed parts
 macro "cl" t:term : tactic => `(tactic| simpa [closed_iff, Term.ren] using $t)
-
-theorem closed_ren (h : Term.Closed t) : Term.ren r t = t := by
-  rw [ren_as_sub]; exact h _
 
 -- Par keeps the terms that a renaming fixes, so Pars keeps Closed
 theorem par_fix (h : Par bk t u) : Term.ren r t = t → Term.ren r u = u := by
@@ -3246,7 +3216,7 @@ theorem par_fix (h : Par bk t u) : Term.ren r t = t → Term.ren r u = u := by
 theorem pars_closed (p : Pars bk t u) (c : Term.Closed t) : Term.Closed u := by
   induction p with
   | refl => exact c
-  | step s _ ih => exact ih (ren_closed (par_fix s (closed_iff.1 c)))
+  | step s _ ih => exact ih (ren_closed (par_fix s (closed_ren c)))
 
 theorem closed_spine : Term.Closed (Term.spine t as) ↔ Term.Closed t ∧ ∀ a ∈ as, Term.Closed a.2 := by
   induction as generalizing t with
@@ -3710,7 +3680,7 @@ theorem pos_ok {F : Frame} (ho : F.ok) (ha : F.xs[c]? = some (qa, X)) (hv : Valu
     have ⟨ya, ga, va, ca, sa⟩ := iha (tags_mono ht) ma
     simp only [Term.get] at gb ga; split at gb <;> simp at gb
     rename_i r u w e; rw [e] at ga; simp at ga; obtain ⟨lr, rfl⟩ := ga; subst gb
-    refine ⟨_, e, .tup (fun _ => va) vb, by simp only [Term.sub]; cl ⟨closed_iff.1 ca, closed_iff.1 cb⟩, ?_⟩
+    refine ⟨_, e, .tup (fun _ => va) vb, by simp only [Term.sub]; cl And.intro ca cb, ?_⟩
     simp [Term.sub, Term.size, l, lr]; omega
   all_goals simp at hp
 
@@ -4011,6 +3981,7 @@ theorem tp (hk : Book.index bk k = some i) (hd : Book.get bk k = some d) (hx : A
     Term.Live bk r ∧ ∀ zs, DM Label.lt (Term.labels bk true (Term.spine r zs))
       (Term.label bk k (xs ++ zs) :: (Args.labels bk xs ++ Args.labels bk zs)) := by
   induction w <;> rintro ts cs ls ps r0 ho ⟨ht, hr, hE, htg, ⟨pend, hpe, hp⟩, hsz, hcs, ha, hbud, hh⟩
+  all_goals try simp only [Term.size] at hsz
   all_goals try
     obtain ⟨pt, cs', ps', pend', hn, hpe', hp', hx', hcs', hlen⟩ :=
       next_ok (by first | assumption | exact .symm (by assumption)) hpe hp hcs
@@ -4024,7 +3995,7 @@ theorem tp (hk : Book.index bk k = some i) (hd : Book.get bk k = some d) (hx : A
       · simp only [h0, ite_true]; exact le_nil
       · simp only [h0, lq h0, ite_true, ite_false]; exact .inl (.refl _)
     refine ih (pt :: ts) cs' ls ps' r0 ho ⟨ht.2, by simpa [Term.ren, Ren.lift] using hr, fun v hv => ?_,
-      fun v c o e' h => ?_, ⟨pend', hpe', hp'⟩, by simp [Term.size] at hsz; omega, hcs',
+      fun v c o e' h => ?_, ⟨pend', hpe', hp'⟩, by omega, hcs',
       fun a h => ha a (.tail _ h), ?_, hh⟩
     · cases v with
       | zero => exact ⟨cx, fun h => vx (lq h)⟩
@@ -4047,7 +4018,7 @@ theorem tp (hk : Book.index bk k = some i) (hd : Book.get bk k = some d) (hx : A
     lv at lt
     refine ih ts cs' ls _ r0 ho ⟨ht, by simpa [Term.ren] using hr, hE, htg,
       ⟨(Quan.fld r q, a) :: (q, b) :: pend', by simp [hpe'], .cons (fun c o e l => ?_) (.cons (fun c o e _ => ?_) hp')⟩,
-      by simp [Term.size] at hsz; omega, hcs', fun y hy => ?_,
+      by omega, hcs', fun y hy => ?_,
       by simpa [Args.labels, fl, hq, Term.labels, List.append_assoc, Term.bud] using hbud, hh⟩
     · simp at e; obtain ⟨c0, π0, rfl, rfl, rfl⟩ := e
       exact (at_cons (hx' _ _ rfl hq)).2 (fl ▸ l)
@@ -4060,7 +4031,7 @@ theorem tp (hk : Book.index bk k = some i) (hd : Book.get bk k = some d) (hx : A
   case hit h e xs' o k' m q hq w ih =>
     refine ih ts cs' (pt.toList.map (·, k') ++ ls) ps' r0 ho ⟨ht.1, by simp [Term.ren] at hr; exact hr.1, eok_mono hE,
       tags_mono htg,
-      ⟨pend', hpe', hp'⟩, by simp [Term.size] at hsz; omega, hcs', fun a h => ha a (.tail _ h), ?_,
+      ⟨pend', hpe', hp'⟩, by omega, hcs', fun a h => ha a (.tail _ h), ?_,
       fun c π k hm => ?_⟩
     · have hb' : DMle Label.lt (Term.bud (fun v => Term.labels bk true (Env.sub e v)) (Mat k' h m) ++
           Args.labels bk xs') (Args.labels bk xs) := by
@@ -4073,7 +4044,7 @@ theorem tp (hk : Book.index bk k = some i) (hd : Book.get bk k = some d) (hx : A
     refine ih ts cs' ls (pt :: ps') r0 ho ⟨ht.2, by simp [Term.ren] at hr; exact hr.2, eok_mono hE,
       tags_mono htg,
       ⟨(q, Lab j) :: pend', by simp [hpe'], .cons (fun c o e _ => hx' c o e hq) hp'⟩,
-      by simp [Term.size] at hsz; omega, hcs', ha, ?_, hh⟩
+      by omega, hcs', ha, ?_, hh⟩
     exact le_le (le_app le_sub' (.inl (.refl _))) hbud
   case app q f v e xs' o hn w ih =>
     have hn' : Term.takes (Term.unspine f []).1 = true := hn
@@ -4083,7 +4054,7 @@ theorem tp (hk : Book.index bk k = some i) (hd : Book.get bk k = some d) (hx : A
     have huv : q.live = true → Term.uses (App q f (Var v)) v ≠ 0 := by intro hq; simp [Term.uses, hq]
     refine ih ts cs ls _ r0 ho ⟨ht, hsf, eok_mono hE,
       tags_mono htg,
-      ⟨(q, Env.sub e v) :: pend, by simp [hpe], .cons (fun c o e l => htg v c o ?_ (huv l)) hp⟩, by simp [Term.size] at hsz; omega,
+      ⟨(q, Env.sub e v) :: pend, by simp [hpe], .cons (fun c o e l => htg v c o ?_ (huv l)) hp⟩, by omega,
       hcs, fun y hy => ?_, ?_, hh⟩
     · revert e; cases ts[v]? with
       | none => simp
@@ -4168,7 +4139,7 @@ theorem ev (hb : Book.Live bk) (h : Eval bk t u) : Term.Closed t → Term.Live b
     refine ⟨live_app.2 ⟨lf, fun _ => l⟩, fun zs => ?_⟩
     · rw [labA, labA, unspine_app (xs := (q, x') :: zs), unspine_app (xs := (q, x) :: zs)]
       have sl : Size.le (Arg.size bk (q, x')) (Arg.size bk (q, x)) := by
-        simp only [Arg.size, hq, ite_true, show ¬(Value bk x ∧ Term.Closed x) from fun h => value_stuck h.1 hx]
+        simp only [Arg.size, hq, ite_true, show ¬(Value bk x ∧ Term.Closed x) from fun h => eval_value hx h.1]
         exact size_le_none
       simp only [Args.labels, hq, ite_true]
       exact dm_mono (le_app (hd_le (by simp only [ArgsLe, List.map_append, List.map_cons]; exact sl_mid sl))
@@ -4201,14 +4172,14 @@ theorem ev (hb : Book.Live bk) (h : Eval bk t u) : Term.Closed t → Term.Live b
     have ⟨_, lx⟩ := live_spine.1 hl
     have hx : AOK bk xs := fun a h => ⟨cx a h, fun l => ⟨values_mem hv h l, lx a h l⟩⟩
     have h0 : Term.bud (fun v => Term.labels bk true (Env.sub [] v)) d.v = [] := bud_nil d.v fun _ => rfl
-    have ⟨l, dd⟩ := tp hk hd hx w [] [] [] [] t rfl ⟨hb.2 k i d hk hd, closed_iff.1 (hb.1 k d hd),
+    have ⟨l, dd⟩ := tp hk hd hx w [] [] [] [] t rfl ⟨hb.2 k i d hk hd, closed_ren (hb.1 k d hd),
       fun v h => absurd h (Nat.not_lt_zero _), fun v c o e _ => by simp at e, ⟨[], by simp, .nil⟩, by simp,
       rfl, hx, by rw [h0]; exact .inl (.refl _), by simp [Hits]⟩
     refine ⟨l, fun zs => ?_⟩
     rw [← spine_append, labels_spine (Ref k), args_append]
     simpa [Term.unspine, Term.hd, Term.labels] using dd zs
   case lett v v' q f hq _ ih =>
-    have ⟨cv, _⟩ : Term.Closed v ∧ Term.ren (Ren.up Nat.succ) f = f := by cl hc
+    obtain ⟨cv, -⟩ : Term.Closed v ∧ _ := by cl hc
     lv at hl
     have ⟨l, dd⟩ := ih cv (hl.1.2.resolve_left (by simp [hq]))
     refine ⟨?_, dm_spine ?_ fun _ => rfl⟩
@@ -4216,7 +4187,7 @@ theorem ev (hb : Book.Live bk) (h : Eval bk t u) : Term.Closed t → Term.Live b
       exact ⟨⟨hl.1.1, .inr l⟩, hl.2⟩
     · simp only [Term.labels, hq, ite_true]; exact dm_left (P := [(0, [])]) (dm_app (dd []))
   case unlet v q f vv dv =>
-    have ⟨cv, _⟩ : Term.Closed v ∧ Term.ren (Ren.up Nat.succ) f = f := by cl hc
+    obtain ⟨cv, -⟩ : Term.Closed v ∧ _ := by cl hc
     lv at hl
     have ⟨li, di⟩ := inst_ok hl.1.1 rfl hl.2 cv (fun h => hl.1.2.resolve_left (by simp [h])) dv
     exact ⟨li, dm_spine (dm_cons (le_le di (.inl List.perm_append_comm))) fun _ => rfl⟩
@@ -4236,8 +4207,7 @@ theorem ev (hb : Book.Live bk) (h : Eval bk t u) : Term.Closed t → Term.Live b
     lv
     exact ⟨hl.1, l⟩
   case rwt e e' P f _ ih =>
-    have ⟨ce, _⟩ : Term.Closed e ∧ Term.ren (Ren.up Nat.succ) P = P ∧ Term.Closed f := by
-      cl hc
+    obtain ⟨ce, -⟩ : Term.Closed e ∧ _ := by cl hc
     lv at hl
     have ⟨l, dd⟩ := ih ce hl.1
     refine ⟨?_, dm_spine (dm_app (dm_left (P := [(0, [])]) (dd []))) fun _ => rfl⟩

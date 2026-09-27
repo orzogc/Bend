@@ -11,11 +11,12 @@ lines its run must print, and the gates run on the mini cluster.
     bend2/bend.ts       the language: parser, theory, checker
     bend2/comp.ts       the compiler and the runtimes (C, Metal, CUDA, JS)
     bend2/main.ts       the CLI; imported, the .bend loader for bun and node
-    bend2/safe.ts       --safe: the elaborator from checked bend2 to BendTT
-    bend2/bendtt.lean   BendTT, the minimal kernel and its proof (bend5's
-                        mini branch); --safe builds its CLI once
+    bend2/safe.ts       --safe and -o <out>.bendtt: the elaborator from a
+                        checked book to BendTT text
+    bend2/bendtt.lean   BendTT: the kernel, its claims (no checked def has type
+                        Empty, live code halts) and their proofs; --safe builds
+                        its CLI once, with Lean v4.34.0
     bend2/base.bend     the base library
-    bend2/bend.lean     the core, mechanized in Lean
     bend2/effs/         IO effect sources per backend; related effects may share
     bend2/pack/         package.json, tsconfig.json, bun.lock
     bend2/docs/         the papers' Typst sources, the film, gen_pins.ts (the
@@ -32,6 +33,8 @@ lines its run must print, and the gates run on the mini cluster.
     gates/repo.ts       the allow list of files and their ttok caps
     gates/ping.ts       the installer, the compiled bend, its daily version
                         check and a release, on a localhost hub
+    gates/safe.ts       bend2's verdict against BendTT's, per file, on the
+                        minis: `tests` or `hub` (a BendHub store, $SAFE_HUB)
     gates/_run.ts       the four gates with --gate
     demos/              one dir per demo
     guide/              GUIDE.md

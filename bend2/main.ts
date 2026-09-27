@@ -36,10 +36,9 @@ const HELP = `Bend ${VERSION}: check, run, build and publish Bend programs.
 
 usage:
   bend <file.bend> [args]       check the file, then run main with args
-  bend <file.bend> -o <out>     build a binary; <out>.c emits C, <out>.js JS
+  bend <file.bend> -o <out>     build a binary, or C, JS or BendTT by extension
   bend <file.bend> --check-only check the file and its imports; run nothing
-  bend <file.bend> --safe       check it, then check its BendTT elaboration
-                                (<file>.bendtt) with the proven kernel
+  bend <file.bend> --safe       check it, then recheck it with the proven kernel
   bend <file.bend> --publish    publish the file and its imports to the hub
   bend <file.bend> --publish <name>@<version>
                                 publish, then name it (needs login)
@@ -355,6 +354,11 @@ function cli_emit(book: Bend.Book, out: string): void {
     fs.writeFileSync(out, Comp.js_book(book));
   } else if (out.endsWith(".c")) {
     fs.writeFileSync(out, Comp.compile_book(book));
+  } else if (out.endsWith(".bendtt")) {
+    const [, oos] = Safe.safe_emit(book, out);
+    if (oos.length !== 0) {
+      cli_say(2, "BendTT: out of scope, so not in " + out + ":\n" + oos.join(""));
+    }
   } else {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "bend-"));
     const c   = path.join(dir, path.basename(out) + ".c");

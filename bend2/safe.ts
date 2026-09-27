@@ -66,8 +66,7 @@ type O =
   | { $: "Efq" }
   | { $: "Eql"; a: O; b: O; T: O }
   | { $: "Rfl" }
-  | { $: "Rwt"; e: O; l: number; P: O; f: O }
-  | { $: "Bad"; why: string };
+  | { $: "Rwt"; e: O; l: number; P: O; f: O };
 
 // a bend2 variable: the kernel term it stands for, its bend2 type, and
 // the argument a specialized one stands for
@@ -828,9 +827,6 @@ function term(e: Safe, s0: Scope, t: HTerm, live: boolean): O {
       if (b === undefined) {
         oos("a free variable " + x.k);
       }
-      if (b.o.$ === "Bad") {
-        oos(b.o.why);
-      }
       return b.o;
     }
     case "Ref":
@@ -1228,7 +1224,8 @@ function let_term(e: Safe, s: Scope, x: Extract<HTerm, { $: "Let" }>, live: bool
   return ls.reduceRight<O>((b, [q, l, v]) => ({ $: "Let", q: q === 1 && uses(b, l) > 1 ? 2 : q, l, v, f: b }), f);
 }
 
-// a rewrite: the kernel's transport, whose motive drops the evidence
+// a rewrite: the kernel's J, whose motive binds the endpoint at l and
+// its evidence at l + 1
 function rwt_term(e: Safe, s: Scope, x: Extract<HTerm, { $: "Rwt" }>, live: boolean): O {
   const E0 = open(x.e)[1];
   const e0 = term(e, s, x.e, live);
@@ -1239,12 +1236,13 @@ function rwt_term(e: Safe, s: Scope, x: Extract<HTerm, { $: "Rwt" }>, live: bool
   }
   const l = s.D;
   const Q = E0 === null ? null : B.term_wnf(e.book, E0);
-  const s2 = scope_bind(s, { $: "Var", l }, Q !== null && Q.$ === "Eql" ? Q.T : null, true);
+  const q = Q !== null && Q.$ === "Eql" ? Q : null;
+  const s2 = scope_bind(s, { $: "Var", l }, q && q.T, true);
   const [p2] = open(p.f(B.Var(p.k, s.d)));
   if (p2.$ !== "Lam") {
     oos("a rewrite motive that is not a λ over its evidence");
   }
-  const s3 = scope_bind(s2, { $: "Bad", why: "a rewrite motive over its evidence (J)" }, null, false);
+  const s3 = scope_bind(s2, { $: "Var", l: l + 1 }, q && B.Eql(q.a, B.Var(p.k, s.d), q.T), true);
   const P = term(e, s3, p2.f(B.Var(p2.k, s2.d)), false);
   return { $: "Rwt", e: ev, l, P, f: term(e, s, x.f, live) };
 }
@@ -1362,8 +1360,7 @@ function o_show(o: O, p: string): string {
     case "Efq": return "λ{}";
     case "Eql": return "{" + o_show(o.a, p) + " == " + o_show(o.b, p) + " : " + o_show(o.T, p) + "}";
     case "Rfl": return "{==}";
-    case "Rwt": return "%" + o_show(o.e, p) + " : " + nm(o.l) + " => " + o_show(o.P, p) + "; " + o_show(o.f, p);
-    case "Bad": throw new Error("safe: " + o.why);
+    case "Rwt": return "%" + o_show(o.e, p) + " : " + nm(o.l) + ", " + nm(o.l + 1) + " => " + o_show(o.P, p) + "; " + o_show(o.f, p);
   }
 }
 
@@ -1419,17 +1416,23 @@ function kernel_check(file: string): [boolean, string] {
     : [got.status === 0, text];
 }
 
+// -o <out>.bendtt: writes the elaboration of a book bend2 checked to
+// out; gives its root count and a line per def out of scope, with why
+export function safe_emit(book: Book, out: string): [number, string[]] {
+  const got = safe_book(book);
+  fs.writeFileSync(out, got.text);
+  return [got.n, got.oos.map(([k, why]) => "- " + k + ": " + why + "\n")];
+}
+
 // --safe: elaborates a book bend2 checked to <file>.bendtt, then gives
 // the kernel's verdict on it, and the defs out of its scope with why
 export function safe_check(book: Book, file: string): [boolean, string] {
   const out = file.replace(/\.bend$/, "") + ".bendtt";
-  const got = safe_book(book);
-  const oos = got.oos.map(([k, why]) => "- " + k + ": " + why + "\n").join("");
-  fs.writeFileSync(out, got.text);
-  if (got.n === 0) {
-    return [oos === "", "BendTT: " + (oos === "" ? "nothing to check.\n" : "out of scope:\n" + oos)];
+  const [n, oos] = safe_emit(book, out);
+  if (n === 0) {
+    return [oos.length === 0, "BendTT: " + (oos.length === 0 ? "nothing to check.\n" : "out of scope:\n" + oos.join(""))];
   }
   const [ok, text] = kernel_check(out);
-  const but = ok && oos !== "" ? ", but " + String(got.oos.length) + " out of scope:" : "";
-  return [ok, "BendTT: " + (but === "" ? text : text.replace(/\.$/, "") + but) + "\n" + (ok ? oos : "")];
+  const but = ok && oos.length !== 0 ? ", but " + String(oos.length) + " out of scope:" : "";
+  return [ok, "BendTT: " + (but === "" ? text : text.replace(/\.$/, "") + but) + "\n" + (ok ? oos.join("") : "")];
 }

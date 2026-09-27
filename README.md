@@ -203,7 +203,7 @@ def add_zero(x):
 - Base: [base.bend](bend2/base.bend), the base library, also printed by `bend base`.
 - Paper: [BendTT: An Affine Dependent Type Theory](paper/BendTT.pdf).
 - Paper: [BendRT: A Parallel Runtime for CPUs and GPUs](paper/BendRT.pdf).
-- Formalization: [bend.lean](bend2/bend.lean), Bend's core in Lean.
+- Formalization: [bendtt.lean](bend2/bendtt.lean), the kernel of `--safe` and its proofs, in Lean.
 - Benches: [bench/](bench), every bench used to make the charts above.
 - Formatter: [bend-fmt-lsp](tools/bend-fmt-lsp), a formatting-only Bend 2 language server.
 - Community language server: [bend2-lsp](https://github.com/don2e4/bend2-lsp), with formatting, diagnostics, and hover.
@@ -243,7 +243,7 @@ def add_zero(x):
 - The compiler is young and has blind spots (unusually slow programs). Report.
 - We don't have as many benchmarks as we'd like yet, especially for the checker.
 - The compiler (not kernel) is 99% AI-written and has not been fully audited yet.
-- The Lean formalization and bend.ts mismatch. Early consistency bugs may occur.
+- bend.ts has no proof. Early consistency bugs may occur; `--safe` rechecks with a proven kernel.
 - A binary needs clang 14+; ! needs 19+, Metal or CUDA 12.
 - No Windows (WSL works); on Linux, Window and Audio need X11 and ALSA headers.
 - The hub has no names, versions, accounts or search yet. Packages are hashes.
