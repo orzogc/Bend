@@ -602,9 +602,6 @@ let FUEL = 0;
 // Name
 // ====
 
-// A C id is CID_ or FID_ and the name uppercased, numbered when
-// taken (Done and done, a.b and a_b), so no two names share one.
-
 function name_clean(k: string): string {
   return k.replace(/[^A-Za-z0-9_]/g, "_");
 }
@@ -634,8 +631,6 @@ function cid_mac(k: string): string {
 
 // Tpl
 // ===
-
-// tpl_nat folds Succ over a literal or a checked sum into one more.
 
 function tpl_ops(pre: string, names: string, C: string, JS: string):
   Record<string, Intr> {
@@ -737,7 +732,7 @@ function term_spine(fl: File, tm: HTerm): Spine {
     const tld = c.$ === "Ref" ? fl.book.tlds[c.k] : undefined;
     const T = tld?.$ === "Def" ? tld.T : ty_ann(h);
     const qs = T === null ? [] : tele_unbind(fl.book, T).doms;
-    const live = apps.map((_, i) => i >= qs.length || quant_live(qs[i][0]));
+    const live = apps.map((_, i) => i >= qs.length || live_dom(qs[i]));
     const all = apps.map((a) => a.x);
     const args = all.filter((_, i) => live[i]);
     const def = c.$ === "Ref" && intr_of(fl, c.k) === undefined
@@ -1051,6 +1046,10 @@ function lay_c(k: Kind): string {
   return k === "w32" ? "u32" : "Term";
 }
 
+function lay_packed(lay: Lay): boolean {
+  return ["", "w32"].includes(lay.ks.join());
+}
+
 function lay_box(lay: Lay): boolean {
   return lay.arms === null && lay.ks[0] === "box";
 }
@@ -1093,7 +1092,7 @@ function ctr_flds(book: Bend.Book, k: Name, xs: HTerm[]): HTerm[] {
 function ctr_build(fl: File, k: Name, exprs: string[], stat = false): string {
   const cid = cid_mac(k);
   const node = lay_node(fl.book, k);
-  if (exprs.length === 0 || (node.ks.length === 1 && node.ks[0] === "w32")) {
+  if (exprs.length === 0 || node.ks.join() === "w32") {
     return `term_pak(${cid}, ${exprs[0] ?? 0})`;
   }
   if (stat) {
@@ -1114,8 +1113,7 @@ function ctr_build(fl: File, k: Name, exprs: string[], stat = false): string {
 
 function facts_packed(fl: File, t: HTerm): boolean {
   const s = term_strip(t);
-  return s.$ === "Ctr"
-    && ["", "w32"].includes(lay_node(fl.book, s.k).ks.join());
+  return s.$ === "Ctr" && lay_packed(lay_node(fl.book, s.k));
 }
 
 // Mat
@@ -1640,7 +1638,7 @@ function node_fill(fl: File, k: string, alloc: string,
 function node_fields(fl: File, t: string, k: Name, tail = false): Val[] {
   const node = lay_node(fl.book, k);
   const n = node.ks.length;
-  if (n === 0 || (n === 1 && node.ks[0] === "w32")) {
+  if (lay_packed(node)) {
     return node.arms![k].map((lay) =>
       val_new(lay.ks.map(() => `term_loc(${t})`), lay));
   }
@@ -1881,22 +1879,21 @@ function bind_uses(fl: File, p: Of<"Var">, v: Val, rest: HTerm[], A: HTerm,
     v = val_unbox(fl, v, lay);
   }
   facts_hot(fl, A, fl.hot.has("*"));
+  bind_set(fl, p, { val: v, n, A }, n);
+}
+
+function bind_set(fl: File, p: Of<"Var">, b: Bind, n: number): void {
   if (n > 0) {
-    fl.uses.set(p, { val: v, n, A });
+    fl.uses.set(p, { ...b, n });
   } else {
-    val_sink(fl, v);
+    fl.uses.delete(p);
+    val_sink(fl, b.val);
   }
 }
 
 function bind_dead(fl: File, rest: HTerm[]): void {
   for (const [p, b] of [...fl.uses]) {
-    const n = rest_use(fl, rest, p);
-    if (n === 0) {
-      fl.uses.delete(p);
-      val_sink(fl, b.val);
-    } else if (n < b.n) {
-      fl.uses.set(p, { ...b, n });
-    }
+    bind_set(fl, p, b, Math.min(b.n, rest_use(fl, rest, p)));
   }
 }
 
@@ -1911,13 +1908,11 @@ function die(m: string): never {
 // ====
 
 function memo<K, V>(m: Map<K, V>, k: K, f: () => V): V {
-  const got = m.get(k);
-  if (got !== undefined) {
-    return got;
+  let v = m.get(k);
+  if (v === undefined) {
+    m.set(k, v = f());
   }
-  const out = f();
-  m.set(k, out);
-  return out;
+  return v;
 }
 
 function memo_gc(): void {
@@ -1935,10 +1930,11 @@ function memo_gc(): void {
 
 function show_main(book: Bend.Book): (number | Name)[] | null {
   const main = book.tlds["main"];
-  if (main?.$ !== "Def" || (main.v === null && main.i === undefined)
-    || book.tlds["IO"] === undefined) {
-    die(book.tlds["IO"] === undefined ? "a build needs import Base"
-      : "no main to run");
+  if (book.tlds["IO"] === undefined) {
+    die("a build needs import Base");
+  }
+  if (!done_live(main) && !def_foreign(main)) {
+    die("no main to run");
   }
   if (io_type(book) !== null) {
     return null;
@@ -2091,7 +2087,7 @@ function anf(fl: File, t: HTerm, ty: HTerm | null = null): HTerm {
   if (ps.length === 0) {
     return o.b;
   }
-  if (ps.length >= 2 && !vs.every((v) => term_spine(fl, v).k !== null)) {
+  if (ps.length >= 2 && vs.some((v) => term_spine(fl, v).k === null)) {
     return anf(fl, ps.reduceRight((b, p, j) => let_open([p], [vs[j]], b), o.b));
   }
   const ws = vs.map((v) => go(v, true, null));
@@ -2484,11 +2480,8 @@ function emit_expr(fl: File, tm: HTerm, ty0: HTerm | null,
       if (got !== null && got !== x) {
         const a = term_uses(fl, x);
         const b = term_uses(fl, got);
-        fl.uses.forEach((bd, p) => {
-          const n = bd.n - term_use(a, p) + term_use(b, p);
-          n > 0 ? fl.uses.set(p, { ...bd, n })
-            : (fl.uses.delete(p), val_sink(fl, bd.val));
-        });
+        fl.uses.forEach((bd, p) => bind_set(fl, p, bd,
+          bd.n - term_use(a, p) + term_use(b, p)));
         return emit_expr(fl, got, ty, at);
       }
       const m = term_spine(fl, x);
@@ -2661,7 +2654,7 @@ function emit_fork(fl: File, x: Of<"Let">, ers: HTerm[]): void {
   calls.forEach((c, i) => {
     const cargs = emit_args({ ...fl, rest: [chain[i]] }, c);
     const vs = i === 0 ? [...fl.uses]
-      : [[o.ps[i - 1], fl.uses.get(o.ps[i - 1]) as Bind] as [Of<"Var">, Bind]];
+      : [[o.ps[i - 1], fl.uses.get(o.ps[i - 1])!] as [Of<"Var">, Bind]];
     const kn = seg_name(fl, "k");
     spare_flush(fl);
     const ws = vs.flatMap(([p, b]) =>
@@ -2676,7 +2669,7 @@ function emit_fork(fl: File, x: Of<"Let">, ers: HTerm[]): void {
     const last = i === calls.length - 1;
     const held = [...fl.uses].filter(([p]) => pos.has(p));
     const at = held.flatMap(([p, b]) => b.val.ws.map((_, j) =>
-      (pos.get(p) as number) + j - (last ? 0 : depth)));
+      pos.get(p)! + j - (last ? 0 : depth)));
     const ret = fun_of(fl, c.k!).ret;
     const rest = [...hold, chain[i]];
     const rs = val_new(ret.ks.map(() => name_local(fl, o.ps[i].k)), ret);
@@ -3375,8 +3368,6 @@ export function js_book(book: Bend.Book): string {
 // RuntimeC
 // ========
 
-// The runtime around the program's tables, spins, segments and requests.
-
 function a32_ops(f: (k: string) => string): string {
   return ["add", "sub", "and", "or", "xor", "min", "max"].map((k) =>
     "#define " + f(k)).join("\n");
@@ -3970,10 +3961,6 @@ INLINE void spare_free(Env e, u32 cls, u64 loc) {
 // Term
 // ====
 
-// A static node (below the heap) is trivial, as is a captureless
-// closure. A fork's Array handle (BLK_SHR: an Array binder is hot)
-// is a redirect: loaded plainly, copied and dropped by a match.
-
 #define term_make(tag, aux, loc) \
   (((u64)(tag) << 56) | ((u64)(aux) << 40) | (u64)(loc))
 
@@ -4337,7 +4324,6 @@ INLINE Term blk_new(Env e, bool arr, u64 d, u32 lgs, u32 n, THR Term* v) {
 // Ring
 // ====
 
-// planes LANES wide: a smaller bag has deeper rings in the same region
 #define ring_word(H, r, w) ((H) + RING_OFF + (w) * LANES + (r))
 #define ring_slot(H, r, p) ring_word(H, r, (p) & (RING_LEN - 1))
 #define ring_get(H, r)     ((DEV u32*)ring_word(H, r, RING_LEN))
@@ -4803,8 +4789,6 @@ static void row_grow(Env e, DEV Term* stk, u32 base, u32 stride, u32 want) {
 
 // Pool
 // ====
-
-// cpu_count caps the CPU count by the affinity mask and the cgroup quota.
 
 static void* pool_try(void* at, u64 bytes) {
   return mmap(at, bytes, PROT_READ | PROT_WRITE,
@@ -6136,7 +6120,6 @@ function run_lib(f, n) {
 // Effect
 // ======
 
-// An effect source registers each effect under its def's key, as in C.
 const $0eff = Object.create(null);
 
 function io_eff(k, run, need) {
@@ -6151,7 +6134,6 @@ const RUNTIME_MAIN: string = String.raw`
 // Cli
 // ===
 
-// A JS program runs one thread and no GPU: --threads and --gpu do nothing.
 let cli_args = [];
 
 function cli(argv) {
