@@ -34,10 +34,16 @@ The termination check reads arguments left to right (#770)
 No common-subexpression elimination (#812)
   Two calls of `f(p)` run twice. Bind the value once.
 
-The checker is not optimal: some terms are exponential or overflow (#993)
-  bend.ts is not beta-optimal and recurses on the machine stack; its
-  sharing covers common cases. A memo of seen terms slows every case to
-  fix one family. Do not open an issue per exponential or overflow.
+The checker is not optimal: some terms are exponential or overflow (#993, #1075)
+  bend.ts is not beta-optimal and recurses on the machine stack. No checker
+  avoids every case: `F(100000 * 2) == F(100000 + 100000)` unrolls fully,
+  since the sides differ. So conversion takes no layer that makes equality
+  quadratic (an identity pass before each reduction) or every check slower
+  by a constant (hash-consing, a memo of seen terms): each layer covers one
+  more family and slows every proof. Fix the representation instead: a def
+  opens a value before it copies it (as U32.max does), and a law keeps its
+  large constants and depths abstract. Do not open an issue per exponential
+  or overflow.
 
 A fallback arm does not refine a dependent goal (#1091)
   In `case rest:` the scrutinee stays a variable. Write the constructor arms.

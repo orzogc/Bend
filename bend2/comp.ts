@@ -117,6 +117,10 @@ const IO_EMIT = "IO~emit";
 const ATOM   = /^(?:[A-Za-z_$][A-Za-z0-9_$]*|\d+|\d+\.\d+)$/;
 const STRLIT = new RegExp("^\"(?:[^\"\\\\]|\\\\.)*\"$");
 
+// The field a JS match opens from a named U32, F32 or Char (its word, its
+// code): a binder takes it as written, so a rebuild folds back to the name.
+const VIEW = /^(?:u32_to_word\((\w+|f32_bits\(\w+\))\)|(\w+)\.codePointAt\(0\))$/;
+
 const TAB_BAD = /\b(?!(?:fround|imul)\()\w+\(/;
 
 const FOLD_FUEL = 8192;
@@ -316,19 +320,24 @@ const OPTIMIZED: Record<Name, Native> = Object.setPrototypeOf({
     True: { intr: "true", cond: "$0" },
   },
   U32: {
-    U32: { intr: "word_to_u32($0)" },
+    U32: { intr: ([w]) => view_of(w) ?? `word_to_u32(${w})` },
   },
   F32: {
-    F32: { intr: "f32_from_bits(word_to_u32($0))" },
+    F32: {
+      intr: ([w]) => {
+        const u = tpl(OPTIMIZED.U32.U32.intr, [w]);
+        return u.match(/^f32_bits\((\w+)\)$/)?.[1] ?? `f32_from_bits(${u})`;
+      },
+    },
   },
   Char: {
     Chr: {
       intr: ([c]: string[]) => {
         const n = Number(c);
-        return /^\d+$/.test(c)
+        return view_of(c) ?? (/^\d+$/.test(c)
           && (n < 0xd800 || n >= 0xe000 && n <= 0x10ffff)
           ? JSON.stringify(String.fromCodePoint(n))
-          : "char_new(" + c + ")";
+          : "char_new(" + c + ")");
       },
       elim: ["$0.codePointAt(0)"],
     },
@@ -645,6 +654,11 @@ function tpl_ops(pre: string, names: string, C: string, JS: string):
 function tpl(t: Tpl, xs: string[]): string {
   return typeof t !== "string" ? t(xs)
     : t.split(/\$(\d)/).map((p, i) => (i % 2 === 1 ? xs[+p] : p)).join("");
+}
+
+function view_of(e: string): string | undefined {
+  const m = e.match(VIEW);
+  return m?.[1] ?? m?.[2];
 }
 
 function tpl_nat(u: string, f: string): Tpl {
@@ -3140,7 +3154,8 @@ function js_func(fl: File, tm: HTerm, ty0: HTerm | null, args: string[]): void {
   if (x.$ === "Lam") {
     const all = ty_all(fl.book, ty);
     const e = quant_live(all.q) ? args[0] : "null";
-    const k = /^(\w*_\d+|null)$/.test(e) ? e : name_local(fl, x.k);
+    const k = /^(\w*_\d+|null)$/.test(e) || VIEW.test(e) ? e
+      : name_local(fl, x.k);
     const at = fl.seg.lines.length;
     js_func(fl, x.f(Bend.Var(k, 0)), all.B(Bend.Var(k, 0)),
       quant_live(all.q) ? args.slice(1) : args);

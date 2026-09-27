@@ -1110,9 +1110,14 @@ def List.sort.go(
           List.sort.go(~A, ~le, f, n,
             List.sort.pass(~A, ~le, n, r1 <> r2 <> rest))
 
-def List.sort(~A: Data, ~le: A -> A -> Bool, +xs: List<&2, A>) -> List<&2, A>:
-  +n = List.length(&2, A, xs)
-  List.sort.go(~A, ~le, n, n, List.sort.runs(A, xs))
+def List.sort(~A: Data, ~le: A -> A -> Bool, xs: List<&2, A>) -> List<&2, A>:
+  match xs:
+    case Nil{}:
+      Nil{}
+    case h <> t:
+      +ys = {h <> t : List<&2, A>}
+      +n = List.length(&2, A, ys)
+      List.sort.go(~A, ~le, n, n, List.sort.runs(A, ys))
 
 def List.for_each(
   ~a: Quant, ~A: Kind(a), ~f: A -> IO(Unit), xs: List<a, A>
@@ -1523,9 +1528,10 @@ def U32.div.if(aw: Word(32n), b: U32, z: Bool) -> U32:
     case False{}:
       U32.div.fin(U32.divmod.go(32n, aw, b))
 
-def U32.div(a: U32, +b: U32) -> U32:
+def U32.div(a: U32, b: U32) -> U32:
   U32{aw} = a
-  U32.div.if(aw, b, U32.is_zero(b))
+  U32{+bw} = b
+  U32.div.if(aw, U32{bw}, U32.is_zero(U32{bw}))
 
 def U32.mod.fin(qr: Word(32n) & U32) -> U32:
   (q, r) = qr
@@ -1538,15 +1544,20 @@ def U32.mod.if(aw: Word(32n), b: U32, z: Bool) -> U32:
     case False{}:
       U32.mod.fin(U32.divmod.go(32n, aw, b))
 
-def U32.mod(a: U32, +b: U32) -> U32:
+def U32.mod(a: U32, b: U32) -> U32:
   U32{aw} = a
-  U32.mod.if(aw, b, U32.is_zero(b))
+  U32{+bw} = b
+  U32.mod.if(aw, U32{bw}, U32.is_zero(U32{bw}))
 
-def U32.min(+a: U32, +b: U32) -> U32:
-  Bool.pick(U32, U32.is_lt(a, b), a, b)
+def U32.min(a: U32, b: U32) -> U32:
+  match a b:
+    case U32{+x} U32{+y}:
+      Bool.pick(U32, U32.is_lt(U32{x}, U32{y}), U32{x}, U32{y})
 
-def U32.max(+a: U32, +b: U32) -> U32:
-  Bool.pick(U32, U32.is_lt(a, b), b, a)
+def U32.max(a: U32, b: U32) -> U32:
+  match a b:
+    case U32{+x} U32{+y}:
+      Bool.pick(U32, U32.is_lt(U32{x}, U32{y}), U32{y}, U32{x})
 
 def U32.clamp(x: U32, lo: U32, hi: U32) -> U32:
   U32.min(U32.max(x, lo), hi)
@@ -1725,23 +1736,33 @@ law F32.read:
   for s: String
   Maybe<&2, F32>
 
-def F32.min(+a: F32, +b: F32) -> F32:
-  Bool.pick(F32, F32.is_lt(a, b), a, b)
+def F32.min(a: F32, b: F32) -> F32:
+  match a b:
+    case F32{+x} F32{+y}:
+      Bool.pick(F32, F32.is_lt(F32{x}, F32{y}), F32{x}, F32{y})
 
-def F32.max(+a: F32, +b: F32) -> F32:
-  Bool.pick(F32, F32.is_lt(a, b), b, a)
+def F32.max(a: F32, b: F32) -> F32:
+  match a b:
+    case F32{+x} F32{+y}:
+      Bool.pick(F32, F32.is_lt(F32{x}, F32{y}), F32{y}, F32{x})
 
 def F32.clamp(x: F32, lo: F32, hi: F32) -> F32:
   F32.min(F32.max(x, lo), hi)
 
-def F32.lerp(+a: F32, b: F32, t: F32) -> F32:
-  F32.add(a, F32.mul(F32.sub(b, a), t))
+def F32.lerp(a: F32, b: F32, t: F32) -> F32:
+  match a:
+    case F32{+x}:
+      F32.add(F32{x}, F32.mul(F32.sub(b, F32{x}), t))
 
-def F32.square(+a: F32) -> F32:
-  F32.mul(a, a)
+def F32.square(a: F32) -> F32:
+  match a:
+    case F32{+x}:
+      F32.mul(F32{x}, F32{x})
 
-def F32.hypot(+x: F32, +y: F32) -> F32:
-  F32.sqrt(F32.add(F32.mul(x, x), F32.mul(y, y)))
+def F32.hypot(a: F32, b: F32) -> F32:
+  match a b:
+    case F32{+x} F32{+y}:
+      F32.sqrt(F32.add(F32.mul(F32{x}, F32{x}), F32.mul(F32{y}, F32{y})))
 
 def F32.round(a: F32) -> F32:
   F32.floor(F32.add(a, 0.5))
@@ -1799,11 +1820,15 @@ def Char.is_space(c: Char) -> Bool:
     case Chr{+x}:
       Bool.or(U32.is_eq(x, 32), Bool.and(U32.is_ge(x, 9), U32.is_le(x, 13)))
 
-def Char.to_upper(+c: Char) -> Char:
-  Chr{U32.sub(Char.to_u32(c), U32.mul(Bool.to_u32(Char.is_lower(c)), 32))}
+def Char.to_upper(c: Char) -> Char:
+  match c:
+    case Chr{+x}:
+      Chr{U32.sub(x, U32.mul(Bool.to_u32(Char.is_lower(Chr{x})), 32))}
 
-def Char.to_lower(+c: Char) -> Char:
-  Chr{U32.add(Char.to_u32(c), U32.mul(Bool.to_u32(Char.is_upper(c)), 32))}
+def Char.to_lower(c: Char) -> Char:
+  match c:
+    case Chr{+x}:
+      Chr{U32.add(x, U32.mul(Bool.to_u32(Char.is_upper(Chr{x})), 32))}
 
 # String
 # ------
