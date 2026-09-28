@@ -319,6 +319,7 @@ def TCP.send(sock: Socket, data: String) ->
   import "./effs/tcp_send.c"
   import "./effs/tcp_send.js"
 
+# A max of 0 fails with EINVAL, as do TCP.recv_bytes and TCP.poll.
 def TCP.recv(sock: Socket, max: U32) ->
   IO(Socket & Result<&1, &1, U32 & String, String>):
   import "./effs/tcp_recv.c"
