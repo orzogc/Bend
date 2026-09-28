@@ -1108,7 +1108,7 @@ function game(o: GameOpt): void {
     }
   }
   // The flag, reached: its cell burns, rings flare on the beat, a red
-  // flash; the stamp YOU WON!? slams onto the board and throbs on each beat;
+  // flash; the stamp EXPLOIT slams onto the board and throbs on each beat;
   // the walk is named: a counterexample.
   const won = o.won ?? -1;
   if (won >= 0) {
@@ -2166,7 +2166,7 @@ const T_LAWW    = mono("LAW:", 54, 0.06);
 const T_MOVES   = mono("∀ moves. ¬won", 40, 0.06);
 const T_CEX     = mono("counterexample", 36, 0.1);
 // A red rubber stamp, askew.
-const C_STAMP   = sprite(`#rotate(-12deg, reflow: true, box(stroke: 8pt + white, radius: 8pt, inset: (x: 30pt, y: 18pt), text(font: "Superclarendon", weight: "bold", size: 96pt, "YOU WON!?")))`);
+const C_STAMP   = sprite(`#rotate(-12deg, reflow: true, box(stroke: 8pt + white, radius: 8pt, inset: (x: 30pt, y: 18pt), text(font: "Superclarendon", weight: "bold", size: 96pt, "EXPLOIT")))`);
 
 // proof sprites
 const T_ASK     = [mono("Which laws must", 64), mono("always hold", 64), mono("in order to trust", 64), mono("code no one reads?", 64)];
@@ -2357,7 +2357,7 @@ const CUTS: Cut[] = [
   { t: 28.404, card: true, draw: u => hit(C_LAW, u) },
   // The law, typed; the board wraps (its copies tile around it); the player
   // leaves by the east edge, comes in by the west, reaches the flag: the
-  // law broken, stamped YOU WON!?.
+  // law broken, stamped EXPLOIT.
   { t: 28.872, draw: (u, t) => {
     const k = (t - gbeat(-17.5)) / HB;
     game({ me: walk(P_WRAP, k), wrap: at(u, 0.1, 0.35), won: t - gbeat(-13), trail: [P_WRAP, k] });
