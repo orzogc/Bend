@@ -1746,29 +1746,35 @@ function refl(u: number): void {
   }
 }
 
-// Absurd, u seconds in, on the song's four hits (h: the frames at or just
-// before its onsets 50.34, 50.80, 51.27, 51.74, from a cut at 50.125): P
-// and ¬P slide together and collide on the first, and collapse into ⊥; on
-// each of the next three ⊥ pulses and a wave of absurd goals bursts out of
-// it: four with arrows, four more with arrows, eight at the rim.
-const ABS_H = [0.208, 0.667, 1.125, 1.583];
-const ABS_W: [number, number, number][][] = [
-  [-90, 0, 90, 180].map((d): [number, number, number] => [d, 480, 300]),
-  [-135, -45, 45, 135].map((d): [number, number, number] => [d, 480, 300]),
-  [-157.5, -112.5, -67.5, -22.5, 22.5, 67.5, 112.5, 157.5].map((d): [number, number, number] => [d, 600, 370]),
-];
+// Rewrite, u seconds in: by the equation e : a = b, the goal P(a) becomes
+// P(b): an arrow falls from e toward the a, the a lifts out, the b drops
+// in.
+function rewrite(u: number): void {
+  const w = (id: number) => SPRITES[id].w / S, sw = smooth(prog(u, 0.08, 0.24)), y = 560;
+  const x0 = 720 - (w(M_RW[1]) + w(M_RW[2]) + w(M_RW[4])) / 2, xa = x0 + w(M_RW[1]);
+  blit(M_RW[0], 720, 260, { c: GRNL, ax: 0.5, ay: 0.5 });
+  const top: Pt = [720, 320], end: Pt = [xa + w(M_RW[2]) / 2, 430], f = prog(u, 0, 0.1);
+  poly([top, end], 2.5, GRNL, 0.8 * (1 - prog(u, 0.22, 0.32)), f);
+  if (f > 0 && f < 1) spark(...along([top, end], f));
+  blit(M_RW[1], x0, y, { c: CREAM, ay: 0.5 });
+  blit(M_RW[2], xa, y - 70 * sw, { c: CREAM, ay: 0.5, a: 1 - sw });
+  blit(M_RW[3], xa, y + 70 * (1 - sw), { c: GRNL, ay: 0.5, a: sw });
+  blit(M_RW[4], xa + lerp(w(M_RW[2]), w(M_RW[3]), sw), y, { c: CREAM, ay: 0.5 });
+  aura(xa + w(M_RW[3]) / 2, y, 110, GRNL, 0.6 * prog(u, 0.2, 0.26) * (1 - prog(u, 0.26, 0.45)));
+  flares(u - 0.22, xa + w(M_RW[3]) / 2, y, GRNL, 120);
+}
+
+// Absurd, u seconds in, from its hit: P and ¬P slam together in a red
+// flash and burst; the contradiction collapses into ⊥.
 function absurd(u: number): void {
-  const cx = 720, cy = 450, red = hex(0xff453a), [h0] = ABS_H;
-  if (u < h0) {
-    const s = prog(u, 0, h0) ** 2;
-    blit(M_ABS[0], cx - 60 - 380 * (1 - s), cy, { c: CREAM, ax: 0.5, ay: 0.5 });
-    blit(M_ABS[1], cx + 60 + 380 * (1 - s), cy, { c: CREAM, ax: 0.5, ay: 0.5 });
+  const cx = 720, cy = 450, red = hex(0xff453a), p = clamp(u / 0.45);
+  if (u < 3 / 24) {
+    const s = u / (3 / 24);
+    blit(M_ABS[0], cx - 60 - 160 * (1 - s), cy, { c: CREAM, ax: 0.5, ay: 0.5, a: 1 - s });
+    blit(M_ABS[1], cx + 60 + 160 * (1 - s), cy, { c: CREAM, ax: 0.5, ay: 0.5, a: 1 - s });
   }
-  // The collision: a red flash, a burst, rays.
-  const dt = u - h0;
-  if (dt >= 0 && dt < 0.45) {
-    const p = dt / 0.45;
-    if (dt < 2 / 24) fill(red, 0.3);
+  if (u < 2 / 24) fill(red, 0.3);
+  if (p < 1) {
     aura(cx, cy, 80 + 200 * p, red, 0.9 * (1 - p));
     for (let k = 0; k < 12; ++k) {
       const a = (k + 0.5) * Math.PI / 6, r0 = 30 + 200 * p, r1 = 60 + 330 * (1 - (1 - p) ** 3);
@@ -1776,28 +1782,9 @@ function absurd(u: number): void {
     }
   }
   // ⊥, in two strokes.
-  poly([[cx, cy - 85], [cx, cy + 85]], 8, YEL, 1, prog(u, h0 + 0.05, h0 + 0.17));
-  poly([[cx - 110, cy + 85], [cx + 110, cy + 85]], 8, YEL, 1, prog(u, h0 + 0.13, h0 + 0.25));
-  aura(cx, cy, 160, YEL, 0.35 * prog(u, h0 + 0.1, h0 + 0.3));
-  // Each wave: ⊥ pulses on its hit, and its goals burst out; the inner
-  // ones ride arrows, the rim ones land with a spark.
-  ABS_W.forEach((wave, w) => {
-    const h = ABS_H[w + 1], d = u - h;
-    if (d < 0) return;
-    aura(cx, cy, 220, WHITE, 0.6 * (1 - prog(d, 0, 0.3)));
-    flares(d, cx, cy, YEL, 200);
-    wave.forEach(([deg, rx, ry], i) => {
-      const a = deg * Math.PI / 180, ux = Math.cos(a), uy = Math.sin(a), ex = cx + rx * ux, ey = cy + ry * uy;
-      const p = 1 - (1 - prog(d, 0, 0.16)) ** 3, o = prog(d, 0.08, 0.18);
-      if (w < 2) {
-        const sx = cx + 150 * ux, sy = cy + 130 * uy, tx = lerp(sx, ex, 0.55 * p), ty = lerp(sy, ey, 0.55 * p);
-        line(sx, sy, tx, ty, 2.5, CREAM, 0.8);
-        for (const sg of [1, -1]) line(tx, ty, tx - 22 * ux + sg * 12 * uy, ty - 22 * uy - sg * 12 * ux, 2.5, CREAM, 0.8);
-      }
-      blit(M_ABSW[w][i], ex, ey, { c: YEL, ax: 0.5, ay: 0.5, a: (w < 2 ? 1 : 0.8) * o });
-      if (o < 1) spark(lerp(cx, ex, p), lerp(cy, ey, p), 1 - o);
-    });
-  });
+  poly([[cx, cy - 85], [cx, cy + 85]], 8, YEL, 1, prog(u, 0.05, 0.15));
+  poly([[cx - 110, cy + 85], [cx + 110, cy + 85]], 8, YEL, 1, prog(u, 0.12, 0.22));
+  aura(cx, cy, 160, YEL, 0.35 * prog(u, 0.1, 0.3));
 }
 
 // par figures
@@ -1911,7 +1898,7 @@ function splits(f: number, a: number): void {
 // The menu's readout (the clock, the zoom): s glyph by glyph on a fixed
 // pitch, its baseline at y.
 function readout(s: string, y: number, c: Col): void {
-  [...s].forEach((g, k) => { if (g !== " ") blit(T_DIG["0123456789.s×".indexOf(g)], 50 + k * 40 + 20, y, { c, ax: 0.5, ay: 1 }); });
+  [...s].forEach((g, k) => { if (g !== " ") blit(T_DIG["0123456789.s".indexOf(g)], 50 + k * 40 + 20, y, { c, ax: 0.5, ay: 1 }); });
 }
 
 // net figures
@@ -2164,23 +2151,20 @@ const C_STAMP   = sprite(`#rotate(-12deg, reflow: true, box(stroke: 8pt + white,
 
 // proof sprites
 const T_ASK     = [mono("Which laws must", 64), mono("always hold", 64), mono("in order to trust", 64), mono("code no one reads?", 64)];
-const T_NAME    = ["induction", "case analysis", "reflexivity", "absurd"].map(w => mono(w, 72, 0.25));
+const T_NAME    = ["induction", "case analysis", "reflexivity", "rewrite", "absurd"].map(w => mono(w, 72, 0.25));
 const T_CASE    = [mono("case 0n", 50, 0.1), mono("case 1n+p", 50, 0.1)];
 const T_REFL    = mono("{==}", 84, 0.1);
 const M_NUM     = ["0", "1", "2", "3", "4", "5", "⋯", "∞"].map(s => math(s, s === "⋯" ? 90 : 52));
 const M_GOAL    = math("n", 150);
 const M_CASE    = [math("0", 130), math("1 + n", 130)];
 const M_ABS     = [math("P", 130), math("¬P", 130)];
-const M_ABSW    = [["0 = 1", "A → B", "x < x", "∀n. P(n)"], ["Q", "¬Q", "1 = 2", "n < 0"],
-  ["2 + 2 = 5", "x ≠ x", "P ∧ ¬P", "1 > 2", "¬A", "B", "0 = 2", "n ≠ n"]].map((w, i) => w.map(s => math(s, i < 2 ? 64 : 52)));
+const M_RW      = [math("e : a = b", 100), math("P(", 180), math("a", 180), math("b", 180), math(")", 180)];
 
 // par sprites
 const T_BADGE   = ["1", "2", "3", "4"].map(d => clar(d, 150));
 const T_BWORD   = ["affine", "dependent", "total", "parallel"].map(w => mono(w, 84, 0.3));
-const T_C       = mono("C", 170, 0);
-const T_WHO     = ["Bend", "GPU"].map(w => mono(w, 44, 0.2));
-const T_DIG     = [..."0123456789.s×"].map(g => mono(g, 56, 0));
-const T_JAR     = ["fork-join", "every pixel", "zoom"].map(w => mono(w, 32, 0.12));
+const T_LANG    = ["C", "Bend"].map(w => mono(w, 120, 0));
+const T_DIG     = [..."0123456789.s"].map(g => mono(g, 56, 0));
 const C_66      = flash("66×", 420, "", 900);
 const C_PAR     = flash("PARALLEL", 300);
 const C_EVERY   = flash("EVERY CORE", 300);
@@ -2382,18 +2366,18 @@ const CUTS: Cut[] = [
       for (const [px, py] of v) line(px, py, px + (px - x) * 0.45, py + (py - y) * 0.45, 4, WHITE, 1);
     }
   } },
-  // Induction: the chain draws, the base lights on a beat, the light runs
-  // to the end; the word comes on the beat after, when the chain is done.
+  // Induction, at half speed: the chain draws, the base lights on a beat,
+  // the light runs a node per beat to ∞; the word comes on the beat after.
   { t: 43.829, draw: u => {
-    induct(u);
-    tac_name(T_NAME[0], u - 2.804, YEL);
+    induct(u / 2);
+    tac_name(T_NAME[0], u - 5.608, YEL);
   } },
-  // The tactics, a hard cut on a beat each, their names at once.
-  { t: 47.569, draw: u => { cases(u); tac_name(T_NAME[1], u, CYAN); } },
-  { t: 48.971, draw: u => { refl(u); tac_name(T_NAME[2], u, LAV); } },
-  // Absurd comes half a beat early, calm and dark (no flash), so that P and
-  // ¬P slide in and collide on the song's hit.
-  { t: 50.125, draw: u => { absurd(u); tac_name(T_NAME[3], u, ORANGE, false); } },
+  // The tactics, one per hit of the song (the frames at or just before its
+  // onsets 50.34, 50.80, 51.27, 51.74), each caught near its end.
+  { t: 50.333, draw: u => { cases(0.6 + 1.3 * u); tac_name(T_NAME[1], u, CYAN); } },
+  { t: 50.791, draw: u => { refl(0.5 + 1.5 * u); tac_name(T_NAME[2], u, LAV); } },
+  { t: 51.25, draw: u => { rewrite(u); tac_name(T_NAME[3], u, GRNL); } },
+  { t: 51.708, draw: u => { absurd(u); tac_name(T_NAME[4], u, ORANGE, false); } },
   // ==== gpu 52.09-57.76: the bitonic sort ====
   // The sort: the fork tree grows over the wires (ochre); the stages fire
   // (blue).
@@ -2431,7 +2415,7 @@ const CUTS: Cut[] = [
   { t: 63.5, draw: u => {
     const s = u * 0.815;
     mandel({ rows: s / 3.75, beam: (u * 7.3) % 1 });
-    blit(T_C, 50, 60, { c: TXT });
+    blit(T_LANG[0], 50, 60, { c: TXT });
     readout(s.toFixed(3) + " s", 306, TXT);
   } },
   // The chorus. The GPU, in frames: the square forks into 64 tasks, and
@@ -2447,10 +2431,8 @@ const CUTS: Cut[] = [
     // The menu column, over the shock.
     rect(0, 0, MX, 1080, BG, 0.94);
     line(MX, 0, MX, 1080, 2, LINE, 0.22);
-    caps(T_WHO, 50, 70, 64, [0, 0], u);
+    blit(T_LANG[1], 50, 60, { c: TXT });
     readout((0.057 * prog(F, 0.5, 7)).toFixed(3) + " s", 306, F < 7 ? TXT : GRNL);
-    blit(T_JAR[F < 7 ? 0 : 1], 50, 360, { c: TXT });
-    if (z > 1.05) { blit(T_JAR[2], 50, 440, { c: TXT }); readout("×" + Math.floor(z), 540, GRNL); }
   } },
   // ==== chorus: one slot per beat group, b(k) = 66.03 + 0.4674 k ====
   // k2 par PARALLEL: the card cuts the dive
