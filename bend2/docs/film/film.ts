@@ -10,12 +10,10 @@ const TMP  = process.env.NERV_TMP ?? path.join(DIR, "../../../.tmp/film");
 const SONG = process.env.NERV_SONG ?? path.join(TMP, "song.m4a");
 const OUT  = process.env.NERV_OUT ?? path.join(TMP, "bend.mp4");
 const S    = Number(process.env.NERV_SCALE ?? 1);
-const W    = Math.round(1920 * S);
+const W    = Math.round(1440 * S);
 const H    = Math.round(1080 * S);
 const FPS  = 24;
 const END  = 89.6;
-// The 4:3 picture sits in the middle of the 16:9 frame, OX from its left.
-const OX = 240;
 const PARTS = Number(process.env.NERV_PARTS ?? 64);
 
 // Math
@@ -119,16 +117,13 @@ function paint(i: number, c: Col, a: number): void {
   buf[k + 2] += (c[2] - buf[k + 2]) * a;
 }
 
-// Fills the 4:3 picture.
+// Fills the picture.
 function fill(c: Col, a = 1): void {
-  const x0 = Math.round(OX * S), x1 = W - x0;
-  for (let y = 0; y < H; ++y) {
-    for (let x = x0; x < x1; ++x) paint(y * W + x, c, a);
-  }
+  for (let i = 0; i < W * H; ++i) paint(i, c, a);
 }
 
 function rect(x: number, y: number, w: number, h: number, c: Col, a = 1): void {
-  const x0 = Math.max(0, Math.round((x + OX) * S)), x1 = Math.min(W, Math.round((x + w + OX) * S));
+  const x0 = Math.max(0, Math.round(x * S)), x1 = Math.min(W, Math.round((x + w) * S));
   const y0 = Math.max(0, Math.round(y * S)), y1 = Math.min(H, Math.round((y + h) * S));
   for (let py = y0; py < y1; ++py) {
     for (let px = x0; px < x1; ++px) paint(py * W + px, c, a);
@@ -138,7 +133,7 @@ function rect(x: number, y: number, w: number, h: number, c: Col, a = 1): void {
 // A segment of width w, antialiased by its distance to each pixel.
 function line(x0: number, y0: number, x1: number, y1: number, w: number, c: Col, a = 1): void {
   if (a <= 0) return;
-  x0 = (x0 + OX) * S; y0 *= S; x1 = (x1 + OX) * S; y1 *= S; w *= S;
+  x0 *= S; y0 *= S; x1 *= S; y1 *= S; w *= S;
   const r  = w / 2 + 1;
   const bx = Math.max(0, Math.floor(Math.min(x0, x1) - r)), ex = Math.min(W - 1, Math.ceil(Math.max(x0, x1) + r));
   const by = Math.max(0, Math.floor(Math.min(y0, y1) - r)), ey = Math.min(H - 1, Math.ceil(Math.max(y0, y1) + r));
@@ -158,7 +153,7 @@ function line(x0: number, y0: number, x1: number, y1: number, w: number, c: Col,
 // the fraction f of a turn.
 function ring(cx: number, cy: number, r: number, w: number, c: Col, a = 1, f = 1): void {
   if (a <= 0 || f <= 0) return;
-  cx = (cx + OX) * S; cy *= S; r *= S; w *= S;
+  cx *= S; cy *= S; r *= S; w *= S;
   const e  = r + w / 2 + 1;
   const bx = Math.max(CLIP0, Math.floor(cx - e)), ex = Math.min(W - 1, CLIP1 - 1, Math.ceil(cx + e));
   const by = Math.max(0, Math.floor(cy - e)), ey = Math.min(H - 1, Math.ceil(cy + e));
@@ -175,7 +170,7 @@ function ring(cx: number, cy: number, r: number, w: number, c: Col, a = 1, f = 1
 
 function disc(cx: number, cy: number, r: number, c: Col, a = 1): void {
   if (a <= 0) return;
-  cx = (cx + OX) * S; cy *= S; r *= S;
+  cx *= S; cy *= S; r *= S;
   const bx = Math.max(CLIP0, Math.floor(cx - r - 1)), ex = Math.min(W - 1, CLIP1 - 1, Math.ceil(cx + r + 1));
   const by = Math.max(0, Math.floor(cy - r - 1)), ey = Math.min(H - 1, Math.ceil(cy + r + 1));
   for (let py = by; py <= ey; ++py) {
@@ -189,7 +184,7 @@ function disc(cx: number, cy: number, r: number, c: Col, a = 1): void {
 
 // A filled triangle, by the sign of its three edges.
 function tri(ax: number, ay: number, bx: number, by: number, cx: number, cy: number, c: Col, a = 1): void {
-  const xs = [ax, bx, cx].map(v => (v + OX) * S), ys = [ay, by, cy].map(v => v * S);
+  const xs = [ax, bx, cx].map(v => v * S), ys = [ay, by, cy].map(v => v * S);
   const x0 = Math.max(0, Math.floor(Math.min(...xs))), x1 = Math.min(W - 1, Math.ceil(Math.max(...xs)));
   const y0 = Math.max(0, Math.floor(Math.min(...ys))), y1 = Math.min(H - 1, Math.ceil(Math.max(...ys)));
   const side = (i: number, j: number, px: number, py: number) =>
@@ -255,10 +250,9 @@ function clouds(t: number, c0: Col, c1: Col, a: number, zoom: number, seed: numb
       g[y * gw + x] = smooth(fbm(u + t * 0.9, v + t * 0.25, seed) * 1.3 - 0.15);
     }
   }
-  const bx = Math.round(OX * S);
   for (let py = 0; py < H; ++py) {
     const gy = py / 8, y0 = Math.floor(gy), fy = gy - y0;
-    for (let px = bx; px < W - bx; ++px) {
+    for (let px = 0; px < W; ++px) {
       const gx = px / 8, x0 = Math.floor(gx), fx = gx - x0, k = y0 * gw + x0;
       const m  = lerp(lerp(g[k], g[k + 1], fx), lerp(g[k + gw], g[k + gw + 1], fx), fy);
       const i  = (py * W + px) * 3;
@@ -335,7 +329,7 @@ function blit(id: number, x: number, y: number, o: Blit = {}): void {
   const sp = SPRITES[id], c = o.c ?? CREAM, al = o.a ?? 1, z = o.z ?? 1;
   if (al <= 0) return;
   const w  = sp.w * z, h = sp.h * z;
-  const x0 = (x + OX) * S - (o.ax ?? 0) * w, y0 = y * S - (o.ay ?? 0) * h;
+  const x0 = x * S - (o.ax ?? 0) * w, y0 = y * S - (o.ay ?? 0) * h;
   const cut = x0 + w * clamp(o.show ?? 1);
   const bx = Math.max(0, Math.floor(x0)), ex = Math.min(W, Math.ceil(Math.min(x0 + w, cut)));
   const by = Math.max(0, Math.floor(y0)), ey = Math.min(H, Math.ceil(y0 + h));
@@ -642,14 +636,14 @@ type MandOpt = { k?: number; rows?: number; beam?: number; z?: number; a?: numbe
 
 function mandel(o: MandOpt): void {
   const al = o.a ?? 1, z = o.z ?? 1, k = o.k ?? 1, T = 1080 / k, cut = (o.rows ?? 1) * T;
-  const x0 = Math.round((MX + OX) * S), x1 = Math.round((1440 + OX) * S);
+  const x0 = Math.round(MX * S), x1 = Math.round(1440 * S);
   const glow = clamp(Math.log2(z) / 3), max = Math.round(200 + 150 * Math.log2(z)), size = 3 / (1080 * z);
   for (let py = 0; py < H; ++py) {
     const Y = (py + 0.5) / S;
     if (Y % T >= cut) continue;
     const ci = ((SEA[1] + (Y - SEA[1]) / z) / 1080 - 0.5) * 3;
     for (let px = x0; px < x1; ++px) {
-      const X = (px + 0.5) / S - OX, cr = -0.65 + ((SEA[0] + (X - SEA[0]) / z - MX) / 1080 - 0.5) * 3;
+      const X = (px + 0.5) / S, cr = -0.65 + ((SEA[0] + (X - SEA[0]) / z - MX) / 1080 - 0.5) * 3;
       let x = 0, y = 0, dx = 0, dy = 0, n = 0, r = 0;
       for (; n < max; ++n) {
         const t = 2 * (x * dx - y * dy) + 1;
@@ -801,7 +795,7 @@ function lwire(s: string | (Pt | string)[], v: Pt[][]): Pt[] {
 const L_FIELD = new Float32Array(W * H);
 function lstroke(pts: Pt[], w: number, c: Col, a: number, gr = 0, tw?: number[]): void {
   if (a <= 0 || pts.length < 2) return;
-  const q = pts.map(([x, y]) => [(x + OX) * S, y * S]), hw = w * S / 2, g = gr * S, e = hw + 1 + 2 * g;
+  const q = pts.map(([x, y]) => [x * S, y * S]), hw = w * S / 2, g = gr * S, e = hw + 1 + 2 * g;
   let x0 = W, y0 = H, x1 = 0, y1 = 0;
   for (const [x, y] of q) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
   x0 = Math.max(CLIP0, Math.floor(x0 - e)); x1 = Math.min(W - 1, CLIP1 - 1, Math.ceil(x1 + e));
@@ -921,7 +915,7 @@ const L_BURST: [number, Pt, number][] = [[0.19, L_C, 1], [0.4, L_D, 0.6], [0.4, 
 // A soft disc of light at (x, y): alpha a at the center, none at r.
 function lglow(x: number, y: number, r: number, c: Col, a: number): void {
   if (a <= 0 || r <= 0) return;
-  const cx = (x + OX) * S, cy = y * S, rr = r * S;
+  const cx = x * S, cy = y * S, rr = r * S;
   const x0 = Math.max(CLIP0, Math.floor(cx - rr)), x1 = Math.min(W - 1, CLIP1 - 1, Math.ceil(cx + rr));
   const y0 = Math.max(0, Math.floor(cy - rr)), y1 = Math.min(H - 1, Math.ceil(cy + rr));
   for (let py = y0; py <= y1; ++py) {
@@ -1271,7 +1265,7 @@ function gdot(x: number, y: number, r: number, c: Col, a = 1): void {
 
 // A soft round light: its alpha falls off as a bell of radius r.
 function sdot(x: number, y: number, r: number, c: Col, a = 1): void {
-  const e = 2.5 * r, cx = (x + OX) * S, cy = y * S, rs = r * S;
+  const e = 2.5 * r, cx = x * S, cy = y * S, rs = r * S;
   const bx = Math.max(0, Math.floor(cx - e * S)), ex = Math.min(W - 1, Math.ceil(cx + e * S));
   const by = Math.max(0, Math.floor(cy - e * S)), ey = Math.min(H - 1, Math.ceil(cy + e * S));
   for (let py = by; py <= ey; ++py) {
@@ -1499,7 +1493,7 @@ function lids(o: number): void {
   for (let py = 0; py < H; ++py) {
     const dy = Math.abs(py / S - 540) / 540;
     for (let px = 0; px < W; ++px) {
-      const dx = (px / S - OX - 720) / 720, d = dy + 0.15 * dx * dx;
+      const dx = (px / S - 720) / 720, d = dy + 0.15 * dx * dx;
       const b = smooth(clamp((1.8 * o - d) / 0.8)), k = (py * W + px) * 3;
       buf[k] *= b; buf[k + 1] *= b; buf[k + 2] *= b;
     }
@@ -1820,7 +1814,7 @@ function hexagon(x: number, y: number, r: number, w: number, c: Col, a = 1, f = 
 // A filled pointy-top hexagon, antialiased by its distance to each pixel.
 function hexfill(x: number, y: number, r: number, c: Col, a = 1): void {
   if (a <= 0) return;
-  x = (x + OX) * S; y *= S; r *= S;
+  x *= S; y *= S; r *= S;
   const ap = r * Math.sqrt(3) / 2;
   const bx = Math.max(0, Math.floor(x - ap - 1)), ex = Math.min(W - 1, Math.ceil(x + ap + 1));
   const by = Math.max(0, Math.floor(y - r - 1)), ey = Math.min(H - 1, Math.ceil(y + r + 1));
@@ -2539,8 +2533,8 @@ const CUTS: Cut[] = [
 let CLIP0 = 0, CLIP1 = 1e9;
 
 function clip_x(x0: number, x1: number, f: () => void): void {
-  CLIP0 = Math.max(0, Math.round((x0 + OX) * S));
-  CLIP1 = Math.round((x1 + OX) * S);
+  CLIP0 = Math.max(0, Math.round(x0 * S));
+  CLIP1 = Math.round(x1 * S);
   f();
   CLIP0 = 0;
   CLIP1 = 1e9;
@@ -2573,17 +2567,12 @@ function run(cmd: string[]): Buffer {
   return got.stdout as Buffer;
 }
 
-// The tube: a soft vignette on the 4:3 picture (a quarter darker at the
-// rim), black bars beside it.
+// The tube: a soft vignette on the picture (a quarter darker at the rim).
 const VIG = new Float32Array(W * H);
-const BAR = new Uint8Array(W * H);
-const PW  = W - 2 * Math.round(OX * S);
 for (let y = 0; y < H; ++y) {
   for (let x = 0; x < W; ++x) {
-    const u = (x - Math.round(OX * S)) / PW;
-    const d = Math.hypot((u - 0.5) * 2, (y / H - 0.5) * 2) / Math.SQRT2;
-    BAR[y * W + x] = u < 0 || u >= 1 ? 0 : 1;
-    VIG[y * W + x] = BAR[y * W + x] * (1 - 0.3 * Math.pow(clamp((d - 0.35) / 0.65), 1.4));
+    const d = Math.hypot((x / W - 0.5) * 2, (y / H - 0.5) * 2) / Math.SQRT2;
+    VIG[y * W + x] = 1 - 0.3 * Math.pow(clamp((d - 0.35) / 0.65), 1.4);
   }
 }
 
@@ -2683,8 +2672,8 @@ async function frames_pipe(fs_: number[], args: string[]): Promise<void> {
     const clean = frame(f);
     if (clean) {
       for (let i = 0; i < W * H; ++i) {
-        const v = BAR[i], k = i * 3;
-        out[k] = clamp(buf[k]) * 255 * v; out[k + 1] = clamp(buf[k + 1]) * 255 * v; out[k + 2] = clamp(buf[k + 2]) * 255 * v;
+        const k = i * 3;
+        out[k] = clamp(buf[k]) * 255; out[k + 1] = clamp(buf[k + 1]) * 255; out[k + 2] = clamp(buf[k + 2]) * 255;
       }
     } else {
       phosphor();
