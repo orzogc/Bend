@@ -2280,7 +2280,7 @@ const CUTS: Cut[] = [
         tri(v[0][0], v[0][1], v[1][0], v[1][1], v[2][0], v[2][1], BLACK, 0.9);
       }
     }
-    blit(S_BEND, 720, 540, { c: hex(0x303030), ax: 0.5, ay: 0.5, a: at(u, 1.0, 1.5) });
+    blit(S_BEND, 720, 470, { c: hex(0x303030), ax: 0.5, ay: 0.5, a: at(u, 1.0, 1.5) });
   } },
   // The title in three parts: the name; the katakana, blue then burning
   // orange through white heat; the kanji over it; a ring; a cross of light.
