@@ -1088,7 +1088,7 @@ function game(o: GameOpt): void {
     if (fl > 0) line(cx - 14, cy + 30, cx - 14, lerp(cy + 30, cy - 32, smooth(fl / 0.6)), 3, CREAM, a);
     if (fl > 0.6) tri(cx - 14, cy - 32, cx + 26, cy - 20, cx - 14, cy - 8, RED, a * prog(fl, 0.6, 1));
   };
-  if (wr > 0) for (const dy of [-D, 0, D]) for (const dx of [-R, 0, R]) if (dx || dy) board(dx, dy, 0.28 * wr, 9);
+  if (wr > 0) for (const dy of [-D, 0, D]) for (const dx of [-R, 0, R]) if (dx || dy) board(dx, dy, 0.16 * wr, 9);
   board(0, 0, 1, o.b ?? 9);
   // The far walls are conjured: each flashes white and flares.
   FIXES.forEach(([x, y], i) => {
@@ -1096,8 +1096,7 @@ function game(o: GameOpt): void {
     if (dt > 0) rect(cx - h, cy - h, 2 * h, 2 * h, WHITE, 0.7 * (1 - prog(dt, 0.1, 0.35)));
     flare(dt, cx, cy, YEL, 50);
   });
-  // The open edges: thin chevrons, out at one side, in at the other; the
-  // torus named under the board.
+  // The open edges: thin chevrons, out at one side, in at the other.
   if (wr > 0) {
     for (let j = 0; j < 8; ++j) {
       const y = GY + (j + 0.5) * CELL;
@@ -1107,7 +1106,6 @@ function game(o: GameOpt): void {
       const x = GX + (i + 0.5) * CELL;
       for (const y of [GY + D + 5, GY - 15]) poly([[x - 9, y], [x, y + 10], [x + 9, y]], 1.5, ALARM, 0.6 * wr);
     }
-    label(T_TORUS, GX, GY + D + 34, TXT, 0.8 * wr);
   }
   // The flag, reached: its cell burns, rings flare on the beat, a red
   // flash; the stamp YOU WON!? slams onto the board and throbs on each beat;
@@ -1130,7 +1128,7 @@ function game(o: GameOpt): void {
     for (let i = 0; i + 1 < path.length; ++i) {
       const q = smooth(prog(k, i + 0.2, i + 0.6)), [cx, cy] = cell(path[i][0], path[i][1]);
       if (q > 0) for (const dy of wr > 0 ? [-D, 0, D] : [0]) for (const dx of wr > 0 ? [-R, 0, R] : [0]) {
-        disc(cx + dx, cy + dy, 2, WHITE, 0.55 * q * (dx || dy ? 0.28 * wr : 1));
+        disc(cx + dx, cy + dy, 3.2, WHITE, 0.7 * q * (dx || dy ? 0.16 * wr : 1));
       }
     }
   }
@@ -1142,7 +1140,7 @@ function game(o: GameOpt): void {
     for (const k of wr > 0 ? [-1, 0, 1] : [0]) {
       clip_x(GX + k * R, GX + (k + 1) * R, () => {
         for (const m of [-1, 0, 1]) for (const n of wr > 0 ? [-1, 0, 1] : [0]) {
-          ball(GX + (x + 0.5 + 12 * (k + m)) * CELL, y + n * D, 9, k === 0 && n === 0 ? 1 : 0.28 * wr);
+          ball(GX + (x + 0.5 + 12 * (k + m)) * CELL, y + n * D, 9, k === 0 && n === 0 ? 1 : 0.16 * wr);
         }
       });
     }
@@ -2165,7 +2163,6 @@ const T_POW2    = mono("pow2!(20n)", 40, 0.1);
 // board sprites
 const T_LAW     = mono("LAW: the flag is unreachable", 54, 0.06);
 const T_LAWW    = mono("LAW:", 54, 0.06);
-const T_TORUS   = mono("12×8 torus", 36, 0.1);
 const T_MOVES   = mono("∀ moves. ¬won", 40, 0.06);
 const T_CEX     = mono("counterexample", 36, 0.1);
 // A red rubber stamp, askew.
@@ -2255,13 +2252,16 @@ const CUTS: Cut[] = [
     lids(prog(u, 0, 1.2));
   } },
   // ==== net 6.5-13.68: the blue sea, the net of 2 2 ====
-  // Red turns blue under the rays; the net of 2 2 opens like a tree.
+  // Red turns blue under the rays; the net of 2 2 opens like a tree. The
+  // red sea goes on where it left off (T, its clock) as the blue comes in.
   { t: 6.5, draw: u => {
-    const b = at(u, 0, 1.0);
-    clouds(u * 0.3, hex(0x2a0402), hex(0xff2a0a), 1 - b, 340, 21);
+    const b = at(u, 0, 1.2), T = u + 4.66;
+    clouds(T * 0.3, hex(0x2a0402), hex(0xff2a0a), 1 - b, 340, 21);
+    clouds(T * 0.2, hex(0x100000), hex(0xa01006), 0.35 * (1 - b), 110, 23);
+    stars(T, 120, 30, 0.5 * (1 - b));
     clouds(u * 0.2, hex(0x020a30), hex(0x2a60e0), b, 300, 25);
     streaks(u, 170, b);
-    rays(720, -300, 260, 200, 1400, hex(0xc8d8ff), 0.35 * (1 - at(u, 3.0, 3.5)), 100, 0.3, Math.PI - 0.3);
+    rays(720, -300, 260, 200, 1400, hex(0xc8d8ff), 0.35 * b * (1 - at(u, 3.0, 3.5)), 100, 0.3, Math.PI - 0.3);
     // Five parallel rounds, two beats apart: each round's pairs flare
     // together on a beat (7.371 + 0.935 r, the verse grid run backward).
     const k = clamp((u - 1.432) / 0.935, 0, 5), sky = hex(0xe0ecff), blob = at(u, 4.3, 4.9);
