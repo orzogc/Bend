@@ -1493,6 +1493,21 @@ function split3d(q: number, lit: number, join: number, cam: number): void {
 
 // logo figures
 
+// The eyes open on the red sea (o from 0 to 1): the light comes up in the
+// middle first and reaches the top and the bottom last, the lids curved,
+// so the frame dims by its distance d from the middle line.
+function lids(o: number): void {
+  if (o >= 1) return;
+  for (let py = 0; py < H; ++py) {
+    const dy = Math.abs(py / S - 540) / 540;
+    for (let px = 0; px < W; ++px) {
+      const dx = (px / S - OX - 720) / 720, d = dy + 0.15 * dx * dx;
+      const b = smooth(clamp((1.8 * o - d) / 0.8)), k = (py * W + px) * 3;
+      buf[k] *= b; buf[k + 1] *= b; buf[k + 2] *= b;
+    }
+  }
+}
+
 // board figures
 
 // The verse's beat grid, 37.285 + 0.4674 j, and its half beat: the game
@@ -2157,7 +2172,7 @@ const T_CEX     = mono("counterexample", 36, 0.1);
 const C_STAMP   = sprite(`#rotate(-12deg, reflow: true, box(stroke: 8pt + white, radius: 8pt, inset: (x: 30pt, y: 18pt), text(font: "Superclarendon", weight: "bold", size: 96pt, "YOU WON!?")))`);
 
 // proof sprites
-const T_ASK     = [mono("Which laws must hold", 64), mono("for every input", 64), mono("in order to trust", 64), mono("code no one reads?", 64)];
+const T_ASK     = [mono("Which laws must", 64), mono("always hold", 64), mono("in order to trust", 64), mono("code no one reads?", 64)];
 const T_NAME    = ["induction", "case analysis", "reflexivity", "absurd"].map(w => mono(w, 72, 0.25));
 const T_CASE    = [mono("case 0n", 50, 0.1), mono("case 1n+p", 50, 0.1)];
 const T_REFL    = mono("{==}", 84, 0.1);
@@ -2237,6 +2252,7 @@ const CUTS: Cut[] = [
     logo({ z, c: GOLD, fc: hex(0xff9030), fill: 0.3 * pen, w, glow: 3 * w, a: al, nodes: pen, pen, loop: Math.max(0, u - 1.2) / 3.2 });
     blit(S_KIKAKU, 720, 420, { c: WHITE, ax: 0.5, a: at(u, 0.6, 0.9) * (1 - at(u, 4.0, 4.5)) });
     blit(S_HOC, 720, 500, { c: WHITE, ax: 0.5, a: at(u, 0.6, 0.9) * (1 - at(u, 4.0, 4.5)) });
+    lids(prog(u, 0, 1.2));
   } },
   // ==== net 6.5-13.68: the blue sea, the net of 2 2 ====
   // Red turns blue under the rays; the net of 2 2 opens like a tree.
