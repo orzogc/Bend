@@ -1946,7 +1946,7 @@ function memo_gc(): void {
 // ====
 
 // A pure main prints through a descriptor of its type, a node per (type,
-// boxed?): 0 U32, 1 F32, 2 Nat, 3 Char, 4 String, 5 Eql, 6 Array (element,
+// layout): 0 U32, 1 F32, 2 Nat, 3 Char, 4 String, 5 Eql, 6 Array (element,
 // lgs), 7 Data (boxed?, arms; per arm name, cid, fields, bracket, then an
 // (offset, node) per field). An IO main has none; an unprintable type (a
 // function, a Type, an erased or dependent field) refuses the build.
@@ -1971,7 +1971,7 @@ function show_main(book: Bend.Book): (number | Name)[] | null {
   const node = (T: HTerm, lay: Lay): number => {
     const t = ty_wnf(book, T) as HTerm;
     const box = lay_box(lay);
-    const key = String(box) + Bend.term_key(Bend.term_lower(t));
+    const key = JSON.stringify(lay) + Bend.term_key(Bend.term_lower(t));
     const adt = ty_adt(book, t);
     const tld = adt && book.tlds[adt.k];
     const kind = t.$ === "Eql" ? 5 : "U32 F32 Nat Char String . Array"
