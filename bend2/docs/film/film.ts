@@ -2183,9 +2183,10 @@ const M_ABSW    = [["0 = 1", "A → B", "x < x", "∀n. P(n)"], ["Q", "¬Q", "1 
 // par sprites
 const T_BADGE   = ["1", "2", "3", "4"].map(d => clar(d, 150));
 const T_BWORD   = ["affine", "dependent", "total", "parallel"].map(w => mono(w, 84, 0.3));
-const T_WHO     = ["C", "1 thread", "Bend", "GPU"].map(w => mono(w, 44, 0.2));
+const T_C       = mono("C", 170, 0);
+const T_WHO     = ["Bend", "GPU"].map(w => mono(w, 44, 0.2));
 const T_DIG     = [..."0123456789.s×"].map(g => mono(g, 56, 0));
-const T_JAR     = ["row by row", "fork-join", "every pixel", "zoom"].map(w => mono(w, 32, 0.12));
+const T_JAR     = ["fork-join", "every pixel", "zoom"].map(w => mono(w, 32, 0.12));
 const C_66      = flash("66×", 420, "", 900);
 const C_PAR     = flash("PARALLEL", 300);
 const C_EVERY   = flash("EVERY CORE", 300);
@@ -2436,9 +2437,8 @@ const CUTS: Cut[] = [
   { t: 63.5, draw: u => {
     const s = u * 0.815;
     mandel({ rows: s / 3.75, beam: (u * 7.3) % 1 });
-    caps(T_WHO.slice(0, 2), 50, 70, 64, [0, 0], u);
+    blit(T_C, 50, 60, { c: TXT });
     readout(s.toFixed(3) + " s", 306, TXT);
-    blit(T_JAR[0], 50, 360, { c: TXT });
   } },
   // The chorus. The GPU, in frames: the square forks into 64 tasks, and
   // each draws its own rows, all at once (0-7); the clock stops at 0.057 s,
@@ -2453,10 +2453,10 @@ const CUTS: Cut[] = [
     // The menu column, over the shock.
     rect(0, 0, MX, 1080, BG, 0.94);
     line(MX, 0, MX, 1080, 2, LINE, 0.22);
-    caps(T_WHO.slice(2), 50, 70, 64, [0, 0], u);
+    caps(T_WHO, 50, 70, 64, [0, 0], u);
     readout((0.057 * prog(F, 0.5, 7)).toFixed(3) + " s", 306, F < 7 ? TXT : GRNL);
-    blit(T_JAR[F < 7 ? 1 : 2], 50, 360, { c: TXT });
-    if (z > 1.05) { blit(T_JAR[3], 50, 440, { c: TXT }); readout("×" + Math.floor(z), 540, GRNL); }
+    blit(T_JAR[F < 7 ? 0 : 1], 50, 360, { c: TXT });
+    if (z > 1.05) { blit(T_JAR[2], 50, 440, { c: TXT }); readout("×" + Math.floor(z), 540, GRNL); }
   } },
   // ==== chorus: one slot per beat group, b(k) = 66.03 + 0.4674 k ====
   // k2 par PARALLEL: the card cuts the dive
