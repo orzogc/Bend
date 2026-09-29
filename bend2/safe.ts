@@ -76,7 +76,8 @@ type O =
   | { $: "Rwt"; e: O; l: number; P: O; f: O };
 
 // a bend2 variable: the kernel term it stands for, its bend2 type, and
-// the argument a specialized one stands for
+// the argument a specialized one stands for (which goes out at each use,
+// at its type, so its o is unused)
 type Bind = { o: O; T: HTerm | null; v?: HTerm };
 
 // the argument of each parameter of an item, or of each column of a
@@ -595,7 +596,7 @@ function tree(e: Safe, s: Scope, t: HTerm, fs: Chain[]): O {
   // binder), a match goes to the arm it takes, whose fields it binds so
   const v = top === undefined ? s.cols[0] ?? null : null;
   if (v !== null && x.$ === "Lam") {
-    const s2 = scope_bind({ ...s, cols: s.cols.slice(1) }, term(e, s, v, false), all?.A ?? null, false, v);
+    const s2 = scope_bind({ ...s, cols: s.cols.slice(1) }, { $: "Efq" }, all?.A ?? null, false, v);
     return tree(e, s2, x.f(B.Var(x.k, s.d)), fs);
   }
   if (v !== null && (x.$ === "Mat" || x.$ === "Efq")) {
@@ -829,7 +830,7 @@ function term(e: Safe, s0: Scope, t: HTerm, live: boolean): O {
       if (b === undefined) {
         oos("a free variable " + x.k);
       }
-      return b.o;
+      return b.v !== undefined ? term(e, s0, typed(b.v, b.T), live) : b.o;
     }
     case "Ref":
     case "App": {
@@ -905,12 +906,10 @@ function term(e: Safe, s0: Scope, t: HTerm, live: boolean): O {
 function spine(e: Safe, s: Scope, t: HTerm, live: boolean): O {
   const [h, xs] = unapply(t);
   const [f, T] = open(h);
-  if (f.$ === "Var") {
-    const o = term(e, s, h, live);
-    return args(e, s, o, s.c[f.i].T, xs, live);
-  }
   if (f.$ !== "Ref") {
-    return args(e, s, { $: "Ann", x: term(e, s, h, live), T: term(e, s, T ?? oos("an application with no known head type"), false) }, T, xs, live);
+    const U = f.$ === "Var" ? s.c[f.i]?.T ?? null : T;
+    const o = term(e, s, h, live);
+    return args(e, s, inferable(o) ? o : { $: "Ann", x: o, T: term(e, s, U ?? oos("an application with no known head type"), false) }, U, xs, live);
   }
   // bend2's instance of a template is the template at its ~ arguments
   const g = e.inst.get(f.k);
@@ -1089,7 +1088,7 @@ function arm(e: Safe, s: Scope, k: Name, cols: Cols, vs: Array<[Q, O]>): O {
       break;
     }
     si = { ...si, cols: si.cols.slice(1) };
-    si = v !== null ? scope_bind(si, term(e, si, v, false), F.A, false, v) : scope_bind(si, vs[j++][1], F.A, false);
+    si = v !== null ? scope_bind(si, { $: "Efq" }, F.A, false, v) : scope_bind(si, vs[j++][1], F.A, false);
     t = x.f(B.Var(x.k, si.d - 1));
   }
   return vs.slice(j).reduce<O>((f, [q, x]) => ({ $: "App", q, f, x }), tree(e, si, t, []));
