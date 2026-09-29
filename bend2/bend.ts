@@ -3063,6 +3063,15 @@ function compare_go(mode: "EQ" | "LE", book: Book, lhs: HTerm, rhs: HTerm, dep: 
   if (a === b) {
     return true;
   }
+  // two share cells found equal become one: rhs points at lhs, so a
+  // shared graph is compared once, not walked as a tree
+  if (mode === "EQ" && lhs.$ === "Var" && lhs.i === -2 && rhs.$ === "Var" && rhs.i === -2) {
+    const same = compare_go(mode, book, a, b, dep);
+    if (same) {
+      rhs.v = lhs.v;
+    }
+    return same;
+  }
   if (a.$ === "Lam" || b.$ === "Lam") {
     const x: HTerm = Var("_", dep);
     return compare_go(mode, book, term_apply(a, x), term_apply(b, x), dep + 1);

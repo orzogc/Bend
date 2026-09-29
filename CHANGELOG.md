@@ -3,6 +3,15 @@
 Each release names what changed for a user. `bend update` installs the
 latest one; the GitHub release carries the same notes.
 
+## 2.0.34 (2026-09-28)
+
+- **A shared graph is compared once** (#1071, PR #1151 by Giulio2002):
+  when conversion proves two share cells equal, the second points at the
+  first, so a value used twice on each side is compared once, not walked
+  as a tree. Two Merkle roots of depth 32 over a symbolic leaf, proven
+  equal by `{==}`, check in 0.07 s (they took 2^32 steps). `--verdict`'s
+  kernel does not share yet and runs out of fuel on such a proof.
+
 ## 2.0.33 (2026-09-28)
 
 - **Two copies of one term are equal before either unfolds** (#1071, PR
